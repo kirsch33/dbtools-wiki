@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/projects/app.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/projects/app.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -87,47 +87,901 @@
         <article data-uid="">
 <h1 id="dbtoolsapp">DBTools.App</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
+<p><strong>Purpose:</strong> Main application assembly containing all tools and bootstrapping logic.<br>
+<strong>Output:</strong> <code>DBTools.dll</code><br>
+<strong>Target Frameworks:</strong> <code>net48</code>, <code>net8.0-windows</code></p>
+<hr>
 <h2 id="overview">Overview</h2>
-<p>DBTools.App is the main application shell that hosts all tools and provides the Revit ribbon UI.</p>
-<p><strong>Location</strong>: <code>csharp/src/DBTools.App/</code></p>
+<p><code>DBTools.App</code> is the main application assembly that compiles to <code>DBTools.dll</code>. It is loaded by <code>DBTools.Loader</code> and serves as the host for all tool implementations, the dependency injection container, ribbon composition, and Revit lifecycle management.</p>
+<p>This project uses <strong>file linking</strong> to compile tool source code from <code>src/Tools/</code> into the single <code>DBTools.dll</code> assembly. Individual tool projects exist primarily for IDE organization, isolated testing, and XAML designer support, but at runtime everything executes within this unified assembly.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:1-13</code></p>
+</blockquote>
+<hr>
 <h2 id="responsibilities">Responsibilities</h2>
-<ul>
-<li>Revit ribbon tab creation</li>
-<li>Tool button registration</li>
-<li>Application lifecycle management</li>
-<li>DI container setup</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Responsibility</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Application entry point</td>
+<td><code>AddinEntry</code> implements <code>IExternalApplication</code></td>
+</tr>
+<tr>
+<td>Runtime initialization</td>
+<td><code>AppRuntimeFactory</code> creates <code>DiAppRuntime</code></td>
+</tr>
+<tr>
+<td>DI container setup</td>
+<td><code>DbtServiceBootstrapper.Build()</code> registers all services</td>
+</tr>
+<tr>
+<td>Tool discovery</td>
+<td><code>DbtToolModuleCatalog.Discover()</code> scans embedded YAML manifests</td>
+</tr>
+<tr>
+<td>Ribbon composition</td>
+<td><code>DbtRibbonComposer</code> creates tab, panels, and buttons</td>
+</tr>
+<tr>
+<td>Hook coordination</td>
+<td><code>DbtHookHost</code> dispatches view-activated and contextual ribbon events</td>
+</tr>
+<tr>
+<td>Test API hosting</td>
+<td><code>TestApiHost</code> enables API calls from test harnesses</td>
+</tr>
+<tr>
+<td>File-linked tool compilation</td>
+<td>MSBuild items compile <code>src/Tools/**/*.cs</code> into this assembly</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:29-247</code></p>
+</blockquote>
+<hr>
 <h2 id="key-components">Key Components</h2>
-<h3 id="addin-entry">Addin Entry</h3>
-<p><code>AddinEntry.cs</code> - The Revit add-in entry point implementing <code>IExternalApplication</code>.</p>
-<h3 id="ribbon-management">Ribbon Management</h3>
-<p>Creates and manages the DBTools ribbon tab with buttons for each registered tool.</p>
-<h3 id="tool-hosting">Tool Hosting</h3>
-<p>Discovers and loads tools via <code>DbtToolRegistry</code>.</p>
-<h2 id="output">Output</h2>
-<p>After build and ILRepack, produces:</p>
+<h3 id="addinentry-application-entry-point">AddinEntry (Application Entry Point)</h3>
+<p>The <code>AddinEntry</code> class is the inner application entry point, loaded by <code>DBTools.Loader.AddinEntry</code> after assembly resolution is configured.</p>
+<pre><code class="lang-csharp">public class AddinEntry : IExternalApplication
+{
+    public static IRevitTask? RevitTask { get; private set; }
+    private static DbtHookHost? _hookHost;
+    private static DbtToolRegistry? _toolRegistry;
+    private static DbtRibbonComposer? _ribbonComposer;
+    
+    public Result OnStartup(UIControlledApplication application) { ... }
+    public Result OnShutdown(UIControlledApplication application) { ... }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:29-43</code></p>
+</blockquote>
+<p><strong>Key Static Fields:</strong></p>
 <ul>
-<li><code>DBTools.App.{Year}.dll</code> - Main add-in assembly</li>
-<li><code>DBTools.addin</code> - Revit manifest file</li>
+<li><code>RevitTask</code> - The <code>IRevitTask</code> for marshaling work to Revit's UI thread</li>
+<li><code>_hookHost</code> - Coordinates view-activated and contextual ribbon hooks</li>
+<li><code>_toolRegistry</code> - Registry of discovered tool commands</li>
+<li><code>_ribbonComposer</code> - Manages ribbon tab/panel creation</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:33-36</code></p>
+</blockquote>
+<h3 id="bootstrap-system">Bootstrap System</h3>
+<h4 id="appruntimefactory">AppRuntimeFactory</h4>
+<p>Factory class that creates the application runtime:</p>
+<pre><code class="lang-csharp">public static class AppRuntimeFactory
+{
+    public static IAppRuntime Create() =&gt; new DiAppRuntime();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/AppRuntimeFactory.cs:5-8</code></p>
+</blockquote>
+<h4 id="diappruntime">DiAppRuntime</h4>
+<p>The DI-based implementation of <code>IAppRuntime</code> that owns the service provider:</p>
+<pre><code class="lang-csharp">public sealed class DiAppRuntime : IAppRuntime
+{
+    private readonly IServiceProvider _root;
+    
+    public DiAppRuntime()
+    {
+        var root = DbtServiceBootstrapper.Build();
+        _root = root.Services;
+        _logger = _root.GetRequiredService&lt;ILogger&lt;DiAppRuntime&gt;&gt;();
+        _settings = _root.GetRequiredService&lt;ISettingsProvider&gt;();
+    }
+    
+    public IAppRunScope CreateRunScope(UIApplication uiapp, RevitRunScopeProfile profile)
+    {
+        var scope = _root.GetRequiredService&lt;IServiceScopeFactory&gt;().CreateScope();
+        var rsFactory = scope.ServiceProvider.GetRequiredService&lt;IRevitRunScopeFactory&gt;();
+        var accessor = scope.ServiceProvider.GetRequiredService&lt;IRevitRunScopeAccessor&gt;();
+        var rs = rsFactory.CreateScope(uiapp, profile);
+        accessor.Current = rs;
+        return new DiRunScope(scope);
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DiAppRuntime.cs:17-62</code></p>
+</blockquote>
+<h4 id="dbtservicebootstrapper">DbtServiceBootstrapper</h4>
+<p>The central DI container builder that registers all services:</p>
+<pre><code class="lang-csharp">public static class DbtServiceBootstrapper
+{
+    public static DbtServiceRoot Build(Action&lt;IServiceCollection&gt;? configure = null)
+    {
+        // 1. Create logging host
+        // 2. Load configuration from settings.json
+        // 3. Register core services
+        // 4. Discover and register tool modules
+        // 5. Start hosted services
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:163-248</code></p>
+</blockquote>
+<p><strong>Service Categories Registered:</strong></p>
+<ul>
+<li><strong>Logging</strong> - <code>IDbtLoggingHost</code>, <code>ILoggerFactory</code>, <code>ILogger&lt;T&gt;</code></li>
+<li><strong>Debug</strong> - <code>IDebugModeService</code> (session-only)</li>
+<li><strong>Settings</strong> - <code>IOptionsMonitor&lt;T&gt;</code>, <code>IOptionsWriter</code>, <code>ISettingsProvider</code></li>
+<li><strong>Revit Scope</strong> - <code>IRevitRunScopeFactory</code>, <code>IRevitRunScopeAccessor</code>, <code>IRevitCallGate</code></li>
+<li><strong>Transactions</strong> - <code>ITransactionRunner</code>, <code>ITransactionGroupService</code></li>
+<li><strong>Execution</strong> - <code>ISafeExecutor</code>, <code>IAlertService</code></li>
+<li><strong>Hosted Services</strong> - <code>ILoggerWindowManager</code>, <code>HostedServiceCoordinator</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:376-437</code></p>
+</blockquote>
+<h4 id="dbtserviceroot">DbtServiceRoot</h4>
+<p>Container holding all initialized services:</p>
+<pre><code class="lang-csharp">public sealed class DbtServiceRoot
+{
+    public IServiceProvider Services { get; }
+    public IConfiguration Configuration { get; }
+    public IDbtLoggingHost LoggingHost { get; }
+    public DbtToolRegistry ToolRegistry { get; }
+    public IReadOnlyList&lt;DbtToolModule&gt; ToolModules { get; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:34-67</code></p>
+</blockquote>
+<h3 id="ribbon-composition">Ribbon Composition</h3>
+<h4 id="dbtribboncomposer">DbtRibbonComposer</h4>
+<p>Composes the DB Tools ribbon from tool specifications:</p>
+<pre><code class="lang-csharp">public sealed class DbtRibbonComposer : IDisposable
+{
+    public void Compose(DbtToolRegistry registry, Flags flags)
+    {
+        // 1. Create ribbon tab
+        // 2. Create panels in defined order
+        // 3. Build control plans for each tool
+        // 4. Execute plans in order (push buttons, split buttons, pulldowns, stacked)
+        // 5. Subscribe to settings changes
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/DbtRibbonComposer.cs:19-102</code></p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Control Kind</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PushButton</code></td>
+<td>Standard button</td>
+</tr>
+<tr>
+<td><code>SplitButtonItem</code></td>
+<td>Primary + dropdown items</td>
+</tr>
+<tr>
+<td><code>PulldownButtonItem</code></td>
+<td>Dropdown menu</td>
+</tr>
+<tr>
+<td><code>StackedButtonItem</code></td>
+<td>2-3 buttons in vertical stack</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/DbtRibbonComposer.cs:159-252</code></p>
+</blockquote>
+<p><strong>Panel Order:</strong></p>
+<ol>
+<li>Settings</li>
+<li>Common</li>
+<li>Structural</li>
+<li>Testing</li>
+<li>Any additional panels (alphabetical)</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/DbtRibbonComposer.cs:109-121</code></p>
+</blockquote>
+<h4 id="ribbondefinition">RibbonDefinition</h4>
+<p>Defines ribbon constants (tab name, panel names, command names):</p>
+<pre><code class="lang-csharp">public static class RibbonDefinition
+{
+    public const string TabName = SettingsConstants.Ribbon.TabName;
+    
+    public static class Panels
+    {
+        public const string Settings = SettingsConstants.Ribbon.Panels.Settings;
+        public const string Structural = SettingsConstants.Ribbon.Panels.Structural;
+        public const string Testing = SettingsConstants.Ribbon.Panels.Testing;
+        public const string Common = SettingsConstants.Ribbon.Panels.Common;
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/RibbonDefinition.cs:5-21</code></p>
+</blockquote>
+<h3 id="availability-predicates">Availability Predicates</h3>
+<p>Located in <code>Tools/Availability/</code>, these classes control when ribbon buttons are enabled.</p>
+<h4 id="dbtdocumentavailability">DbtDocumentAvailability</h4>
+<p>Requires an active document to be open:</p>
+<pre><code class="lang-csharp">public sealed class DbtDocumentAvailability : IExternalCommandAvailability
+{
+    public bool IsCommandAvailable(UIApplication applicationData, CategorySet selectedCategories)
+    {
+        return applicationData?.ActiveUIDocument?.Document != null;
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Tools/Availability/DbtDocumentAvailability.cs:10-16</code></p>
+</blockquote>
+<h4 id="dbtselectionavailability">DbtSelectionAvailability</h4>
+<p>Base class requiring element selection, with optional category filtering:</p>
+<pre><code class="lang-csharp">public class DbtSelectionAvailability : IExternalCommandAvailability
+{
+    protected virtual BuiltInCategory[]? RequiredCategories =&gt; null;
+    protected virtual bool IsElementMatch(Element element) =&gt; true;
+    
+    public bool IsCommandAvailable(UIApplication applicationData, CategorySet selectedCategories)
+    {
+        // Check for selection and optional category/element matching
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Tools/Availability/DbtSelectionAvailability.cs:13-52</code></p>
+</blockquote>
+<h4 id="dbtstructuralframingselectionavailability">DbtStructuralFramingSelectionAvailability</h4>
+<p>Requires structural framing selection:</p>
+<pre><code class="lang-csharp">public sealed class DbtStructuralFramingSelectionAvailability : DbtSelectionAvailability
+{
+    protected override BuiltInCategory[]? RequiredCategories 
+        =&gt; new[] { BuiltInCategory.OST_StructuralFraming };
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Tools/Availability/DbtSelectionAvailability.cs:57-60</code></p>
+</blockquote>
+<h3 id="hooks-system">Hooks System</h3>
+<h4 id="apphookmodule">AppHookModule</h4>
+<p>The application-level hook module that registers view-activated handlers:</p>
+<pre><code class="lang-csharp">public sealed class AppHookModule : DbtToolModule
+{
+    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+    {
+        services.AddSingleton&lt;ViewActivatedHookHandler, ViewActivatedHookHandler&gt;();
+    }
+
+    public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+    {
+        registry.RegisterHook&lt;IViewActivatedHookHandler, ViewActivatedHookHandler&gt;();
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Hooks/AppHookModule.cs:7-22</code></p>
+</blockquote>
+<h3 id="testapihost">TestApiHost</h3>
+<p>Static host for test harness integration, providing API access outside Revit command context:</p>
+<pre><code class="lang-csharp">public static class TestApiHost
+{
+    public static bool IsInitialized { get; private set; }
+    
+    public static void Initialize(UIControlledApplication app)
+    {
+        // Create ExternalEvent handler and UIApplication.Idling subscription
+    }
+    
+    public static Task&lt;object?&gt; RunAsync(Func&lt;object, Task&lt;object?&gt;&gt; work)
+    {
+        // Queue work and raise ExternalEvent
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/TestApiHost.cs:9-123</code></p>
+</blockquote>
+<hr>
+<h2 id="onstartup-sequence">OnStartup Sequence</h2>
+<p>The complete startup flow with source references:</p>
+<pre><code>1. Set Revit year from VersionNumber (for per-instance log files)
+   &gt; Source: AddinEntry.cs:55-66
+
+2. Initialize AppRuntime via AppRuntimeFactory.Create()
+   &gt; Source: AddinEntry.cs:72
+
+3. Resolve ISafeExecutor, DbtToolRegistry, DbtHookHost
+   &gt; Source: AddinEntry.cs:74-76
+
+4. Validate theme (mandatory - fails startup if broken)
+   &gt; Source: AddinEntry.cs:106-113
+
+5. Detect RevitTest environment
+   &gt; Source: AddinEntry.cs:116, 573-629
+
+6. Register deferred UI startup handlers (ApplicationInitialized, Idling)
+   &gt; Source: AddinEntry.cs:125-127
+
+7. Execute startup task via ISafeExecutor.RunAsync:
+   a. Try binding global window owner (may be deferred)
+   b. Initialize DialogGuardianHook
+   c. Initialize RevitTaskService (if not RevitTest)
+   d. Attach DbtHookHost (if not RevitTest)
+   e. Initialize TestApiHost (if not RevitTest)
+   &gt; Source: AddinEntry.cs:133-178
+
+8. Create ribbon synchronously (Revit API requirement):
+   a. Get Flags settings
+   b. Create DbtRibbonComposer
+   c. Call Compose() with registry and flags
+   d. Publish warning changes
+   &gt; Source: AddinEntry.cs:217-244
+
+9. Return Result.Succeeded
+   &gt; Source: AddinEntry.cs:246
+</code></pre>
+<h3 id="deferred-ui-startup">Deferred UI Startup</h3>
+<p>Certain operations run after ApplicationInitialized/Idling to ensure Revit is fully ready:</p>
+<pre><code class="lang-csharp">private static Task RunDeferredUiStartupAsync(...)
+{
+    return executor.RunAsync(async () =&gt;
+    {
+        // 1. Ensure global window owner is bound
+        await EnsureGlobalWindowOwnerBoundAsync(logger);
+        
+        // 2. Apply ribbon special effects (visual styling)
+        await RibbonSpecialEffects.ApplyAsync(logger);
+        
+        // 3. Show logger window if debug mode enabled
+        loggerWindowManager.ShowIfDebugEnabled();
+    }, ...);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:421-479</code></p>
+</blockquote>
+<hr>
+<h2 id="onshutdown-sequence">OnShutdown Sequence</h2>
+<pre><code>1. Wait for startup task completion (5s timeout)
+   &gt; Source: AddinEntry.cs:265-274
+
+2. Unregister deferred UI handlers
+   &gt; Source: AddinEntry.cs:276
+
+3. Detach DbtHookHost
+   &gt; Source: AddinEntry.cs:278
+
+4. Shutdown DialogGuardianHook
+   &gt; Source: AddinEntry.cs:281
+
+5. Shutdown TestApiHost
+   &gt; Source: AddinEntry.cs:284
+
+6. Dispose RevitTaskService
+   &gt; Source: AddinEntry.cs:287
+
+7. Dispose DbtRibbonComposer
+   &gt; Source: AddinEntry.cs:292
+
+8. Stop hosted services
+   &gt; Source: AddinEntry.cs:303
+
+9. Dispose logging host
+   &gt; Source: AddinEntry.cs:306
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:250-325</code></p>
+</blockquote>
+<hr>
+<h2 id="file-linking-strategy">File Linking Strategy</h2>
+<p>DBTools.App compiles tool source code via MSBuild file linking. Source files remain in their respective <code>src/Tools/</code> directories but are compiled into the single <code>DBTools.dll</code> assembly.</p>
+<h3 id="source-file-linking">Source File Linking</h3>
+<pre><code class="lang-xml">&lt;ItemGroup Label=&quot;Tool Source Files&quot;&gt;
+  &lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
+           Exclude=&quot;..\Tools\**\Tests\**\*.cs;..\Tools\**\obj\**\*.cs&quot;
+           Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:63-67</code></p>
+</blockquote>
+<h3 id="xaml-file-linking">XAML File Linking</h3>
+<pre><code class="lang-xml">&lt;ItemGroup Label=&quot;Tool XAML Files&quot;&gt;
+  &lt;Page Include=&quot;..\Tools\**\*.xaml&quot;
+        Exclude=&quot;..\Tools\**\obj\**\*.xaml;..\Tools\**\Properties\DesignTimeResources.xaml&quot;
+        Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:69-73</code></p>
+</blockquote>
+<h3 id="tool-assets-embedded-icons">Tool Assets (Embedded Icons)</h3>
+<pre><code class="lang-xml">&lt;ItemGroup Label=&quot;Tool Embedded Assets&quot;&gt;
+  &lt;EmbeddedResource Include=&quot;..\Tools\**\Assets\*.png&quot;
+                    Link=&quot;Resources\Icons\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:75-78</code></p>
+</blockquote>
+<h3 id="tool-manifests-embedded-yaml">Tool Manifests (Embedded YAML)</h3>
+<pre><code class="lang-xml">&lt;ItemGroup&gt;
+  &lt;EmbeddedResource Include=&quot;manifest.yml&quot; LogicalName=&quot;DBTools.ToolManifests.DBTools.AppHooks.yml&quot; /&gt;
+  &lt;EmbeddedResource Include=&quot;..\Tools\**\manifest.yml&quot;
+                    LogicalName=&quot;DBTools.ToolManifests.%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:218-222</code></p>
+</blockquote>
+<h3 id="why-file-linking">Why File Linking?</h3>
+<ol>
+<li><strong>Single assembly deployment</strong> - Reduces complexity and potential conflicts</li>
+<li><strong>IDE organization</strong> - Tools can have separate projects for development</li>
+<li><strong>Isolated testing</strong> - Test projects reference tool projects directly</li>
+<li><strong>XAML designer support</strong> - Individual projects can have design-time resources</li>
+</ol>
+<hr>
+<h2 id="tool-module-discovery">Tool Module Discovery</h2>
+<p>Tools are discovered via embedded YAML manifests during <code>DbtServiceBootstrapper.Build()</code>:</p>
+<pre><code class="lang-csharp">var rootAssembly = typeof(DbtServiceBootstrapper).Assembly;
+var discovery = DbtToolModuleCatalog.Discover(rootAssembly);
+
+foreach (var entry in discovery.Entries)
+{
+    var module = entry.Module;
+    module.RegisterSettings(services, configuration, entry.Manifest);
+    module.RegisterServices(services, entry.Manifest);
+    module.RegisterSettingsPacks(services, entry.Manifest);
+    module.RegisterHooks(registry, entry.Manifest);
+    RegisterRibbonToolsFromManifest(registry, rootAssembly, entry.Manifest);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:194-237</code></p>
+</blockquote>
+<h3 id="manifest-structure">Manifest Structure</h3>
+<p>Example tool manifest (<code>manifest.yml</code>):</p>
+<pre><code class="lang-yaml">id: DBTools.GM
+assembly: DBTools
+moduleType: DBTools.GM.GmToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.GM.Main
+    displayName: &quot;Global Mapper&quot;
+    windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
+tool:
+  ribbonTools:
+    - internalName: DBTools.GM
+      commandType: DBTools.GM.Features.GmCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
+      displayText: &quot;Global Mapper&quot;
+      iconBaseKey: gm
+      tooltip: &quot;Open Global Mapper&quot;
+      controlKind: PushButton
+      order: 30
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/manifest.yml:1-27</code></p>
+</blockquote>
+<hr>
+<h2 id="dependencies">Dependencies</h2>
+<h3 id="project-references">Project References</h3>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DBTools.Core</code></td>
+<td>Core infrastructure and abstractions</td>
+</tr>
+<tr>
+<td><code>DBTools.Themes</code></td>
+<td>WPF theme resources</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:57-59</code></p>
+</blockquote>
+<h3 id="nuget-packages">NuGet Packages</h3>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Microsoft.Extensions.DependencyInjection</code></td>
+<td>DI container</td>
+</tr>
+<tr>
+<td><code>Microsoft.Extensions.Options.ConfigurationExtensions</code></td>
+<td>Options pattern</td>
+</tr>
+<tr>
+<td><code>Microsoft.Extensions.Configuration.*</code></td>
+<td>Configuration binding</td>
+</tr>
+<tr>
+<td><code>ricaun.Revit.UI</code></td>
+<td>Ribbon utilities</td>
+</tr>
+<tr>
+<td><code>ricaun.Revit.UI.Tasks</code></td>
+<td>RevitTask for async</td>
+</tr>
+<tr>
+<td><code>CommunityToolkit.Mvvm</code></td>
+<td>MVVM for tools</td>
+</tr>
+<tr>
+<td><code>JsonDiffPatch.Net</code></td>
+<td>JSON diff (tools)</td>
+</tr>
+<tr>
+<td><code>AutoMapper</code></td>
+<td>Object mapping (tools)</td>
+</tr>
+<tr>
+<td><code>HelixToolkit.Wpf.SharpDX</code></td>
+<td>3D visualization (tools)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:27-87</code></p>
+</blockquote>
+<h3 id="vendored-assemblies">Vendored Assemblies</h3>
+<table>
+<thead>
+<tr>
+<th>Assembly</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DBTools.Fluent.Ribbon</code></td>
+<td>Ribbon UI for tool windows</td>
+</tr>
+<tr>
+<td><code>DBTools.ControlzEx</code></td>
+<td>Window chrome and behaviors</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:89-98</code></p>
+</blockquote>
+<h3 id="revit-api-references">Revit API References</h3>
+<p><strong>net48:</strong></p>
+<pre><code class="lang-xml">&lt;Reference Include=&quot;RevitAPI&quot;&gt;
+  &lt;HintPath&gt;$(REVIT2024_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+  &lt;Private&gt;false&lt;/Private&gt;
+&lt;/Reference&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:114-134</code></p>
+</blockquote>
+<p><strong>net8.0-windows:</strong></p>
+<pre><code class="lang-xml">&lt;Reference Include=&quot;RevitAPI&quot; Condition=&quot;'$(REVIT_NET8_DIR)'!=''&quot;&gt;
+  &lt;HintPath&gt;$(REVIT_NET8_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+  &lt;Private&gt;false&lt;/Private&gt;
+&lt;/Reference&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:143-165</code></p>
+</blockquote>
+<hr>
+<h2 id="assembly-embedding">Assembly Embedding</h2>
+<p>All CopyLocal dependencies (except forbidden host assemblies) are embedded as resources for single-DLL deployment:</p>
+<pre><code class="lang-xml">&lt;Target Name=&quot;DBT_EmbedCopyLocalAssemblies&quot; AfterTargets=&quot;ResolveReferences&quot;&gt;
+  &lt;ItemGroup&gt;
+    &lt;_EmbedCandidate Include=&quot;@(ReferenceCopyLocalPaths)&quot; ... /&gt;
+    &lt;!-- Exclude Revit host assemblies --&gt;
+    &lt;_EmbedCandidate Remove=&quot;...&quot; Condition=&quot;'%(Filename)%(Extension)' == 'RevitAPI.dll'&quot; /&gt;
+    &lt;!-- Exclude WPF theme assemblies (need file Location for pack:// URIs) --&gt;
+    &lt;_EmbedCandidate Remove=&quot;...&quot; Condition=&quot;StartsWith('DBTools.Fluent.Ribbon')&quot; /&gt;
+  &lt;/ItemGroup&gt;
+  &lt;EmbeddedResource Include=&quot;%(_EmbedLogicalDistinct.SourcePath)&quot;
+                    LogicalName=&quot;DBTools.EmbeddedAssemblies.%(Name).dll&quot; /&gt;
+&lt;/Target&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:234-270</code></p>
+</blockquote>
+<h3 id="forbidden-host-assemblies">Forbidden Host Assemblies</h3>
+<p>These assemblies must never be in the output (Revit provides them):</p>
+<pre><code class="lang-xml">&lt;ItemGroup&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;RevitAPI.dll&quot; /&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;RevitAPIUI.dll&quot; /&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;AdWindows.dll&quot; /&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;UIFramework.dll&quot; /&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;Newtonsoft.Json.dll&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:169-177</code></p>
+</blockquote>
+<hr>
+<h2 id="build-configuration">Build Configuration</h2>
+<h3 id="project-properties">Project Properties</h3>
+<pre><code class="lang-xml">&lt;PropertyGroup&gt;
+  &lt;TargetFrameworks&gt;$(DBT_RevitTargetFrameworks)&lt;/TargetFrameworks&gt;
+  &lt;AssemblyName&gt;DBTools&lt;/AssemblyName&gt;
+  &lt;RootNamespace&gt;DBTools.App&lt;/RootNamespace&gt;
+  &lt;UseWPF&gt;true&lt;/UseWPF&gt;
+  &lt;ILRepackEnabled&gt;false&lt;/ILRepackEnabled&gt;
+&lt;/PropertyGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:2-13</code></p>
+</blockquote>
+<h3 id="internalsvisibleto">InternalsVisibleTo</h3>
+<p>Test assemblies can access internal types:</p>
+<pre><code class="lang-xml">&lt;ItemGroup&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.GM.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.SGT.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.TDV.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.Testing.Tests&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:15-20</code></p>
+</blockquote>
+<h3 id="warning-suppressions">Warning Suppressions</h3>
+<p>Tool code suppressions consolidated from individual tool projects:</p>
+<pre><code class="lang-xml">&lt;NoWarn&gt;$(NoWarn);CS0618;CS0649;CS8600;CS8602;CS8603;CS8604;CS8619;CS8620;
+  MA0038;MA0051;MA0048;MA0016;MA0098;MA0004;MA0008;MA0015;
+  CA1068;CA1707;CA1716;CA1720;CA1722;CA1725;CA1822&lt;/NoWarn&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:136-138</code></p>
+</blockquote>
+<hr>
+<h2 id="file-structure">File Structure</h2>
+<pre><code>csharp/src/DBTools.App/
++-- DBTools.App.csproj
++-- manifest.yml               # AppHooks module manifest
++-- GlobalUsings.cs
++-- GlobalSuppressions.cs
++-- AssemblyInfo.cs
++-- Addin/
+|   +-- AddinEntry.cs         # IExternalApplication entry point
+|   +-- TestApiHost.cs        # Test harness API host
++-- Bootstrap/
+|   +-- AppRuntimeFactory.cs  # Creates DiAppRuntime
+|   +-- DiAppRuntime.cs       # IAppRuntime implementation
+|   +-- DbtServiceBootstrapper.cs  # DI container builder
+|   +-- Startup.cs            # Legacy startup helper
++-- Features/
+|   +-- Hooks/
+|   |   +-- AppHookModule.cs  # Application-level hooks
+|   |   +-- ViewActivatedHookHandler.cs
+|   |   +-- DialogGuardianHook.cs
+|   +-- Ribbon/
+|       +-- DbtRibbonComposer.cs  # Ribbon composition
+|       +-- RibbonDefinition.cs    # Tab/panel constants
+|       +-- RibbonRegistry.cs      # Runtime button registry
+|       +-- RibbonSettingsListener.cs
+|       +-- RibbonSpecialEffects.cs
+|       +-- RevitRibbonBuilder.cs
++-- Tools/
+|   +-- Availability/
+|       +-- DbtDocumentAvailability.cs
+|       +-- DbtSelectionAvailability.cs
+|       +-- DbtActiveViewAvailability.cs
++-- Resources/
+    +-- (Ribbon icons - embedded resources)
+</code></pre>
+<hr>
+<h2 id="revittest-environment-detection">RevitTest Environment Detection</h2>
+<p><code>AddinEntry</code> detects when running under ricaun.RevitTest and adjusts behavior:</p>
+<pre><code class="lang-csharp">private static bool DetectRevitTestEnvironment(UIControlledApplication application, ILogger logger)
+{
+    bool hostBoundToRevitTest = RevitTaskAccessor.RevitTask != null;
+    bool hasRevitTestAssembly = AppDomain.CurrentDomain.GetAssemblies()
+        .Any(a =&gt; a.GetName().Name == &quot;ricaun.RevitTest.Application&quot; || 
+                  a.GetName().Name == &quot;ricaun.RevitTest&quot;);
+    bool isRevitTestFlag = RevitExecutionContext.IsRevitTest;
+    
+    return hostBoundToRevitTest || hasRevitTestAssembly || isRevitTestFlag;
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:573-629</code></p>
+</blockquote>
+<p><strong>Skipped in RevitTest:</strong></p>
+<ul>
+<li>RevitTaskService initialization (test host provides its own)</li>
+<li>DbtHookHost attachment</li>
+<li>TestApiHost initialization</li>
 </ul>
 <hr>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="startup-errors">Startup Errors</h3>
+<p>Fatal errors during startup show a message box and return <code>Result.Failed</code>:</p>
+<pre><code class="lang-csharp">private static void TryShowStartupError(string message)
+{
+    // Try WPF MessageBox first
+    MessageBox.Show(message, &quot;DB Tools&quot;, MessageBoxButton.OK, MessageBoxImage.Error, ...);
+    
+    // Fall back to Win32 MessageBoxW if WPF fails
+    MessageBoxW(IntPtr.Zero, text, caption, MB_OK | MB_ICONERROR);
+}
+</code></pre>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - needs expansion</p>
-<p><strong>TODO</strong>:</p>
-<ul>
-<li>[ ] Document startup sequence</li>
-<li>[ ] Add DI registration details</li>
-<li>[ ] Document ribbon structure</li>
-<li>[ ] Add extension points</li>
-</ul>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:481-535</code></p>
 </blockquote>
+<h3 id="theme-validation">Theme Validation</h3>
+<p>Theme validation is mandatory - if it fails, startup aborts:</p>
+<pre><code class="lang-csharp">try
+{
+    DbtThemeValidator.ValidateOrThrow();
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, &quot;[AddinEntry] Theme validation failed; aborting add-in startup.&quot;);
+    TryShowStartupError($&quot;DB Tools theme failed to load:\n\n{ex.GetBaseException().Message}&quot;);
+    return Result.Failed;
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Addin/AddinEntry.cs:104-113</code></p>
+</blockquote>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="theme-validation-failed-error">&quot;Theme validation failed&quot; Error</h3>
+<p><strong>Cause:</strong> WPF theme assemblies (Fluent.Ribbon, ControlzEx) not found.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Ensure <code>%APPDATA%/DBTools/vendor/</code> contains theme assemblies</li>
+<li>Or rebuild with <code>bash csharp/build.sh --clean BuildAll</code></li>
+</ol>
+<h3 id="ribbon-not-appearing">Ribbon Not Appearing</h3>
+<p><strong>Possible Causes:</strong></p>
+<ol>
+<li>Tool manifests not embedded (check build output)</li>
+<li>Tool command type not found (check namespace/assembly in manifest)</li>
+<li>Availability type resolution failed (check availabilityType in manifest)</li>
+</ol>
+<p><strong>Diagnosis:</strong> Enable debug mode and check log file for errors during Compose().</p>
+<h3 id="tools-disabled-unexpectedly">Tools Disabled Unexpectedly</h3>
+<p><strong>Check:</strong></p>
+<ol>
+<li>Availability predicate in manifest.yml</li>
+<li>Flags settings (some tools check <code>flags.EnableTesting</code>)</li>
+<li><code>IExternalCommandAvailability</code> implementation returning false</li>
+</ol>
+<hr>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../architecture/overview.html">Architecture Overview</a> - High-level system architecture</li>
+<li><a href="../architecture/project-references.html">Project References</a> - How projects relate</li>
+<li><a href="loader.html">DBTools.Loader</a> - Bootstrap assembly that loads DBTools.App</li>
+<li><a href="core.html">DBTools.Core</a> - Core infrastructure library</li>
+</ul>
+<hr>
+<h2 id="source-files-reviewed">Source Files Reviewed</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>csharp/src/DBTools.App/DBTools.App.csproj</code></td>
+<td>Project configuration</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Addin/AddinEntry.cs</code></td>
+<td>Application entry point</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Addin/TestApiHost.cs</code></td>
+<td>Test harness API</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Bootstrap/AppRuntimeFactory.cs</code></td>
+<td>Runtime factory</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Bootstrap/DiAppRuntime.cs</code></td>
+<td>DI-based runtime</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs</code></td>
+<td>DI container builder</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Bootstrap/Startup.cs</code></td>
+<td>Legacy startup helper</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Features/Ribbon/DbtRibbonComposer.cs</code></td>
+<td>Ribbon composition</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Features/Ribbon/RibbonDefinition.cs</code></td>
+<td>Ribbon constants</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Features/Hooks/AppHookModule.cs</code></td>
+<td>Application hooks</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Tools/Availability/DbtDocumentAvailability.cs</code></td>
+<td>Document availability</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/Tools/Availability/DbtSelectionAvailability.cs</code></td>
+<td>Selection availability</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.App/manifest.yml</code></td>
+<td>AppHooks manifest</td>
+</tr>
+<tr>
+<td><code>csharp/src/Tools/Common/GM/manifest.yml</code></td>
+<td>Example tool manifest</td>
+</tr>
+<tr>
+<td><code>csharp/src/DBTools.Core/Tools/DbtHookHost.cs</code></td>
+<td>Hook coordination (Core)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="unverified-items">UNVERIFIED Items</h2>
+<!-- UNVERIFIED: DialogGuardianHook.cs was not fully reviewed; documented behavior based on method name and usage pattern in AddinEntry -->
+<!-- UNVERIFIED: RibbonSpecialEffects.cs was not fully reviewed; documented as "visual styling" based on usage context -->
+<!-- UNVERIFIED: ViewActivatedHookHandler.cs implementation details not reviewed; documented based on interface and module registration -->
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/projects/app.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/projects/app.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

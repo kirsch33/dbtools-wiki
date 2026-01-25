@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>SGT (Schedule Grid Tool) | DBTools Developer Documentation </title>
+      <title>SGT (Super Girt Tool) | DBTools Developer Documentation </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="SGT (Schedule Grid Tool) | DBTools Developer Documentation ">
+      <meta name="title" content="SGT (Super Girt Tool) | DBTools Developer Documentation ">
       
       
       <link rel="icon" href="../../../favicon.ico">
@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/structural/sgt.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/structural/sgt.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -85,43 +85,558 @@
         </div>
 
         <article data-uid="">
-<h1 id="sgt-schedule-grid-tool">SGT (Schedule Grid Tool)</h1>
+<h1 id="sgt-super-girt-tool">SGT (Super Girt Tool)</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
-<!-- NOTE: Documentation deferred - tool is mid-refactor -->
 <h2 id="overview">Overview</h2>
-<p>SGT (Schedule Grid Tool) is a comprehensive tool for managing structural grid schedules and wall-grid interactions.</p>
-<p><strong>Location</strong>: <code>csharp/src/Tools/Structural/SGT/</code></p>
-<h2 id="current-status">Current Status</h2>
+<p>The Super Girt Tool (SGT) is a Revit add-in for placing and managing structural steel girts and opening framing members (jambs, headers, sills) on foundation walls. It supports both host document walls and walls in linked Revit models.</p>
 <blockquote>
-<p><strong>Warning</strong>: This tool is currently undergoing a significant refactor. Documentation will be completed after the refactor stabilizes.</p>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/manifest.yml:7-8</code></p>
 </blockquote>
-<h2 id="high-level-features">High-Level Features</h2>
+<p><strong>Location</strong>: <code>csharp/src/Tools/Structural/SGT/</code></p>
+<p><strong>Tool ID</strong>: <code>DBTools.SGT</code></p>
+<p><strong>Ribbon Location</strong>: Structural group, order 40</p>
+<h2 id="features">Features</h2>
+<h3 id="core-functionality">Core Functionality</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Wall Selection</strong></td>
+<td>Select linked walls or host foundation walls for girt placement</td>
+</tr>
+<tr>
+<td><strong>Girt Placement</strong></td>
+<td>Auto-seed girts at configurable elevations with smart spacing</td>
+</tr>
+<tr>
+<td><strong>Opening Framing</strong></td>
+<td>Automatic detection and framing of openings (jambs, headers, sills)</td>
+</tr>
+<tr>
+<td><strong>Live Preview</strong></td>
+<td>Real-time 2D elevation and 3D preview of proposed framing</td>
+</tr>
+<tr>
+<td><strong>Extent Control</strong></td>
+<td>Configure girt extents by wall length, grids, openings, or manual distances</td>
+</tr>
+<tr>
+<td><strong>Edit Mode</strong></td>
+<td>Modify previously placed SGT systems with host-change reconciliation</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Commands/SgtNewCommand.cs:36-39</code></p>
+</blockquote>
+<h3 id="supported-wall-types">Supported Wall Types</h3>
 <ul>
-<li>Wall orientation analysis</li>
-<li>Grid schedule management</li>
-<li>Wall-grid alignment tools</li>
-<li>Batch operations</li>
+<li><strong>Linked Walls</strong>: Walls from Revit link instances (any function)</li>
+<li><strong>Host Foundation Walls</strong>: Foundation walls in the host document (WallFunction.Foundation)</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Commands/SgtNewCommand.cs:96-99</code></p>
+</blockquote>
+<h3 id="supported-framing-types">Supported Framing Types</h3>
+<p>The tool supports structural framing families filtered by shape:</p>
+<table>
+<thead>
+<tr>
+<th>Shape Category</th>
+<th>Girts</th>
+<th>Opening Members</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C Shapes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Default: C10X15.3</td>
+</tr>
+<tr>
+<td>MC Shapes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Miscellaneous channels</td>
+</tr>
+<tr>
+<td>Z Shapes</td>
+<td>Yes</td>
+<td><strong>No</strong></td>
+<td>Intentionally excluded for openings</td>
+</tr>
+<tr>
+<td>HSS (Tube)</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Hollow structural sections</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Common/Domain/SgtPlan.cs:137-144</code></p>
+</blockquote>
 <h2 id="architecture">Architecture</h2>
-<p>SGT uses a layered architecture:</p>
+<p>SGT follows a domain-driven MVVM architecture with clear separation between UI, domain logic, and Revit API interactions.</p>
+<pre><code>csharp/src/Tools/Structural/SGT/
++-- Common/              # Shared utilities, models, domain objects
+|   +-- Domain/          # Core domain entities (SgtPlan, SgtWall, etc.)
+|   +-- Models/          # UI-bound row items (SgtGirtRowItem, etc.)
+|   +-- Units/           # Unit conversion service
++-- Features/            # Feature-specific code
+|   +-- Commands/        # Revit external commands
+|   +-- Girts/           # Girt management services
+|   +-- Openings/        # Opening detection
+|   +-- Orientation/     # Family orientation analysis
+|   +-- Place/           # Placement orchestration
+|   +-- Preview/         # 2D/3D preview rendering
+|   +-- Reconcile/       # Host-change reconciliation
++-- Shell/               # UI layer
+|   +-- Composition/     # DI registration
+|   +-- DesignTime/      # Design-time ViewModels
+|   +-- UI/              # Views and ViewModels
++-- Shared/              # Cross-feature services
+    +-- Contracts/       # Interfaces and DTOs
+    +-- Extents/         # Extent resolution
+    +-- Hydration/       # Domain hydration
+    +-- Kernel/          # Validation, logging
+</code></pre>
+<h3 id="key-design-patterns">Key Design Patterns</h3>
+<h4 id="single-source-of-truth-ssot">Single Source of Truth (SSOT)</h4>
+<p>The <code>SgtPlan</code> object serves as the single source of truth for all SGT operations. It contains:</p>
 <ul>
-<li>Shell layer (UI, ViewModels)</li>
-<li>Domain services</li>
-<li>Revit adapters</li>
+<li>Wall geometry and context (host/linked)</li>
+<li>Girt row configurations</li>
+<li>Opening row configurations</li>
+<li>Eligible framing types</li>
+<li>Pre-computed orientation data</li>
+<li>Grid positions</li>
 </ul>
-<p>See <code>csharp/docs/Specs/SGT/SGT_Comprehensive_Specification.md</code> for detailed specifications.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Common/Domain/SgtPlan.cs:12-17</code></p>
+</blockquote>
+<h4 id="plan-store-pattern">Plan Store Pattern</h4>
+<p>The <code>ISgtPlanStore</code> interface provides centralized plan state management with change notifications:</p>
+<pre><code class="lang-csharp">public interface ISgtPlanStore
+{
+    SgtPlan? Plan { get; }
+    event EventHandler&lt;PlanChangedEventArgs&gt;? PlanChanged;
+    void SetPlan(SgtPlan plan);
+    void Clear();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shared/Contracts/ISgtPlanStore.cs</code></p>
+</blockquote>
+<h4 id="orchestrator-pattern">Orchestrator Pattern</h4>
+<p>The <code>SgtOrchestrator</code> coordinates validation, domain object creation, and placement/update operations:</p>
+<ol>
+<li><strong>Validate</strong> - Check plan integrity and extent resolution</li>
+<li><strong>Build Domain</strong> - Create <code>SgtWall</code> with <code>SgtMember</code> and <code>SgtOpening</code> aggregates</li>
+<li><strong>Hydrate</strong> - Resolve segments and connectivity</li>
+<li><strong>Persist</strong> - Write to Revit document via <code>ISgtDomainWriter</code></li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Place/Logic/SgtOrchestrator.cs:17-40</code></p>
+</blockquote>
+<h2 id="ui-components">UI Components</h2>
+<h3 id="main-window">Main Window</h3>
+<p><strong>Class</strong>: <code>SgtWindow</code> (WPF Window)<br>
+<strong>ViewModel</strong>: <code>SgtWindowViewModel</code></p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml:2</code></p>
+</blockquote>
+<p>The main window is a 1600x850 modal dialog with three main regions:</p>
+<ol>
+<li><p><strong>Left Panel</strong>: Configuration</p>
+<ul>
+<li>Scope controls (wall offset, layer selection)</li>
+<li>Girts expander with DataGrid</li>
+<li>Openings expander with DataGrid</li>
+<li>Bulk edit flyout</li>
+</ul>
+</li>
+<li><p><strong>Center Splitter</strong>: Resizable divider</p>
+</li>
+<li><p><strong>Right Panel</strong>: Preview</p>
+<ul>
+<li>2D elevation view</li>
+<li>3D view (using HelixToolkit)</li>
+<li>Preview mode toggle</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml:243-255</code></p>
+</blockquote>
+<h3 id="girt-grid-columns">Girt Grid Columns</h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Elevation</td>
+<td><code>ElevationText</code></td>
+<td>Vertical position (feet-inches format)</td>
+</tr>
+<tr>
+<td>Girt Type</td>
+<td><code>GirtTypeId</code></td>
+<td>Family type selection</td>
+</tr>
+<tr>
+<td>Rotation</td>
+<td><code>Rotation</code></td>
+<td>Cross-section rotation (0/90/180/270)</td>
+</tr>
+<tr>
+<td>Y Justification</td>
+<td><code>YJustification</code></td>
+<td>Lateral positioning</td>
+</tr>
+<tr>
+<td>Z Justification</td>
+<td><code>ZJustification</code></td>
+<td>Vertical positioning</td>
+</tr>
+<tr>
+<td>Flip</td>
+<td><code>FlipHand</code></td>
+<td>Mirror orientation</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml:402-517</code></p>
+</blockquote>
+<h3 id="opening-grid-columns">Opening Grid Columns</h3>
+<p>Each opening row supports four framing roles with independent configuration:</p>
+<ul>
+<li><strong>Left Jamb</strong>: Vertical member at opening left edge</li>
+<li><strong>Right Jamb</strong>: Vertical member at opening right edge</li>
+<li><strong>Header</strong>: Horizontal member at opening top</li>
+<li><strong>Sill</strong>: Horizontal member at opening bottom (optional)</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Common/Domain/OpeningRoleRules.cs</code></p>
+</blockquote>
+<h3 id="preview-modes">Preview Modes</h3>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Elevation</td>
+<td>2D front elevation view with girts and openings</td>
+</tr>
+<tr>
+<td>3D</td>
+<td>Interactive 3D view with wall layers and framing</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Preview/Logic/Models/PreviewMode.cs:4-9</code></p>
+</blockquote>
+<h2 id="services">Services</h2>
+<h3 id="dependency-injection">Dependency Injection</h3>
+<p>All SGT services are registered via <code>SgtServiceCollectionExtensions.AddSgt()</code>:</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/Composition/SgtServiceCollectionExtensions.cs:29-83</code></p>
+</blockquote>
+<h4 id="core-services">Core Services</h4>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Lifetime</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ISgtPlanStore</code></td>
+<td>Singleton</td>
+<td>Plan state management</td>
+</tr>
+<tr>
+<td><code>IUnitService</code></td>
+<td>Singleton</td>
+<td>Unit conversion</td>
+</tr>
+<tr>
+<td><code>SgtValidationService</code></td>
+<td>Singleton</td>
+<td>Plan validation</td>
+</tr>
+<tr>
+<td><code>ISgtSystemRepository</code></td>
+<td>Scoped</td>
+<td>Extensible storage access</td>
+</tr>
+<tr>
+<td><code>SgtPersistenceService</code></td>
+<td>Scoped</td>
+<td>Plan persistence</td>
+</tr>
+</tbody>
+</table>
+<h4 id="feature-services">Feature Services</h4>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Lifetime</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RevitOpeningQuery</code></td>
+<td>Scoped</td>
+<td>Opening detection from walls</td>
+</tr>
+<tr>
+<td><code>FamilyCalibrationService</code></td>
+<td>Scoped</td>
+<td>Family profile extraction</td>
+</tr>
+<tr>
+<td><code>WallGeometryService</code></td>
+<td>Scoped</td>
+<td>Wall geometry analysis</td>
+</tr>
+<tr>
+<td><code>SgtOrientationAdapter</code></td>
+<td>Scoped</td>
+<td>Family orientation computation</td>
+</tr>
+<tr>
+<td><code>IExtentResolver</code></td>
+<td>Singleton</td>
+<td>Extent position resolution</td>
+</tr>
+<tr>
+<td><code>SegmentResolutionService</code></td>
+<td>Singleton</td>
+<td>Girt segment computation</td>
+</tr>
+<tr>
+<td><code>SgtAutoSeedingService</code></td>
+<td>Singleton</td>
+<td>Initial girt elevation seeding</td>
+</tr>
+</tbody>
+</table>
+<h4 id="placement-services">Placement Services</h4>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Lifetime</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ISgtPlanBuilder</code></td>
+<td>Transient</td>
+<td>Build plan from wall context</td>
+</tr>
+<tr>
+<td><code>ISgtDomainWriter</code></td>
+<td>Transient</td>
+<td>Write domain objects to Revit</td>
+</tr>
+<tr>
+<td><code>SgtOrchestrator</code></td>
+<td>Transient</td>
+<td>Coordinate placement flow</td>
+</tr>
+</tbody>
+</table>
+<h3 id="smart-defaults-service">Smart Defaults Service</h3>
+<p>The <code>SgtSmartDefaultsService</code> applies automatic orientation defaults based on family analysis:</p>
+<pre><code class="lang-csharp">// For girts
+SgtSmartDefaultsService.ApplySmartDefaultsForGirt(row, plan);
+
+// For opening roles
+SgtSmartDefaultsService.TryApplySmartDefaultsForOpeningRole(row, role, plan);
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Girts/Services/SgtSmartDefaultsService.cs:43-70</code></p>
+</blockquote>
+<h3 id="host-change-reconciliation">Host Change Reconciliation</h3>
+<p>When editing an existing SGT system, the tool detects changes to the host wall:</p>
+<ol>
+<li><strong>Diff Detection</strong>: Compare stored vs current wall geometry</li>
+<li><strong>Missing Wall Handling</strong>: Options for re-link or delete</li>
+<li><strong>Geometry Mismatch</strong>: Options for scale, shift, or ignore</li>
+<li><strong>Opening Changes</strong>: Sync manual openings to real elements</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Reconcile/SgtHostChangeReconciliationService.cs</code></p>
+</blockquote>
+<h2 id="configuration">Configuration</h2>
+<h3 id="manifest">Manifest</h3>
+<pre><code class="lang-yaml">id: DBTools.SGT
+assembly: DBTools
+moduleType: DBTools.SGT.SgtToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.SGT.Main
+    displayName: &quot;Super Girt Tool&quot;
+    group: &quot;Structural&quot;
+    windowType: &quot;DBTools.SGT.Shell.UI.Views.SgtWindow&quot;
+    designTimeViewModelType: &quot;DBTools.SGT.Shell.DesignTime.SgtWindowDesignTimeViewModel&quot;
+tool:
+  ribbonTools:
+    - internalName: DBTools.SGT
+      commandType: DBTools.SGT.Features.Commands.SgtNewCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
+      displayText: &quot;Super Girt Tool&quot;
+      iconBaseKey: sgt
+      tooltip: &quot;Launch Super Girt Tool&quot;
+      controlKind: PushButton
+      order: 40
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/manifest.yml:1-21</code></p>
+</blockquote>
+<h3 id="ui-state-persistence">UI State Persistence</h3>
+<p>The <code>ISgtUiStateStore</code> persists user preferences:</p>
+<ul>
+<li>Expander states (Girts, Openings)</li>
+<li>Preview mode selection</li>
+<li>Column visibility</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/UI/Settings/ISgtUiStateStore.cs</code></p>
+</blockquote>
+<h2 id="domain-model">Domain Model</h2>
+<h3 id="key-domain-entities">Key Domain Entities</h3>
+<h4 id="sgtplan">SgtPlan</h4>
+<p>The central data structure containing all configuration:</p>
+<pre><code class="lang-csharp">public sealed class SgtPlan
+{
+    // Wall context
+    public int? HostWallId { get; init; }
+    public int? LinkedWallId { get; init; }
+    public int? LinkInstanceId { get; init; }
+    public WallGeometry? WallGeometry { get; set; }
+    
+    // Girt configuration
+    public List&lt;SgtGirtRow&gt; GirtRows { get; init; }
+    public int SelectedGirtTypeId { get; set; }
+    
+    // Opening configuration
+    public List&lt;SgtOpeningRow&gt; OpeningRows { get; set; }
+    public IReadOnlyList&lt;OpeningDetectionData&gt; DetectedOpenings { get; set; }
+    
+    // Options
+    public int DepthPlaneLayerIndex { get; set; }
+    public double WallOffsetFeet { get; set; }
+    public bool FoundationMode { get; set; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Common/Domain/SgtPlan.cs:16-193</code></p>
+</blockquote>
+<h4 id="extent-types">Extent Types</h4>
+<p>Girts support multiple extent modes:</p>
+<table>
+<thead>
+<tr>
+<th>Extent Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FullLengthExtent</code></td>
+<td>Wall start to wall end</td>
+</tr>
+<tr>
+<td><code>AlongExtent</code></td>
+<td>Fixed distances from wall start</td>
+</tr>
+<tr>
+<td><code>GridExtent</code></td>
+<td>Between named grid lines with offsets</td>
+</tr>
+<tr>
+<td><code>OpeningEdgeExtent</code></td>
+<td>Relative to opening edges</td>
+</tr>
+<tr>
+<td><code>DualOpeningEdgeExtent</code></td>
+<td>Between two opening edges</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Common/Domain/</code> (multiple files)</p>
+</blockquote>
+<h2 id="integration-points">Integration Points</h2>
+<h3 id="revit-api-integration">Revit API Integration</h3>
+<p>SGT interacts with Revit through adapter services:</p>
+<ul>
+<li><strong>WallGeometryService</strong>: Extract wall curves, layers, dimensions</li>
+<li><strong>RevitOpeningQuery</strong>: Detect doors, windows, and openings in walls</li>
+<li><strong>SgtDomainWriter</strong>: Create structural framing instances</li>
+<li><strong>SgtSystemRepository</strong>: Store/retrieve SGT configurations in extensible storage</li>
+</ul>
+<h3 id="related-documentation">Related Documentation</h3>
+<ul>
+<li><a href="../../architecture/overview.html">System Architecture</a> - Overall system design</li>
+<li><a href="../../projects/app.html">Application Host</a> - How tools are loaded and hosted</li>
+<li><a href="../../development/manifests.md">Tool Manifest Format</a> - Manifest schema reference</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<p>SGT includes comprehensive tests:</p>
+<pre><code>csharp/src/Tools/Structural/SGT/Tests/
++-- SgtAdapterTests.cs
++-- SgtFrameBuilderTests.cs
++-- SgtConfigHydratorTests.cs
++-- SgtValidationServiceTests.cs
++-- SgtOrchestratorExtentTests.cs
++-- SgtHostChangeDiffServiceTests.cs
++-- ... (additional test files)
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Tests/DBTools.SGT.Tests.csproj</code></p>
+</blockquote>
+<p>Run tests via the Revit test runner:</p>
+<pre><code class="lang-bash">bash csharp/invoke-revit-tests.sh --smart --tool SGT
+</code></pre>
 <hr>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - DEFERRED (mid-refactor)</p>
-<p><strong>Blocked By</strong>: SGT refactor completion</p>
+<p><strong>Documentation Status</strong>: Complete</p>
+<p><strong>Last Updated</strong>: 2026-01-24</p>
+<p><strong>Source Review</strong>: Verified against source files in <code>csharp/src/Tools/Structural/SGT/</code></p>
 </blockquote>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/structural/sgt.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/structural/sgt.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

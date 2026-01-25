@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/architecture/test-pipeline.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/architecture/test-pipeline.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -87,102 +87,724 @@
         <article data-uid="">
 <h1 id="test-pipeline">Test Pipeline</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
+<!-- STATUS: draft -->
+<!-- Last Updated: 2026-01-24 -->
+<!-- Verified By: docs-run-20260124-020412 -->
+<p>This document describes the DBTools testing infrastructure, including test categories, execution methods, and shared test utilities.</p>
+<hr>
 <h2 id="overview">Overview</h2>
-<p>DBTools uses a multi-tier testing strategy combining headless tests and Revit integration tests.</p>
+<p>DBTools uses a dual-tier testing strategy:</p>
+<ol>
+<li><strong>Headless Tests</strong> - Run via <code>dotnet test</code> without Revit, validating build artifacts and cloud integrations</li>
+<li><strong>Revit Integration Tests</strong> - Run inside a live Revit process using the <code>ricaun.RevitTest</code> adapter</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:1-6</code></p>
+</blockquote>
+<hr>
 <h2 id="test-categories">Test Categories</h2>
-<h3 id="headless-tests">Headless Tests</h3>
-<p>Tests that run without Revit:</p>
+<h3 id="category-system">Category System</h3>
+<p>Tests are categorized using NUnit's <code>[Category]</code> attribute to enable selective execution:</p>
 <table>
 <thead>
 <tr>
-<th>Project</th>
-<th>Purpose</th>
+<th>Category</th>
+<th>Description</th>
+<th>DA-Compatible</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>DBTools.BuildArtifacts.Tests</code></td>
-<td>Validates build outputs</td>
+<td><code>RequiresRevitUI</code></td>
+<td>Needs UIApplication, UIDocument, TaskDialog, or STA thread</td>
+<td>No</td>
 </tr>
 <tr>
-<td><code>DBTools.DA.Tests</code></td>
-<td>Design Automation / APS tests</td>
+<td><code>RequiresActiveDocument</code></td>
+<td>Needs an open Revit document with elements</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>Local</code></td>
+<td>Runs only in local Revit environment</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>Slow</code></td>
+<td>Takes &gt;5 seconds, may be excluded from quick runs</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>Integration</code></td>
+<td>Requires external dependencies (network, cloud)</td>
+<td>Yes</td>
 </tr>
 </tbody>
 </table>
-<pre><code class="lang-bash"># Run headless tests
-dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj -c Release
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestCategories.cs:14-42</code></p>
+</blockquote>
+<h3 id="da-vs-local-execution">DA vs Local Execution</h3>
+<ul>
+<li><strong>DA (Design Automation):</strong> Filter out UI-dependent tests:
+<pre><code class="lang-bash">dotnet test --filter &quot;Category!=RequiresRevitUI&amp;Category!=RequiresActiveDocument&quot;
 </code></pre>
-<h3 id="revit-integration-tests">Revit Integration Tests</h3>
-<p>Tests that require Revit runtime:</p>
+</li>
+<li><strong>Local:</strong> Run all tests inside Revit</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestCategories.cs:10-12</code></p>
+</blockquote>
+<hr>
+<h2 id="test-project-organization">Test Project Organization</h2>
+<h3 id="directory-structure">Directory Structure</h3>
+<pre><code>csharp/testing/
+  DBTools.BuildArtifacts.Tests/   # Headless artifact validation
+  DBTools.DA.Tests/               # Design Automation tests (cloud/headless)
+  TestSupport/                    # Shared test infrastructure
+    GM/                           # GM-specific test doubles
+    SGT/                          # SGT-specific test doubles
+    TestHost/                     # Revit host integration
+  RevitTestModels/                # Test .rvt files by year
+    2024/GM/, 2024/SGT/
+    2025/GM/, 2025/SGT/
+    2026/GM/, 2026/SGT/
+
+csharp/src/Tools/
+  Common/GM/Tests/                # GM integration tests
+  Structural/SGT/Tests/           # SGT integration tests
+  Testing/VTC/Tests/              # VTC tests
+  Common/TDV/Tests/               # TDV tests
+</code></pre>
+<h3 id="headless-test-projects">Headless Test Projects</h3>
+<h4 id="dbtoolsbuildartifactstests">DBTools.BuildArtifacts.Tests</h4>
+<p>Validates build output without Revit:</p>
+<ul>
+<li>Assembly existence and validity per Revit year</li>
+<li>Target framework correctness (net48 for 2024, net8.0 for 2025+)</li>
+<li>Forbidden reference detection (RevitAPI, AdWindows)</li>
+<li>Namespace presence verification</li>
+<li>Embedded XAML resource validation</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/DBTools.BuildArtifacts.Tests/AssemblyManifestTests.cs:14-20</code></p>
+</blockquote>
+<p><strong>Run command:</strong></p>
+<pre><code class="lang-bash">dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj -c Release
+</code></pre>
+<h4 id="dbtoolsdatests">DBTools.DA.Tests</h4>
+<p>Design Automation and APS integration tests:</p>
+<ul>
+<li>Links APS test files from tool directories (e.g., <code>GM/Tests/APS/</code>)</li>
+<li>Uses shared test utilities via <code>&lt;Compile Include&gt;</code> links</li>
+<li>Runs against Autodesk cloud services</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/DBTools.DA.Tests/DBTools.DA.Tests.csproj:43-48</code></p>
+</blockquote>
+<p><strong>Run command:</strong></p>
+<pre><code class="lang-bash">dotnet test csharp/testing/DBTools.DA.Tests/DBTools.DA.Tests.csproj -c Release
+</code></pre>
+<p><strong>Configuration:</strong>
+Uses <code>da.runsettings</code> for APS bucket configuration:</p>
+<pre><code class="lang-xml">&lt;TestRunParameters&gt;
+  &lt;Parameter name=&quot;APS_BUCKET&quot; value=&quot;dbtools-tests&quot; /&gt;
+  &lt;Parameter name=&quot;APS_REGION&quot; value=&quot;US&quot; /&gt;
+&lt;/TestRunParameters&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/da.runsettings:1-8</code></p>
+</blockquote>
+<h3 id="tool-specific-test-projects">Tool-Specific Test Projects</h3>
+<p>Each tool has its own test project under <code>csharp/src/Tools/*/Tests/</code>:</p>
 <table>
 <thead>
 <tr>
 <th>Project</th>
-<th>Purpose</th>
+<th>Target Frameworks</th>
+<th>Revit Years</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>DBTools.GM.Tests</code></td>
-<td>Grid Maker tool tests</td>
+<td>net48, net8.0-windows</td>
+<td>2024, 2025, 2026</td>
 </tr>
 <tr>
 <td><code>DBTools.SGT.Tests</code></td>
-<td>Schedule Grid Tool tests</td>
+<td>net48, net8.0-windows</td>
+<td>2024, 2025, 2026</td>
 </tr>
 <tr>
-<td><code>DBTools.*.Tests</code></td>
-<td>Tool-specific tests</td>
+<td><code>DBTools.TDV.Tests</code></td>
+<td>net48, net8.0-windows</td>
+<td>2024, 2025, 2026</td>
+</tr>
+<tr>
+<td><code>DBTools.VTC.Tests</code></td>
+<td>net48, net8.0-windows</td>
+<td>2024, 2025, 2026</td>
 </tr>
 </tbody>
 </table>
-<pre><code class="lang-bash"># Run via test runner
-bash csharp/invoke-revit-tests.sh --smart --tool GM
-bash csharp/invoke-revit-tests.sh --smart --tool SGT -y 2025
-</code></pre>
-<h2 id="test-infrastructure">Test Infrastructure</h2>
-<h3 id="testsupport">TestSupport</h3>
-<p>Shared test utilities in <code>csharp/testing/TestSupport/</code>:</p>
-<ul>
-<li>Test doubles for Revit API</li>
-<li>Fixtures and builders</li>
-<li>Assertion helpers</li>
-</ul>
-<h3 id="test-runner-invoke-revit-testssh">Test Runner (<code>invoke-revit-tests.sh</code>)</h3>
-<p>The interactive test runner script provides:</p>
-<ul>
-<li>Tool selection</li>
-<li>Revit year selection</li>
-<li>Filter support (<code>-f &quot;FullyQualifiedName~SomeTest&quot;</code>)</li>
-<li>Smart test discovery</li>
-</ul>
-<h2 id="running-tests">Running Tests</h2>
-<h3 id="single-test">Single Test</h3>
-<pre><code class="lang-bash"># Via Revit test runner
-bash csharp/invoke-revit-tests.sh --smart -y 2026 -f &quot;FullyQualifiedName~SomeTestName&quot;
-
-# Via dotnet test (headless only)
-dotnet test &lt;project&gt; -c Release --filter &quot;FullyQualifiedName~Metadata&quot;
-</code></pre>
-<hr>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - needs expansion</p>
-<p><strong>TODO</strong>:</p>
-<ul>
-<li>[ ] Document TestSupport architecture</li>
-<li>[ ] Add test writing guidelines</li>
-<li>[ ] Document mocking patterns</li>
-<li>[ ] Add CI/CD test configuration</li>
-</ul>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:4</code>, <code>csharp/src/Tools/Structural/SGT/Tests/DBTools.SGT.Tests.csproj:4</code></p>
 </blockquote>
+<p>Key dependencies:</p>
+<ul>
+<li><code>ricaun.RevitTest.TestAdapter</code> - Revit test execution</li>
+<li><code>ricaun.Revit.UI.Tasks</code> - UI task scheduling</li>
+<li>NUnit 3 with test adapter</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:35-44</code></p>
+</blockquote>
+<hr>
+<h2 id="test-runner-invoke-revit-testssh">Test Runner: invoke-revit-tests.sh</h2>
+<p>The primary test runner script for Revit integration tests.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p><strong>Required:</strong> <code>gum</code> (interactive terminal UI tool)</p>
+<pre><code class="lang-bash"># Install via Homebrew (macOS/Linux)
+brew install gum
+
+# Or Debian/Ubuntu
+sudo apt install gum
+
+# Or Go
+go install github.com/charmbracelet/gum@latest
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:8-17</code></p>
+</blockquote>
+<h3 id="basic-usage">Basic Usage</h3>
+<pre><code class="lang-bash"># Run all GM tests with smart mode (recommended)
+bash csharp/invoke-revit-tests.sh --smart --tool GM
+
+# Run SGT tests for Revit 2025
+bash csharp/invoke-revit-tests.sh --smart --tool SGT -y 2025
+
+# Run specific test by filter
+bash csharp/invoke-revit-tests.sh -f &quot;FullyQualifiedName~SomeTestName&quot;
+
+# Run specific fixture
+bash csharp/invoke-revit-tests.sh --smart --fixture GmAdapterTests
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:202-204</code></p>
+</blockquote>
+<h3 id="command-line-options">Command-Line Options</h3>
+<h4 id="test-execution">Test Execution</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-y, --year YEAR</code></td>
+<td>Revit year: 2024, 2025, or 2026</td>
+<td>2026</td>
+</tr>
+<tr>
+<td><code>--debug, -d</code></td>
+<td>Use Debug configuration</td>
+<td>Auto-detect</td>
+</tr>
+<tr>
+<td><code>--release, -r</code></td>
+<td>Use Release configuration</td>
+<td>Auto-detect</td>
+</tr>
+<tr>
+<td><code>-f, --filter &quot;...&quot;</code></td>
+<td>VSTest filter (must include FullyQualifiedName)</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>-v, --verbosity N</code></td>
+<td>0=quiet, 1=normal, 2=verbose</td>
+<td>1</td>
+</tr>
+<tr>
+<td><code>--timeout-minutes N</code></td>
+<td>Revit test timeout</td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>--show-log</code></td>
+<td>Display DBTools log file path after completion</td>
+<td>Off</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:130-140</code></p>
+</blockquote>
+<h4 id="revit-instance-modes">Revit Instance Modes</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--reuse</code></td>
+<td>Use existing Revit; fail if none running</td>
+</tr>
+<tr>
+<td><code>--persist</code></td>
+<td>Open new Revit and leave running after tests</td>
+</tr>
+<tr>
+<td><code>--close</code></td>
+<td>Open new Revit and close after tests (default)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:142-146</code></p>
+</blockquote>
+<h4 id="smart-mode-recommended">Smart Mode (Recommended)</h4>
+<pre><code class="lang-bash">bash csharp/invoke-revit-tests.sh --smart --tool GM
+</code></pre>
+<p>Smart mode auto-detects:</p>
+<ul>
+<li>If build changed since last test: opens fresh Revit (<code>--persist</code>)</li>
+<li>If build unchanged and session has Revit: reuses existing (<code>--reuse</code>)</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:148-150</code></p>
+</blockquote>
+<h4 id="toolfixture-shortcuts">Tool/Fixture Shortcuts</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--tool TOOL</code></td>
+<td>Run tests for GM, SGT, TDV, or VTC</td>
+</tr>
+<tr>
+<td><code>--fixture FIXTURE</code></td>
+<td>Run tests for specific fixture class</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:149-150</code></p>
+</blockquote>
+<h3 id="running-single-tests">Running Single Tests</h3>
+<p><strong>Recommended (via test runner):</strong></p>
+<pre><code class="lang-bash"># Exact match
+bash csharp/invoke-revit-tests.sh --smart -y 2026 -f &quot;FullyQualifiedName=DBTools.GM.Tests.GmAdapterTests.SomeTest&quot;
+
+# Partial match (contains)
+bash csharp/invoke-revit-tests.sh --smart -f &quot;FullyQualifiedName~SomeTestName&quot;
+</code></pre>
+<p><strong>Headless projects only:</strong></p>
+<pre><code class="lang-bash">dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj \
+  -c Release --filter &quot;FullyQualifiedName~Metadata&quot;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:204</code>, <code>AGENTS.md</code></p>
+</blockquote>
+<hr>
+<h2 id="test-discovery">Test Discovery</h2>
+<p>The runner includes built-in test discovery:</p>
+<pre><code class="lang-bash"># List all available tests
+bash csharp/invoke-revit-tests.sh --discover
+
+# Rebuild test registry from source
+bash csharp/invoke-revit-tests.sh --discover --generate
+
+# Show test count summary
+bash csharp/invoke-revit-tests.sh --discover --summary
+
+# Filter by tool
+bash csharp/invoke-revit-tests.sh --discover --tool GM
+
+# Show only DA-compatible tests
+bash csharp/invoke-revit-tests.sh --discover --da-only
+
+# Show only local-only tests
+bash csharp/invoke-revit-tests.sh --discover --local-only
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:171-180</code></p>
+</blockquote>
+<p>Registry is stored at: <code>.artifacts/metadata/test-registry.json</code></p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:647</code></p>
+</blockquote>
+<hr>
+<h2 id="test-history">Test History</h2>
+<p>The runner tracks test execution history:</p>
+<pre><code class="lang-bash"># Show test run history
+bash csharp/invoke-revit-tests.sh --history
+
+# Show tests not run in last N days
+bash csharp/invoke-revit-tests.sh --show-stale 7
+
+# Show tests that failed on last run
+bash csharp/invoke-revit-tests.sh --show-failed
+
+# Show error details for failed tests
+bash csharp/invoke-revit-tests.sh --get-errors &quot;GM&quot;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:183-189</code></p>
+</blockquote>
+<p>History is stored at: <code>.artifacts/test-history.json</code></p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:60</code></p>
+</blockquote>
+<hr>
+<h2 id="parallel-ai-agent-support">Parallel AI Agent Support</h2>
+<p>For parallel test execution by multiple AI agents:</p>
+<pre><code class="lang-bash"># Agent 1
+bash csharp/invoke-revit-tests.sh --smart --session agent-001 --tool GM
+
+# Agent 2
+bash csharp/invoke-revit-tests.sh --smart --session agent-002 --tool SGT
+</code></pre>
+<p>Each <code>--session ID</code> gets its own Revit instance for isolation.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:153-168</code></p>
+</blockquote>
+<h3 id="session-management">Session Management</h3>
+<pre><code class="lang-bash"># List active sessions
+bash csharp/invoke-revit-tests.sh --sessions
+
+# Clean up stale sessions (dead Revit PIDs)
+bash csharp/invoke-revit-tests.sh --kill-orphans
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:193-196</code></p>
+</blockquote>
+<hr>
+<h2 id="testsupport-infrastructure">TestSupport Infrastructure</h2>
+<p>Shared test utilities in <code>csharp/testing/TestSupport/</code>:</p>
+<h3 id="common-test-doubles">Common Test Doubles</h3>
+<p>Located in <code>CommonTestDoubles.cs</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RecordingNotifier</code></td>
+<td>Records error/success banner invocations</td>
+</tr>
+<tr>
+<td><code>RecordingOverlay</code></td>
+<td>Records progress overlay method calls</td>
+</tr>
+<tr>
+<td><code>InlineExecutor</code></td>
+<td>Runs actions inline (no async dispatch)</td>
+</tr>
+<tr>
+<td><code>InlineTransactionRunner</code></td>
+<td>Executes without Revit transactions</td>
+</tr>
+<tr>
+<td><code>InlineTransactionGroupService</code></td>
+<td>Executes without transaction groups</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/CommonTestDoubles.cs:15-339</code></p>
+</blockquote>
+<h3 id="test-host-integration">Test Host Integration</h3>
+<p><strong>RevitHost</strong> (<code>TestHost/RevitHost.cs</code>):</p>
+<ul>
+<li>Manages Revit context for async test execution</li>
+<li>Handles inline vs queued execution modes</li>
+<li>Integrates with <code>RevitTestTaskBinder</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestHost/RevitHost.cs:12-109</code></p>
+</blockquote>
+<p><strong>RevitAmbientScope</strong> (<code>TestHost/RevitAmbientScope.cs</code>):</p>
+<ul>
+<li>Provides ambient UIApplication access during tests</li>
+</ul>
+<h3 id="test-path-resolution">Test Path Resolution</h3>
+<p><strong>TestPathResolver</strong> (<code>TestPathResolver.cs</code>):</p>
+<ul>
+<li>Resolves test model paths from <code>dbtools.testparams.json</code></li>
+<li>Located at <code>%APPDATA%/DBTools/dbtools.testparams.json</code></li>
+<li>Written by <code>invoke-revit-tests.sh</code> before test execution</li>
+</ul>
+<pre><code class="lang-csharp">// Get model path
+var path = TestPathResolver.ResolveTestModelPath(&quot;2026&quot;, &quot;GM&quot;, &quot;gm_test_model.rvt&quot;);
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestPathResolver.cs:10-65</code></p>
+</blockquote>
+<h3 id="test-logging">Test Logging</h3>
+<p><strong>TestLoggingBridge</strong> (<code>TestLoggingBridge.cs</code>):</p>
+<ul>
+<li>Centralizes test logging setup</li>
+<li>Bridges to production logging when Revit is running</li>
+<li>Falls back to console mirroring in standalone mode</li>
+</ul>
+<pre><code class="lang-csharp">[OneTimeSetUp]
+public void GlobalSetup()
+{
+    TestLoggingBridge.Initialize();
+}
+
+[OneTimeTearDown]
+public void GlobalTeardown()
+{
+    TestLoggingBridge.Shutdown();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestLoggingBridge.cs:14-143</code></p>
+</blockquote>
+<h3 id="tool-specific-test-doubles">Tool-Specific Test Doubles</h3>
+<p><strong>GM (<code>TestSupport/GM/</code>):</strong></p>
+<ul>
+<li><code>GmTestDataBuilder</code> - Builds test data for GM</li>
+<li><code>GmRealisticTestDoubles</code> - Production-like test doubles</li>
+<li><code>GmShellViewModelTestFactory</code> - Creates shell ViewModels for testing</li>
+</ul>
+<p><strong>SGT (<code>TestSupport/SGT/</code>):</strong></p>
+<ul>
+<li><code>SgtTestDataBuilder</code> - Builds test data for SGT</li>
+<li><code>SgtRealisticTestDoubles</code> - Production-like test doubles</li>
+<li><code>InMemorySgtUiStateStore</code> - In-memory UI state store</li>
+</ul>
+<hr>
+<h2 id="test-fixture-base-classes">Test Fixture Base Classes</h2>
+<h3 id="gmtestfixture">GmTestFixture</h3>
+<p>Base class for GM integration tests:</p>
+<pre><code class="lang-csharp">[NonParallelizable]
+public abstract class GmTestFixture
+{
+    protected UIApplication UiApp { get; private set; }
+    protected Document? Doc { get; private set; }
+    protected IRevitCallGate? Gate { get; private set; }
+    protected ITransactionRunner? TxRunner { get; private set; }
+
+    [OneTimeSetUp]
+    public virtual void GlobalSetup(UIApplication app)
+    {
+        // Opens gm_test_model.rvt
+        // Initializes call gate and transaction runner
+    }
+}
+</code></pre>
+<p>Features:</p>
+<ul>
+<li>Opens tool-specific test model automatically</li>
+<li>Provides <code>ResolveTypeIds()</code>, <code>ResolveStyleIds()</code>, <code>ResolveMaterialIds()</code> helpers</li>
+<li>Manages document lifecycle</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/GMTestFixture.cs:14-128</code></p>
+</blockquote>
+<hr>
+<h2 id="test-models">Test Models</h2>
+<p>Located in <code>csharp/testing/RevitTestModels/</code>:</p>
+<pre><code>RevitTestModels/
+  model_info.txt
+  2024/
+    GM/gm_test_model.rvt
+    SGT/sgt_test_model.rvt
+    SGT/_LinkedModels/sgt_test_linked_model.rvt
+  2025/
+    GM/gm_test_model.rvt
+    SGT/sgt_test_model.rvt
+    SGT/_LinkedModels/sgt_test_linked_model.rvt
+  2026/
+    GM/gm_test_model.rvt
+    SGT/sgt_test_model.rvt
+    SGT/_LinkedModels/sgt_test_linked_model.rvt
+</code></pre>
+<p>Each year has its own model versions for forward compatibility testing.</p>
+<hr>
+<h2 id="configuration-files">Configuration Files</h2>
+<h3 id="runsettings">.runsettings</h3>
+<p><strong>Revit Tests:</strong> Generated at runtime by <code>invoke-revit-tests.sh</code>:</p>
+<pre><code class="lang-xml">&lt;RunSettings&gt;
+  &lt;NUnit&gt;
+    &lt;Version&gt;2026&lt;/Version&gt;
+    &lt;Language&gt;ENU&lt;/Language&gt;
+    &lt;Open&gt;true&lt;/Open&gt;
+    &lt;Close&gt;false&lt;/Close&gt;
+    &lt;Verbosity&gt;2&lt;/Verbosity&gt;
+    &lt;Timeout&gt;4&lt;/Timeout&gt;
+  &lt;/NUnit&gt;
+&lt;/RunSettings&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:1425-1442</code></p>
+</blockquote>
+<p><strong>DA Tests:</strong> <code>csharp/testing/da.runsettings</code> for APS configuration.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/da.runsettings:1-8</code></p>
+</blockquote>
+<h3 id="test-parameters-dbtoolstestparamsjson">Test Parameters (dbtools.testparams.json)</h3>
+<p>Written to <code>%APPDATA%/DBTools/instances/&lt;worktree-id&gt;/dbtools.testparams.json</code>:</p>
+<pre><code class="lang-json">{
+  &quot;ModelsDirectory&quot;: &quot;C:\\...\\csharp\\testing\\RevitTestModels&quot;,
+  &quot;Year&quot;: 2026
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:1446-1451</code></p>
+</blockquote>
+<hr>
+<h2 id="build-integration">Build Integration</h2>
+<p>Tests depend on artifacts from <code>build.sh</code>:</p>
+<pre><code class="lang-bash"># Build all (required before running tests)
+bash csharp/build.sh BuildAll
+
+# Build tests specifically
+bash csharp/build.sh BuildTests
+</code></pre>
+<p>The test runner validates artifact freshness:</p>
+<ul>
+<li>Checks <code>.artifacts/metadata/build.json</code> for source fingerprint</li>
+<li>Fails if artifacts are stale relative to source</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:1201-1363</code></p>
+</blockquote>
+<hr>
+<h2 id="guardrails-from-agentsmd">Guardrails (from AGENTS.md)</h2>
+<h3 id="prime-directive">Prime Directive</h3>
+<blockquote>
+<p>When a test fails, investigate and fix <strong>PRODUCTION CODE</strong> first. Do not change tests or infrastructure to simulate missing production behavior.</p>
+</blockquote>
+<h3 id="forbidden-test-patterns">Forbidden Test Patterns</h3>
+<ul>
+<li>Use test doubles only for TRUE externals (Revit API, filesystem, network)</li>
+<li>Never mock your own services/orchestrators</li>
+<li>Never assert only that mocks were called</li>
+<li>Every test must assert at least one real outcome</li>
+</ul>
+<h3 id="legitimate-vs-illegitimate-stubbing">Legitimate vs Illegitimate Stubbing</h3>
+<p><strong>Legitimate (external):</strong></p>
+<ul>
+<li>Revit API</li>
+<li>File system</li>
+<li>Network</li>
+<li>Time/Random</li>
+</ul>
+<p><strong>Illegitimate (your code):</strong></p>
+<ul>
+<li>Your own services</li>
+<li>Orchestrators/handlers</li>
+<li>Anything in <code>src/</code> you wrote</li>
+</ul>
+<hr>
+<h2 id="quick-reference">Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Run GM tests (smart mode)</td>
+<td><code>bash csharp/invoke-revit-tests.sh --smart --tool GM</code></td>
+</tr>
+<tr>
+<td>Run SGT tests for 2025</td>
+<td><code>bash csharp/invoke-revit-tests.sh --smart --tool SGT -y 2025</code></td>
+</tr>
+<tr>
+<td>Run single test</td>
+<td><code>bash csharp/invoke-revit-tests.sh --smart -f &quot;FullyQualifiedName~TestName&quot;</code></td>
+</tr>
+<tr>
+<td>Run headless artifact tests</td>
+<td><code>dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/ -c Release</code></td>
+</tr>
+<tr>
+<td>Run DA tests</td>
+<td><code>dotnet test csharp/testing/DBTools.DA.Tests/ -c Release</code></td>
+</tr>
+<tr>
+<td>List all tests</td>
+<td><code>bash csharp/invoke-revit-tests.sh --discover</code></td>
+</tr>
+<tr>
+<td>Show failed tests</td>
+<td><code>bash csharp/invoke-revit-tests.sh --show-failed</code></td>
+</tr>
+<tr>
+<td>Build before tests</td>
+<td><code>bash csharp/build.sh BuildAll</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="build-pipeline.html">Build Pipeline</a> - Build system and artifact generation</li>
+<li><a href="overview.html">Architecture Overview</a> - High-level system architecture</li>
+<li><a href="project-references.html">Project References</a> - Project structure and dependencies</li>
+</ul>
+<hr>
+<h2 id="verification-status">Verification Status</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source anchors for all claims</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>UNVERIFIED markers where needed</td>
+<td>No (all verified)</td>
+</tr>
+<tr>
+<td>Cross-references added</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Examples tested</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td>No assumptions without evidence</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verified by:</strong> docs-run-20260124-020412<br>
+<strong>Date:</strong> 2026-01-24</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/architecture/test-pipeline.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/architecture/test-pipeline.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

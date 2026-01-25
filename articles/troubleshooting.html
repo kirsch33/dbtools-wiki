@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Troubleshooting Guide | DBTools Developer Documentation </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Troubleshooting Guide | DBTools Developer Documentation ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/troubleshooting.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DBTools">
+            DBTools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="troubleshooting-guide">Troubleshooting Guide</h1>
+
+<p>This guide covers common issues encountered when building, running, and debugging DBTools.</p>
+<hr>
+<h2 id="build-issues">Build Issues</h2>
+<h3 id="msbuild-errors">MSBuild Errors</h3>
+<h4 id="error-dbt0001---build-must-be-run-through-buildsh">Error: <code>DBT0001</code> - Build must be run through build.sh</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>error DBT0001: Raw 'dotnet build' from CLI is not supported. Use bash csharp/build.sh instead.
+</code></pre>
+<p><strong>Cause:</strong> The build system enforces that all builds go through the repository's build entrypoint to ensure proper configuration, vendored dependency staging, and multi-year target handling.</p>
+<p><strong>Solution:</strong> Always use the build script:</p>
+<pre><code class="lang-bash"># Standard incremental build
+bash csharp/build.sh
+
+# Clean and rebuild
+bash csharp/build.sh --clean
+
+# Build specific Revit year
+bash csharp/build.sh -y 2025 BuildAll
+
+# Build only the app
+bash csharp/build.sh BuildApp
+</code></pre>
+<hr>
+<h4 id="error-windows-dotnetexe-not-found">Error: Windows dotnet.exe not found</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>Windows dotnet.exe not found at: /mnt/c/Program Files/dotnet/dotnet.exe
+</code></pre>
+<p><strong>Cause:</strong> The build script runs Windows <code>dotnet.exe</code> from WSL. The .NET SDK must be installed on the Windows host.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Install .NET 8 SDK on Windows from <a href="https://dotnet.microsoft.com/download">dotnet.microsoft.com</a></li>
+<li>Verify installation: <code>&quot;/mnt/c/Program Files/dotnet/dotnet.exe&quot; --version</code></li>
+<li>If installed to a non-default location, set the path in <code>build.sh</code></li>
+</ol>
+<hr>
+<h3 id="missing-dependencies">Missing Dependencies</h3>
+<h4 id="vendored-ui-assemblies-missing">Vendored UI Assemblies Missing</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>Vendored UI assemblies missing under csharp/.artifacts/vendor; building them now...
+</code></pre>
+<p>Or build failures referencing <code>DBTools.HandyControl</code>, <code>DBTools.ControlzEx</code>, or <code>DBTools.Fluent.Ribbon</code>.</p>
+<p><strong>Cause:</strong> The vendored UI libraries (HandyControl, ControlzEx, FluentRibbon) must be built with custom namespaces before the main build.</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="lang-bash"># Automatic (build.sh runs this if needed)
+bash csharp/build.sh
+
+# Manual rebuild of vendored deps
+bash csharp/build-vendored-deps.sh
+</code></pre>
+<p><strong>Expected output location:</strong> <code>csharp/.artifacts/vendor/</code></p>
+<ul>
+<li><code>handycontrol/net48/DBTools.HandyControl.dll</code></li>
+<li><code>handycontrol/net8.0-windows/DBTools.HandyControl.dll</code></li>
+<li><code>controlzex/net48/DBTools.ControlzEx.dll</code></li>
+<li><code>fluentribbon/net48/DBTools.Fluent.Ribbon.dll</code></li>
+</ul>
+<hr>
+<h4 id="assembly-load-failures">Assembly Load Failures</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>InvalidOperationException: Failed to load tool assembly 'DBTools.GM'.
+</code></pre>
+<p><strong>Cause:</strong> With file-linking architecture, tool assemblies (GM, TDV, SGT, VTC) are compiled into <code>DBTools.dll</code>. This error indicates the main assembly wasn't built correctly.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Run a clean build: <code>bash csharp/build.sh --clean</code></li>
+<li>Verify build output exists in <code>csharp/.artifacts/bin/</code></li>
+<li>Check that the Revit add-in is loading the correct version</li>
+</ol>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Tools/DbtToolAssemblyLoader.cs"><code>DbtToolAssemblyLoader.cs:10</code></a></p>
+<hr>
+<h2 id="runtime-issues">Runtime Issues</h2>
+<h3 id="theme-validation-failures">Theme Validation Failures</h3>
+<p>Theme validation runs at startup to catch XAML resource issues early. Failures here indicate broken theme dictionaries or missing resources.</p>
+<h4 id="theme-dictionary-merge-failed">Theme Dictionary Merge Failed</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>InvalidOperationException: Theme dictionary merge failed at 'pack://application:,,,/DBTools.Themes;component/Themes/App.Brushes.xaml'.
+</code></pre>
+<p><strong>Cause:</strong> A XAML resource dictionary failed to load. Common causes:</p>
+<ul>
+<li>Missing assembly reference</li>
+<li>Broken StaticResource chain</li>
+<li>Syntax error in XAML</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Verify <code>DBTools.Themes.dll</code> exists alongside <code>DBTools.dll</code></li>
+<li>Check build output for XAML compilation errors</li>
+<li>If modifying themes, validate XAML syntax in Visual Studio</li>
+</ol>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:69</code></a></p>
+<hr>
+<h4 id="theme-resource-freeze-failed">Theme Resource Freeze Failed</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>InvalidOperationException: Theme resource freeze failed for key 'PrimaryBrush' in 'App.Brushes.xaml'.
+</code></pre>
+<p><strong>Cause:</strong> A Freezable resource (brush, geometry) could not be frozen. This typically indicates the resource has unresolved bindings or dynamic references.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Check the resource definition in the XAML file</li>
+<li>Ensure all referenced colors/values are static</li>
+<li>Remove any bindings from Freezable resources</li>
+</ol>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:161</code></a></p>
+<hr>
+<h4 id="theme-contract-mismatch">Theme Contract Mismatch</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>InvalidOperationException: Theme merged dictionary contract mismatch: expected 11 dictionaries but found 10 in 'App.Theme.xaml'.
+</code></pre>
+<p><strong>Cause:</strong> The theme root dictionary doesn't match the expected structure. This catches accidental removal or reordering of theme dictionaries.</p>
+<p><strong>Expected merged dictionaries (in order):</strong></p>
+<ol>
+<li><code>DBTools.HandyControl/Themes/SkinDark.xaml</code></li>
+<li><code>DBTools.HandyControl/Themes/Theme.xaml</code></li>
+<li><code>DBTools.Fluent.Ribbon/Themes/Generic.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.Tokens.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.Brushes.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.Converters.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.Controls.Base.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.DataGrid.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.Menus.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.Components.xaml</code></li>
+<li><code>DBTools.Themes/Themes/App.FluentRibbon.xaml</code></li>
+</ol>
+<p><strong>Solution:</strong> Ensure <code>App.Theme.xaml</code> contains all dictionaries in the correct order.</p>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:191</code></a></p>
+<hr>
+<h3 id="revit-api-errors">Revit API Errors</h3>
+<h4 id="revitcontextunavailableexception">RevitContextUnavailableException</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>RevitContextUnavailableException: No UIApplication in current gate scope.
+</code></pre>
+<p>Or:</p>
+<pre><code>RevitContextUnavailableException: ActiveUIDocument is required but was not available.
+</code></pre>
+<p><strong>Cause:</strong> Code attempted to access Revit API objects outside of a valid Revit context. This happens when:</p>
+<ul>
+<li>A modeless window tries to access Revit without using the call gate</li>
+<li>An async operation continues after the document was closed</li>
+<li>Code runs during Revit shutdown</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Ensure Revit API calls are wrapped in <code>IRevitCallGate.RunAsync()</code></li>
+<li>Check for document availability before operations</li>
+<li>Handle cancellation when documents close</li>
+</ol>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Revit/Execution/RevitContextUnavailableException.cs"><code>RevitContextUnavailableException.cs:6</code></a></p>
+<hr>
+<h4 id="wpf-dispatcher-issues">WPF Dispatcher Issues</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>InvalidOperationException: No WPF Dispatcher is available (Application.Current is null and no Revit window dispatcher could be resolved).
+</code></pre>
+<p>Or:</p>
+<pre><code>InvalidOperationException: WPF Dispatcher is shutting down.
+</code></pre>
+<p><strong>Cause:</strong> WPF UI operations attempted when no dispatcher is available, typically during early startup or late shutdown.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>Use <code>WpfUiThread.TryGetDispatcher()</code> and check for null</li>
+<li>Check <code>dispatcher.HasShutdownStarted</code> before operations</li>
+<li>Use <code>BeginInvoke</code> instead of <code>Invoke</code> for non-blocking operations</li>
+</ol>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Windows/WpfUiThread.cs"><code>WpfUiThread.cs:21</code></a></p>
+<hr>
+<h2 id="tool-specific-issues">Tool-Specific Issues</h2>
+<h3 id="generic-model-tool-gm">Generic Model Tool (GM)</h3>
+<h4 id="gmkernelbuildexception">GmKernelBuildException</h4>
+<table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Message</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1001</code></td>
+<td>Failed to resolve family or type names</td>
+<td>Check that all referenced families exist in the project</td>
+</tr>
+<tr>
+<td><code>1002</code></td>
+<td>Failed to build nesting index</td>
+<td>Verify nested family relationships are valid</td>
+</tr>
+<tr>
+<td><code>1003</code></td>
+<td>Shared parameter deserialization failed</td>
+<td>Check shared parameter file integrity</td>
+</tr>
+<tr>
+<td><code>1004</code></td>
+<td>Usage data collection failed</td>
+<td>Ensure document is fully loaded before scanning</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Source:</strong> <a href="../../../src/Tools/Common/GM/Shared/Kernel/GmKernelExceptions.cs"><code>GmKernelExceptions.cs:6</code></a></p>
+<hr>
+<h4 id="gminvalidmappingexception">GmInvalidMappingException</h4>
+<table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Message</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>2001</code></td>
+<td>Operation metadata missing</td>
+<td>Ensure mapping configuration is complete</td>
+</tr>
+<tr>
+<td><code>2002</code></td>
+<td>Target type creation failed</td>
+<td>Check family loading and type creation permissions</td>
+</tr>
+<tr>
+<td><code>2003</code></td>
+<td>Shared parameter bind failed</td>
+<td>Verify parameter definitions exist</td>
+</tr>
+<tr>
+<td><code>2004</code></td>
+<td>Shared parameter embed failed</td>
+<td>Check parameter embedding permissions</td>
+</tr>
+<tr>
+<td><code>2005</code></td>
+<td>Replacement operation failed</td>
+<td>Validate replacement targets exist</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h4 id="gmsnapshotloadexception">GmSnapshotLoadException</h4>
+<table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Message</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>4001</code></td>
+<td>Snapshot deserialization failed</td>
+<td>Re-export snapshot; file may be corrupt</td>
+</tr>
+<tr>
+<td><code>4002</code></td>
+<td>Snapshot checksum mismatch</td>
+<td>Re-export snapshot; data integrity issue</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3 id="transfer-drafting-views-tool-tdv">Transfer Drafting Views Tool (TDV)</h3>
+<table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Message</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DestinationTypeMissing</code></td>
+<td>Destination view type not found</td>
+<td>Create matching view type in destination</td>
+</tr>
+<tr>
+<td><code>SourceTypeNameUnavailable</code></td>
+<td>Source view type name not available</td>
+<td>Check source view is a valid drafting view</td>
+</tr>
+<tr>
+<td><code>CreateViewFailed</code></td>
+<td>Failed to create destination view</td>
+<td>Verify write permissions and view limits</td>
+</tr>
+<tr>
+<td><code>CopyElementsFailed</code></td>
+<td>Failed to copy view elements</td>
+<td>Check element validity and target view</td>
+</tr>
+<tr>
+<td><code>OverridesFailed</code></td>
+<td>Failed to copy view overrides</td>
+<td>Some overrides may not be transferable</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Source:</strong> <a href="../../../src/Tools/Common/TDV/Contracts/TdvPerViewErrorCode.cs"><code>TdvPerViewErrorCode.cs:3</code></a></p>
+<hr>
+<h2 id="debugging">Debugging</h2>
+<h3 id="enabling-debug-mode">Enabling Debug Mode</h3>
+<p>Debug mode provides detailed logging and surfaces the logger window on errors.</p>
+<p><strong>Methods to enable:</strong></p>
+<ol>
+<li><strong>Programmatically:</strong> <code>debugModeService.SetEnabled(true)</code></li>
+<li><strong>On error:</strong> Debug mode auto-enables when <code>ISafeExecutor</code> catches an exception</li>
+<li><strong>Via Logger Window:</strong> Toggle the debug checkbox in the logger window toolbar</li>
+</ol>
+<p><strong>Effects of debug mode:</strong></p>
+<ul>
+<li>Log level changes from <code>Information</code> to <code>Debug</code></li>
+<li>Logger window becomes visible</li>
+<li>More detailed stack traces in logs</li>
+<li>Faster log buffer flush (120ms vs 600ms)</li>
+</ul>
+<hr>
+<h3 id="log-file-locations">Log File Locations</h3>
+<p>Log files are written to the user's local app data directory:</p>
+<pre><code>%LOCALAPPDATA%\DBTools\Logs\
+</code></pre>
+<p><strong>Log file naming pattern:</strong></p>
+<pre><code>dbtools-{RevitYear}-{InstanceId}-{Timestamp}-{Nonce}.log
+</code></pre>
+<p>Example: <code>dbtools-2025-ABC123-20260124-143022345-a1b2c3d4.log</code></p>
+<p><strong>Log retention policy:</strong></p>
+<ul>
+<li>Maximum 50 files across all instances</li>
+<li>Maximum 14 days retention</li>
+<li>Maximum 100 MB total size</li>
+<li>Automatic cleanup on startup</li>
+</ul>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Constants/LoggingConstants.cs"><code>LoggingConstants.cs:119</code></a></p>
+<hr>
+<h3 id="using-the-logger-window">Using the Logger Window</h3>
+<p>The logger window provides real-time log viewing with filtering capabilities.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li><strong>Level filtering:</strong> Toggle INFO, WARN, ERROR, DEBUG visibility</li>
+<li><strong>Search:</strong> Filter logs by text content</li>
+<li><strong>Export:</strong> Save filtered logs to a file</li>
+<li><strong>Auto-scroll:</strong> Automatically scroll to new entries</li>
+<li><strong>Correlation IDs:</strong> Track related log entries across operations</li>
+</ul>
+<p><strong>Window title format:</strong></p>
+<pre><code>DB Tools Log - Revit {Year} [{InstanceId}]
+</code></pre>
+<p><strong>Opening the logger window:</strong></p>
+<ul>
+<li>Automatically opens when debug mode is enabled</li>
+<li>Automatically opens when an unhandled error occurs</li>
+<li>Can be opened via tools menu (if available)</li>
+</ul>
+<hr>
+<h3 id="understanding-correlation-ids">Understanding Correlation IDs</h3>
+<p>Every operation executed through <code>ISafeExecutor</code> is assigned a correlation ID (GUID). This ID appears in all related log entries:</p>
+<pre><code>[Start] GM Apply starting (CorrelationId=abc123...)
+... operation logs ...
+[Complete] GM Apply completed in 1234ms (CorrelationId=abc123...)
+</code></pre>
+<p>Use the correlation ID to:</p>
+<ul>
+<li>Filter related log entries</li>
+<li>Track operation duration</li>
+<li>Correlate errors with their triggering operations</li>
+</ul>
+<hr>
+<h2 id="common-error-messages">Common Error Messages</h2>
+<h3 id="quick-reference-table">Quick Reference Table</h3>
+<table>
+<thead>
+<tr>
+<th>Error Message</th>
+<th>Category</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DBT0001: Raw 'dotnet build' not supported</code></td>
+<td>Build</td>
+<td>Use <code>bash csharp/build.sh</code></td>
+</tr>
+<tr>
+<td><code>Theme dictionary merge failed</code></td>
+<td>Theme</td>
+<td>Rebuild themes, check XAML syntax</td>
+</tr>
+<tr>
+<td><code>Theme resource freeze failed</code></td>
+<td>Theme</td>
+<td>Remove bindings from Freezable resources</td>
+</tr>
+<tr>
+<td><code>Failed to load tool assembly</code></td>
+<td>Assembly</td>
+<td>Clean rebuild: <code>build.sh --clean</code></td>
+</tr>
+<tr>
+<td><code>No UIApplication in current gate scope</code></td>
+<td>Revit API</td>
+<td>Wrap calls in <code>IRevitCallGate.RunAsync()</code></td>
+</tr>
+<tr>
+<td><code>ActiveUIDocument is required</code></td>
+<td>Revit API</td>
+<td>Check document is open before operations</td>
+</tr>
+<tr>
+<td><code>WPF Dispatcher is shutting down</code></td>
+<td>UI</td>
+<td>Check dispatcher state before UI operations</td>
+</tr>
+<tr>
+<td><code>AppRuntime not initialized</code></td>
+<td>Runtime</td>
+<td>Ensure add-in is fully loaded</td>
+</tr>
+<tr>
+<td><code>Manifest missing required field</code></td>
+<td>Manifest</td>
+<td>Check tool manifest YAML syntax</td>
+</tr>
+<tr>
+<td><code>Tool module type not found</code></td>
+<td>Assembly</td>
+<td>Verify assembly name in manifest</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3 id="isafeexecutor-error-phases">ISafeExecutor Error Phases</h3>
+<p>All tool entrypoints run through <code>ISafeExecutor</code>, which logs structured execution phases:</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Log Level</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[Start]</code></td>
+<td>Info</td>
+<td>Operation beginning</td>
+</tr>
+<tr>
+<td><code>[Complete]</code></td>
+<td>Info</td>
+<td>Operation finished successfully</td>
+</tr>
+<tr>
+<td><code>[Cancel]</code></td>
+<td>Warning</td>
+<td>Operation was cancelled</td>
+</tr>
+<tr>
+<td><code>[Error]</code></td>
+<td>Error</td>
+<td>Operation failed with exception</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Execution/SafeExecutor.cs"><code>SafeExecutor.cs:12</code></a></p>
+<hr>
+<h2 id="getting-help">Getting Help</h2>
+<h3 id="diagnostic-information-to-collect">Diagnostic Information to Collect</h3>
+<p>When reporting issues, gather:</p>
+<ol>
+<li><strong>Log file</strong> from <code>%LOCALAPPDATA%\DBTools\Logs\</code></li>
+<li><strong>Revit version</strong> (year and build number)</li>
+<li><strong>DBTools version</strong> (from add-in manifest)</li>
+<li><strong>Correlation ID</strong> from the error log</li>
+<li><strong>Steps to reproduce</strong> the issue</li>
+<li><strong>Screenshot</strong> of any error dialogs</li>
+</ol>
+<h3 id="log-export">Log Export</h3>
+<p>Use the logger window's export feature to save filtered logs:</p>
+<ol>
+<li>Open logger window (enable debug mode if needed)</li>
+<li>Apply any relevant filters</li>
+<li>Click Export button</li>
+<li>Save to file with timestamp</li>
+</ol>
+<p>Export filename pattern: <code>DBToolsLog_{Timestamp}.txt</code></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/troubleshooting.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DBTools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

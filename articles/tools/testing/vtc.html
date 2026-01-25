@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>VTC (Visual Test Controller) | DBTools Developer Documentation </title>
+      <title>View Template Comparer (VTC) | DBTools Developer Documentation </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="VTC (Visual Test Controller) | DBTools Developer Documentation ">
+      <meta name="title" content="View Template Comparer (VTC) | DBTools Developer Documentation ">
       
       
       <link rel="icon" href="../../../favicon.ico">
@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/testing/vtc.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/testing/vtc.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -85,28 +85,468 @@
         </div>
 
         <article data-uid="">
-<h1 id="vtc-visual-test-controller">VTC (Visual Test Controller)</h1>
+<h1 id="view-template-comparer-vtc">View Template Comparer (VTC)</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
-<h2 id="overview">Overview</h2>
-<p>VTC provides visual test creation and execution capabilities.</p>
-<p><strong>Location</strong>: <code>csharp/src/Tools/Testing/VTC/</code></p>
-<h2 id="features">Features</h2>
-<ul>
-<li>Visual test recording</li>
-<li>Test playback</li>
-<li>Assertion framework</li>
-</ul>
-<hr>
+<p>The <strong>View Template Comparer</strong> (VTC) is a Testing category tool that enables side-by-side comparison of Revit view templates, allowing users to identify differences, selectively merge settings, and create new templates from combined configurations.</p>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - needs expansion</p>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/manifest.yml:1-21</code></p>
 </blockquote>
+<h2 id="overview">Overview</h2>
+<p>VTC provides a comprehensive solution for managing view template settings across Revit projects. The tool extracts complete template configurations including display settings, template parameter includes, category overrides, and filter overrides, presenting them in a hierarchical diff view for easy comparison and selective merging.</p>
+<h3 id="key-capabilities">Key Capabilities</h3>
+<ul>
+<li><strong>Side-by-side comparison</strong> of two view templates with visual diff highlighting</li>
+<li><strong>Selective merging</strong> - choose individual settings from either template</li>
+<li><strong>Apply to existing</strong> - update Template A or B with selected settings</li>
+<li><strong>Create merged template</strong> - generate a new template combining selections from both sources</li>
+<li><strong>JSON export/import</strong> - serialize template settings for cross-document transfer</li>
+<li><strong>Template library</strong> - save and load configurations to local cache</li>
+<li><strong>Text dump</strong> - export human-readable settings reports</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Features/VtcCommand.cs:24-28</code></p>
+</blockquote>
+<h2 id="features">Features</h2>
+<h3 id="template-selection">Template Selection</h3>
+<p>The tool automatically loads all view templates from the active document, sorted alphabetically. Users select two templates for comparison:</p>
+<ul>
+<li><strong>Template A</strong> (blue indicator) - the left/source template</li>
+<li><strong>Template B</strong> (gold indicator) - the right/target template</li>
+</ul>
+<p>Templates can be swapped using the swap button for quick side-reversal.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Features/VtcCommand.cs:37-43</code></p>
+</blockquote>
+<h3 id="settings-comparison">Settings Comparison</h3>
+<p>VTC compares four categories of template settings:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Display Properties</strong></td>
+<td>Detail Level, Display Style, Parts Visibility, Discipline, Show Hidden Lines</td>
+</tr>
+<tr>
+<td><strong>Template Parameters</strong></td>
+<td>Which parameters are included/controlled by the template</td>
+</tr>
+<tr>
+<td><strong>Category Overrides</strong></td>
+<td>Visibility and graphics overrides per category and subcategory</td>
+</tr>
+<tr>
+<td><strong>Filter Overrides</strong></td>
+<td>Applied filters with visibility and graphics settings</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/VtcEnums.cs:13-21</code></p>
+</blockquote>
+<p>Each setting shows one of four difference states:</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Same</code></td>
+<td>Values match in both templates</td>
+</tr>
+<tr>
+<td><code>Different</code></td>
+<td>Values differ between templates</td>
+</tr>
+<tr>
+<td><code>LeftMissing</code></td>
+<td>Setting exists only in Template B</td>
+</tr>
+<tr>
+<td><code>RightMissing</code></td>
+<td>Setting exists only in Template A</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/VtcEnums.cs:38-44</code></p>
+</blockquote>
+<h3 id="merge-operations">Merge Operations</h3>
+<h4 id="apply-to-template-ab">Apply to Template A/B</h4>
+<p>Applies selected settings to an existing template. The tool:</p>
+<ol>
+<li>Collects all user-selected settings from the diff tree</li>
+<li>Opens a Revit transaction</li>
+<li>Applies each selected value to the target template</li>
+<li>Updates non-controlled parameter list as needed</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:198-226</code></p>
+</blockquote>
+<h4 id="create-merged-template">Create Merged Template</h4>
+<p>Creates a new view template combining settings from both sources:</p>
+<ol>
+<li>Duplicates the base template (user-selectable: Template A or B)</li>
+<li>Renames to user-specified name</li>
+<li>Applies all user-selected settings</li>
+<li>Commits the new template to the document</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:228-275</code></p>
+</blockquote>
+<h3 id="exportimport">Export/Import</h3>
+<h4 id="json-export">JSON Export</h4>
+<p>Exports complete template settings to a JSON file containing:</p>
+<ul>
+<li>Template ID and name</li>
+<li>Display settings (detail level, discipline, etc.)</li>
+<li>Template parameter includes list</li>
+<li>Category graphics data (visibility, line colors, patterns, weights)</li>
+<li>Filter graphics data</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Revit/Services/VtcSerializationService.cs:34-44</code></p>
+</blockquote>
+<h4 id="json-import">JSON Import</h4>
+<p>Imports settings from a JSON file and applies them to the selected template. The import supports <strong>cross-document transfer</strong> by resolving elements by name when IDs don't match.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:236-270</code></p>
+</blockquote>
+<h3 id="template-library">Template Library</h3>
+<p>VTC maintains a local cache of saved template configurations in <code>%APPDATA%/DBTools/Cache/VTC/</code>. Features include:</p>
+<ul>
+<li><strong>Save</strong> - Store current template configuration with custom name</li>
+<li><strong>Load</strong> - Apply saved configuration to Template A or B</li>
+<li><strong>Delete</strong> - Remove saved configurations</li>
+<li><strong>Refresh</strong> - Update the saved templates list</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Services/VtcTemplateStorageService.cs:14-15</code></p>
+</blockquote>
+<h3 id="text-dump">Text Dump</h3>
+<p>Exports a human-readable text report of template settings including:</p>
+<ul>
+<li>Template name and view type</li>
+<li>All included parameters</li>
+<li>Display settings with current values</li>
+<li>Category visibility and graphics overrides</li>
+<li>Filter visibility and graphics overrides</li>
+</ul>
+<p>Output is written to a user-selected folder as <code>{TemplateName}_template_dump.txt</code>.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Revit/Services/VtcDumpService.cs:52-179</code></p>
+</blockquote>
+<h2 id="architecture">Architecture</h2>
+<h3 id="module-structure">Module Structure</h3>
+<pre><code>DBTools.VTC/
++-- Bootstrap/
+|   +-- VtcServiceExtensions.cs      # DI registration
++-- Contracts/
+|   +-- IVtcComparisonService.cs     # Comparison/merge interface
+|   +-- IVtcDumpService.cs           # Text export interface
+|   +-- IVtcSerializationService.cs  # JSON serialization interface
+|   +-- VtcDataModels.cs             # Data transfer objects
+|   +-- VtcEnums.cs                  # Enumerations
++-- Features/
+|   +-- VtcCommand.cs                # Main command entry point
++-- Revit/
+|   +-- Compat/
+|   |   +-- ElementIdCompat.cs       # ElementId compatibility layer
+|   +-- Services/
+|       +-- VtcComparisonService.cs  # Revit comparison implementation
+|       +-- VtcDumpService.cs        # Revit dump implementation
+|       +-- VtcSerializationService.cs # Revit serialization implementation
++-- Services/
+|   +-- VtcTemplateStorageService.cs # Local cache storage
++-- UI/
+|   +-- Behaviors/
+|   |   +-- ScrollSyncBehavior.cs    # Synchronized scrolling
+|   +-- Converters/
+|   |   +-- VtcDiffBackgroundConverter.cs # Diff color converter
+|   +-- ViewModels/
+|   |   +-- VtcDiffNodeType.cs       # Tree node types
+|   |   +-- VtcDiffTreeBuilder.cs    # Tree construction
+|   |   +-- VtcDiffTreeNode.cs       # Tree node model
+|   |   +-- VtcTemplateOption.cs     # Dropdown item model
+|   |   +-- VtcWindowViewModel.cs    # Main window ViewModel
+|   +-- Views/
+|       +-- VtcWindow.xaml(.cs)      # Main window
++-- DesignTime/
+|   +-- VtcWindowDesignTimeViewModel.cs # XAML designer support
++-- VtcToolModule.cs                 # Tool module registration
++-- manifest.yml                     # Tool manifest
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/</code></p>
+</blockquote>
+<h3 id="service-contracts">Service Contracts</h3>
+<h4 id="ivtccomparisonservice">IVtcComparisonService</h4>
+<p>Core comparison and merge operations:</p>
+<pre><code class="lang-csharp">public interface IVtcComparisonService
+{
+    VtcTemplateSettingsModel Extract(object templateObject);
+    VtcComparisonResult Compare(VtcTemplateSettingsModel left, VtcTemplateSettingsModel right);
+    void ApplySelections(object target, VtcComparisonResult comparison, IReadOnlyCollection&lt;VtcSelection&gt; selections);
+    void ApplySnapshot(object target, VtcTemplateSettingsModel source);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/IVtcComparisonService.cs:8-29</code></p>
+</blockquote>
+<h4 id="ivtcserializationservice">IVtcSerializationService</h4>
+<p>JSON import/export and template creation:</p>
+<pre><code class="lang-csharp">public interface IVtcSerializationService
+{
+    string Export(object templateObject, string path);
+    VtcTemplateSettingsModel Import(string path);
+    object CreateTemplateFromModel(object baseTemplate, VtcTemplateSettingsModel model, string newName);
+    void ApplyModel(object targetTemplate, VtcTemplateSettingsModel model);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/IVtcSerializationService.cs:6-27</code></p>
+</blockquote>
+<h4 id="ivtcdumpservice">IVtcDumpService</h4>
+<p>Text report generation:</p>
+<pre><code class="lang-csharp">public interface IVtcDumpService
+{
+    (bool Success, string OutputPath) Run(object templateObject, string outputFolder);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/IVtcDumpService.cs:6-12</code></p>
+</blockquote>
+<h3 id="data-models">Data Models</h3>
+<h4 id="vtctemplatesettingsmodel">VtcTemplateSettingsModel</h4>
+<p>Complete template configuration for serialization:</p>
+<pre><code class="lang-csharp">public sealed record VtcTemplateSettingsModel
+{
+    public long TemplateId { get; init; }
+    public string Name { get; init; }
+    public VtcDisplaySettings Display { get; init; }
+    public IReadOnlyList&lt;VtcTemplateIncludeData&gt; Includes { get; init; }
+    public IReadOnlyList&lt;VtcCategoryGraphicsData&gt; Categories { get; init; }
+    public IReadOnlyList&lt;VtcFilterGraphicsData&gt; Filters { get; init; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:64-72</code></p>
+</blockquote>
+<h4 id="vtcsettingchange">VtcSettingChange</h4>
+<p>Represents a single difference between templates:</p>
+<pre><code class="lang-csharp">public sealed record VtcSettingChange
+{
+    public string Key { get; init; }
+    public string DisplayName { get; init; }
+    public VtcSettingType SettingType { get; init; }
+    public VtcDisplayPropertyKind? DisplayProperty { get; init; }
+    public VtcDifferenceKind DifferenceKind { get; init; }
+    public string LeftDisplay { get; init; }
+    public string RightDisplay { get; init; }
+    public object? LeftValue { get; init; }
+    public object? RightValue { get; init; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:77-88</code></p>
+</blockquote>
+<h3 id="ui-components">UI Components</h3>
+<h4 id="hierarchical-diff-tree">Hierarchical Diff Tree</h4>
+<p>The comparison view uses a hierarchical <code>TreeView</code> with synchronized scrolling between left and right panels. The tree structure groups settings by type:</p>
+<pre><code>Display Settings
++-- Detail Level
++-- Display Style
++-- ...
+Template Parameters
++-- Parameter 1
++-- Parameter 2
++-- ...
+Category Overrides
++-- Walls
+|   +-- Hidden Lines
+|   +-- Surface Pattern
++-- Structural Framing
++-- ...
+Filter Overrides
++-- Filter 1
++-- Filter 2
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeBuilder.cs:17-43</code></p>
+</blockquote>
+<p>Node types in the tree:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Root</code></td>
+<td>Top-level category (Display Settings, Categories, etc.)</td>
+</tr>
+<tr>
+<td><code>CategoryGroup</code></td>
+<td>Parent category containing subcategories</td>
+</tr>
+<tr>
+<td><code>Setting</code></td>
+<td>Leaf node with actual values and selection checkboxes</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/UI/ViewModels/VtcDiffNodeType.cs:6-22</code></p>
+</blockquote>
+<h2 id="settings">Settings</h2>
+<p>VTC currently has no persistent user settings. All configuration is session-based through the UI.</p>
+<h3 id="cache-location">Cache Location</h3>
+<p>Saved templates are stored in the user's local application data:</p>
+<pre><code>%APPDATA%/DBTools/Cache/VTC/
+</code></pre>
+<p>Each saved template is stored as a JSON file with sanitized filename.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Services/VtcTemplateStorageService.cs:34</code></p>
+</blockquote>
+<h2 id="manifest">Manifest</h2>
+<pre><code class="lang-yaml">id: DBTools.VTC
+assembly: DBTools
+moduleType: DBTools.VTC.VtcToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.VTC.Main
+    displayName: &quot;View Template Comparer&quot;
+    group: &quot;Testing&quot;
+    windowType: &quot;DBTools.VTC.UI.Views.VtcWindow&quot;
+    designTimeViewModelType: &quot;DBTools.VTC.DesignTime.VtcWindowDesignTimeViewModel&quot;
+tool:
+  ribbonTools:
+    - internalName: DBTools.ViewTemplateComparer
+      commandType: DBTools.VTC.Features.VtcCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
+      displayText: &quot;View Template\nComparer&quot;
+      iconBaseKey: vtc
+      tooltip: &quot;Compare and merge view template settings&quot;
+      controlKind: PushButton
+      order: 50
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/manifest.yml:1-21</code></p>
+</blockquote>
+<h3 id="manifest-properties">Manifest Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>DBTools.VTC</code></td>
+<td>Unique tool identifier</td>
+</tr>
+<tr>
+<td><code>moduleType</code></td>
+<td><code>DBTools.VTC.VtcToolModule</code></td>
+<td>Tool module class</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td><code>Testing</code></td>
+<td>Ribbon panel group</td>
+</tr>
+<tr>
+<td><code>runProfile</code></td>
+<td><code>InlineUi</code></td>
+<td>Shows modeless window within Revit</td>
+</tr>
+<tr>
+<td><code>availabilityType</code></td>
+<td><code>DbtDocumentAvailability</code></td>
+<td>Requires active document</td>
+</tr>
+<tr>
+<td><code>controlKind</code></td>
+<td><code>PushButton</code></td>
+<td>Standard ribbon button</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cross-document-import">Cross-Document Import</h2>
+<p>VTC supports importing template settings from JSON files created in different Revit documents. When element IDs don't match (common across documents), the service falls back to name-based resolution:</p>
+<h3 id="parameters">Parameters</h3>
+<p>Searches <code>ParameterElement</code> and <code>GlobalParameter</code> types by name.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:239-270</code></p>
+</blockquote>
+<h3 id="categories">Categories</h3>
+<p>Handles both top-level and subcategories using &quot;Parent : Subcategory&quot; naming convention.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:296-340</code></p>
+</blockquote>
+<h3 id="filters">Filters</h3>
+<p>Searches <code>ParameterFilterElement</code> instances by name.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:398-415</code></p>
+</blockquote>
+<h2 id="graphics-override-data">Graphics Override Data</h2>
+<p>VTC captures comprehensive graphics override settings for categories and filters:</p>
+<pre><code class="lang-csharp">public sealed record VtcOverrideGraphicsData
+{
+    public VtcColorData? ProjectionLineColor { get; init; }
+    public long? ProjectionLinePatternId { get; init; }
+    public int? ProjectionLineWeight { get; init; }
+    public int? Transparency { get; init; }
+    public int? CutLineWeight { get; init; }
+    public VtcColorData? CutLineColor { get; init; }
+    public long? CutLinePatternId { get; init; }
+    public long? CutForegroundPatternId { get; init; }
+    public VtcColorData? CutForegroundPatternColor { get; init; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:17-28</code></p>
+</blockquote>
+<h2 id="error-handling">Error Handling</h2>
+<p>VTC uses the standard DBTools alert service for user notifications. The ViewModel provides centralized error and success messaging:</p>
+<ul>
+<li><strong>No templates found</strong> - Warning shown if document contains no view templates</li>
+<li><strong>Template not found</strong> - Error if selected template cannot be resolved</li>
+<li><strong>No selections</strong> - Error if merge attempted without any settings selected</li>
+<li><strong>Duplicate name</strong> - Error if new template name already exists</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:472-488</code></p>
+</blockquote>
+<h2 id="testing">Testing</h2>
+<p>VTC includes unit tests for core logic that doesn't require Revit:</p>
+<ul>
+<li><code>VtcTemplateStorageServiceTests.cs</code> - File I/O operations</li>
+<li><code>VtcDiffTreeNodeTests.cs</code> - Tree node behavior</li>
+<li><code>VtcDiffTreeBuilderTests.cs</code> - Tree construction from change lists</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Testing/VTC/Tests/</code></p>
+</blockquote>
+<p>Tests are located in <code>csharp/src/Tools/Testing/VTC/Tests/</code> and run via the standard test runner without requiring Revit.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/testing/vtc.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/testing/vtc.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

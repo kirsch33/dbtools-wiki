@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/common/elevation-tags.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/common/elevation-tags.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -87,26 +87,599 @@
         <article data-uid="">
 <h1 id="elevation-tags">Elevation Tags</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
+<p><strong>Elevation Tags</strong> is a Revit add-in tool that automatically aligns spot elevation tags in floor and ceiling plan views, ensuring consistent text positioning relative to leader endpoints.</p>
 <h2 id="overview">Overview</h2>
-<p>Automates placement and management of elevation tags.</p>
-<p><strong>Location</strong>: <code>csharp/src/Tools/Common/ElevationTags/</code></p>
-<h2 id="features">Features</h2>
+<p>Elevation Tags provides two modes of operation:</p>
 <ul>
-<li>Automatic elevation tag placement</li>
-<li>Tag alignment and spacing</li>
-<li>Batch tag updates</li>
+<li><strong>Automatic Update</strong>: Tags are aligned when activating floor/ceiling plan views</li>
+<li><strong>Manual Update</strong>: Users can trigger alignment on-demand via the ribbon button</li>
 </ul>
-<hr>
+<p>The tool calculates precise text positioning based on:</p>
+<ul>
+<li>Tag type font metrics (size, width scale, font family)</li>
+<li>View scale factor</li>
+<li>Leader direction</li>
+<li>Configurable offsets and text position preferences</li>
+</ul>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - needs expansion</p>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:59-91</code></p>
 </blockquote>
+<h2 id="features">Features</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Auto-Update on View Activation</strong></td>
+<td>Automatically aligns elevation tags when opening floor/ceiling plan views</td>
+</tr>
+<tr>
+<td><strong>Manual Alignment Command</strong></td>
+<td>Ribbon button to align tags in the active view on-demand</td>
+</tr>
+<tr>
+<td><strong>Regex Tag Filtering</strong></td>
+<td>Configure which tags to align using regex patterns (up to 3 patterns)</td>
+</tr>
+<tr>
+<td><strong>Text Position Control</strong></td>
+<td>Position text above or below the tag origin</td>
+</tr>
+<tr>
+<td><strong>Offset Adjustments</strong></td>
+<td>Fine-tune horizontal and vertical positioning with model-unit offsets</td>
+</tr>
+<tr>
+<td><strong>Warning System</strong></td>
+<td>Tool can be disabled via warnings, preventing accidental auto-updates</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:21-56</code></p>
+</blockquote>
+<h2 id="user-interface">User Interface</h2>
+<h3 id="ribbon-button">Ribbon Button</h3>
+<p>The tool adds a single ribbon button:</p>
+<ul>
+<li><strong>Display Text</strong>: &quot;Align Elevation Tags&quot;</li>
+<li><strong>Tooltip</strong>: &quot;Align elevation tags in the active view&quot;</li>
+<li><strong>Icon</strong>: <code>align_elevation_tags_icon.png</code></li>
+<li><strong>Availability</strong>: Only enabled when an active view is present</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/manifest.yml:18-26</code></p>
+</blockquote>
+<h3 id="settings-panel">Settings Panel</h3>
+<p>The settings UI provides controls for:</p>
+<ol>
+<li><strong>Auto-Update Toggle</strong> - Enable/disable automatic updates on view activation</li>
+<li><strong>Tag Name Patterns</strong> - Regex patterns to match elevation tag names (max 3)</li>
+<li><strong>Alignment Offsets</strong> - Horizontal and vertical offset values with spinner controls</li>
+<li><strong>Text Position</strong> - Radio buttons for Above/Below positioning</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Settings/ElevationTagsSettingsPackView.xaml:43-259</code></p>
+</blockquote>
+<h2 id="architecture">Architecture</h2>
+<h3 id="module-structure">Module Structure</h3>
+<pre><code>csharp/src/Tools/Common/ElevationTags/
++-- DBTools.ElevationTags.csproj    # Project file
++-- ElevationTagsToolModule.cs      # DI registration entry point
++-- manifest.yml                    # Tool manifest
++-- Assets/
+|   +-- align_elevation_tags_icon.png
++-- Features/
+|   +-- AlignElevationTagsInViewCommand.cs  # Ribbon command
+|   +-- ElevationTagsAutoUpdater.cs         # Core alignment logic
++-- Hooks/
+|   +-- ElevationTagsViewActivatedTask.cs   # View activation handler
++-- Settings/
+    +-- ElevationTagsSettings.cs            # Settings model
+    +-- ElevationTagsSettingsPackContext.cs # Settings UI context
+    +-- ElevationTagsSettingsPackView.xaml  # Settings UI view
+    +-- ElevationTagsSettingsPackView.xaml.cs
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> Directory structure of <code>csharp/src/Tools/Common/ElevationTags/</code></p>
+</blockquote>
+<h3 id="data-flow">Data Flow</h3>
+<pre><code>                    +---------------------------+
+                    | View Activation / Command |
+                    +-----------+---------------+
+                                |
+                                v
+                    +---------------------------+
+                    | ElevationTagsViewActivated|
+                    | Task / Command            |
+                    +-----------+---------------+
+                                |
+                                | Retrieves settings, creates updater
+                                v
+                    +---------------------------+
+                    |  ElevationTagsAutoUpdater |
+                    +-----------+---------------+
+                                |
+         +----------------------+----------------------+
+         |                      |                      |
+         v                      v                      v
+  +--------------+    +-----------------+    +------------------+
+  | Collect Tags |    | Compute Layout  |    | Update Positions |
+  | (Regex Match)|    | Inputs          |    | (Transaction)    |
+  +--------------+    +-----------------+    +------------------+
+</code></pre>
+<h3 id="key-classes">Key Classes</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ElevationTagsToolModule</code></td>
+<td><code>ElevationTagsToolModule.cs:14-92</code></td>
+<td>Tool module registration; registers settings, services, and settings packs</td>
+</tr>
+<tr>
+<td><code>AlignElevationTagsInViewCommand</code></td>
+<td><code>Features/AlignElevationTagsInViewCommand.cs:19-48</code></td>
+<td>Ribbon command entry point; creates updater and runs alignment</td>
+</tr>
+<tr>
+<td><code>ElevationTagsAutoUpdater</code></td>
+<td><code>Features/ElevationTagsAutoUpdater.cs:15-232</code></td>
+<td>Core alignment logic; computes text positions and updates spot dimensions</td>
+</tr>
+<tr>
+<td><code>ElevationTagsViewActivatedTask</code></td>
+<td><code>Hooks/ElevationTagsViewActivatedTask.cs:20-66</code></td>
+<td>View activation hook; triggers auto-update on floor/ceiling plan views</td>
+</tr>
+<tr>
+<td><code>ElevationTagsSettings</code></td>
+<td><code>Settings/ElevationTagsSettings.cs:21-56</code></td>
+<td>Settings model with default values</td>
+</tr>
+<tr>
+<td><code>ElevationTagsSettingsPackContext</code></td>
+<td><code>Settings/ElevationTagsSettingsPackContext.cs:18-242</code></td>
+<td>MVVM context for settings UI with validation</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/ElevationTagsToolModule.cs:14-92</code></p>
+</blockquote>
+<h3 id="alignment-algorithm">Alignment Algorithm</h3>
+<p>The <code>ElevationTagsAutoUpdater.TryUpdateSpot()</code> method performs the alignment calculation:</p>
+<ol>
+<li><p><strong>Extract Tag Properties</strong></p>
+<ul>
+<li>Origin position, leader end position, current text position</li>
+<li>Tag type parameters (text height, width scale, font name)</li>
+<li>Elevation base setting (Project Base Point, Survey Point, Relative)</li>
+</ul>
+</li>
+<li><p><strong>Format Elevation Value</strong></p>
+<ul>
+<li>Apply elevation indicator prefix/suffix</li>
+<li>Format using document unit settings</li>
+</ul>
+</li>
+<li><p><strong>Measure Text</strong></p>
+<ul>
+<li>Use GDI+ to measure formatted text string</li>
+<li>Account for font size scaled to view</li>
+</ul>
+</li>
+<li><p><strong>Calculate New Position</strong></p>
+<ul>
+<li>Horizontal offset based on text width and leader direction</li>
+<li>Vertical offset based on text height and position setting (Above/Below)</li>
+<li>Apply user-configured offset adjustments</li>
+</ul>
+</li>
+<li><p><strong>Update Position</strong></p>
+<ul>
+<li>Only update if position changed (rounded to 2 decimal places)</li>
+<li>Set <code>SpotDimension.TextPosition</code> to new XYZ</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:145-231</code></p>
+</blockquote>
+<h3 id="view-activation-hook">View Activation Hook</h3>
+<p>The <code>ElevationTagsViewActivatedTask</code> implements <code>ViewActivatedTaskBase&lt;ElevationTagsSettings&gt;</code>:</p>
+<pre><code class="lang-csharp">protected override Task&lt;bool&gt; ShouldRunInternalAsync(
+    UIApplication uiapp,
+    ViewActivatedEventArgs args,
+    ElevationTagsSettings settings,
+    CancellationToken ct)
+{
+    var view = app.ActiveUIDocument?.Document?.ActiveView;
+    if (view == null)
+        return Task.FromResult(false);
+
+    return Task.FromResult(
+        view.ViewType == ViewType.FloorPlan || 
+        view.ViewType == ViewType.CeilingPlan);
+}
+</code></pre>
+<p>The task only runs when:</p>
+<ul>
+<li>Auto-update is enabled in settings</li>
+<li>No active warning is set</li>
+<li>The activated view is a floor plan or ceiling plan</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:40-52</code></p>
+</blockquote>
+<h2 id="settings">Settings</h2>
+<h3 id="settings-model">Settings Model</h3>
+<pre><code class="lang-csharp">public sealed class ElevationTagsSettings : IAutoUpdateSettings
+{
+    /// &lt;summary&gt;Whether auto-update on view activation is enabled.&lt;/summary&gt;
+    public bool AutoUpdateEnabled { get; set; } = true;
+
+    /// &lt;summary&gt;Whether a warning has been set (disables auto-update).&lt;/summary&gt;
+    public bool HasWarning { get; set; }
+
+    /// &lt;summary&gt;
+    /// Regex patterns to match tag names. Tags matching any pattern will be aligned.
+    /// Default pattern matches tags starting with &quot;DB Elevation Tag&quot;.
+    /// Maximum of 3 patterns.
+    /// &lt;/summary&gt;
+    public List&lt;string&gt; TagNamePatterns { get; set; } = new() { &quot;^DB Elevation Tag&quot; };
+
+    /// &lt;summary&gt;Horizontal offset factor applied during text positioning (model units).&lt;/summary&gt;
+    public double HorizontalOffset { get; set; }
+
+    /// &lt;summary&gt;Vertical offset factor applied during text positioning (model units).&lt;/summary&gt;
+    public double VerticalOffset { get; set; }
+
+    /// &lt;summary&gt;Position of aligned text relative to the tag origin.&lt;/summary&gt;
+    public ElevationTextPosition TextPosition { get; set; } = ElevationTextPosition.Above;
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:21-56</code></p>
+</blockquote>
+<h3 id="text-position-enum">Text Position Enum</h3>
+<pre><code class="lang-csharp">public enum ElevationTextPosition
+{
+    /// &lt;summary&gt;Text is positioned above the tag origin.&lt;/summary&gt;
+    Above = 0,
+
+    /// &lt;summary&gt;Text is positioned below the tag origin.&lt;/summary&gt;
+    Below = 1
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:9-16</code></p>
+</blockquote>
+<h3 id="default-values">Default Values</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AutoUpdateEnabled</code></td>
+<td><code>true</code></td>
+<td>Auto-update is enabled by default</td>
+</tr>
+<tr>
+<td><code>HasWarning</code></td>
+<td><code>false</code></td>
+<td>No warning set initially</td>
+</tr>
+<tr>
+<td><code>TagNamePatterns</code></td>
+<td><code>[&quot;^DB Elevation Tag&quot;]</code></td>
+<td>Matches tags starting with &quot;DB Elevation Tag&quot;</td>
+</tr>
+<tr>
+<td><code>HorizontalOffset</code></td>
+<td><code>0.0</code></td>
+<td>No additional horizontal offset</td>
+</tr>
+<tr>
+<td><code>VerticalOffset</code></td>
+<td><code>0.0</code></td>
+<td>No additional vertical offset</td>
+</tr>
+<tr>
+<td><code>TextPosition</code></td>
+<td><code>Above</code></td>
+<td>Text positioned above the tag origin</td>
+</tr>
+</tbody>
+</table>
+<h3 id="configuration-section">Configuration Section</h3>
+<p>Settings are stored under the <code>Tools.ElevationTags</code> configuration section.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/manifest.yml:7</code></p>
+</blockquote>
+<h2 id="manifest">Manifest</h2>
+<pre><code class="lang-yaml">id: DBTools.ElevationTags
+assembly: DBTools
+moduleType: DBTools.ElevationTags.ElevationTagsToolModule
+order: 0
+tool:
+  settings:
+    configSection: Tools.ElevationTags
+  settingsPacks:
+    - key: common.elevation_tags
+      title: &quot;Elevation Tags&quot;
+      warnings:
+        - id: core.structural.elevation_tags
+          title: &quot;Elevation Tags Disabled&quot;
+          message: &quot;Elevation tag alignment is disabled due to a warning. Clear the warning to re-enable.&quot;
+          disableTools:
+            - DBTools.AlignElevationTagsInView
+  ribbonTools:
+    - internalName: DBTools.AlignElevationTagsInView
+      commandType: DBTools.ElevationTags.AlignElevationTagsInViewCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtActiveViewAvailability
+      runProfile: InlineUi
+      displayText: &quot;Align Elevation\nTags&quot;
+      iconBaseKey: align_elevation_tags
+      tooltip: &quot;Align elevation tags in the active view&quot;
+      controlKind: PushButton
+      order: 20
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/manifest.yml:1-27</code></p>
+</blockquote>
+<h3 id="manifest-properties">Manifest Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>DBTools.ElevationTags</code></td>
+<td>Unique tool identifier</td>
+</tr>
+<tr>
+<td><code>assembly</code></td>
+<td><code>DBTools</code></td>
+<td>Target assembly name</td>
+</tr>
+<tr>
+<td><code>moduleType</code></td>
+<td><code>DBTools.ElevationTags.ElevationTagsToolModule</code></td>
+<td>Entry point class</td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td><code>0</code></td>
+<td>Load order priority</td>
+</tr>
+<tr>
+<td><code>configSection</code></td>
+<td><code>Tools.ElevationTags</code></td>
+<td>Settings configuration key</td>
+</tr>
+<tr>
+<td><code>runProfile</code></td>
+<td><code>InlineUi</code></td>
+<td>Runs on UI thread with inline modal gate</td>
+</tr>
+<tr>
+<td><code>availabilityType</code></td>
+<td><code>DbtActiveViewAvailability</code></td>
+<td>Command available when active view exists</td>
+</tr>
+</tbody>
+</table>
+<h3 id="warning-system">Warning System</h3>
+<p>The tool defines a single warning that can disable functionality:</p>
+<ul>
+<li><strong>Warning ID</strong>: <code>core.structural.elevation_tags</code></li>
+<li><strong>Title</strong>: &quot;Elevation Tags Disabled&quot;</li>
+<li><strong>Effect</strong>: When active, disables the <code>AlignElevationTagsInView</code> command and auto-update</li>
+</ul>
+<p>When the warning is set:</p>
+<ul>
+<li><code>HasWarning</code> becomes <code>true</code></li>
+<li><code>AutoUpdateEnabled</code> is forced to <code>false</code></li>
+<li>The toggle in settings is disabled</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/ElevationTagsToolModule.cs:47-68</code></p>
+</blockquote>
+<h2 id="api-reference">API Reference</h2>
+<h3 id="elevationtagsautoupdater">ElevationTagsAutoUpdater</h3>
+<p>The main alignment class that processes spot elevation tags:</p>
+<pre><code class="lang-csharp">public sealed class ElevationTagsAutoUpdater
+{
+    public ElevationTagsAutoUpdater(
+        ITransactionRunner tx,
+        Document doc,
+        View activeView,
+        ILogger&lt;ElevationTagsAutoUpdater&gt; logger,
+        ElevationTagsSettings? settings = null);
+
+    /// &lt;summary&gt;
+    /// Runs the alignment process and returns the count of updated tags.
+    /// Only processes floor plan and ceiling plan views.
+    /// &lt;/summary&gt;
+    public int Run();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:27-91</code></p>
+</blockquote>
+<h3 id="filtering-logic">Filtering Logic</h3>
+<p>Tags are collected using a <code>FilteredElementCollector</code> scoped to the active view:</p>
+<pre><code class="lang-csharp">var tags = new FilteredElementCollector(_doc, _view.Id)
+    .OfCategory(BuiltInCategory.OST_SpotElevations)
+    .WhereElementIsNotElementType()
+    .ToElements();
+</code></pre>
+<p>Each tag's name is tested against all configured regex patterns. Tags matching any pattern are included.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:96-122</code></p>
+</blockquote>
+<h3 id="elevation-base-handling">Elevation Base Handling</h3>
+<p>The tool respects the elevation base setting on tag types:</p>
+<table>
+<thead>
+<tr>
+<th>Base Setting</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Survey Point</td>
+<td>Uses raw elevation value</td>
+</tr>
+<tr>
+<td>Project Base Point</td>
+<td>Subtracts project base point Z from elevation</td>
+</tr>
+<tr>
+<td>Relative</td>
+<td>Tag is skipped (not aligned)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:166-170</code></p>
+</blockquote>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tags not aligning</td>
+<td>No patterns match tag names</td>
+<td>Add regex pattern matching your tag family names</td>
+</tr>
+<tr>
+<td>Auto-update not running</td>
+<td>Warning is active</td>
+<td>Clear the warning in settings panel</td>
+</tr>
+<tr>
+<td>Auto-update not running</td>
+<td>Disabled in settings</td>
+<td>Enable auto-update toggle</td>
+</tr>
+<tr>
+<td>No tags in view</td>
+<td>View type not supported</td>
+<td>Only floor and ceiling plans are processed</td>
+</tr>
+<tr>
+<td>Invalid regex pattern</td>
+<td>Syntax error in pattern</td>
+<td>Check regex syntax; patterns are validated</td>
+</tr>
+<tr>
+<td>Tags with Relative base skipped</td>
+<td>By design</td>
+<td>Tags with Relative elevation base cannot be aligned</td>
+</tr>
+</tbody>
+</table>
+<h3 id="logging">Logging</h3>
+<p>The tool logs diagnostic information via <code>ILogger&lt;ElevationTagsAutoUpdater&gt;</code>:</p>
+<ul>
+<li>Invalid regex patterns are logged as warnings</li>
+<li>Tags that fail to filter or update are logged (first occurrence only)</li>
+<li>Units format option errors are logged</li>
+</ul>
+<pre><code class="lang-csharp">_logger.LogWarning(ex, &quot;[ElevationTags] Invalid regex pattern '{Pattern}'; skipping.&quot;, pattern);
+_logger.LogWarning(&quot;[ElevationTags] No valid tag name patterns are configured; auto-update will be skipped.&quot;);
+_logger.LogWarning(ex, &quot;[ElevationTags] Some elevation tags could not be updated; continuing.&quot;);
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:51-189</code></p>
+</blockquote>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../../architecture/overview.html">Architecture Overview</a> - DBTools architecture fundamentals</li>
+<li><a href="../../architecture/theme-system.html">Theme System</a> - UI theming for settings panels</li>
+</ul>
+<h2 id="source-files-reviewed">Source Files Reviewed</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>manifest.yml</code></td>
+<td>Tool declaration and ribbon configuration</td>
+</tr>
+<tr>
+<td><code>ElevationTagsToolModule.cs</code></td>
+<td>Module registration and DI setup</td>
+</tr>
+<tr>
+<td><code>AlignElevationTagsInViewCommand.cs</code></td>
+<td>Ribbon command entry point</td>
+</tr>
+<tr>
+<td><code>ElevationTagsAutoUpdater.cs</code></td>
+<td>Core alignment algorithm</td>
+</tr>
+<tr>
+<td><code>ElevationTagsViewActivatedTask.cs</code></td>
+<td>View activation hook</td>
+</tr>
+<tr>
+<td><code>ElevationTagsSettings.cs</code></td>
+<td>Settings model definition</td>
+</tr>
+<tr>
+<td><code>ElevationTagsSettingsPackContext.cs</code></td>
+<td>Settings UI view model</td>
+</tr>
+<tr>
+<td><code>ElevationTagsSettingsPackView.xaml</code></td>
+<td>Settings UI layout</td>
+</tr>
+<tr>
+<td><code>DBTools.ElevationTags.csproj</code></td>
+<td>Project configuration</td>
+</tr>
+</tbody>
+</table>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/common/elevation-tags.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/common/elevation-tags.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

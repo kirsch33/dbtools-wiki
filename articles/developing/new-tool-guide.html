@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Creating New Tools | DBTools Developer Documentation </title>
+      <title>Creating New Tools in DBTools | DBTools Developer Documentation </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Creating New Tools | DBTools Developer Documentation ">
+      <meta name="title" content="Creating New Tools in DBTools | DBTools Developer Documentation ">
       
       
       <link rel="icon" href="../../favicon.ico">
@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/developing/new-tool-guide.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/developing/new-tool-guide.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -85,81 +85,1122 @@
         </div>
 
         <article data-uid="">
-<h1 id="creating-new-tools">Creating New Tools</h1>
+<h1 id="creating-new-tools-in-dbtools">Creating New Tools in DBTools</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
+<p>This guide covers the complete process of creating a new tool for the DBTools Revit add-in platform. By the end, you'll understand the tool module system, manifest configuration, command implementation, and UI patterns.</p>
+<hr>
 <h2 id="overview">Overview</h2>
-<p>This guide walks through creating a new tool for DBTools.</p>
+<p>DBTools uses a <strong>manifest-driven plugin architecture</strong>. Each tool:</p>
+<ol>
+<li>Lives in its own folder under <code>csharp/src/Tools/</code></li>
+<li>Declares metadata via <code>manifest.yml</code></li>
+<li>Implements a <code>DbtToolModule</code> subclass for DI registration</li>
+<li>Provides one or more <code>DbtToolCommand</code> implementations</li>
+<li>Optionally includes WPF UI, settings, and hooks</li>
+</ol>
+<p><strong>Key architectural principle:</strong> Tool source files are <strong>file-linked</strong> into <code>DBTools.App</code> at build time. Individual tool <code>.csproj</code> files exist for IDE navigation and per-tool test projects, but the final <code>DBTools.dll</code> assembly contains all tool code compiled together.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:61-78</code></p>
+</blockquote>
+<hr>
 <h2 id="prerequisites">Prerequisites</h2>
-<ul>
-<li>Understanding of <a href="../architecture/overview.html">Architecture Overview</a></li>
-<li>Familiarity with <a href="../projects/core.html">DBTools.Core</a></li>
-<li><a href="../architecture/build-pipeline.html">Build Pipeline</a> setup</li>
-</ul>
-<h2 id="step-by-step-guide">Step-by-Step Guide</h2>
-<h3 id="1-create-project-structure">1. Create Project Structure</h3>
-<pre><code>csharp/src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/
-├── DBTools.&lt;ToolName&gt;.csproj
-├── manifest.yml
-├── &lt;ToolName&gt;ToolModule.cs
-├── Commands/
-├── ViewModels/
-└── Views/
+<p>Before creating a new tool:</p>
+<ol>
+<li>Ensure you can build the solution: <code>bash csharp/build.sh</code></li>
+<li>Understand the target Revit versions (net48 for 2024, net8.0-windows for 2025+)</li>
+<li>Decide on a tool category: <code>Common</code>, <code>Structural</code>, <code>Testing</code>, or new category</li>
+<li>Choose a unique tool ID (e.g., <code>DBTools.MyTool</code>)</li>
+</ol>
+<hr>
+<h2 id="step-1-directory-structure">Step 1: Directory Structure</h2>
+<p>Create your tool folder under the appropriate category:</p>
+<pre><code>csharp/src/Tools/
+  Common/           # General-purpose tools
+    GM/             # Global Mapper (complex example)
+    ElevationTags/  # Simple example
+  Structural/       # Structural engineering tools
+    SGT/            # Super Girt Tool (complex example)
+    FramingJoins/   # Simple example
+  Testing/          # Testing/debug tools
 </code></pre>
-<h3 id="2-create-project-file">2. Create Project File</h3>
+<h3 id="minimal-tool-structure">Minimal Tool Structure</h3>
+<pre><code>csharp/src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/
+  Assets/
+    my_tool.png              # 32x32 icon for ribbon (required)
+    my_tool_16.png           # 16x16 small icon (optional)
+  Features/
+    MyToolCommand.cs         # IExternalCommand implementation
+  manifest.yml               # Tool metadata and ribbon config
+  &lt;ToolName&gt;ToolModule.cs    # DI registration
+  DBTools.&lt;ToolName&gt;.csproj  # Project file (for IDE/tests)
+</code></pre>
+<h3 id="complex-tool-structure-with-ui">Complex Tool Structure (with UI)</h3>
+<pre><code>csharp/src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/
+  Assets/
+    *.png                    # Icons
+  Bootstrap/
+    ServiceExtensions.cs     # DI extension methods
+  Features/
+    Commands/
+      MyToolCommand.cs
+    Logic/
+      MyService.cs
+      IMyService.cs
+  Shell/
+    DI/
+      Services.cs            # Detailed DI registrations
+    DesignTime/
+      MyWindowDesignTimeViewModel.cs
+    UI/
+      Views/
+        MyWindow.xaml
+        MyWindow.xaml.cs
+      ViewModels/
+        MyWindowViewModel.cs
+  Shared/
+    Models/
+    Contracts/
+  Tests/                     # Separate test project folder
+    DBTools.&lt;ToolName&gt;.Tests.csproj
+  Properties/
+    DesignTimeResources.xaml # For XAML designer
+  manifest.yml
+  &lt;ToolName&gt;ToolModule.cs
+  DBTools.&lt;ToolName&gt;.csproj
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> Reference structure from <code>csharp/src/Tools/Common/GM/</code> and <code>csharp/src/Tools/Structural/SGT/</code></p>
+</blockquote>
+<hr>
+<h2 id="step-2-project-file-csproj">Step 2: Project File (.csproj)</h2>
+<p>Create a project file for IDE support and test isolation. The project file is NOT used for the main build (files are linked into DBTools.App), but it enables:</p>
+<ul>
+<li>IntelliSense and navigation</li>
+<li>Per-tool test projects</li>
+<li>Design-time XAML preview</li>
+</ul>
+<h3 id="minimal-project-file">Minimal Project File</h3>
 <pre><code class="lang-xml">&lt;Project Sdk=&quot;Microsoft.NET.Sdk&quot;&gt;
   &lt;PropertyGroup&gt;
-    &lt;TargetFramework&gt;net48&lt;/TargetFramework&gt;
-    &lt;AssemblyName&gt;DBTools.$(MSBuildProjectName)&lt;/AssemblyName&gt;
+    &lt;TargetFrameworks&gt;$(DBT_RevitTargetFrameworks)&lt;/TargetFrameworks&gt;
+    &lt;LangVersion&gt;latest&lt;/LangVersion&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+    &lt;RootNamespace&gt;DBTools.MyTool&lt;/RootNamespace&gt;
   &lt;/PropertyGroup&gt;
-  
+
+  &lt;!-- Exclude Revit-dependent code during design-time builds --&gt;
+  &lt;ItemGroup Condition=&quot;'$(DesignTimeBuild)'=='true' or '$(DBT_IsSandboxBuild)'=='true'&quot;&gt;
+    &lt;Compile Remove=&quot;**\Revit\**\*.cs&quot; /&gt;
+  &lt;/ItemGroup&gt;
+  &lt;ItemGroup Condition=&quot;'$(DBT_IsSandboxBuild)'=='true'&quot;&gt;
+    &lt;Compile Remove=&quot;Features\MyToolCommand.cs&quot; /&gt;
+    &lt;Compile Remove=&quot;MyToolToolModule.cs&quot; /&gt;
+  &lt;/ItemGroup&gt;
   &lt;ItemGroup&gt;
-    &lt;ProjectReference Include=&quot;..\..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
+    &lt;Compile Remove=&quot;Tests\**\*.cs&quot; /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;PropertyGroup Condition=&quot;'$(TargetFramework)'=='net48'&quot;&gt;
+    &lt;NoWarn&gt;$(NoWarn);CS0618;MA0038;MA0051;MA0048;MA0016;MA0098;MA0004;CA1068;CA1707;CA1725&lt;/NoWarn&gt;
+    &lt;PlatformTarget&gt;x64&lt;/PlatformTarget&gt;
+    &lt;Prefer32Bit&gt;false&lt;/Prefer32Bit&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;PropertyGroup Condition=&quot;'$(TargetFramework)'=='net8.0-windows'&quot;&gt;
+    &lt;NoWarn&gt;$(NoWarn);CS0618;MA0038;MA0048;MA0016;MA0051;MA0098;MA0004;CA1707;CA1725;CA1068;MSB3277&lt;/NoWarn&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;SupportedOSPlatformVersion&gt;6.1&lt;/SupportedOSPlatformVersion&gt;
+  &lt;/PropertyGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;ProjectReference Include=&quot;..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;!-- Embed icons --&gt;
+  &lt;ItemGroup&gt;
+    &lt;EmbeddedResource Include=&quot;Assets\\*.png&quot;&gt;
+      &lt;Link&gt;Resources\\Icons\\%(Filename)%(Extension)&lt;/Link&gt;
+    &lt;/EmbeddedResource&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;!-- Required packages --&gt;
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include=&quot;ricaun.Revit.UI.Tasks&quot; /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;!-- Revit API references --&gt;
+  &lt;ItemGroup Condition=&quot;'$(DesignTimeBuild)'!='true' and '$(DBT_IsSandboxBuild)'!='true' and '$(TargetFramework)'=='net48'&quot;&gt;
+    &lt;Reference Include=&quot;RevitAPI&quot;&gt;
+      &lt;HintPath&gt;$(REVIT2024_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+      &lt;Private&gt;false&lt;/Private&gt;
+    &lt;/Reference&gt;
+    &lt;Reference Include=&quot;RevitAPIUI&quot;&gt;
+      &lt;HintPath&gt;$(REVIT2024_DIR)\RevitAPIUI.dll&lt;/HintPath&gt;
+      &lt;Private&gt;false&lt;/Private&gt;
+    &lt;/Reference&gt;
+    &lt;Reference Include=&quot;WindowsBase&quot; /&gt;
+  &lt;/ItemGroup&gt;
+  &lt;ItemGroup Condition=&quot;'$(DesignTimeBuild)'!='true' and '$(DBT_IsSandboxBuild)'!='true' and '$(TargetFramework)'=='net8.0-windows'&quot;&gt;
+    &lt;Reference Include=&quot;RevitAPI&quot; Condition=&quot;'$(REVIT_NET8_DIR)'!='' and Exists('$(REVIT_NET8_DIR)\\RevitAPI.dll')&quot;&gt;
+      &lt;HintPath&gt;$(REVIT_NET8_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+      &lt;Private&gt;false&lt;/Private&gt;
+    &lt;/Reference&gt;
+    &lt;Reference Include=&quot;RevitAPIUI&quot; Condition=&quot;'$(REVIT_NET8_DIR)'!='' and Exists('$(REVIT_NET8_DIR)\\RevitAPIUI.dll')&quot;&gt;
+      &lt;HintPath&gt;$(REVIT_NET8_DIR)\RevitAPIUI.dll&lt;/HintPath&gt;
+      &lt;Private&gt;false&lt;/Private&gt;
+    &lt;/Reference&gt;
   &lt;/ItemGroup&gt;
 &lt;/Project&gt;
 </code></pre>
-<h3 id="3-create-manifest">3. Create Manifest</h3>
-<pre><code class="lang-yaml"># manifest.yml
-name: MyTool
-displayName: My Tool
-description: Description of what the tool does
-version: 1.0.0
-author: Your Name
-category: Common  # or Structural, Testing, etc.
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FramingJoins/DBTools.Structural.FramingJoins.csproj:1-69</code></p>
+</blockquote>
+<h3 id="for-tools-with-wpf-ui">For Tools with WPF UI</h3>
+<p>Add the following to your <code>.csproj</code>:</p>
+<pre><code class="lang-xml">&lt;PropertyGroup&gt;
+  &lt;UseWPF&gt;true&lt;/UseWPF&gt;
+&lt;/PropertyGroup&gt;
+
+&lt;!-- Additional packages for MVVM --&gt;
+&lt;ItemGroup&gt;
+  &lt;PackageReference Include=&quot;CommunityToolkit.Mvvm&quot; /&gt;
+&lt;/ItemGroup&gt;
+
+&lt;!-- Fluent Ribbon if using ribbon-based window --&gt;
+&lt;ItemGroup&gt;
+  &lt;Reference Include=&quot;DBTools.Fluent.Ribbon&quot;&gt;
+    &lt;HintPath&gt;$(DBT_VendorArtifactsRoot)fluentribbon\$(TargetFramework)\DBTools.Fluent.Ribbon.dll&lt;/HintPath&gt;
+    &lt;Private&gt;true&lt;/Private&gt;
+  &lt;/Reference&gt;
+  &lt;Reference Include=&quot;DBTools.ControlzEx&quot;&gt;
+    &lt;HintPath&gt;$(DBT_VendorArtifactsRoot)controlzex\$(TargetFramework)\DBTools.ControlzEx.dll&lt;/HintPath&gt;
+    &lt;Private&gt;true&lt;/Private&gt;
+  &lt;/Reference&gt;
+&lt;/ItemGroup&gt;
+
+&lt;!-- Design-time resources --&gt;
+&lt;ItemGroup&gt;
+  &lt;Page Update=&quot;Properties\DesignTimeResources.xaml&quot;&gt;
+    &lt;SubType&gt;Designer&lt;/SubType&gt;
+    &lt;Generator&gt;MSBuild:Compile&lt;/Generator&gt;
+    &lt;ContainsDesignTimeResources&gt;true&lt;/ContainsDesignTimeResources&gt;
+  &lt;/Page&gt;
+&lt;/ItemGroup&gt;
 </code></pre>
-<h3 id="4-create-module-class">4. Create Module Class</h3>
-<pre><code class="lang-csharp">public class MyToolModule : IDbtToolModule
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/DBTools.GM.csproj:1-94</code></p>
+</blockquote>
+<hr>
+<h2 id="step-3-manifestyml-complete-schema">Step 3: manifest.yml (Complete Schema)</h2>
+<p>The manifest file declares your tool's metadata, ribbon configuration, and optional settings.</p>
+<h3 id="complete-schema-reference">Complete Schema Reference</h3>
+<pre><code class="lang-yaml"># Required: Unique tool identifier
+id: DBTools.MyTool
+
+# Required: Assembly name (without .dll) - always &quot;DBTools&quot; for main tools
+assembly: DBTools
+
+# Required: Fully-qualified type name of DbtToolModule subclass
+moduleType: DBTools.MyTool.MyToolToolModule
+
+# Required: Load order (lower = earlier). Use 0 unless you need ordering.
+order: 0
+
+# Optional: Sandbox windows for design-time preview
+sandboxWindows:
+  - id: DBTools.MyTool.Main
+    displayName: &quot;My Tool&quot;
+    group: &quot;Common&quot;               # or &quot;Structural&quot;, &quot;Testing&quot;
+    windowType: &quot;DBTools.MyTool.Shell.UI.Views.MyToolWindow&quot;
+    designTimeViewModelType: &quot;DBTools.MyTool.Shell.DesignTime.MyToolDesignTimeViewModel&quot;
+
+# Required: Tool configuration
+tool:
+  # Optional: Settings configuration
+  settings:
+    configSection: Tools.MyTool   # Section in settings.json
+
+  # Optional: Settings packs for Settings window
+  settingsPacks:
+    - key: common.my_tool
+      title: &quot;My Tool&quot;
+      warnings:
+        - id: core.my_tool.warning
+          title: &quot;My Tool Disabled&quot;
+          message: &quot;Tool is disabled due to a configuration issue.&quot;
+          disableTools:
+            - DBTools.MyToolCommand
+
+  # Required: Ribbon button definitions
+  ribbonTools:
+    - internalName: DBTools.MyToolCommand
+      commandType: DBTools.MyTool.Features.MyToolCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
+      displayText: &quot;My Tool&quot;
+      iconBaseKey: my_tool
+      tooltip: &quot;Launch My Tool&quot;
+      controlKind: PushButton
+      order: 50
+</code></pre>
+<h3 id="manifest-properties-reference">Manifest Properties Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Yes</td>
+<td>Unique identifier (e.g., <code>DBTools.MyTool</code>)</td>
+</tr>
+<tr>
+<td><code>assembly</code></td>
+<td>Yes</td>
+<td>Assembly name without <code>.dll</code> (always <code>DBTools</code>)</td>
+</tr>
+<tr>
+<td><code>moduleType</code></td>
+<td>Yes</td>
+<td>Full type name of <code>DbtToolModule</code> subclass</td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td>Yes</td>
+<td>Load order (0 for most tools)</td>
+</tr>
+<tr>
+<td><code>sandboxWindows</code></td>
+<td>No</td>
+<td>Design-time preview windows</td>
+</tr>
+<tr>
+<td><code>tool.settings.configSection</code></td>
+<td>No</td>
+<td>settings.json section for Options pattern</td>
+</tr>
+<tr>
+<td><code>tool.settingsPacks</code></td>
+<td>No</td>
+<td>Settings window configuration</td>
+</tr>
+<tr>
+<td><code>tool.ribbonTools</code></td>
+<td>Yes</td>
+<td>At least one ribbon button definition</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ribbon-tool-properties">Ribbon Tool Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internalName</code></td>
+<td>Yes</td>
+<td>Unique button identifier</td>
+</tr>
+<tr>
+<td><code>commandType</code></td>
+<td>Yes</td>
+<td>Full type name of command class</td>
+</tr>
+<tr>
+<td><code>availabilityType</code></td>
+<td>No</td>
+<td><code>IExternalCommandAvailability</code> implementation</td>
+</tr>
+<tr>
+<td><code>runProfile</code></td>
+<td>No</td>
+<td><code>InlineUi</code> (default), <code>BackgroundWork</code>, etc.</td>
+</tr>
+<tr>
+<td><code>displayText</code></td>
+<td>Yes</td>
+<td>Button label (use <code>\n</code> for line breaks)</td>
+</tr>
+<tr>
+<td><code>iconBaseKey</code></td>
+<td>Yes</td>
+<td>Icon filename without extension</td>
+</tr>
+<tr>
+<td><code>tooltip</code></td>
+<td>Yes</td>
+<td>Button tooltip text</td>
+</tr>
+<tr>
+<td><code>controlKind</code></td>
+<td>Yes</td>
+<td><code>PushButton</code>, <code>SplitButtonItem</code>, <code>PulldownButtonItem</code>, <code>StackedButtonItem</code></td>
+</tr>
+<tr>
+<td><code>splitGroup</code></td>
+<td>No</td>
+<td>Group name for split/pulldown/stacked buttons</td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td>Yes</td>
+<td>Button order within panel</td>
+</tr>
+<tr>
+<td><code>groupDisplayText</code></td>
+<td>No</td>
+<td>Header text for pulldown groups</td>
+</tr>
+<tr>
+<td><code>groupTooltip</code></td>
+<td>No</td>
+<td>Tooltip for pulldown header</td>
+</tr>
+<tr>
+<td><code>groupIconBaseKey</code></td>
+<td>No</td>
+<td>Icon for pulldown header</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtToolManifest.cs:1-68</code> and <code>csharp/src/DBTools.Core/Tools/DbtToolManifestLoader.cs:287-307</code></p>
+</blockquote>
+<h3 id="example-simple-tool">Example: Simple Tool</h3>
+<pre><code class="lang-yaml">id: DBTools.Structural.FramingJoins
+assembly: DBTools
+moduleType: DBTools.Structural.FramingJoins.FramingJoinsToolModule
+order: 0
+tool:
+  ribbonTools:
+    - internalName: DBTools.AllowJoinSelected
+      commandType: DBTools.Structural.FramingJoins.AllowJoinSelectedCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtStructuralFramingSelectionAvailability
+      runProfile: InlineUi
+      displayText: &quot;Allow Join&quot;
+      iconBaseKey: allow_join
+      tooltip: &quot;Allow structural framing joins for selected elements&quot;
+      controlKind: SplitButtonItem
+      splitGroup: framing_joins
+      order: 0
+    - internalName: DBTools.DisallowJoinSelected
+      commandType: DBTools.Structural.FramingJoins.DisallowJoinSelectedCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtStructuralFramingSelectionAvailability
+      runProfile: InlineUi
+      displayText: &quot;Disallow Join&quot;
+      iconBaseKey: disallow_join
+      tooltip: &quot;Disallow structural framing joins for selected elements&quot;
+      controlKind: SplitButtonItem
+      splitGroup: framing_joins
+      order: 1
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FramingJoins/manifest.yml:1-27</code></p>
+</blockquote>
+<h3 id="example-complex-tool-with-ui">Example: Complex Tool with UI</h3>
+<pre><code class="lang-yaml">id: DBTools.GM
+assembly: DBTools
+moduleType: DBTools.GM.GmToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.GM.Main
+    displayName: &quot;Global Mapper&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.GmShellDesignTimeViewModel&quot;
+  - id: DBTools.GM.MappingReport
+    displayName: &quot;Global Mapper - Mapping Report&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.GM.Features.Mapping.UI.Views.GmMappingReportWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Features.Mapping.DesignTime.GmMappingReportDesignTimeViewModel&quot;
+tool:
+  ribbonTools:
+    - internalName: DBTools.GM
+      commandType: DBTools.GM.Features.GmCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
+      displayText: &quot;Global Mapper&quot;
+      iconBaseKey: gm
+      tooltip: &quot;Open Global Mapper&quot;
+      controlKind: PushButton
+      order: 30
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/manifest.yml:1-27</code></p>
+</blockquote>
+<hr>
+<h2 id="step-4-toolmodule-class">Step 4: ToolModule Class</h2>
+<p>The <code>DbtToolModule</code> subclass registers services with the DI container.</p>
+<h3 id="minimal-implementation">Minimal Implementation</h3>
+<p>For simple tools with no custom services:</p>
+<pre><code class="lang-csharp">using DBTools.Core.Tools;
+
+namespace DBTools.Structural.FramingJoins;
+
+public sealed class FramingJoinsToolModule : DbtToolModule
 {
-    public void RegisterServices(IServiceCollection services)
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FramingJoins/FramingJoinsToolModule.cs:1-8</code></p>
+</blockquote>
+<h3 id="with-service-registration">With Service Registration</h3>
+<pre><code class="lang-csharp">using DBTools.Core.Tools;
+using DBTools.Core.Compat;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DBTools.MyTool;
+
+public sealed class MyToolToolModule : DbtToolModule
+{
+    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
     {
+        Guard.NotNull(services, nameof(services));
+        Guard.NotNull(manifest, nameof(manifest));
+        
         // Register tool-specific services
-    }
-    
-    public void RegisterCommands(ICommandRegistry registry)
-    {
-        // Register ribbon commands
+        services.AddScoped&lt;IMyService, MyService&gt;();
+        services.AddScoped&lt;MyOtherService&gt;();
     }
 }
 </code></pre>
-<h3 id="5-register-in-build">5. Register in Build</h3>
-<p>Add project reference to DBTools.App.</p>
-<hr>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - needs expansion</p>
-<p><strong>TODO</strong>:</p>
-<ul>
-<li>[ ] Add complete working example</li>
-<li>[ ] Document manifest schema</li>
-<li>[ ] Add command registration details</li>
-<li>[ ] Document testing setup</li>
-</ul>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/GmToolModule.cs:1-19</code></p>
 </blockquote>
+<h3 id="with-hooks">With Hooks</h3>
+<pre><code class="lang-csharp">using DBTools.Core.Tools;
+using DBTools.Core.Compat;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DBTools.SGT;
+
+public sealed class SgtToolModule : DbtToolModule
+{
+    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+    {
+        Guard.NotNull(services, nameof(services));
+        Guard.NotNull(manifest, nameof(manifest));
+        
+        services.AddSgtServices();
+        services.AddSingleton&lt;SgtContextualRibbonInjector, SgtContextualRibbonInjector&gt;();
+    }
+
+    public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+    {
+        Guard.NotNull(registry, nameof(registry));
+        Guard.NotNull(manifest, nameof(manifest));
+        
+        // Register contextual ribbon hook
+        registry.RegisterHook&lt;IContextualRibbonInjector, SgtContextualRibbonInjector&gt;();
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/SgtToolModule.cs:1-27</code></p>
+</blockquote>
+<h3 id="dbttoolmodule-virtual-methods">DbtToolModule Virtual Methods</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RegisterSettings</code></td>
+<td>Register Options pattern settings types</td>
+</tr>
+<tr>
+<td><code>RegisterServices</code></td>
+<td>Register services for DI container</td>
+</tr>
+<tr>
+<td><code>RegisterSettingsPacks</code></td>
+<td>Register settings pack definitions</td>
+</tr>
+<tr>
+<td><code>RegisterHooks</code></td>
+<td>Register event hooks (ViewActivated, ContextualRibbon)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtToolModule.cs:1-50</code></p>
+</blockquote>
+<hr>
+<h2 id="step-5-command-implementation">Step 5: Command Implementation</h2>
+<p>Commands implement <code>DbtToolCommand</code> (not <code>IExternalCommand</code> directly) to get automatic error handling, logging, and run scope management.</p>
+<h3 id="basic-command-structure">Basic Command Structure</h3>
+<pre><code class="lang-csharp">using System;
+using System.Threading.Tasks;
+using Autodesk.Revit.Attributes;
+using DBTools.Core.Compat;
+using DBTools.Core.Revit.Execution;
+using Microsoft.Extensions.Logging;
+
+namespace DBTools.MyTool.Features;
+
+[Transaction(TransactionMode.Manual)]
+public sealed class MyToolCommand : DbtToolCommand
+{
+    protected override async Task RunAsync(IDbtToolContext context)
+    {
+        Guard.EnsureNotNull(context, nameof(context));
+        
+        var logger = context.Logger;
+        var doc = context.Document;
+        var uidoc = context.UIDocument;
+        
+        logger.LogDebug(&quot;[MyTool] Starting execution&quot;);
+        
+        // Your tool logic here
+        
+        await Task.CompletedTask.ConfigureAwait(false);
+    }
+    
+    protected override SafeExecutor.SafeExecuteOptions CreateExecuteOptions(
+        Autodesk.Revit.UI.ExternalCommandData commandData)
+    {
+        return new SafeExecutor.SafeExecuteOptions
+        {
+            Name = &quot;My Tool&quot;,
+            ShowCompletionToUser = true,
+            SuppressCompletionBanner = false
+        };
+    }
+}
+</code></pre>
+<h3 id="with-transaction">With Transaction</h3>
+<pre><code class="lang-csharp">[Transaction(TransactionMode.Manual)]
+public sealed class AllowJoinSelectedCommand : DbtToolCommand
+{
+    protected override async Task RunAsync(IDbtToolContext context)
+    {
+        Guard.EnsureNotNull(context, nameof(context));
+        var uidoc = context.UIDocument;
+        var doc = context.Document;
+        var logger = context.Logger;
+
+        // Get selection
+        var selectedIds = uidoc.Selection.GetElementIds();
+        if (selectedIds == null || selectedIds.Count == 0)
+        {
+            throw new InvalidOperationException(&quot;Please select elements.&quot;);
+        }
+
+        // Create transaction runner
+        var gate = new ModalInlineCallGate(context.UIApplication);
+        var tx = new DBTools.Core.Revit.Transactions.CallGateTransactionRunner(gate);
+        int modified = 0;
+
+        await tx.RunAsync(doc, &quot;DB Tools - Allow Join&quot;, d =&gt;
+        {
+            foreach (var id in selectedIds)
+            {
+                var elem = doc.GetElement(id) as FamilyInstance;
+                if (elem == null) continue;
+                
+                StructuralFramingUtils.AllowJoinAtEnd(elem, 0);
+                StructuralFramingUtils.AllowJoinAtEnd(elem, 1);
+                modified++;
+            }
+        }).ConfigureAwait(false);
+
+        logger.LogDebug(&quot;[AllowJoin] Modified {Count} elements.&quot;, modified);
+
+        // Show result
+        var alerts = context.Resolve&lt;IAlertService&gt;();
+        _ = alerts.Show(new AlertRequest(
+            &quot;Allow Join&quot;, 
+            new MessageBodyViewModel($&quot;Allowed joins on {modified} element(s).&quot;))
+        {
+            Buttons = new[] { new AlertButtonSpec(&quot;ok&quot;, &quot;OK&quot;) { IsDefault = true } }
+        });
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FramingJoins/Features/AllowJoinSelectedCommand.cs:1-89</code></p>
+</blockquote>
+<h3 id="idbttoolcontext-properties">IDbtToolContext Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UIApplication</code></td>
+<td>Revit UIApplication</td>
+</tr>
+<tr>
+<td><code>UIDocument</code></td>
+<td>Active UIDocument</td>
+</tr>
+<tr>
+<td><code>Document</code></td>
+<td>Active Document</td>
+</tr>
+<tr>
+<td><code>Logger</code></td>
+<td>ILogger for the command</td>
+</tr>
+<tr>
+<td><code>Resolve&lt;T&gt;()</code></td>
+<td>Resolve service from DI</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Revit/Execution/DbtToolCommand.cs:1-239</code></p>
+</blockquote>
+<hr>
+<h2 id="step-6-ui-implementation-mvvm-pattern">Step 6: UI Implementation (MVVM Pattern)</h2>
+<p>For tools with UI, follow the MVVM pattern with DBTools conventions.</p>
+<h3 id="window-base-classes">Window Base Classes</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DbtWindowBase</code></td>
+<td>Modal dialogs</td>
+</tr>
+<tr>
+<td><code>DbtRibbonWindowBase</code></td>
+<td>Windows with Fluent Ribbon</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtWindowBase.cs:1-48</code></p>
+</blockquote>
+<h3 id="xaml-window-template">XAML Window Template</h3>
+<pre><code class="lang-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+&lt;core:DbtWindowBase
+    x:Class=&quot;DBTools.MyTool.Shell.UI.Views.MyToolWindow&quot;
+    xmlns=&quot;http://schemas.microsoft.com/winfx/2006/xaml/presentation&quot;
+    xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot;
+    xmlns:d=&quot;http://schemas.microsoft.com/expression/blend/2008&quot;
+    xmlns:mc=&quot;http://schemas.openxmlformats.org/markup-compatibility/2006&quot;
+    xmlns:core=&quot;clr-namespace:DBTools.Core.UI.Windows;assembly=DBTools.Core&quot;
+    xmlns:theme=&quot;clr-namespace:DBTools.Themes;assembly=DBTools.Themes&quot;
+    xmlns:dt=&quot;clr-namespace:DBTools.MyTool.Shell.DesignTime&quot;
+    d:DataContext=&quot;{d:DesignInstance Type=dt:MyToolDesignTimeViewModel, IsDesignTimeCreatable=True}&quot;
+    Title=&quot;My Tool&quot;
+    Width=&quot;800&quot;
+    Height=&quot;600&quot;
+    MinWidth=&quot;600&quot;
+    MinHeight=&quot;400&quot;
+    ResizeMode=&quot;CanResize&quot;
+    mc:Ignorable=&quot;d&quot;&gt;
+
+    &lt;Window.Resources&gt;
+        &lt;ResourceDictionary&gt;
+            &lt;ResourceDictionary.MergedDictionaries&gt;
+                &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.Themes;component/Themes/App.Theme.xaml&quot; /&gt;
+            &lt;/ResourceDictionary.MergedDictionaries&gt;
+        &lt;/ResourceDictionary&gt;
+    &lt;/Window.Resources&gt;
+
+    &lt;Grid&gt;
+        &lt;!-- Your UI content --&gt;
+    &lt;/Grid&gt;
+&lt;/core:DbtWindowBase&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml:1-26</code></p>
+</blockquote>
+<h3 id="viewmodel-pattern">ViewModel Pattern</h3>
+<p>Use <code>CommunityToolkit.Mvvm</code> for MVVM implementation:</p>
+<pre><code class="lang-csharp">using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+namespace DBTools.MyTool.Shell.UI.ViewModels;
+
+public partial class MyToolWindowViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private string _searchText = string.Empty;
+    
+    [ObservableProperty]
+    private bool _isBusy;
+    
+    [RelayCommand]
+    private async Task ExecuteAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            // Do work
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}
+</code></pre>
+<h3 id="design-time-viewmodel">Design-Time ViewModel</h3>
+<p>Create a design-time ViewModel for XAML preview:</p>
+<pre><code class="lang-csharp">using System.Windows.Input;
+using DBTools.Core.UI;
+
+namespace DBTools.MyTool.Shell.DesignTime;
+
+/// &lt;summary&gt;
+/// Design-time ViewModel for XAML Designer support.
+/// DO NOT instantiate at runtime.
+/// &lt;/summary&gt;
+[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+public sealed class MyToolDesignTimeViewModel
+{
+    // Commands - use DesignTimeRelayCommand for all
+    public ICommand ExecuteCommand =&gt; DesignTimeRelayCommand.Instance;
+    public ICommand CloseCommand =&gt; DesignTimeRelayCommand.Instance;
+    
+    // Properties with sample data
+    public string SearchText { get; set; } = &quot;Sample search&quot;;
+    public bool IsBusy =&gt; false;
+    
+    public MyToolDesignTimeViewModel()
+    {
+        // Initialize sample data for designer preview
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Shell/DesignTime/GmShellDesignTimeViewModel.cs:1-250</code></p>
+</blockquote>
+<hr>
+<h2 id="step-7-settings-optional">Step 7: Settings (Optional)</h2>
+<h3 id="defining-settings">Defining Settings</h3>
+<p>Create a settings class:</p>
+<pre><code class="lang-csharp">namespace DBTools.MyTool.Settings;
+
+public sealed class MyToolSettings
+{
+    public bool EnableFeatureX { get; set; } = true;
+    public int Threshold { get; set; } = 50;
+}
+</code></pre>
+<h3 id="registering-settings">Registering Settings</h3>
+<p>In your <code>ToolModule</code>:</p>
+<pre><code class="lang-csharp">public override void RegisterSettings(
+    IServiceCollection services, 
+    IConfiguration configuration, 
+    DbtToolManifest manifest)
+{
+    Guard.NotNull(services, nameof(services));
+    Guard.NotNull(configuration, nameof(configuration));
+    Guard.NotNull(manifest, nameof(manifest));
+    
+    var section = manifest.Tool?.Settings?.ConfigSection ?? &quot;Tools.MyTool&quot;;
+    services.Configure&lt;MyToolSettings&gt;(configuration.GetSection(section));
+}
+</code></pre>
+<h3 id="using-settings">Using Settings</h3>
+<pre><code class="lang-csharp">public sealed class MyService
+{
+    private readonly MyToolSettings _settings;
+    
+    public MyService(IOptionsMonitor&lt;MyToolSettings&gt; options)
+    {
+        _settings = options.CurrentValue;
+    }
+}
+</code></pre>
+<h3 id="settingsjson-structure">settings.json Structure</h3>
+<pre><code class="lang-json">{
+  &quot;Tools&quot;: {
+    &quot;MyTool&quot;: {
+      &quot;EnableFeatureX&quot;: true,
+      &quot;Threshold&quot;: 75
+    }
+  }
+}
+</code></pre>
+<hr>
+<h2 id="step-8-hooks-optional">Step 8: Hooks (Optional)</h2>
+<h3 id="available-hook-interfaces">Available Hook Interfaces</h3>
+<table>
+<thead>
+<tr>
+<th>Interface</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IViewActivatedHookHandler</code></td>
+<td>React to view changes</td>
+</tr>
+<tr>
+<td><code>IContextualRibbonInjector</code></td>
+<td>Add contextual ribbon tabs</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtHookHost.cs:14-23</code></p>
+</blockquote>
+<h3 id="viewactivated-hook">ViewActivated Hook</h3>
+<pre><code class="lang-csharp">using DBTools.Core.Tools;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Events;
+
+namespace DBTools.MyTool.Features.Hooks;
+
+public sealed class MyViewActivatedHandler : IViewActivatedHookHandler
+{
+    public Task OnViewActivatedAsync(
+        UIControlledApplication application, 
+        ViewActivatedEventArgs args, 
+        CancellationToken ct)
+    {
+        // React to view changes
+        return Task.CompletedTask;
+    }
+}
+</code></pre>
+<p>Register in your ToolModule:</p>
+<pre><code class="lang-csharp">public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+{
+    registry.RegisterHook&lt;IViewActivatedHookHandler, MyViewActivatedHandler&gt;();
+}
+
+public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+{
+    services.AddSingleton&lt;MyViewActivatedHandler&gt;();
+}
+</code></pre>
+<hr>
+<h2 id="step-9-availability-types">Step 9: Availability Types</h2>
+<p>Availability types control when ribbon buttons are enabled.</p>
+<h3 id="built-in-availability-types">Built-in Availability Types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DbtDocumentAvailability</code></td>
+<td>Requires an open document</td>
+</tr>
+<tr>
+<td><code>DbtActiveViewAvailability</code></td>
+<td>Requires an active view</td>
+</tr>
+<tr>
+<td><code>DbtSelectionAvailability</code></td>
+<td>Requires selected elements</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Tools/Availability/DbtDocumentAvailability.cs:1-17</code></p>
+</blockquote>
+<h3 id="custom-availability">Custom Availability</h3>
+<pre><code class="lang-csharp">using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+
+namespace DBTools.App.Tools.Availability;
+
+public sealed class MyCustomAvailability : IExternalCommandAvailability
+{
+    public bool IsCommandAvailable(UIApplication applicationData, CategorySet selectedCategories)
+    {
+        var doc = applicationData?.ActiveUIDocument?.Document;
+        if (doc == null) return false;
+        
+        // Custom logic
+        return selectedCategories?.Contains(Category.GetCategory(doc, BuiltInCategory.OST_Walls)) == true;
+    }
+}
+</code></pre>
+<hr>
+<h2 id="step-10-file-linking-how-it-works">Step 10: File Linking (How It Works)</h2>
+<p>Tool source files are compiled into <code>DBTools.dll</code> via file linking in <code>DBTools.App.csproj</code>:</p>
+<pre><code class="lang-xml">&lt;!-- Tool Source Files --&gt;
+&lt;ItemGroup Label=&quot;Tool Source Files&quot;&gt;
+  &lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
+           Exclude=&quot;..\Tools\**\Tests\**\*.cs;..\Tools\**\obj\**\*.cs&quot;
+           Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+
+&lt;!-- Tool XAML Files --&gt;
+&lt;ItemGroup Label=&quot;Tool XAML Files&quot;&gt;
+  &lt;Page Include=&quot;..\Tools\**\*.xaml&quot;
+        Exclude=&quot;..\Tools\**\obj\**\*.xaml;..\Tools\**\Properties\DesignTimeResources.xaml&quot;
+        Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+
+&lt;!-- Tool Icons --&gt;
+&lt;ItemGroup Label=&quot;Tool Embedded Assets&quot;&gt;
+  &lt;EmbeddedResource Include=&quot;..\Tools\**\Assets\*.png&quot;
+                    Link=&quot;Resources\Icons\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+
+&lt;!-- Tool Manifests --&gt;
+&lt;ItemGroup&gt;
+  &lt;EmbeddedResource Include=&quot;..\Tools\**\manifest.yml&quot;
+                    LogicalName=&quot;DBTools.ToolManifests.%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:61-78, 218-222</code></p>
+</blockquote>
+<hr>
+<h2 id="step-11-testing-setup">Step 11: Testing Setup</h2>
+<h3 id="test-project-structure">Test Project Structure</h3>
+<pre><code>csharp/src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/Tests/
+  DBTools.&lt;ToolName&gt;.Tests.csproj
+  MyToolCommandTests.cs
+  MyServiceTests.cs
+</code></pre>
+<h3 id="test-project-file">Test Project File</h3>
+<pre><code class="lang-xml">&lt;Project Sdk=&quot;Microsoft.NET.Sdk&quot;&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net8.0-windows&lt;/TargetFramework&gt;
+    &lt;IsPackable&gt;false&lt;/IsPackable&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+  &lt;/PropertyGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include=&quot;Microsoft.NET.Test.Sdk&quot; /&gt;
+    &lt;PackageReference Include=&quot;xunit&quot; /&gt;
+    &lt;PackageReference Include=&quot;xunit.runner.visualstudio&quot; /&gt;
+    &lt;PackageReference Include=&quot;NSubstitute&quot; /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;ProjectReference Include=&quot;..\..\..\..\DBTools.App\DBTools.App.csproj&quot; /&gt;
+    &lt;ProjectReference Include=&quot;..\..\..\..\testing\TestSupport\DBTools.TestSupport.csproj&quot; /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;
+</code></pre>
+<h3 id="running-tests">Running Tests</h3>
+<pre><code class="lang-bash"># Run all tests for a tool
+bash csharp/invoke-revit-tests.sh --smart --tool MyTool -y 2025
+
+# Run specific test
+bash csharp/invoke-revit-tests.sh --smart -f &quot;FullyQualifiedName~MyTestName&quot;
+</code></pre>
+<hr>
+<h2 id="common-patterns-and-best-practices">Common Patterns and Best Practices</h2>
+<h3 id="1-service-extension-pattern">1. Service Extension Pattern</h3>
+<p>Centralize DI registration in an extension method:</p>
+<pre><code class="lang-csharp">// Bootstrap/MyToolServiceExtensions.cs
+namespace DBTools.MyTool.Bootstrap;
+
+public static class MyToolServiceExtensions
+{
+    public static IServiceCollection AddMyToolServices(this IServiceCollection services)
+    {
+        Guard.NotNull(services, nameof(services));
+        
+        services.AddScoped&lt;IMyService, MyService&gt;();
+        services.AddScoped&lt;MyOtherService&gt;();
+        
+        return services;
+    }
+}
+</code></pre>
+<p>Then in ToolModule:</p>
+<pre><code class="lang-csharp">services.AddMyToolServices();
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Bootstrap/GmServiceExtensions.cs:1-16</code></p>
+</blockquote>
+<h3 id="2-error-handling">2. Error Handling</h3>
+<p>Never swallow exceptions. Use <code>ISafeExecutor</code> for top-level error handling (provided by <code>DbtToolCommand</code>):</p>
+<pre><code class="lang-csharp">// DON'T do this:
+try { DoWork(); } catch { } // Silent failure
+
+// DO this:
+// Exceptions propagate to DbtToolCommand's ISafeExecutor
+DoWork(); // Let exceptions propagate
+</code></pre>
+<h3 id="3-logging">3. Logging</h3>
+<p>Use the injected logger, not <code>Console.WriteLine</code>:</p>
+<pre><code class="lang-csharp">var logger = context.Logger;
+logger.LogDebug(&quot;[MyTool] Processing {Count} elements&quot;, count);
+logger.LogWarning(&quot;[MyTool] Skipped invalid element {Id}&quot;, elementId);
+logger.LogError(ex, &quot;[MyTool] Failed to process&quot;);
+</code></pre>
+<h3 id="4-transactions">4. Transactions</h3>
+<p>Always name transactions descriptively:</p>
+<pre><code class="lang-csharp">await tx.RunAsync(doc, &quot;DB Tools - My Tool Operation&quot;, d =&gt;
+{
+    // Modifications here
+}).ConfigureAwait(false);
+</code></pre>
+<h3 id="5-icon-naming">5. Icon Naming</h3>
+<ul>
+<li>Main icon: <code>my_tool.png</code> (32x32)</li>
+<li>Small icon: <code>my_tool_16.png</code> (16x16, optional)</li>
+<li>Match the <code>iconBaseKey</code> in manifest (without extension)</li>
+</ul>
+<h3 id="6-namespace-conventions">6. Namespace Conventions</h3>
+<pre><code>DBTools.&lt;ToolName&gt;                    # Root namespace
+DBTools.&lt;ToolName&gt;.Bootstrap          # DI extensions
+DBTools.&lt;ToolName&gt;.Features           # Commands and feature logic
+DBTools.&lt;ToolName&gt;.Features.Commands  # Revit commands
+DBTools.&lt;ToolName&gt;.Features.Logic     # Business logic
+DBTools.&lt;ToolName&gt;.Shell              # Application shell
+DBTools.&lt;ToolName&gt;.Shell.DI           # Detailed DI registrations
+DBTools.&lt;ToolName&gt;.Shell.UI           # Views and ViewModels
+DBTools.&lt;ToolName&gt;.Shell.DesignTime   # Design-time ViewModels
+DBTools.&lt;ToolName&gt;.Shared             # Shared types/contracts
+</code></pre>
+<hr>
+<h2 id="checklist-new-tool-completion">Checklist: New Tool Completion</h2>
+<ul>
+<li>[ ] Created directory structure under <code>csharp/src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/</code></li>
+<li>[ ] Added <code>manifest.yml</code> with unique <code>id</code> and valid <code>ribbonTools</code></li>
+<li>[ ] Created <code>&lt;ToolName&gt;ToolModule.cs</code> extending <code>DbtToolModule</code></li>
+<li>[ ] Implemented command(s) extending <code>DbtToolCommand</code></li>
+<li>[ ] Added icon(s) in <code>Assets/</code> folder</li>
+<li>[ ] Created <code>.csproj</code> file for IDE support</li>
+<li>[ ] Build passes: <code>bash csharp/build.sh</code></li>
+<li>[ ] Tool appears in Revit ribbon</li>
+<li>[ ] Command executes successfully</li>
+<li>[ ] (Optional) Created test project</li>
+<li>[ ] (Optional) Added UI with design-time preview</li>
+</ul>
+<hr>
+<h2 id="cross-references">Cross-References</h2>
+<ul>
+<li><a href="../architecture/overview.html">Architecture Overview</a></li>
+<li><a href="../architecture/dependency-injection.md">DI Container Guide</a></li>
+<li><a href="../ui/theming.md">UI Theming Guide</a></li>
+<li><a href="../testing/testing-guide.md">Testing Guide</a></li>
+</ul>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/developing/new-tool-guide.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/developing/new-tool-guide.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

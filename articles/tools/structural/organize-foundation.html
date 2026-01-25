@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/structural/organize-foundation.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/structural/organize-foundation.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -87,26 +87,429 @@
         <article data-uid="">
 <h1 id="organize-foundation-types">Organize Foundation Types</h1>
 
-<!-- STATUS: stub -->
-<!-- UNVERIFIED: This is a placeholder document -->
+<p>The <strong>Organize Foundation Types</strong> tool standardizes naming conventions and type marks for structural foundation elements. It processes pier and footing family types to ensure consistent naming patterns and eliminates duplicate types by merging instances.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/OrganizeFoundationTypesCommand.cs:12-57</code></p>
+</blockquote>
+<hr>
 <h2 id="overview">Overview</h2>
-<p>Organizes and manages foundation type families.</p>
-<p><strong>Location</strong>: <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/</code></p>
+<p>This tool automates the tedious process of organizing foundation type names and type marks in Revit models. It:</p>
+<ol>
+<li><strong>Renames types</strong> using standardized dimension-based naming (e.g., <code>3'-0&quot;x3'-0&quot; (P-1)</code>)</li>
+<li><strong>Assigns type marks</strong> with prefixes specific to each foundation category</li>
+<li><strong>Merges duplicate types</strong> that have identical dimensions, consolidating instances</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:12-14</code></p>
+</blockquote>
+<hr>
+<h2 id="supported-foundation-categories">Supported Foundation Categories</h2>
+<p>The tool processes four categories of foundation elements:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Family Name</th>
+<th>Revit Category</th>
+<th>Type Mark Prefix</th>
+<th>Sort Criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Foundation Piers</strong></td>
+<td><code>Foundation Pier</code></td>
+<td>Structural Columns</td>
+<td><code>P</code></td>
+<td>Section area (<code>b</code> x <code>h</code>)</td>
+</tr>
+<tr>
+<td><strong>Round Piers</strong></td>
+<td><code>Foundation Pier - Round</code></td>
+<td>Structural Columns</td>
+<td><code>RP</code></td>
+<td>Diameter (<code>d</code>)</td>
+</tr>
+<tr>
+<td><strong>Rectangular Footings</strong></td>
+<td><code>Footing-Rectangular</code></td>
+<td>Structural Foundation</td>
+<td><code>F</code></td>
+<td>Width, Length, Thickness</td>
+</tr>
+<tr>
+<td><strong>Pile Caps</strong></td>
+<td><code>Pile Cap-Rectangular</code></td>
+<td>Structural Foundation</td>
+<td><code>CAP</code></td>
+<td>Width, Length, Thickness</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:39-42</code></p>
+</blockquote>
+<hr>
 <h2 id="features">Features</h2>
+<h3 id="type-mark-generation">Type Mark Generation</h3>
+<p>Type marks are generated with predictable formats that support efficient scheduling and tagging:</p>
+<p><strong>Pier/Round Pier Format:</strong> <code>{PREFIX}-{counter}</code></p>
 <ul>
-<li>Foundation type organization</li>
-<li>Naming conventions</li>
-<li>Type management</li>
+<li>Examples: <code>P-1</code>, <code>P-2</code>, <code>RP-1</code>, <code>RP-2</code></li>
+</ul>
+<p><strong>Footing/Pile Cap Format:</strong> <code>{PREFIX}-{widthFeet}.{counter}</code></p>
+<ul>
+<li>Examples: <code>F-3.0</code>, <code>F-3.1</code>, <code>CAP-4.0</code>, <code>CAP-4.1</code></li>
+</ul>
+<p>The generator automatically finds the next available mark, filling gaps in sequences when possible.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/TypeMarkGenerator.cs:22-64</code></p>
+</blockquote>
+<h3 id="type-naming-conventions">Type Naming Conventions</h3>
+<p>After processing, types are renamed to include dimensions and type mark:</p>
+<table>
+<thead>
+<tr>
+<th>Foundation Type</th>
+<th>Naming Pattern</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Foundation Pier</td>
+<td><code>{b}x{h} ({mark})</code></td>
+<td><code>2'-6&quot;x2'-6&quot; (P-1)</code></td>
+</tr>
+<tr>
+<td>Round Pier</td>
+<td><code>{d} DIA. ({mark})</code></td>
+<td><code>2'-0&quot; DIA. (RP-1)</code></td>
+</tr>
+<tr>
+<td>Footing / Pile Cap</td>
+<td><code>{width}x{length}x{thickness} ({mark})</code></td>
+<td><code>3'-0&quot;x3'-0&quot;x1'-0&quot; (F-3.0)</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:127-129,197-198,276</code></p>
+</blockquote>
+<h3 id="duplicate-type-merging">Duplicate Type Merging</h3>
+<p>When multiple types share identical dimensions, the tool:</p>
+<ol>
+<li>Identifies duplicate types based on dimension parameters</li>
+<li>Moves all instances from duplicate types to the primary type</li>
+<li>Deletes the now-empty duplicate types</li>
+</ol>
+<p>This reduces model clutter and ensures consistent type usage.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:96-107,170-179,243-254</code></p>
+</blockquote>
+<h3 id="overwrite-protection">Overwrite Protection</h3>
+<p>On execution, users are prompted whether to overwrite existing type marks:</p>
+<ul>
+<li><strong>Yes</strong>: All type marks are regenerated, ensuring consistent sequential numbering</li>
+<li><strong>No</strong>: Existing type marks are preserved; only types without marks receive new ones</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/OrganizeFoundationTypesCommand.cs:26-29</code></p>
+</blockquote>
+<hr>
+<h2 id="architecture">Architecture</h2>
+<h3 id="component-structure">Component Structure</h3>
+<pre><code>OrganizeFoundationTypes/
+  Features/
+    OrganizeFoundationTypesCommand.cs  -- Revit external command entry point
+    FoundationTypeOrganizer.cs         -- Core processing logic
+    TypeMarkGenerator.cs               -- Type mark generation (pure logic, testable)
+  OrganizeFoundationTypesToolModule.cs -- DI module registration
+  manifest.yml                         -- Ribbon and command configuration
+</code></pre>
+<h3 id="class-responsibilities">Class Responsibilities</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OrganizeFoundationTypesCommand</code></td>
+<td>Entry point; prompts user, invokes organizer, displays results</td>
+</tr>
+<tr>
+<td><code>FoundationTypeOrganizer</code></td>
+<td>Collects types, processes each category, merges duplicates</td>
+</tr>
+<tr>
+<td><code>TypeMarkGenerator</code></td>
+<td>Pure static logic for generating unique type marks</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/OrganizeFoundationTypesCommand.cs:16</code>, <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:15</code>, <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/TypeMarkGenerator.cs:11</code></p>
+</blockquote>
+<h3 id="transaction-strategy">Transaction Strategy</h3>
+<p>The organizer runs multiple transactions to isolate changes by category:</p>
+<ol>
+<li><code>DB Tools - Organize Foundation Pier Types</code> (rectangular piers)</li>
+<li><code>DB Tools - Organize Round Pier Types</code> (round piers)</li>
+<li><code>DB Tools - Organize Footing Types</code> (footings and pile caps)</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:48-62</code></p>
+</blockquote>
+<h3 id="dependencies">Dependencies</h3>
+<ul>
+<li><strong>DBTools.Core</strong> - Base infrastructure, transactions, logging, alerts</li>
+<li><strong>ricaun.Revit.UI.Tasks</strong> - Async UI task handling</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/DBTools.Structural.OrganizeFoundationTypes.csproj:35-44</code></p>
+</blockquote>
+<hr>
+<h2 id="manifest-configuration">Manifest Configuration</h2>
+<pre><code class="lang-yaml">id: DBTools.Structural.OrganizeFoundationTypes
+assembly: DBTools
+moduleType: DBTools.Structural.OrganizeFoundationTypes.OrganizeFoundationTypesToolModule
+order: 0
+tool:
+  ribbonTools:
+    - internalName: DBTools.OrganizeFoundationTypes
+      commandType: DBTools.Structural.OrganizeFoundationTypes.OrganizeFoundationTypesCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
+      displayText: &quot;Organize Foundation\nTypes&quot;
+      iconBaseKey: organize_types
+      tooltip: &quot;Organize foundation types for tagging&quot;
+      controlKind: SplitButtonItem
+      splitGroup: foundation_tags
+      order: 2
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/manifest.yml:1-16</code></p>
+</blockquote>
+<h3 id="ribbon-placement">Ribbon Placement</h3>
+<p>The tool appears in the <strong>Foundation Tags</strong> split button group alongside:</p>
+<table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Update Combined Foundation Tags</td>
+<td>Updates tag instances</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Move Combined Foundation Tags</td>
+<td>Repositions tags</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td><strong>Organize Foundation Types</strong></td>
+<td>This tool</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:20-39</code>, <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/manifest.yml:14-16</code></p>
+</blockquote>
+<h3 id="availability">Availability</h3>
+<ul>
+<li><strong>Availability Class:</strong> <code>DbtDocumentAvailability</code></li>
+<li><strong>Requirement:</strong> An open Revit document (no active view requirement)</li>
 </ul>
 <hr>
+<h2 id="settings">Settings</h2>
+<p>This tool has <strong>no configurable settings</strong>. All behavior is determined by the dimension parameters of the foundation types in the model.</p>
+<hr>
+<h2 id="parameter-requirements">Parameter Requirements</h2>
+<p>The tool reads specific parameters from each family type:</p>
+<h3 id="foundation-pier-foundation-pier">Foundation Pier (<code>Foundation Pier</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>b</code></td>
+<td>Length</td>
+<td>Pier width dimension</td>
+</tr>
+<tr>
+<td><code>h</code></td>
+<td>Length</td>
+<td>Pier depth dimension</td>
+</tr>
+<tr>
+<td><code>Type Mark</code></td>
+<td>Text</td>
+<td>Assigned type mark</td>
+</tr>
+</tbody>
+</table>
+<h3 id="round-pier-foundation-pier---round">Round Pier (<code>Foundation Pier - Round</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>d</code></td>
+<td>Length</td>
+<td>Pier diameter</td>
+</tr>
+<tr>
+<td><code>Type Mark</code></td>
+<td>Text</td>
+<td>Assigned type mark</td>
+</tr>
+</tbody>
+</table>
+<h3 id="footing--pile-cap">Footing / Pile Cap</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Width</code></td>
+<td>Length</td>
+<td>Footing width</td>
+</tr>
+<tr>
+<td><code>Length</code></td>
+<td>Length</td>
+<td>Footing length</td>
+</tr>
+<tr>
+<td><code>Foundation Thickness</code></td>
+<td>Length</td>
+<td>Footing depth</td>
+</tr>
+<tr>
+<td><code>Type Mark</code></td>
+<td>Text</td>
+<td>Assigned type mark</td>
+</tr>
+</tbody>
+</table>
 <blockquote>
-<p><strong>Documentation Status</strong>: Stub - needs expansion</p>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:92-93,167,238-240</code></p>
+</blockquote>
+<hr>
+<h2 id="processing-logic">Processing Logic</h2>
+<h3 id="pier-types-rectangular">Pier Types (Rectangular)</h3>
+<ol>
+<li>Collect all <code>FamilySymbol</code> instances from <code>OST_StructuralColumns</code> where family name is <code>Foundation Pier</code></li>
+<li>Sort by section area (ascending)</li>
+<li>For each type:
+<ul>
+<li>Check for duplicate (same <code>b</code> and <code>h</code> values)</li>
+<li>If duplicate found: merge instances to existing type, mark for deletion</li>
+<li>Otherwise: assign type mark (respecting overwrite setting), rename type</li>
+</ul>
+</li>
+<li>Delete merged duplicate types</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:79-151</code></p>
+</blockquote>
+<h3 id="round-pier-types">Round Pier Types</h3>
+<ol>
+<li>Collect all <code>FamilySymbol</code> instances from <code>OST_StructuralColumns</code> where family name is <code>Foundation Pier - Round</code></li>
+<li>Sort by diameter (ascending)</li>
+<li>For each type:
+<ul>
+<li>Check for duplicate (same <code>d</code> value)</li>
+<li>If duplicate found: merge instances, mark for deletion</li>
+<li>Otherwise: assign type mark, rename with <code>{d} DIA. ({mark})</code> format</li>
+</ul>
+</li>
+<li>Delete merged duplicate types</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:154-218</code></p>
+</blockquote>
+<h3 id="footing-and-pile-cap-types">Footing and Pile Cap Types</h3>
+<ol>
+<li>Collect all <code>FamilySymbol</code> instances from <code>OST_StructuralFoundation</code> where family name matches</li>
+<li>Sort by Width, then Length, then Foundation Thickness (ascending)</li>
+<li>For each type:
+<ul>
+<li>Check for duplicate (same Width, Length, and Foundation Thickness)</li>
+<li>If duplicate found: merge instances, mark for deletion</li>
+<li>Otherwise: assign footing-format type mark, rename with dimensions</li>
+</ul>
+</li>
+<li>Delete merged duplicate types (best-effort, silently continues on failure)</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:221-293</code></p>
+</blockquote>
+<hr>
+<h2 id="error-handling">Error Handling</h2>
+<ul>
+<li>Individual type processing failures are logged at DEBUG level and skipped</li>
+<li>Type deletion failures are logged at WARNING or ERROR level</li>
+<li>Footing type deletions use best-effort (silently continue if deletion fails, as type may be in use elsewhere)</li>
+<li>The command displays a summary dialog showing counts of renamed and merged types</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Features/FoundationTypeOrganizer.cs:132-136,146-150,203-205,214-217,279-282,289-291</code></p>
+</blockquote>
+<hr>
+<h2 id="testing">Testing</h2>
+<p>Unit tests for the <code>TypeMarkGenerator</code> class verify:</p>
+<ul>
+<li>Sequential mark generation (<code>P-1</code>, <code>P-2</code>, <code>P-3</code>...)</li>
+<li>Gap filling in mark sequences</li>
+<li>Width-based footing mark format (<code>F-3.0</code>, <code>F-3.1</code>...)</li>
+<li>Null/invalid input handling</li>
+<li>Multiple prefix independence</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/OrganizeFoundationTypes/Tests/TypeMarkGeneratorTests.cs:1-346</code></p>
+</blockquote>
+<hr>
+<h2 id="integration-with-foundation-tags">Integration with Foundation Tags</h2>
+<p>This tool is designed to work with the <strong>Combined Foundation Tags</strong> workflow:</p>
+<ol>
+<li>Run <strong>Organize Foundation Types</strong> to standardize type names and marks</li>
+<li>Use <strong>Update Combined Foundation Tags</strong> to update tag values</li>
+<li>Use <strong>Move Combined Foundation Tags</strong> to position tags</li>
+</ol>
+<p>The tools share a common warning system - if a warning is active on the <code>structural.foundation_tags</code> settings pack, all three tools are disabled until the warning is cleared.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:12-18</code></p>
 </blockquote>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/initial-wiki/csharp/wiki/articles/tools/structural/organize-foundation.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/articles/tools/structural/organize-foundation.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
