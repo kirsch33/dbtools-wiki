@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Hooks | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Hooks | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/hooks.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="hooks">Hooks</h1>
+
+<p>Hooks are the extensibility mechanism that allows DBTools modules to respond to Revit application events without coupling directly to the Revit API event system. They provide a clean, testable abstraction for behaviors like auto-updating elements when views change or injecting contextual ribbon UI.</p>
+<h2 id="overview">Overview</h2>
+<h3 id="what-are-hooks">What Are Hooks?</h3>
+<p>Hooks are interfaces that define contracts for responding to specific application-level events. Rather than subscribing directly to Revit's <code>UIControlledApplication</code> events, tools register hook handlers that the central <code>DbtHookHost</code> dispatches to when events occur.</p>
+<h3 id="why-use-hooks">Why Use Hooks?</h3>
+<table>
+<thead>
+<tr>
+<th>Direct Revit Events</th>
+<th>DBTools Hooks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scattered subscriptions across tools</td>
+<td>Centralized event management</td>
+</tr>
+<tr>
+<td>Manual exception handling</td>
+<td>Automatic error handling via <code>ISafeExecutor</code></td>
+</tr>
+<tr>
+<td>Tight coupling to Revit API</td>
+<td>Testable abstractions</td>
+</tr>
+<tr>
+<td>Risk of blocking UI thread</td>
+<td>Async-first design</td>
+</tr>
+<tr>
+<td>Complex lifecycle management</td>
+<td>Automatic attach/detach</td>
+</tr>
+</tbody>
+</table>
+<h3 id="key-benefits">Key Benefits</h3>
+<ol>
+<li><strong>Centralized Dispatch</strong>: All event handling flows through <code>DbtHookHost</code>, ensuring consistent error handling and logging</li>
+<li><strong>Async Support</strong>: Hook handlers can perform async work without blocking Revit's UI thread</li>
+<li><strong>Automatic Lifecycle</strong>: Hooks are attached/detached during app startup/shutdown</li>
+<li><strong>Settings Integration</strong>: View-activated tasks integrate with the settings system for enable/disable control</li>
+<li><strong>Warning System</strong>: Hooks can set warnings when they fail, disabling auto-update until the user resolves them</li>
+</ol>
+<h2 id="hook-architecture">Hook Architecture</h2>
+<h3 id="component-overview">Component Overview</h3>
+<pre><code class="lang-mermaid">flowchart TB
+    subgraph Revit[&quot;Revit Application&quot;]
+        Events[&quot;UIControlledApplication Events&quot;]
+    end
+    
+    subgraph Core[&quot;DBTools.Core&quot;]
+        HookHost[&quot;DbtHookHost&quot;]
+        Registry[&quot;DbtToolRegistry&quot;]
+        Executor[&quot;ISafeExecutor&quot;]
+    end
+    
+    subgraph Handlers[&quot;Hook Handlers&quot;]
+        VAH[&quot;ViewActivatedHookHandler&quot;]
+        CRI[&quot;IContextualRibbonInjector&quot;]
+    end
+    
+    subgraph Tasks[&quot;View Activated Tasks&quot;]
+        ET[&quot;ElevationTagsViewActivatedTask&quot;]
+        FT[&quot;FoundationTagsViewActivatedTask&quot;]
+        JGT[&quot;JoistGirderViewActivatedTask&quot;]
+    end
+    
+    Events --&gt;|ViewActivated| HookHost
+    Events --&gt;|SelectionChanged| CRI
+    HookHost --&gt; Executor
+    Executor --&gt; VAH
+    Executor --&gt; CRI
+    VAH --&gt; ET
+    VAH --&gt; FT
+    VAH --&gt; JGT
+    Registry -.-&gt;|&quot;GetHookImplementations&lt;T&gt;()&quot;| HookHost
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtHookHost.cs:28-55</code></p>
+</blockquote>
+<h3 id="registration-flow">Registration Flow</h3>
+<pre><code class="lang-mermaid">sequenceDiagram
+    participant Boot as DbtServiceBootstrapper
+    participant Module as ToolModule
+    participant Registry as DbtToolRegistry
+    participant Host as DbtHookHost
+    participant DI as IServiceProvider
+    
+    Boot-&gt;&gt;Module: RegisterHooks(registry, manifest)
+    Module-&gt;&gt;Registry: RegisterHook&lt;THook, TImpl&gt;()
+    Note over Registry: Stores Type mapping
+    
+    Boot-&gt;&gt;DI: BuildServiceProvider()
+    Boot-&gt;&gt;Host: Attach(application)
+    Host-&gt;&gt;Registry: GetHookImplementations&lt;T&gt;()
+    Host-&gt;&gt;DI: GetService(implType)
+    Host-&gt;&gt;Host: Subscribe to Revit events
+</code></pre>
+<h3 id="the-dbthookhost">The DbtHookHost</h3>
+<p><code>DbtHookHost</code> is the central coordinator that:</p>
+<ol>
+<li><strong>Resolves handlers</strong> from the DI container using types registered in <code>DbtToolRegistry</code></li>
+<li><strong>Subscribes to Revit events</strong> (e.g., <code>ViewActivated</code>)</li>
+<li><strong>Dispatches to handlers</strong> wrapped in <code>ISafeExecutor</code> for error handling</li>
+<li><strong>Manages lifecycle</strong> via <code>Attach()</code> and <code>Detach()</code> methods</li>
+</ol>
+<pre><code class="lang-csharp">public sealed class DbtHookHost
+{
+    private static readonly HashSet&lt;Type&gt; _supportedHookInterfaces = new(new[]
+    {
+        typeof(IViewActivatedHookHandler),
+        typeof(IContextualRibbonInjector)
+    });
+    
+    public void Attach(UIControlledApplication application)
+    {
+        var viewHandlers = ResolveHandlers&lt;IViewActivatedHookHandler&gt;();
+        var contextualInjectors = ResolveHandlers&lt;IContextualRibbonInjector&gt;();
+        
+        if (viewHandlers.Count &gt; 0)
+            application.ViewActivated += OnViewActivated;
+            
+        InitializeContextualInjectorsNonBlocking(application, contextualInjectors);
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtHookHost.cs:57-79</code></p>
+</blockquote>
+<h2 id="available-hook-types">Available Hook Types</h2>
+<h3 id="iviewactivatedhookhandler">IViewActivatedHookHandler</h3>
+<p>Responds to Revit's <code>ViewActivated</code> event, which fires whenever the user switches views. This is the primary hook for auto-update functionality.</p>
+<pre><code class="lang-csharp">public interface IViewActivatedHookHandler
+{
+    Task OnViewActivatedAsync(
+        UIControlledApplication application,
+        ViewActivatedEventArgs args,
+        CancellationToken ct);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtHookHost.cs:14-17</code></p>
+</blockquote>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Auto-updating elevation tags when entering floor plans</li>
+<li>Refreshing parameter values on view change</li>
+<li>Updating cached view-specific data</li>
+</ul>
+<p><strong>Important Considerations:</strong></p>
+<ul>
+<li>Handler runs on the Revit UI thread context</li>
+<li>Must not block; use async patterns</li>
+<li>Errors are caught by <code>ISafeExecutor</code> and logged</li>
+</ul>
+<h3 id="icontextualribboninjector">IContextualRibbonInjector</h3>
+<p>Manages dynamic ribbon UI that appears based on application state (typically selection). Unlike view-activated hooks, contextual injectors manage their own event subscriptions.</p>
+<pre><code class="lang-csharp">public interface IContextualRibbonInjector
+{
+    Task InitializeAsync(UIControlledApplication application, CancellationToken ct);
+    Task ShutdownAsync(UIControlledApplication application, CancellationToken ct);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtHookHost.cs:19-23</code></p>
+</blockquote>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Adding &quot;Edit&quot; buttons to contextual tabs when tool-specific elements are selected</li>
+<li>Showing/hiding ribbon controls based on selection state</li>
+<li>Injecting panels into Revit's contextual &quot;Modify&quot; tabs</li>
+</ul>
+<p><strong>Lifecycle:</strong></p>
+<ol>
+<li><code>InitializeAsync</code> called during <code>DbtHookHost.Attach()</code></li>
+<li>Injector subscribes to <code>SelectionChanged</code> or other events internally</li>
+<li><code>ShutdownAsync</code> called during <code>DbtHookHost.Detach()</code></li>
+</ol>
+<h2 id="the-iviewactivatedtask-system">The IViewActivatedTask System</h2>
+<p>For the common pattern of &quot;do something when a view activates,&quot; DBTools provides a higher-level abstraction: <code>IViewActivatedTask</code>. The single <code>ViewActivatedHookHandler</code> dispatches to all registered tasks.</p>
+<h3 id="iviewactivatedtask-interface">IViewActivatedTask Interface</h3>
+<pre><code class="lang-csharp">public interface IViewActivatedTask
+{
+    string TaskId { get; }
+    string DisplayName { get; }
+    IReadOnlyCollection&lt;string&gt; WarningIdsToSetOnFailure { get; }
+    Task&lt;bool&gt; ShouldRunAsync(UIApplication uiapp, ViewActivatedEventArgs args, CancellationToken ct);
+    Task ExecuteAsync(UIApplication uiapp, ViewActivatedEventArgs args, CancellationToken ct);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/IViewActivatedTask.cs:9-16</code></p>
+</blockquote>
+<h3 id="viewactivatedtaskbase">ViewActivatedTaskBase</h3>
+<p>A base class that provides settings integration and common checks:</p>
+<pre><code class="lang-csharp">public abstract class ViewActivatedTaskBase&lt;TSettings&gt; : IViewActivatedTask
+    where TSettings : class, IAutoUpdateSettings, new()
+{
+    public async Task&lt;bool&gt; ShouldRunAsync(...)
+    {
+        var settings = GetSettings(_settingsProvider);
+        
+        // Built-in checks
+        if (!settings.AutoUpdateEnabled) return false;
+        if (settings.HasWarning) return false;
+        
+        // Delegate to subclass
+        return await ShouldRunInternalAsync(uiapp, args, settings, ct);
+    }
+    
+    protected abstract TSettings GetSettings(ISettingsProvider settingsProvider);
+    protected virtual Task&lt;bool&gt; ShouldRunInternalAsync(...) =&gt; Task.FromResult(true);
+    public abstract Task ExecuteAsync(...);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/ViewActivatedTaskBase.cs:15-85</code></p>
+</blockquote>
+<h3 id="execution-flow">Execution Flow</h3>
+<pre><code class="lang-mermaid">sequenceDiagram
+    participant Revit
+    participant Host as DbtHookHost
+    participant Exec as ISafeExecutor
+    participant Handler as ViewActivatedHookHandler
+    participant Task as IViewActivatedTask
+    participant Settings as ISettingsProvider
+    
+    Revit-&gt;&gt;Host: ViewActivated event
+    Host-&gt;&gt;Exec: RunAsync(handler logic)
+    Exec-&gt;&gt;Handler: OnViewActivatedAsync()
+    
+    loop For each registered task
+        Handler-&gt;&gt;Task: ShouldRunAsync()
+        Task-&gt;&gt;Settings: Get&lt;TSettings&gt;()
+        alt AutoUpdateEnabled &amp;&amp; !HasWarning
+            Task--&gt;&gt;Handler: true
+            Handler-&gt;&gt;Exec: RunAsync(task.Execute)
+            Exec-&gt;&gt;Task: ExecuteAsync()
+            alt Success
+                Task--&gt;&gt;Exec: Complete
+            else Failure
+                Exec-&gt;&gt;Settings: SetWarning(id, true)
+            end
+        else Disabled or has warning
+            Task--&gt;&gt;Handler: false (skip)
+        end
+    end
+</code></pre>
+<h2 id="registering-hooks">Registering Hooks</h2>
+<h3 id="in-toolmoduleregisterhooks">In ToolModule.RegisterHooks()</h3>
+<p>Override <code>RegisterHooks</code> in your <code>DbtToolModule</code> to register hook handlers:</p>
+<pre><code class="lang-csharp">public sealed class MyToolModule : DbtToolModule
+{
+    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+    {
+        // Register the handler as a service
+        services.AddSingleton&lt;MyContextualInjector&gt;();
+    }
+    
+    public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+    {
+        Guard.NotNull(registry, nameof(registry));
+        Guard.NotNull(manifest, nameof(manifest));
+        
+        registry.RegisterHook&lt;IContextualRibbonInjector, MyContextualInjector&gt;();
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/SgtToolModule.cs:20-25</code></p>
+</blockquote>
+<h3 id="registering-view-activated-tasks">Registering View Activated Tasks</h3>
+<p>View-activated tasks use a different pattern. Instead of registering directly as hooks, they're registered as <code>IViewActivatedTask</code> services that the single <code>ViewActivatedHookHandler</code> collects:</p>
+<pre><code class="lang-csharp">public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+{
+    var warningIds = GetWarningIdsFromManifest(manifest);
+    
+    services.AddSingleton&lt;IViewActivatedTask&gt;(sp =&gt; new ElevationTagsViewActivatedTask(
+        sp.GetRequiredService&lt;ISettingsProvider&gt;(),
+        sp.GetRequiredService&lt;IDbtLoggingHost&gt;(),
+        sp.GetRequiredService&lt;ILogger&lt;ElevationTagsViewActivatedTask&gt;&gt;(),
+        warningIds));
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/ElevationTagsToolModule.cs:25-35</code></p>
+</blockquote>
+<h3 id="registration-in-apphookmodule">Registration in AppHookModule</h3>
+<p>The core <code>AppHookModule</code> registers the single <code>ViewActivatedHookHandler</code> that dispatches to all tasks:</p>
+<pre><code class="lang-csharp">public sealed class AppHookModule : DbtToolModule
+{
+    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+    {
+        services.AddSingleton&lt;ViewActivatedHookHandler&gt;();
+    }
+
+    public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+    {
+        registry.RegisterHook&lt;IViewActivatedHookHandler, ViewActivatedHookHandler&gt;();
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Hooks/AppHookModule.cs:7-22</code></p>
+</blockquote>
+<h2 id="implementing-hook-handlers">Implementing Hook Handlers</h2>
+<h3 id="step-1-define-your-handler-class">Step 1: Define Your Handler Class</h3>
+<pre><code class="lang-csharp">public sealed class MyViewActivatedTask : ViewActivatedTaskBase&lt;MyToolSettings&gt;
+{
+    public MyViewActivatedTask(
+        ISettingsProvider settings,
+        ILogger&lt;MyViewActivatedTask&gt; logger,
+        IReadOnlyCollection&lt;string&gt; warningIds)
+        : base(settings, logger, &quot;mytool.updater&quot;, &quot;My Tool Auto-Update&quot;, warningIds)
+    {
+    }
+    
+    protected override MyToolSettings GetSettings(ISettingsProvider provider)
+        =&gt; provider.Get&lt;MyToolSettings&gt;();
+}
+</code></pre>
+<h3 id="step-2-implement-shouldruninternalasync-optional">Step 2: Implement ShouldRunInternalAsync (Optional)</h3>
+<p>Filter when your task should run based on view type, document state, etc.:</p>
+<pre><code class="lang-csharp">protected override Task&lt;bool&gt; ShouldRunInternalAsync(
+    UIApplication uiapp,
+    ViewActivatedEventArgs args,
+    MyToolSettings settings,
+    CancellationToken ct)
+{
+    var view = uiapp.ActiveUIDocument?.Document?.ActiveView;
+    if (view == null) return Task.FromResult(false);
+    
+    // Only run in floor plans
+    return Task.FromResult(
+        view.ViewType == ViewType.FloorPlan || 
+        view.ViewType == ViewType.CeilingPlan);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:40-52</code></p>
+</blockquote>
+<h3 id="step-3-implement-executeasync">Step 3: Implement ExecuteAsync</h3>
+<p>Perform the actual work:</p>
+<pre><code class="lang-csharp">public override Task ExecuteAsync(
+    UIApplication uiapp,
+    ViewActivatedEventArgs args,
+    CancellationToken ct)
+{
+    var doc = uiapp.ActiveUIDocument?.Document 
+        ?? throw new InvalidOperationException(&quot;No active document.&quot;);
+    var view = doc.ActiveView 
+        ?? throw new InvalidOperationException(&quot;No active view.&quot;);
+    
+    var settings = GetSettings(SettingsProvider);
+    var gate = new ModalInlineCallGate(uiapp);
+    var tx = new CallGateTransactionRunner(gate);
+    
+    var updater = new MyAutoUpdater(tx, doc, view, Logger, settings);
+    updater.Run();
+    
+    return Task.CompletedTask;
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:54-65</code></p>
+</blockquote>
+<h3 id="step-4-register-in-your-toolmodule">Step 4: Register in Your ToolModule</h3>
+<pre><code class="lang-csharp">public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+{
+    var warningIds = new[] { &quot;mytool.auto_update.warning&quot; };
+    
+    services.AddSingleton&lt;IViewActivatedTask&gt;(sp =&gt; new MyViewActivatedTask(
+        sp.GetRequiredService&lt;ISettingsProvider&gt;(),
+        sp.GetRequiredService&lt;ILogger&lt;MyViewActivatedTask&gt;&gt;(),
+        warningIds));
+}
+</code></pre>
+<h2 id="implementing-contextual-ribbon-injectors">Implementing Contextual Ribbon Injectors</h2>
+<p>For tools that need dynamic ribbon UI (like SGT's &quot;Edit&quot; button on selected girts):</p>
+<h3 id="step-1-implement-icontextualribboninjector">Step 1: Implement IContextualRibbonInjector</h3>
+<pre><code class="lang-csharp">public sealed class MyContextualInjector : IContextualRibbonInjector
+{
+    private readonly ILogger&lt;MyContextualInjector&gt; _logger;
+    private readonly ISafeExecutor _executor;
+    private bool _subscribed;
+    
+    public Task InitializeAsync(UIControlledApplication application, CancellationToken ct)
+    {
+        if (_subscribed) return Task.CompletedTask;
+        
+        // Subscribe to selection changes
+        // Use ModelessQueuedCallGate for safe async access
+        return _gate.RunAsync(app =&gt;
+        {
+            app.SelectionChanged += OnSelectionChanged;
+            _subscribed = true;
+        }, ct);
+    }
+    
+    public Task ShutdownAsync(UIControlledApplication application, CancellationToken ct)
+    {
+        if (!_subscribed) return Task.CompletedTask;
+        
+        return _gate.RunAsync(app =&gt;
+        {
+            app.SelectionChanged -= OnSelectionChanged;
+            _subscribed = false;
+            RemoveInjectedUI();
+        }, ct);
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:53-82</code></p>
+</blockquote>
+<h3 id="step-2-handle-selection-changes">Step 2: Handle Selection Changes</h3>
+<pre><code class="lang-csharp">private async void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+{
+    if (sender is not UIApplication uiapp) return;
+    
+    try
+    {
+        await _executor.RunAsync(
+            () =&gt; RefreshAsync(uiapp, CancellationToken.None),
+            _logger,
+            notifier: null,
+            opts: new SafeExecutor.SafeExecuteOptions
+            {
+                Name = &quot;My Contextual Selection Hook&quot;,
+                SuppressCompletionBanner = true,
+                NotifyKind = SafeExecutor.NotifyKindKind.None,
+                WorkPerformed = false
+            },
+            ct: CancellationToken.None);
+    }
+    catch (OperationCanceledException) { }
+    catch (Exception) { /* Logged by SafeExecutor */ }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:94-126</code></p>
+</blockquote>
+<h3 id="step-3-inject-ui-into-contextual-tabs">Step 3: Inject UI into Contextual Tabs</h3>
+<pre><code class="lang-csharp">private void EnsureInjected(UIApplication uiapp)
+{
+    var ribbon = ComponentManager.Ribbon;
+    if (ribbon == null) return;
+    
+    var targetTab = TryGetContextualTab(ribbon);
+    if (targetTab == null) return;
+    
+    var panel = EnsurePanel(targetTab);
+    var btn = BuildButton();
+    
+    btn.CommandHandler = new RibbonButtonCommand(OnButtonClick);
+    panel.Source.Items.Add(btn);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:206-238</code></p>
+</blockquote>
+<h2 id="hook-execution-order">Hook Execution Order</h2>
+<h3 id="registration-order">Registration Order</h3>
+<p>Hooks are resolved in the order they were registered:</p>
+<ol>
+<li><code>AppHookModule</code> registers <code>ViewActivatedHookHandler</code> (core)</li>
+<li>Tool modules register their <code>IViewActivatedTask</code> implementations</li>
+<li>Tool modules register <code>IContextualRibbonInjector</code> implementations</li>
+</ol>
+<h3 id="dispatch-order">Dispatch Order</h3>
+<pre><code class="lang-mermaid">flowchart LR
+    subgraph Startup[&quot;App Startup&quot;]
+        A1[Attach Hook Host]
+        A2[Initialize Contextual Injectors]
+        A3[Subscribe ViewActivated]
+    end
+    
+    subgraph Runtime[&quot;Runtime Events&quot;]
+        R1[ViewActivated fires]
+        R2[For each handler in order]
+        R3[For each task in order]
+    end
+    
+    subgraph Shutdown[&quot;App Shutdown&quot;]
+        S1[Detach Hook Host]
+        S2[Shutdown Contextual Injectors]
+        S3[Unsubscribe events]
+    end
+    
+    A1 --&gt; A2 --&gt; A3
+    A3 -.-&gt;|&quot;User navigates&quot;| R1
+    R1 --&gt; R2 --&gt; R3
+    R3 -.-&gt;|&quot;App closes&quot;| S1
+    S1 --&gt; S2 --&gt; S3
+</code></pre>
+<h3 id="priority-considerations">Priority Considerations</h3>
+<p>Currently, hooks execute in registration order without explicit priority. If you need guaranteed ordering:</p>
+<ol>
+<li>Register in a specific order in <code>DbtServiceBootstrapper</code></li>
+<li>Or coordinate within a single handler that manages multiple sub-tasks</li>
+</ol>
+<h2 id="common-patterns">Common Patterns</h2>
+<h3 id="auto-update-on-view-change">Auto-Update on View Change</h3>
+<p>The most common pattern for tools like Elevation Tags:</p>
+<pre><code class="lang-csharp">// 1. Define settings with IAutoUpdateSettings
+public class MySettings : IAutoUpdateSettings
+{
+    public bool AutoUpdateEnabled { get; set; } = true;
+    public bool HasWarning { get; set; }
+}
+
+// 2. Create task extending ViewActivatedTaskBase
+public class MyAutoUpdateTask : ViewActivatedTaskBase&lt;MySettings&gt;
+{
+    protected override Task&lt;bool&gt; ShouldRunInternalAsync(...)
+    {
+        // Filter by view type
+        return Task.FromResult(view.ViewType == ViewType.FloorPlan);
+    }
+    
+    public override Task ExecuteAsync(...)
+    {
+        // Perform update logic
+    }
+}
+
+// 3. Register in ToolModule
+services.AddSingleton&lt;IViewActivatedTask&gt;(...);
+</code></pre>
+<h3 id="contextual-ribbon-button">Contextual Ribbon Button</h3>
+<p>For tools that need UI when specific elements are selected:</p>
+<pre><code class="lang-csharp">// 1. Implement IContextualRibbonInjector
+public class MyInjector : IContextualRibbonInjector
+{
+    // Track subscribed state
+    private bool _subscribed;
+    
+    // Track injected buttons for visibility control
+    private readonly Dictionary&lt;string, RibbonButton&gt; _buttons = new();
+    
+    // Evaluate selection and show/hide button
+    private void OnSelectionChanged(...)
+    {
+        bool hasMyElements = EvaluateSelection(uiapp);
+        ToggleButtons(visible: hasMyElements);
+    }
+}
+
+// 2. Register hook
+registry.RegisterHook&lt;IContextualRibbonInjector, MyInjector&gt;();
+</code></pre>
+<h3 id="warning-integration">Warning Integration</h3>
+<p>Tasks can set warnings when they fail, which disables auto-update until resolved:</p>
+<pre><code class="lang-csharp">// In SafeExecutor options
+OnErrorAsync = async _ =&gt;
+{
+    foreach (var warningId in task.WarningIdsToSetOnFailure)
+        await _warnings.SetWarningAsync(warningId, true, null, ct);
+}
+</code></pre>
+<p>The warning IDs must be defined in the tool's settings pack and match entries in <code>manifest.yml</code>.</p>
+<h2 id="creating-new-hook-types">Creating New Hook Types</h2>
+<p>To add a new hook type (advanced):</p>
+<h3 id="step-1-define-the-interface">Step 1: Define the Interface</h3>
+<pre><code class="lang-csharp">// In DBTools.Core/Tools/
+public interface IDocumentClosingHookHandler
+{
+    Task OnDocumentClosingAsync(
+        UIControlledApplication application,
+        DocumentClosingEventArgs args,
+        CancellationToken ct);
+}
+</code></pre>
+<h3 id="step-2-register-as-supported-in-dbthookhost">Step 2: Register as Supported in DbtHookHost</h3>
+<pre><code class="lang-csharp">private static readonly HashSet&lt;Type&gt; _supportedHookInterfaces = new(new[]
+{
+    typeof(IViewActivatedHookHandler),
+    typeof(IContextualRibbonInjector),
+    typeof(IDocumentClosingHookHandler)  // Add new type
+});
+</code></pre>
+<h3 id="step-3-add-resolution-and-subscription">Step 3: Add Resolution and Subscription</h3>
+<pre><code class="lang-csharp">public void Attach(UIControlledApplication application)
+{
+    // ... existing code ...
+    
+    var closingHandlers = ResolveHandlers&lt;IDocumentClosingHookHandler&gt;();
+    if (closingHandlers.Count &gt; 0)
+        application.DocumentClosing += OnDocumentClosing;
+    
+    _closingHandlers = closingHandlers;
+}
+
+private async void OnDocumentClosing(object? sender, DocumentClosingEventArgs args)
+{
+    if (_closingHandlers == null || _closingHandlers.Count == 0) return;
+    
+    try
+    {
+        await _executor.RunAsync(
+            async () =&gt;
+            {
+                foreach (var handler in _closingHandlers)
+                    await handler.OnDocumentClosingAsync(_application!, args, CancellationToken.None);
+            },
+            _logger,
+            notifier: null,
+            opts: new SafeExecutor.SafeExecuteOptions { /* ... */ },
+            ct: CancellationToken.None);
+    }
+    catch { /* Suppress to protect Revit */ }
+}
+</code></pre>
+<h3 id="step-4-add-detach-logic">Step 4: Add Detach Logic</h3>
+<pre><code class="lang-csharp">public void Detach(UIControlledApplication application)
+{
+    // ... existing code ...
+    
+    try { _application.DocumentClosing -= OnDocumentClosing; }
+    catch (Exception ex) { _logger.LogWarning(ex, &quot;Failed to detach document-closing hook.&quot;); }
+    
+    _closingHandlers = null;
+}
+</code></pre>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<h3 id="dont-block-the-ui-thread">Don't Block the UI Thread</h3>
+<p>Hooks run in response to Revit events. Blocking causes UI freezes:</p>
+<pre><code class="lang-csharp">// BAD - blocks UI
+public Task ExecuteAsync(...)
+{
+    Thread.Sleep(5000);  // Never do this!
+    return Task.CompletedTask;
+}
+
+// GOOD - async work
+public async Task ExecuteAsync(...)
+{
+    await SomeAsyncOperation();
+}
+</code></pre>
+<h3 id="use-safeexecutor-options-wisely">Use SafeExecutor Options Wisely</h3>
+<p>For frequent hooks like view activation, suppress banners:</p>
+<pre><code class="lang-csharp">new SafeExecutor.SafeExecuteOptions
+{
+    SuppressCompletionBanner = true,
+    NoBannerOnSuccess = true,
+    NotifyKind = SafeExecutor.NotifyKindKind.Error,  // Only show errors
+    WorkPerformed = false  // Don't log &quot;no work&quot; for frequent events
+}
+</code></pre>
+<h3 id="filter-early-with-shouldrunasync">Filter Early with ShouldRunAsync</h3>
+<p>Avoid expensive work when the hook shouldn't run:</p>
+<pre><code class="lang-csharp">protected override Task&lt;bool&gt; ShouldRunInternalAsync(...)
+{
+    // Quick checks first
+    var view = uiapp.ActiveUIDocument?.Document?.ActiveView;
+    if (view == null) return Task.FromResult(false);
+    if (view.ViewType != ViewType.FloorPlan) return Task.FromResult(false);
+    
+    // Only then check more expensive conditions
+    return Task.FromResult(true);
+}
+</code></pre>
+<h3 id="batch-operations-in-transactions">Batch Operations in Transactions</h3>
+<p>When modifying elements, batch changes in a single transaction:</p>
+<pre><code class="lang-csharp">public override Task ExecuteAsync(...)
+{
+    using var tx = new Transaction(doc, &quot;Auto Update&quot;);
+    tx.Start();
+    
+    foreach (var element in elementsToUpdate)
+        UpdateElement(element);
+    
+    tx.Commit();
+    return Task.CompletedTask;
+}
+</code></pre>
+<h2 id="real-examples">Real Examples</h2>
+<h3 id="elevationtags-auto-update">ElevationTags Auto-Update</h3>
+<p>The Elevation Tags tool uses a view-activated task to update tag values when entering floor plans:</p>
+<pre><code class="lang-csharp">public sealed class ElevationTagsViewActivatedTask : ViewActivatedTaskBase&lt;ElevationTagsSettings&gt;
+{
+    public ElevationTagsViewActivatedTask(
+        ISettingsProvider settings,
+        IDbtLoggingHost loggingHost,
+        ILogger&lt;ElevationTagsViewActivatedTask&gt; logger,
+        IReadOnlyCollection&lt;string&gt; warningIds)
+        : base(settings, logger, &quot;structural.elevation_tags.updater&quot;, &quot;Elevation Tags&quot;, warningIds)
+    {
+        _loggingHost = loggingHost;
+    }
+    
+    protected override Task&lt;bool&gt; ShouldRunInternalAsync(...)
+    {
+        var view = uiapp.ActiveUIDocument?.Document?.ActiveView;
+        return Task.FromResult(
+            view?.ViewType == ViewType.FloorPlan || 
+            view?.ViewType == ViewType.CeilingPlan);
+    }
+    
+    public override Task ExecuteAsync(...)
+    {
+        var updater = new ElevationTagsAutoUpdater(tx, doc, view, logger, settings);
+        updater.Run();
+        return Task.CompletedTask;
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:20-66</code></p>
+</blockquote>
+<h3 id="sgt-contextual-ribbon">SGT Contextual Ribbon</h3>
+<p>The Super Girt Tool injects an &quot;Edit&quot; button into the contextual &quot;Modify | Structural Framing&quot; tab:</p>
+<pre><code class="lang-csharp">public sealed class SgtContextualRibbonInjector : IContextualRibbonInjector
+{
+    public Task InitializeAsync(UIControlledApplication application, CancellationToken ct)
+    {
+        return _gate.RunAsync(app =&gt;
+        {
+            app.SelectionChanged += OnSelectionChanged;
+            _subscribed = true;
+            EnsureInjected(app);
+            EvaluateAndToggle(app);
+        }, ct);
+    }
+    
+    private void EvaluateAndToggle(UIApplication uiapp)
+    {
+        var (hasGirts, systemIds) = EvaluateSelection(uiapp);
+        UpdateSystemIds(systemIds);
+        ToggleButtons(hasGirts, hasGirts);
+    }
+    
+    private void EnsureInjected(UIApplication uiapp)
+    {
+        var targetTab = TryGetContextualModifyStructuralTab(ribbon);
+        var panel = EnsurePanel(targetTab);
+        var btn = BuildButton();
+        panel.Source.Items.Add(btn);
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:24-238</code></p>
+</blockquote>
+<h3 id="apphookmodule-registration">AppHookModule Registration</h3>
+<p>The core hook module that wires up view-activated handling:</p>
+<pre><code class="lang-csharp">public sealed class AppHookModule : DbtToolModule
+{
+    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+    {
+        services.AddSingleton&lt;ViewActivatedHookHandler&gt;();
+    }
+
+    public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+    {
+        registry.RegisterHook&lt;IViewActivatedHookHandler, ViewActivatedHookHandler&gt;();
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Hooks/AppHookModule.cs:7-22</code></p>
+</blockquote>
+<h2 id="debugging-hooks">Debugging Hooks</h2>
+<h3 id="enable-debug-logging">Enable Debug Logging</h3>
+<p>Hook handlers log at debug level. Enable in your development configuration:</p>
+<pre><code class="lang-json">{
+  &quot;Serilog&quot;: {
+    &quot;MinimumLevel&quot;: {
+      &quot;Override&quot;: {
+        &quot;DBTools.App.Features.Hooks&quot;: &quot;Debug&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="common-issues">Common Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Possible Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hook never fires</td>
+<td>Not registered in <code>RegisterHooks</code></td>
+<td>Verify <code>RegisterHook&lt;&gt;()</code> call</td>
+</tr>
+<tr>
+<td>Handler not resolved</td>
+<td>Service not registered</td>
+<td>Add <code>AddSingleton&lt;&gt;()</code> in <code>RegisterServices</code></td>
+</tr>
+<tr>
+<td>UI thread deadlock</td>
+<td>Sync-waiting on async in hook</td>
+<td>Use <code>async void</code> for event handlers, never <code>.Wait()</code></td>
+</tr>
+<tr>
+<td>Hook runs but no effect</td>
+<td><code>ShouldRunAsync</code> returning false</td>
+<td>Check settings (AutoUpdateEnabled, HasWarning)</td>
+</tr>
+<tr>
+<td>Exception in hook</td>
+<td>Various</td>
+<td>Check logs; <code>ISafeExecutor</code> logs all errors</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="new-tool-guide.html">Creating a New Tool</a> - Complete guide to building DBTools tools</li>
+<li><a href="../architecture/overview.html">Architecture Overview</a> - System architecture and component interactions</li>
+<li><a href="settings.md">Settings System</a> - How tools integrate with the settings infrastructure</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/hooks.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

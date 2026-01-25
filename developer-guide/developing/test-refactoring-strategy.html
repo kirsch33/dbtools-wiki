@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Test Refactoring Strategy: GM and SGT | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Test Refactoring Strategy: GM and SGT | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/test-refactoring-strategy.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="test-refactoring-strategy-gm-and-sgt">Test Refactoring Strategy: GM and SGT</h1>
+
+<h2 id="overview">Overview</h2>
+<p>This document outlines the strategy for refactoring GM and SGT tests to achieve:</p>
+<ol>
+<li><strong>DA-compatible (headless) tests</strong> for all pure logic</li>
+<li><strong>Realistic test doubles</strong> that exercise actual code paths</li>
+<li><strong>Contract-based testing</strong> for service compliance</li>
+<li><strong>Comprehensive ViewModel tests</strong> without faking results</li>
+</ol>
+<hr>
+<h2 id="current-state-assessment">Current State Assessment</h2>
+<h3 id="gm-tests-audit">GM Tests Audit</h3>
+<table>
+<thead>
+<tr>
+<th>Test File</th>
+<th>Verdict</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GM_PlanningServiceTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests actual GmPlanningService with real inputs</td>
+</tr>
+<tr>
+<td><code>GM_PlanningKernelTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests actual kernel with realistic GmProjectState</td>
+</tr>
+<tr>
+<td><code>GM_PlanningValidationTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests exception throwing for invalid mappings</td>
+</tr>
+<tr>
+<td><code>GM_KernelDeterminismTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests fingerprinting with real state objects</td>
+</tr>
+<tr>
+<td><code>GM_DomainInvariantsTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests domain object defaults</td>
+</tr>
+<tr>
+<td><code>GmAdapterTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Integration tests using real Revit model</td>
+</tr>
+<tr>
+<td><code>GmBaselines</code></td>
+<td><strong>KEEP</strong></td>
+<td>SSOT reference constants</td>
+</tr>
+<tr>
+<td><code>GM_MappingApplyPlanTests</code></td>
+<td><strong>REFACTOR</strong></td>
+<td>FakeX classes pass <code>null!</code> for Document</td>
+</tr>
+<tr>
+<td><code>GM_MappingServiceTests</code></td>
+<td><strong>REFACTOR</strong></td>
+<td>Same issue - null! Document</td>
+</tr>
+<tr>
+<td><code>GmWindowViewModel_UiStateTests</code></td>
+<td><strong>REFACTOR</strong></td>
+<td>Uses Noop stubs that bypass real logic</td>
+</tr>
+<tr>
+<td><code>GmWindowViewModelTestFactory</code></td>
+<td><strong>REFACTOR</strong></td>
+<td>Creates VMs with all Noop dependencies</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sgt-tests-audit">SGT Tests Audit</h3>
+<table>
+<thead>
+<tr>
+<th>Test File</th>
+<th>Verdict</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ElevationSnapServiceTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Excellent pure logic tests</td>
+</tr>
+<tr>
+<td><code>SgtSegmentResolutionTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Very thorough domain logic tests</td>
+</tr>
+<tr>
+<td><code>SgtFrameBuilderTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Good geometric validation</td>
+</tr>
+<tr>
+<td><code>SgtBaselines</code></td>
+<td><strong>KEEP</strong></td>
+<td>SSOT reference constants</td>
+</tr>
+<tr>
+<td><code>SgtStorageMapperTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests serialization/deserialization</td>
+</tr>
+<tr>
+<td><code>SgtConfigHydratorTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests configuration hydration</td>
+</tr>
+<tr>
+<td><code>SgtElementConnectivityTests</code></td>
+<td><strong>KEEP</strong></td>
+<td>Tests connectivity logic</td>
+</tr>
+<tr>
+<td><code>SgtWindowViewModelCommandTests</code></td>
+<td><strong>REFACTOR</strong></td>
+<td>Uses stub factories, tests with reflection</td>
+</tr>
+</tbody>
+</table>
+<h3 id="critical-issues-found">Critical Issues Found</h3>
+<ol>
+<li><strong><code>StubTxRunner</code> passes <code>null!</code> for Document</strong> - Tests don't exercise real code paths</li>
+<li><strong><code>Noop*</code> classes return empty data</strong> - Bypass actual business logic</li>
+<li><strong><code>FakeX</code> classes only track call counts</strong> - Don't validate actual behavior</li>
+<li><strong>Duplicate implementations</strong> - 4 copies of StubTxRunner across test files</li>
+<li><strong>Reflection to invoke private methods</strong> - Brittle, bypasses normal code paths</li>
+</ol>
+<hr>
+<h2 id="target-architecture">Target Architecture</h2>
+<h3 id="test-categories">Test Categories</h3>
+<pre><code>Tests/
+├── Unit/                     # DA-Compatible (Category: Unit)
+│   ├── GM/
+│   │   ├── Domain/           # Value objects, records, invariants
+│   │   ├── Planning/         # GmPlanningService, operations
+│   │   ├── Kernel/           # State construction, fingerprinting
+│   │   └── Serialization/    # UI state round-trip, snapshots
+│   └── SGT/
+│       ├── Domain/           # Value objects (Elevation, Distance, etc.)
+│       ├── Snapping/         # ElevationSnapService
+│       ├── Segments/         # SegmentResolutionService
+│       └── Frames/           # WallFrame construction
+│
+├── Contract/                 # DA-Compatible (Category: Unit)
+│   ├── GM/
+│   │   ├── IPlanningServiceContract.cs
+│   │   ├── IMappingServiceContract.cs
+│   │   └── IKernelContextContract.cs
+│   └── SGT/
+│       ├── IPlanBuilderContract.cs
+│       ├── IOrchestratorContract.cs
+│       └── IPlacementWriterContract.cs
+│
+├── ViewModel/                # DA-Compatible (Category: Unit)
+│   ├── GM/
+│   │   ├── TabNavigationTests.cs
+│   │   ├── FilteringTests.cs
+│   │   ├── SelectionTests.cs
+│   │   └── StateRoundTripTests.cs
+│   └── SGT/
+│       ├── GirtRowManagementTests.cs
+│       ├── OpeningRowManagementTests.cs
+│       ├── PreviewModeTests.cs
+│       └── PlacementGatesTests.cs
+│
+└── Integration/              # Requires Revit (Category: Local, RequiresActiveDocument)
+    ├── GM/
+    │   ├── AdapterSmokes.cs
+    │   ├── DeepScanTests.cs
+    │   └── MappingApplyTests.cs
+    └── SGT/
+        ├── WallAnalysisTests.cs
+        ├── PlacementWriterTests.cs
+        └── StorageTests.cs
+</code></pre>
+<h3 id="realistic-test-doubles">Realistic Test Doubles</h3>
+<p>Instead of <code>Noop*</code> classes that return empty results, we create <strong>realistic</strong> doubles that:</p>
+<ol>
+<li>Return actual data structures with meaningful values</li>
+<li>Exercise real business logic in consuming code</li>
+<li>Can be configured with different scenarios</li>
+</ol>
+<pre><code class="lang-csharp">// BAD: NoopPlanner - returns empty, bypasses everything
+class NoopPlanner : IGmPlanningService {
+    Task&lt;GmPlanningResult&gt; BuildPlanAsync(...) =&gt;
+        Task.FromResult(new GmPlanningResult(Array.Empty&lt;GmPlanOperation&gt;(), ...));
+}
+
+// GOOD: RealisticPlanner - returns meaningful data
+class RealisticPlanningService : IGmPlanningService {
+    private readonly List&lt;GmPlanOperation&gt; _operations = new();
+
+    public void SetupTypeMappings(params (int from, int to)[] mappings) {
+        foreach (var (from, to) in mappings)
+            _operations.Add(new GmPlanOperation(GmOperationKind.ReplaceType, from, to));
+    }
+
+    public Task&lt;GmPlanningResult&gt; BuildPlanAsync(...) =&gt;
+        Task.FromResult(new GmPlanningResult(
+            _operations,
+            normalizedLog: BuildLog(_operations),
+            typeOpCount: _operations.Count(o =&gt; o.Kind == GmOperationKind.ReplaceType),
+            ...));
+}
+</code></pre>
+<h3 id="contract-based-testing">Contract-Based Testing</h3>
+<p>Define contracts that specify what services MUST produce:</p>
+<pre><code class="lang-csharp">public static class GmPlanningServiceContract
+{
+    /// &lt;summary&gt;
+    /// INVARIANT: BuildPlanAsync must return operations sorted by execution order
+    /// (Params → Create → Host → Nested → Type → Style → Material → SP)
+    /// &lt;/summary&gt;
+    public static void AssertOperationOrder(GmPlanningResult result)
+    {
+        var kinds = result.Operations.Select(o =&gt; o.Kind).ToList();
+        var expected = new[] {
+            GmOperationKind.MapParameter,
+            GmOperationKind.CreateType,
+            GmOperationKind.ReplaceHost,
+            GmOperationKind.AddNestedFamily,
+            GmOperationKind.ReplaceType,
+            GmOperationKind.ReplaceStyle,
+            GmOperationKind.ReplaceMaterial,
+            GmOperationKind.BindSharedParameter,
+            GmOperationKind.EmbedSharedParameter
+        };
+
+        var lastIndex = -1;
+        foreach (var kind in kinds)
+        {
+            var index = Array.IndexOf(expected, kind);
+            Assert.That(index, Is.GreaterThanOrEqualTo(lastIndex),
+                $&quot;Operation {kind} appears before expected order&quot;);
+            lastIndex = index;
+        }
+    }
+
+    /// &lt;summary&gt;
+    /// INVARIANT: Zero/negative IDs must be rejected
+    /// &lt;/summary&gt;
+    public static void AssertRejectsInvalidIds(IGmPlanningService svc)
+    {
+        Assert.ThrowsAsync&lt;GmInvalidMappingException&gt;(() =&gt;
+            svc.BuildPlanAsync(new Dictionary&lt;int,int&gt; { [0] = 1 }, ...));
+        Assert.ThrowsAsync&lt;GmInvalidMappingException&gt;(() =&gt;
+            svc.BuildPlanAsync(new Dictionary&lt;int,int&gt; { [-1] = 1 }, ...));
+        Assert.ThrowsAsync&lt;GmInvalidMappingException&gt;(() =&gt;
+            svc.BuildPlanAsync(new Dictionary&lt;int,int&gt; { [1] = 1 }, ...)); // self-mapping
+    }
+}
+</code></pre>
+<hr>
+<h2 id="implementation-plan">Implementation Plan</h2>
+<h3 id="phase-1-infrastructure-cleanup">Phase 1: Infrastructure Cleanup</h3>
+<ol>
+<li><p><strong>Delete duplicate StubTxRunner implementations</strong></p>
+<ul>
+<li>Consolidate into single implementation in TestSupport</li>
+<li>Remove from individual test files</li>
+</ul>
+</li>
+<li><p><em><em>Delete Noop</em> classes from GmWindowViewModelTestFactory</em>*</p>
+<ul>
+<li>Replace with realistic implementations</li>
+</ul>
+</li>
+<li><p><strong>Create shared test builders</strong></p>
+<ul>
+<li><code>GmProjectStateBuilder</code> - fluent builder for test states</li>
+<li><code>SgtPlanBuilder</code> - fluent builder for test plans</li>
+</ul>
+</li>
+</ol>
+<h3 id="phase-2-gm-test-refactoring">Phase 2: GM Test Refactoring</h3>
+<ol>
+<li><p><strong>Refactor GmWindowViewModelTestFactory</strong></p>
+<ul>
+<li>Replace NoopPlanner with RealisticPlanningService</li>
+<li>Replace NoopMapping with RealisticMappingService</li>
+<li>Remove null! Document passing</li>
+</ul>
+</li>
+<li><p><strong>Add contract tests</strong></p>
+<ul>
+<li>GmPlanningServiceContract</li>
+<li>GmMappingServiceContract</li>
+<li>GmKernelContextContract</li>
+</ul>
+</li>
+<li><p><strong>Add comprehensive ViewModel tests</strong></p>
+<ul>
+<li>Tab navigation (lazy loading)</li>
+<li>Filtering (search, threshold)</li>
+<li>Selection (row selection, target combobox)</li>
+</ul>
+</li>
+</ol>
+<h3 id="phase-3-sgt-test-refactoring">Phase 3: SGT Test Refactoring</h3>
+<ol>
+<li><p><strong>Refactor SgtWindowViewModelCommandTests</strong></p>
+<ul>
+<li>Replace stub factories with realistic doubles</li>
+<li>Remove reflection for private method invocation</li>
+</ul>
+</li>
+<li><p><strong>Add contract tests</strong></p>
+<ul>
+<li>SgtPlanBuilderContract</li>
+<li>SgtOrchestratorContract</li>
+<li>SgtPlacementWriterContract</li>
+</ul>
+</li>
+<li><p><strong>Add comprehensive ViewModel tests</strong></p>
+<ul>
+<li>Girt row management</li>
+<li>Opening row management</li>
+<li>Preview mode transitions</li>
+<li>Placement gates (all conditions)</li>
+</ul>
+</li>
+</ol>
+<h3 id="phase-4-da-compatibility">Phase 4: DA Compatibility</h3>
+<ol>
+<li><p><strong>Ensure all Unit tests are DA-compatible</strong></p>
+<ul>
+<li>No Revit UI dependencies</li>
+<li>Category: &quot;Unit&quot;</li>
+</ul>
+</li>
+<li><p><strong>Mark Integration tests correctly</strong></p>
+<ul>
+<li>Category: &quot;Local&quot;, &quot;RequiresActiveDocument&quot;</li>
+</ul>
+</li>
+<li><p><strong>Update DBTools.DA.Tests to link appropriate tests</strong></p>
+</li>
+</ol>
+<hr>
+<h2 id="success-criteria">Success Criteria</h2>
+<ol>
+<li><strong>No tests pass <code>null!</code> for Document/UIApplication</strong></li>
+<li><strong>No tests return empty data that bypasses business logic</strong></li>
+<li><strong>All pure logic tests are DA-compatible</strong></li>
+<li><strong>Contract tests verify spec compliance</strong></li>
+<li><strong>ViewModel tests exercise real state management</strong></li>
+<li><strong>Zero duplicate test infrastructure code</strong></li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/test-refactoring-strategy.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

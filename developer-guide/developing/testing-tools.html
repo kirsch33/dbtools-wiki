@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Testing Tools for DBTools Development | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Testing Tools for DBTools Development | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/testing-tools.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="testing-tools-for-dbtools-development">Testing Tools for DBTools Development</h1>
+
+<p>This guide covers the complete testing infrastructure for DBTools, including test categories, running tests, writing effective tests, and using the TestSupport library.</p>
+<hr>
+<h2 id="overview-testing-philosophy">Overview: Testing Philosophy</h2>
+<p>DBTools follows a <strong>production-first</strong> testing philosophy:</p>
+<ol>
+<li><strong>Fix production code before changing tests</strong> - When a test fails, investigate production code first</li>
+<li><strong>Assert outcomes, not interactions</strong> - Tests must verify real results, not just that mocks were called</li>
+<li><strong>Stub only true externals</strong> - Mock the Revit API, filesystem, and network; never mock your own services</li>
+<li><strong>No fake tests</strong> - If a test passes regardless of production correctness, delete it</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>.claude/skills/test-audit/README.md</code></p>
+</blockquote>
+<h3 id="what-makes-a-test-legitimate">What Makes a Test Legitimate</h3>
+<table>
+<thead>
+<tr>
+<th>Legitimate (KEEP)</th>
+<th>Illegitimate (DELETE)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Revit API stubs</td>
+<td>Your own service mocks</td>
+</tr>
+<tr>
+<td>File system stubs</td>
+<td>Orchestrator/handler mocks</td>
+</tr>
+<tr>
+<td>Network stubs</td>
+<td>Test doubles with domain behavior</td>
+</tr>
+<tr>
+<td>Time/Random stubs for determinism</td>
+<td>&quot;Mock was called&quot; assertions only</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="test-categories">Test Categories</h2>
+<p>DBTools has two broad categories of tests, determined by execution environment.</p>
+<h3 id="1-headless-tests-no-revit-required">1. Headless Tests (No Revit Required)</h3>
+<p>Tests that can run without Revit, via <code>dotnet test</code>:</p>
+<ul>
+<li><strong>Build Artifacts Tests</strong> - Verify DLL assembly structure and metadata</li>
+<li><strong>Unit Tests</strong> - Pure logic tests for services, algorithms, similarity detection</li>
+<li><strong>DA Tests</strong> - Design Automation-compatible tests</li>
+</ul>
+<pre><code class="lang-bash"># Run headless tests
+dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj -c Release
+</code></pre>
+<h3 id="2-revit-integration-tests">2. Revit Integration Tests</h3>
+<p>Tests that require a running Revit instance, executed via <code>invoke-revit-tests.sh</code>:</p>
+<ul>
+<li><strong>UI Tests</strong> - ViewModel integration tests</li>
+<li><strong>Document Tests</strong> - Tests requiring Revit documents with elements</li>
+<li><strong>Adapter Tests</strong> - Tests verifying Revit API interactions</li>
+</ul>
+<pre><code class="lang-bash"># Run via test runner
+bash csharp/invoke-revit-tests.sh --smart --tool GM
+</code></pre>
+<h3 id="test-category-markers">Test Category Markers</h3>
+<p>Use the <code>TestCategories</code> constants to mark tests appropriately:</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestCategories.cs:1-43</code></p>
+</blockquote>
+<pre><code class="lang-csharp">using DBTools.Tests.Shared;
+
+[TestFixture]
+public class MyTests
+{
+    [Test]
+    [Category(TestCategories.RequiresRevitUI)]
+    public void Test_RequiringUIApplication()
+    {
+        // Requires UIApplication, TaskDialog, or STA thread
+    }
+
+    [Test]
+    [Category(TestCategories.RequiresActiveDocument)]
+    public void Test_RequiringOpenDocument()
+    {
+        // Requires an open Revit document with elements
+    }
+
+    [Test]
+    [Category(TestCategories.Slow)]
+    public void Test_TakesLongTime()
+    {
+        // Tests &gt; 5 seconds; may be excluded from quick runs
+    }
+
+    [Test]
+    [Category(TestCategories.Integration)]
+    public void Test_RequiringNetwork()
+    {
+        // Requires external dependencies (cloud, network)
+    }
+}
+</code></pre>
+<p><strong>Category Effects:</strong></p>
+<ul>
+<li><code>RequiresRevitUI</code> - Excluded from Design Automation runs</li>
+<li><code>RequiresActiveDocument</code> - Excluded from headless runs</li>
+<li><code>Slow</code> - May be filtered out in quick test cycles</li>
+<li><code>Local</code> - Runs only in local Revit environment</li>
+</ul>
+<hr>
+<h2 id="test-project-structure">Test Project Structure</h2>
+<p>Tests live in two locations:</p>
+<h3 id="1-in-tool-tests-csharpsrctoolstooltests">1. In-Tool Tests (<code>csharp/src/Tools/&lt;Tool&gt;/Tests/</code>)</h3>
+<p>Tool-specific tests embedded alongside the tool code:</p>
+<pre><code>csharp/src/Tools/
+├── Common/GM/Tests/
+│   ├── Duplicates/
+│   │   ├── DuplicateDetectionServiceTests.cs
+│   │   └── GmWindowViewModel_SpDuplicatesTests.cs
+│   └── Reports/
+│       └── GmWindowViewModel_SpPlanningTests.cs
+└── Structural/SGT/Tests/
+    ├── SgtAdapterTests.cs
+    ├── SgtSegmentResolutionTests.cs
+    ├── SgtUiServicesTests.cs
+    └── ExtentResolverTests.cs
+</code></pre>
+<h3 id="2-standalone-test-projects-csharptesting">2. Standalone Test Projects (<code>csharp/testing/</code>)</h3>
+<p>Infrastructure and cross-cutting tests:</p>
+<pre><code>csharp/testing/
+├── DBTools.BuildArtifacts.Tests/   # Assembly verification (headless)
+├── DBTools.DA.Tests/               # Design Automation tests (headless)
+├── TestSupport/                    # Shared test utilities
+│   ├── CommonTestDoubles.cs
+│   ├── TestCategories.cs
+│   ├── TestPathResolver.cs
+│   ├── GM/                         # GM-specific test utilities
+│   └── SGT/                        # SGT-specific test utilities
+└── RevitTestModels/                # Test Revit models by year
+    ├── 2024/
+    ├── 2025/
+    └── 2026/
+</code></pre>
+<h3 id="setting-up-a-new-test-project">Setting Up a New Test Project</h3>
+<ol>
+<li><strong>Create the test class</strong> in the appropriate <code>Tests/</code> directory</li>
+<li><strong>Add NUnit attributes</strong>: <code>[TestFixture]</code> and <code>[Test]</code></li>
+<li><strong>Reference TestSupport</strong>: Add using <code>DBTools.Tests.Shared</code></li>
+<li><strong>Add categories</strong> if the test has special requirements</li>
+</ol>
+<hr>
+<h2 id="testsupport-library">TestSupport Library</h2>
+<p>The TestSupport library provides shared utilities for all tests.</p>
+<h3 id="core-test-doubles">Core Test Doubles</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/CommonTestDoubles.cs:1-340</code></p>
+</blockquote>
+<h4 id="recordingnotifier">RecordingNotifier</h4>
+<p>Records error and success banner calls for verification:</p>
+<pre><code class="lang-csharp">var notifier = new RecordingNotifier();
+
+// ... run code that triggers notifications ...
+
+Assert.That(notifier.ErrorCount, Is.EqualTo(1));
+Assert.That(notifier.LastTitle, Does.Contain(&quot;Error&quot;));
+Assert.That(notifier.AllBanners, Has.Count.EqualTo(2));
+</code></pre>
+<h4 id="recordingoverlay">RecordingOverlay</h4>
+<p>Records progress overlay interactions:</p>
+<pre><code class="lang-csharp">var overlay = new RecordingOverlay();
+
+// ... run code using progress overlay ...
+
+Assert.That(overlay.ShowCount, Is.EqualTo(1));
+Assert.That(overlay.CurrentTitle, Is.EqualTo(&quot;Processing...&quot;));
+Assert.That(overlay.StepUpdates, Has.Count.GreaterThan(0));
+</code></pre>
+<h4 id="inlineexecutor">InlineExecutor</h4>
+<p>Runs ISafeExecutor actions synchronously (no async dispatch):</p>
+<pre><code class="lang-csharp">var executor = new InlineExecutor();
+
+// ... inject into ViewModel ...
+
+Assert.That(executor.RunCount, Is.EqualTo(1));
+</code></pre>
+<h4 id="inlinetransactionrunner">InlineTransactionRunner</h4>
+<p>Executes transactions inline without actual Revit transactions:</p>
+<pre><code class="lang-csharp">var runner = new InlineTransactionRunner();
+
+// ... inject into service ...
+
+Assert.That(runner.RunCount, Is.EqualTo(2));
+Assert.That(runner.TransactionNames, Contains.Item(&quot;Apply Mappings&quot;));
+</code></pre>
+<h3 id="gm-test-utilities">GM Test Utilities</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/GM/GmTestDataBuilder.cs:1-475</code></p>
+</blockquote>
+<h4 id="gmtestdatabuilder">GmTestDataBuilder</h4>
+<p>Fluent builder for creating realistic GM test state:</p>
+<pre><code class="lang-csharp">var state = new GmTestDataBuilder()
+    .AddFamilyWithIds(
+        familyId: 100,
+        familyName: &quot;Detail Plate A&quot;,
+        placement: &quot;Face-Based&quot;,
+        instanceCount: 10,
+        (101, &quot;Type A-1&quot;),
+        (102, &quot;Type A-2&quot;))
+    .AddMaterialsWithIds(
+        (1001, &quot;Steel - Chrome&quot;),
+        (1002, &quot;Steel - Brushed&quot;))
+    .LinkFamilyToMaterials(100, 1001, 1002)
+    .Build();
+</code></pre>
+<h4 id="pre-built-test-states">Pre-built Test States</h4>
+<pre><code class="lang-csharp">// Standard state with families, types, materials, styles
+var standard = GmTestDataBuilder.CreateStandardTestState();
+
+// Minimal state for simple tests
+var minimal = GmTestDataBuilder.CreateMinimalTestState();
+</code></pre>
+<h4 id="gmrealistictestdoubles">GmRealisticTestDoubles</h4>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/GM/GmRealisticTestDoubles.cs:1-914</code></p>
+</blockquote>
+<p>Realistic implementations of GM contracts:</p>
+<pre><code class="lang-csharp">// Project lifecycle that returns configured state
+var lifecycle = RealisticProjectLifecycle.WithStandardTestState();
+
+// Duplicate detection with pre-configured results
+var duplicates = RealisticDuplicateDetection.WithStandardDuplicates();
+
+// Element queries from state
+var queries = new RealisticElementQuery(state);
+
+// Configurable services for specific scenarios
+var mapping = new ConfigurableMappingService()
+    .WithApplyResult(new GmMappingApplyResult(...));
+</code></pre>
+<h3 id="sgt-test-utilities">SGT Test Utilities</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/SGT/SgtRealisticTestDoubles.cs:1-300</code></p>
+</blockquote>
+<h4 id="configurableorchestratorfactory">ConfigurableOrchestratorFactory</h4>
+<pre><code class="lang-csharp">var factory = new ConfigurableOrchestratorFactory()
+    .Succeeds()  // or .FailsWithError(&quot;message&quot;)
+    .SucceedsWithOutcome(new PlacementOutcome { ... });
+
+// After test execution
+Assert.That(factory.PlaceCallCount, Is.EqualTo(1));
+Assert.That(factory.LastPlacedPlan, Is.Not.Null);
+</code></pre>
+<h4 id="configurableplanbuilder">ConfigurablePlanBuilder</h4>
+<pre><code class="lang-csharp">var builder = new ConfigurablePlanBuilder()
+    .ReturnsNewPlan(expectedPlan);
+
+// After test execution  
+Assert.That(builder.BuildNewPlanCallCount, Is.EqualTo(1));
+Assert.That(builder.LastTarget, Is.Not.Null);
+</code></pre>
+<h3 id="test-path-resolution">Test Path Resolution</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestPathResolver.cs:1-66</code></p>
+</blockquote>
+<p>Resolves test model paths from the test runner environment:</p>
+<pre><code class="lang-csharp">// Get base test models directory
+var modelsDir = TestPathResolver.ResolveTestModelsDir();
+
+// Get specific model path
+var gmModel = TestPathResolver.ResolveTestModelPath(&quot;2026&quot;, &quot;GM&quot;, &quot;gm_test_model.rvt&quot;);
+</code></pre>
+<hr>
+<h2 id="writing-headless-tests">Writing Headless Tests</h2>
+<p>Headless tests run via <code>dotnet test</code> without Revit.</p>
+<h3 id="example-unit-test-for-service-logic">Example: Unit Test for Service Logic</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/Duplicates/DuplicateDetectionServiceTests.cs:1-184</code></p>
+</blockquote>
+<pre><code class="lang-csharp">[TestFixture]
+public class DuplicateDetectionServiceTests
+{
+    // Minimal stubs for true external dependencies only
+    private sealed class StubNames : IElementQuery
+    {
+        private readonly Dictionary&lt;int, string&gt; _map;
+        public StubNames(Dictionary&lt;int, string&gt; map) { _map = map; }
+        
+        public Task&lt;string?&gt; GetElementNameAsync(int elementId, CancellationToken ct = default)
+            =&gt; Task.FromResult(_map.TryGetValue(elementId, out var n) ? n : null);
+        
+        public Task&lt;IReadOnlyDictionary&lt;int, string&gt;&gt; GetElementNamesAsync(
+            IReadOnlyCollection&lt;int&gt; elementIds, CancellationToken ct = default)
+            =&gt; Task.FromResult((IReadOnlyDictionary&lt;int, string&gt;)
+                _map.Where(kv =&gt; elementIds.Contains(kv.Key))
+                    .ToDictionary(kv =&gt; kv.Key, kv =&gt; kv.Value));
+    }
+
+    [Test]
+    public async Task Families_With_SameStem_And_ParamOverlap_Generate_Pairs()
+    {
+        // Arrange: Build real kernel state
+        var kernel = new GmProjectState
+        {
+            Families = new Dictionary&lt;int, GmFamilyRecord&gt;
+            {
+                [100] = new GmFamilyRecord { ElementId = 100, Name = &quot;Plate&quot; },
+                [101] = new GmFamilyRecord { ElementId = 101, Name = &quot;Plate1&quot; }
+            }
+        };
+        kernel.Families[100].Types[1000] = new GmTypeRecord 
+        { 
+            SymbolId = 1000, 
+            FamilyId = 100, 
+            DeepScanPayload = new GmTypeDeepScan { ParameterNames = new[] { &quot;Width&quot;, &quot;Height&quot; } }
+        };
+
+        // Real service with minimal stubs
+        var svc = new DuplicateDetectionService(
+            new NamingSimilarityService(),      // Real service
+            new ParameterSimilarityService(),   // Real service
+            new StubNames(new Dictionary&lt;int, string&gt; { { 100, &quot;Plate&quot; }, { 101, &quot;Plate1&quot; } }),
+            new StubMatPrev(new Dictionary&lt;int, MaterialPreviewInfo?&gt;()),
+            new StubStylePrev(new Dictionary&lt;int, StylePreviewInfo?&gt;()),
+            NullLogger.Instance);
+
+        // Act
+        var res = await svc.DetectAsync(kernel);
+
+        // Assert: Real outcome
+        var famGroups = res.Groups.Where(g =&gt; g.Kind == DuplicateKind.Families).ToList();
+        Assert.That(famGroups.Count, Is.GreaterThanOrEqualTo(1));
+        
+        var anyPair = famGroups
+            .SelectMany(g =&gt; g.Pairs)
+            .Any(p =&gt; p.FromId == 100 &amp;&amp; p.ToId == 101 &amp;&amp; p.Score &gt;= 90.0);
+        Assert.That(anyPair, Is.True, &quot;Expected high-score pair between 100 -&gt; 101.&quot;);
+    }
+}
+</code></pre>
+<h3 id="example-build-artifacts-test">Example: Build Artifacts Test</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/DBTools.BuildArtifacts.Tests/AssemblyManifestTests.cs:1-341</code></p>
+</blockquote>
+<pre><code class="lang-csharp">[TestFixture]
+[Category(&quot;BuildArtifacts&quot;)]
+public sealed class AssemblyManifestTests
+{
+    private static readonly int[] SupportedYears = { 2024, 2025, 2026 };
+
+    [TestCaseSource(nameof(SupportedYears))]
+    public void DBTools_TargetFrameworkCorrect(int year)
+    {
+        if (!DistExists())
+            Assert.Inconclusive(&quot;Build artifacts not found. Run build first.&quot;);
+
+        var path = Path.Combine(GetYearPath(year), &quot;DBTools.dll&quot;);
+        var tfm = GetTargetFramework(path);
+
+        if (year == 2024)
+        {
+            Assert.That(tfm, Does.Contain(&quot;.NETFramework&quot;).Or.Contain(&quot;net48&quot;),
+                $&quot;Year {year} should target .NET Framework 4.8&quot;);
+        }
+        else
+        {
+            Assert.That(tfm, Does.Contain(&quot;.NETCoreApp&quot;).Or.Contain(&quot;net8.0&quot;),
+                $&quot;Year {year} should target .NET 8.0&quot;);
+        }
+    }
+
+    [TestCaseSource(nameof(SupportedYears))]
+    public void DBTools_NoForbiddenReferences(int year)
+    {
+        var refs = GetReferencedAssemblies(path);
+
+        foreach (var forbidden in ForbiddenReferences)
+        {
+            Assert.That(refs.Any(r =&gt; r.Equals(forbidden, StringComparison.OrdinalIgnoreCase)), 
+                Is.False,
+                $&quot;Year {year}: Should not directly reference {forbidden}&quot;);
+        }
+    }
+}
+</code></pre>
+<hr>
+<h2 id="writing-revit-tests">Writing Revit Tests</h2>
+<p>Revit integration tests use the <code>ricaun.RevitTest</code> framework.</p>
+<h3 id="example-sgt-ui-service-test">Example: SGT UI Service Test</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Tests/SgtUiServicesTests.cs:1-150</code></p>
+</blockquote>
+<pre><code class="lang-csharp">[TestFixture]
+public class SgtUiServicesTests
+{
+    private IUnitService _units = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _units = new UnitService();  // Real service, not a mock
+    }
+
+    private static ILogger&lt;T&gt; CreateLogger&lt;T&gt;() 
+        =&gt; TestLoggingBridge.Initialize().CreateLogger&lt;T&gt;();
+
+    private static WallPreviewData SampleWall(double length = 20.0)
+    {
+        return new WallPreviewData
+        {
+            WallId = 1,
+            LengthFeet = length,
+            BaseElevationFeet = 0.0,
+            TopElevationFeet = 10.0,
+            ThicknessFeet = 0.5,
+            StartPoint = Vector3.Create(0, 0, 0).Value,
+            EndPoint = Vector3.Create(length, 0, 0).Value,
+            WallTypeId = 1,
+            WallTypeName = &quot;Type-A&quot;,
+            Grids = new List&lt;GridMarker&gt;
+            {
+                new GridMarker { Name = &quot;A&quot;, T = 0.25 },
+                new GridMarker { Name = &quot;B&quot;, T = 0.75 },
+            },
+            Openings = new List&lt;ElevationOpeningRect&gt;
+            {
+                new ElevationOpeningRect 
+                { 
+                    OpeningKey = &quot;H:1:101&quot;, 
+                    T0 = 0.40, 
+                    T1 = 0.60, 
+                    Y0 = 3.0, 
+                    Y1 = 6.0 
+                },
+            }
+        };
+    }
+
+    [Test]
+    public void SgtGridManagementService_UpdateExtentEnables_RespectsGridCounts()
+    {
+        var svc = new SgtGridManagementService(CreateLogger&lt;SgtGridManagementService&gt;());
+        var row = new SgtGirtRowItem { StartExtent = &quot;A&quot;, EndExtent = &quot;B&quot; };
+        var opts = new ObservableCollection&lt;string&gt; { &quot;Full Length&quot; };
+
+        // 0 grids =&gt; both disabled and reset to Full Length
+        SgtGridManagementService.UpdateExtentEnables(row, opts);
+        
+        Assert.That(row.StartExtentEnabled, Is.False);
+        Assert.That(row.EndExtentEnabled, Is.False);
+        Assert.That(row.StartExtent, Is.EqualTo(&quot;Full Length&quot;));
+        Assert.That(row.EndExtent, Is.EqualTo(&quot;Full Length&quot;));
+
+        // 1 grid =&gt; only one side enabled at a time
+        opts.Add(&quot;A&quot;);
+        SgtGridManagementService.UpdateExtentEnables(row, opts);
+        Assert.That(row.StartExtentEnabled ^ row.EndExtentEnabled, Is.True);
+
+        // 2+ grids =&gt; both enabled
+        opts.Add(&quot;B&quot;);
+        SgtGridManagementService.UpdateExtentEnables(row, opts);
+        Assert.That(row.StartExtentEnabled &amp;&amp; row.EndExtentEnabled, Is.True);
+    }
+}
+</code></pre>
+<h3 id="using-revithost-for-context">Using RevitHost for Context</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/TestSupport/TestHost/RevitHost.cs:1-111</code></p>
+</blockquote>
+<p>For tests requiring Revit context:</p>
+<pre><code class="lang-csharp">[Test]
+[Category(TestCategories.RequiresRevitUI)]
+public async Task MyTest_WithRevitContext(UIApplication app)
+{
+    await RevitHost.RunAsync(app, async () =&gt;
+    {
+        // Code runs within Revit context
+        var doc = app.ActiveUIDocument?.Document;
+        Assert.That(doc, Is.Not.Null);
+    });
+}
+</code></pre>
+<hr>
+<h2 id="test-doubles-guidelines">Test Doubles: Guidelines</h2>
+<h3 id="when-to-use-test-doubles">When to Use Test Doubles</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Revit API dependency</td>
+<td>Stub it</td>
+</tr>
+<tr>
+<td>File system access</td>
+<td>Stub it</td>
+</tr>
+<tr>
+<td>Network/cloud services</td>
+<td>Stub it</td>
+</tr>
+<tr>
+<td>Time-sensitive logic</td>
+<td>Stub with deterministic time</td>
+</tr>
+<tr>
+<td>Your own services</td>
+<td>Use the <strong>real</strong> implementation</td>
+</tr>
+<tr>
+<td>Orchestrators/handlers</td>
+<td>Use the <strong>real</strong> implementation</td>
+</tr>
+</tbody>
+</table>
+<h3 id="anti-patterns-to-avoid">Anti-patterns to Avoid</h3>
+<pre><code class="lang-csharp">// BAD: Mocking your own service to make test pass
+var mockOrchestrator = new Mock&lt;ISgtOrchestrator&gt;();
+mockOrchestrator.Setup(o =&gt; o.PlaceAsync(It.IsAny&lt;SgtPlan&gt;(), It.IsAny&lt;CancellationToken&gt;()))
+    .ReturnsAsync(Result.Success(new PlacementOutcome()));
+
+// BAD: Asserting only mock interactions
+mockService.Verify(s =&gt; s.DoSomething(), Times.Once);
+// Missing: actual outcome assertion!
+
+// BAD: Test double that adds domain behavior
+public class FakeOrchestrator : ISgtOrchestrator
+{
+    public Task&lt;Result&lt;PlacementOutcome, string&gt;&gt; PlaceAsync(...)
+    {
+        // WRONG: Implementing domain logic in test double
+        var outcome = ComputePlacement(plan);  
+        return Task.FromResult(Result.Success(outcome));
+    }
+}
+</code></pre>
+<h3 id="correct-pattern">Correct Pattern</h3>
+<pre><code class="lang-csharp">// GOOD: Use real services, stub only true externals
+var realService = new DuplicateDetectionService(
+    new NamingSimilarityService(),      // Real
+    new ParameterSimilarityService(),   // Real
+    new StubElementQuery(testData),     // Stub: wraps Revit API
+    new StubMaterialService(testData),  // Stub: wraps Revit API
+    NullLogger.Instance);
+
+// GOOD: Assert real outcomes
+var result = await realService.DetectAsync(kernel);
+Assert.That(result.Groups, Has.Count.GreaterThan(0));
+Assert.That(result.Groups[0].Pairs, Contains.Item(
+    Has.Property(&quot;FromId&quot;).EqualTo(100)
+       .And.Property(&quot;ToId&quot;).EqualTo(101)));
+</code></pre>
+<hr>
+<h2 id="running-tests">Running Tests</h2>
+<h3 id="local-invoke-revit-testssh">Local: invoke-revit-tests.sh</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/invoke-revit-tests.sh:1-1529</code></p>
+</blockquote>
+<p>The primary test runner for Revit integration tests.</p>
+<h4 id="basic-usage">Basic Usage</h4>
+<pre><code class="lang-bash"># Run all tests for a tool
+bash csharp/invoke-revit-tests.sh --tool GM
+
+# Smart mode (recommended) - auto-detects build changes
+bash csharp/invoke-revit-tests.sh --smart --tool GM
+
+# Specific Revit year
+bash csharp/invoke-revit-tests.sh --smart --tool SGT -y 2025
+
+# Custom filter
+bash csharp/invoke-revit-tests.sh -f &quot;FullyQualifiedName~DuplicateDetection&quot;
+
+# Specific fixture
+bash csharp/invoke-revit-tests.sh --fixture SgtUiServicesTests
+</code></pre>
+<h4 id="revit-instance-modes">Revit Instance Modes</h4>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--smart</code></td>
+<td>Auto-detect if build changed; reuse if unchanged</td>
+</tr>
+<tr>
+<td><code>--reuse</code></td>
+<td>Use existing Revit instance; fail if none running</td>
+</tr>
+<tr>
+<td><code>--persist</code></td>
+<td>Open new Revit and leave it running after tests</td>
+</tr>
+<tr>
+<td><code>--close</code></td>
+<td>Open new Revit and close it after tests (default)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="test-discovery">Test Discovery</h4>
+<pre><code class="lang-bash"># List all available tests
+bash csharp/invoke-revit-tests.sh --discover
+
+# List GM tests only
+bash csharp/invoke-revit-tests.sh --discover --tool GM
+
+# Show test count summary
+bash csharp/invoke-revit-tests.sh --discover --summary
+
+# Show DA-compatible tests only
+bash csharp/invoke-revit-tests.sh --discover --da-only
+</code></pre>
+<h4 id="test-history">Test History</h4>
+<pre><code class="lang-bash"># Show recent test history
+bash csharp/invoke-revit-tests.sh --history
+
+# Show failed tests
+bash csharp/invoke-revit-tests.sh --show-failed
+
+# Show tests not run in 7 days
+bash csharp/invoke-revit-tests.sh --show-stale 7
+
+# Show error details for specific tests
+bash csharp/invoke-revit-tests.sh --get-errors &quot;GM&quot;
+</code></pre>
+<h4 id="parallel-agent-support">Parallel Agent Support</h4>
+<p>For multiple AI agents running tests simultaneously:</p>
+<pre><code class="lang-bash"># Agent 1
+bash csharp/invoke-revit-tests.sh --smart --session agent-001 --tool GM
+
+# Agent 2
+bash csharp/invoke-revit-tests.sh --smart --session agent-002 --tool SGT
+</code></pre>
+<h3 id="ci-dotnet-test">CI: dotnet test</h3>
+<p>For headless tests in CI pipelines:</p>
+<pre><code class="lang-bash"># Build artifacts tests
+dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj \
+    -c Release
+
+# Run with specific filter
+dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj \
+    -c Release \
+    --filter &quot;FullyQualifiedName~Metadata&quot;
+
+# Exclude slow tests
+dotnet test . --filter &quot;Category!=Slow&quot;
+</code></pre>
+<hr>
+<h2 id="debugging-test-failures">Debugging Test Failures</h2>
+<h3 id="common-issues">Common Issues</h3>
+<h4 id="1-missing-required-test-params-file">1. &quot;Missing required test params file&quot;</h4>
+<p><strong>Cause:</strong> Running Revit tests outside of <code>invoke-revit-tests.sh</code></p>
+<p><strong>Fix:</strong> Always run Revit tests via the runner:</p>
+<pre><code class="lang-bash">bash csharp/invoke-revit-tests.sh --smart --tool GM
+</code></pre>
+<h4 id="2-artifacts-are-stale-relative-to-source-snapshot">2. &quot;Artifacts are stale relative to source snapshot&quot;</h4>
+<p><strong>Cause:</strong> Source code changed since last build</p>
+<p><strong>Fix:</strong> Rebuild before testing:</p>
+<pre><code class="lang-bash">bash csharp/build.sh BuildAll
+bash csharp/invoke-revit-tests.sh --smart --tool GM
+</code></pre>
+<h4 id="3-no-running-revitexe-instance-was-found">3. &quot;No running Revit.exe instance was found&quot;</h4>
+<p><strong>Cause:</strong> Using <code>--reuse</code> mode without a running Revit</p>
+<p><strong>Fix:</strong> Use <code>--smart</code> or <code>--persist</code> instead:</p>
+<pre><code class="lang-bash">bash csharp/invoke-revit-tests.sh --smart --tool GM
+</code></pre>
+<h4 id="4-test-passes-in-isolation-but-fails-in-batch">4. Test passes in isolation but fails in batch</h4>
+<p><strong>Cause:</strong> Shared state pollution between tests</p>
+<p><strong>Fix:</strong> Ensure <code>[SetUp]</code> and <code>[TearDown]</code> properly isolate state:</p>
+<pre><code class="lang-csharp">[SetUp]
+public void SetUp()
+{
+    _notifier = new RecordingNotifier();
+    _overlay = new RecordingOverlay();
+    // Reset any shared state
+}
+
+[TearDown]
+public void TearDown()
+{
+    _notifier.Reset();
+    _overlay.Reset();
+}
+</code></pre>
+<h4 id="5-assertinconclusive-build-artifacts-not-found">5. Assert.Inconclusive: &quot;Build artifacts not found&quot;</h4>
+<p><strong>Cause:</strong> Running build artifacts tests without building first</p>
+<p><strong>Fix:</strong> Build before testing:</p>
+<pre><code class="lang-bash">bash csharp/build.sh BuildAll
+dotnet test csharp/testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj
+</code></pre>
+<h3 id="viewing-test-logs">Viewing Test Logs</h3>
+<pre><code class="lang-bash"># Show log file path after test run
+bash csharp/invoke-revit-tests.sh --smart --tool GM --show-log
+</code></pre>
+<h3 id="session-management">Session Management</h3>
+<pre><code class="lang-bash"># List active test sessions
+bash csharp/invoke-revit-tests.sh --sessions
+
+# Clean up stale sessions
+bash csharp/invoke-revit-tests.sh --kill-orphans
+</code></pre>
+<hr>
+<h2 id="real-examples-from-the-codebase">Real Examples from the Codebase</h2>
+<h3 id="gm-duplicate-detection-tests">GM: Duplicate Detection Tests</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/Duplicates/DuplicateDetectionServiceTests.cs:58-87</code></p>
+</blockquote>
+<p>Tests the real duplicate detection algorithm with minimal stubs:</p>
+<pre><code class="lang-csharp">[Test]
+public async Task Families_With_SameStem_And_ParamOverlap_Generate_Pairs()
+{
+    var kernel = new GmProjectState { ... };
+    var svc = new DuplicateDetectionService(
+        new NamingSimilarityService(),      // Real
+        new ParameterSimilarityService(),   // Real
+        new StubNames(...),                 // Stub: Revit element names
+        new StubMatPrev(...),               // Stub: Revit materials
+        new StubStylePrev(...),             // Stub: Revit styles
+        NullLogger.Instance);
+
+    var res = await svc.DetectAsync(kernel);
+    
+    // Assert on actual detection results
+    Assert.That(famGroups.Count, Is.GreaterThanOrEqualTo(1));
+    Assert.That(anyPair, Is.True, &quot;Expected high-score pair between 100 -&gt; 101.&quot;);
+}
+</code></pre>
+<h3 id="sgt-ui-services-tests">SGT: UI Services Tests</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Tests/SgtUiServicesTests.cs:60-117</code></p>
+</blockquote>
+<p>Tests grid management logic with real service and sample data:</p>
+<pre><code class="lang-csharp">[Test]
+public void SgtGridManagementService_ResolveExtentTR_ComputesForGridAndOpening()
+{
+    var wall = SampleWall(length: 40.0);  // Real test data
+    var gridT = new Dictionary&lt;string, double&gt; { [&quot;A&quot;] = 0.25, [&quot;B&quot;] = 0.75 };
+    var openingT = new Dictionary&lt;string, (double, double)&gt; { [&quot;H:1:101&quot;] = (0.40, 0.60) };
+
+    var row = new SgtGirtRowItem { ... };
+
+    // Test real service logic
+    SgtGridManagementService.ResolveExtentTR(wall, gridT, openingT, row, isStart: true, out tL, ref warnings);
+    SgtGridManagementService.ResolveExtentTR(wall, gridT, openingT, row, isStart: false, out tR, ref warnings);
+    
+    Assert.That(tL, Is.EqualTo(0.25).Within(1e-9));
+    Assert.That(tR, Is.EqualTo(0.60).Within(1e-9));
+    Assert.That(string.IsNullOrWhiteSpace(warnings), Is.True);
+}
+</code></pre>
+<h3 id="build-artifacts-assembly-validation">Build Artifacts: Assembly Validation</h3>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/testing/DBTools.BuildArtifacts.Tests/AssemblyManifestTests.cs:86-106</code></p>
+</blockquote>
+<p>Tests that built assemblies meet contract requirements:</p>
+<pre><code class="lang-csharp">[TestCaseSource(nameof(YearAssemblyPairs))]
+public void Assembly_ExistsAndIsValid(int year, string assemblyName)
+{
+    if (!DistExists())
+        Assert.Inconclusive(&quot;Build artifacts not found. Run build first.&quot;);
+
+    var path = Path.Combine(GetYearPath(year), assemblyName);
+    Assert.That(File.Exists(path), Is.True, $&quot;Missing: {path}&quot;);
+
+    var asmName = AssemblyName.GetAssemblyName(path);
+    Assert.That(asmName, Is.Not.Null);
+    Assert.That(asmName.Name, Does.StartWith(&quot;DBTools&quot;));
+}
+</code></pre>
+<hr>
+<h2 id="cross-references">Cross-References</h2>
+<ul>
+<li><strong>Test Pipeline Architecture:</strong> <a href="../architecture/test-pipeline.html">../architecture/test-pipeline.md</a></li>
+<li><strong>New Tool Guide:</strong> <a href="new-tool-guide.html">new-tool-guide.md</a></li>
+<li><strong>Build System:</strong> <a href="../architecture/build-system.md">../architecture/build-system.md</a></li>
+</ul>
+<hr>
+<h2 id="summary-checklist">Summary Checklist</h2>
+<p>When writing tests, ensure:</p>
+<ul>
+<li>[ ] Tests use real service implementations where possible</li>
+<li>[ ] Only true externals (Revit API, filesystem, network) are stubbed</li>
+<li>[ ] Tests assert on <strong>outcomes</strong>, not just mock interactions</li>
+<li>[ ] Tests are marked with appropriate categories (<code>RequiresRevitUI</code>, etc.)</li>
+<li>[ ] <code>[SetUp]</code> and <code>[TearDown]</code> properly isolate test state</li>
+<li>[ ] Test doubles don't add domain behavior</li>
+<li>[ ] Failing tests trigger production code investigation first</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/testing-tools.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

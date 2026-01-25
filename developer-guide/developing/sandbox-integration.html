@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Sandbox Integration Guide | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Sandbox Integration Guide | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/sandbox-integration.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="sandbox-integration-guide">Sandbox Integration Guide</h1>
+
+<p>This guide covers integrating DBTools tool windows with the Sandbox system for design-time previews and automated UI validation.</p>
+<h2 id="overview">Overview</h2>
+<p>The <strong>Sandbox</strong> is a standalone WPF application that validates tool UI without requiring Revit. It serves two critical purposes:</p>
+<ol>
+<li><strong>Interactive Mode</strong> - Launch and preview tool windows during development</li>
+<li><strong>Headless Mode</strong> - Automated validation in CI pipelines (ValidateDist target)</li>
+</ol>
+<h3 id="why-validation-matters">Why Validation Matters</h3>
+<p>UI defects that slip past development often surface only when loaded in Revit:</p>
+<ul>
+<li>XAML binding errors that fail silently</li>
+<li>Theme resource resolution failures (ghost buttons, missing styles)</li>
+<li>ILRepack merge issues causing type resolution failures</li>
+<li>Design-time ViewModel instantiation crashes</li>
+</ul>
+<p>The Sandbox catches these issues <strong>before deployment</strong> by:</p>
+<ul>
+<li>Loading the actual dist artifacts (post-merge assemblies)</li>
+<li>Instantiating windows with design-time ViewModels</li>
+<li>Forcing full layout passes to surface XAML errors</li>
+<li>Monitoring WPF binding errors that normally fail silently</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/DistValidator.cs:73-118</code></p>
+</blockquote>
+<hr>
+<h2 id="sandbox-architecture">Sandbox Architecture</h2>
+<pre><code class="lang-mermaid">flowchart TB
+    subgraph Build[&quot;Build Pipeline&quot;]
+        NUKE[NUKE Build]
+        BuildSandbox[BuildSandbox Target]
+        ValidateDist[ValidateDist Target]
+    end
+
+    subgraph Sandbox[&quot;DBTools.Sandbox.exe&quot;]
+        App[App.xaml.cs]
+        DistValidator[DistValidator]
+        ToolWindowValidator[ToolWindowValidator]
+        ManifestValidator[ManifestValidator]
+        MergeValidator[MergeValidator]
+        BindingErrorListener[BindingErrorListener]
+        WindowGhostValidator[WindowGhostValidator]
+    end
+
+    subgraph Dist[&quot;Dist Artifacts&quot;]
+        DBToolsDll[DBTools.dll]
+        Manifests[Embedded Manifests]
+        ToolAssemblies[Tool Types]
+    end
+
+    subgraph Core[&quot;DBTools.Core&quot;]
+        SandboxMode[SandboxMode]
+        DbtSandboxCatalog[DbtSandboxCatalog]
+        DbtToolManifestLoader[DbtToolManifestLoader]
+    end
+
+    NUKE --&gt; BuildSandbox
+    BuildSandbox --&gt; ValidateDist
+    ValidateDist --&gt; |--headless| App
+    App --&gt; |Run| DistValidator
+    DistValidator --&gt; MergeValidator
+    DistValidator --&gt; ManifestValidator
+    DistValidator --&gt; ToolWindowValidator
+    ToolWindowValidator --&gt; DbtSandboxCatalog
+    DbtSandboxCatalog --&gt; Manifests
+    DistValidator --&gt; BindingErrorListener
+    ToolWindowValidator --&gt; WindowGhostValidator
+    DistValidator --&gt; |Activate| SandboxMode
+    DBToolsDll --&gt; ToolAssemblies
+    ToolAssemblies --&gt; |Instantiate| WindowGhostValidator
+</code></pre>
+<h3 id="key-components">Key Components</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DistValidator</code></td>
+<td>Orchestrates full validation pipeline</td>
+</tr>
+<tr>
+<td><code>ToolWindowValidator</code></td>
+<td>Instantiates and validates each tool window</td>
+</tr>
+<tr>
+<td><code>ManifestValidator</code></td>
+<td>Validates manifest.yml entries and command types</td>
+</tr>
+<tr>
+<td><code>MergeValidator</code></td>
+<td>Verifies ILRepack merge (net48) or embedded payload (net8)</td>
+</tr>
+<tr>
+<td><code>WindowGhostValidator</code></td>
+<td>Forces layout passes to surface XAML errors</td>
+</tr>
+<tr>
+<td><code>BindingErrorListener</code></td>
+<td>Captures silent WPF binding failures</td>
+</tr>
+<tr>
+<td><code>SandboxMode</code></td>
+<td>Signals to tools they're running without Revit</td>
+</tr>
+<tr>
+<td><code>DbtSandboxCatalog</code></td>
+<td>Discovers sandbox window specs from manifests</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="registering-sandbox-windows">Registering Sandbox Windows</h2>
+<p>Tools register their windows for sandbox validation in <code>manifest.yml</code>:</p>
+<h3 id="manifestyml-schema">manifest.yml Schema</h3>
+<pre><code class="lang-yaml">id: DBTools.MyTool
+assembly: DBTools
+moduleType: DBTools.MyTool.MyToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.MyTool.Main
+    displayName: &quot;My Tool&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.MyTool.UI.Views.MyToolWindow&quot;
+    designTimeViewModelType: &quot;DBTools.MyTool.DesignTime.MyToolDesignTimeViewModel&quot;
+</code></pre>
+<h3 id="required-fields">Required Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique identifier (must be globally unique across all tools)</td>
+</tr>
+<tr>
+<td><code>displayName</code></td>
+<td>Human-readable name shown in sandbox launcher</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>Category for grouping (e.g., &quot;Common&quot;, &quot;Structural&quot;)</td>
+</tr>
+<tr>
+<td><code>windowType</code></td>
+<td>Fully-qualified Window class name</td>
+</tr>
+<tr>
+<td><code>designTimeViewModelType</code></td>
+<td>Fully-qualified design-time ViewModel class name</td>
+</tr>
+</tbody>
+</table>
+<h3 id="optional-fields">Optional Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>assembly</code></td>
+<td>Assembly name override (defaults to manifest's <code>assembly</code>)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtSandboxCatalog.cs:10-59</code></p>
+</blockquote>
+<h3 id="example-gm-manifest">Example: GM Manifest</h3>
+<pre><code class="lang-yaml"># csharp/src/Tools/Common/GM/manifest.yml
+id: DBTools.GM
+assembly: DBTools
+moduleType: DBTools.GM.GmToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.GM.Main
+    displayName: &quot;Global Mapper&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.GmShellDesignTimeViewModel&quot;
+  - id: DBTools.GM.MappingReport
+    displayName: &quot;Global Mapper - Mapping Report&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.GM.Features.Mapping.UI.Views.GmMappingReportWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Features.Mapping.DesignTime.GmMappingReportDesignTimeViewModel&quot;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/manifest.yml:1-15</code></p>
+</blockquote>
+<h3 id="example-sgt-manifest">Example: SGT Manifest</h3>
+<pre><code class="lang-yaml"># csharp/src/Tools/Structural/SGT/manifest.yml
+id: DBTools.SGT
+assembly: DBTools
+moduleType: DBTools.SGT.SgtToolModule
+order: 0
+sandboxWindows:
+  - id: DBTools.SGT.Main
+    displayName: &quot;Super Girt Tool&quot;
+    group: &quot;Structural&quot;
+    windowType: &quot;DBTools.SGT.Shell.UI.Views.SgtWindow&quot;
+    designTimeViewModelType: &quot;DBTools.SGT.Shell.DesignTime.SgtWindowDesignTimeViewModel&quot;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/manifest.yml:1-10</code></p>
+</blockquote>
+<hr>
+<h2 id="design-time-viewmodels">Design-Time ViewModels</h2>
+<p>Design-time ViewModels provide mock data for sandbox/designer rendering without Revit dependencies.</p>
+<h3 id="requirements">Requirements</h3>
+<ol>
+<li><strong>Parameterless Constructor</strong> - Must be instantiable without DI</li>
+<li><strong>No Revit API Calls</strong> - All data must be mocked</li>
+<li><strong>Same Interface as Runtime ViewModel</strong> - XAML bindings must resolve</li>
+<li><strong>Sample Data</strong> - Populate collections with representative test data</li>
+</ol>
+<h3 id="pattern">Pattern</h3>
+<pre><code class="lang-csharp">namespace DBTools.MyTool.DesignTime;
+
+/// &lt;summary&gt;
+/// Design-time ViewModel for MyToolWindow XAML Designer support.
+/// DO NOT instantiate at runtime.
+/// &lt;/summary&gt;
+[EditorBrowsable(EditorBrowsableState.Never)]
+public sealed class MyToolDesignTimeViewModel
+{
+    // Commands - use DesignTimeRelayCommand for all commands
+    public ICommand ExecuteCommand =&gt; DesignTimeRelayCommand.Instance;
+    public ICommand CloseCommand =&gt; DesignTimeRelayCommand.Instance;
+
+    // Properties - provide reasonable defaults
+    public bool IsBusy =&gt; false;
+    public string Status =&gt; &quot;Ready&quot;;
+    
+    // Collections - populate with sample data
+    public ObservableCollection&lt;ItemRow&gt; Items { get; } = new();
+    
+    public MyToolDesignTimeViewModel()
+    {
+        // Add sample data for designer preview
+        Items.Add(new ItemRow { Name = &quot;Sample Item 1&quot;, Value = 42 });
+        Items.Add(new ItemRow { Name = &quot;Sample Item 2&quot;, Value = 100 });
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Shell/DesignTime/GmShellDesignTimeViewModel.cs:19-246</code></p>
+</blockquote>
+<h3 id="using-designtimerelaycommand">Using DesignTimeRelayCommand</h3>
+<p>All commands should use the shared <code>DesignTimeRelayCommand.Instance</code>:</p>
+<pre><code class="lang-csharp">public ICommand ScanCommand =&gt; DesignTimeRelayCommand.Instance;
+public ICommand ApplyCommand =&gt; DesignTimeRelayCommand.Instance;
+</code></pre>
+<p>This provides a no-op command that satisfies bindings without runtime behavior.</p>
+<h3 id="analyzer-suppressions">Analyzer Suppressions</h3>
+<p>Design-time ViewModels typically need these suppressions:</p>
+<pre><code class="lang-csharp">#pragma warning disable CA1822 // Instance members for XAML binding
+#pragma warning disable MA0041 // Design-time uses instance bindings
+#pragma warning disable CA1861 // Array allocations acceptable in design-time
+</code></pre>
+<hr>
+<h2 id="sandboxmode-detection">SandboxMode Detection</h2>
+<p>Tools detect sandbox mode to skip Revit-dependent initialization:</p>
+<h3 id="checking-sandboxmode">Checking SandboxMode</h3>
+<pre><code class="lang-csharp">using DBTools.Core.Compat;
+
+public partial class MyToolWindow : DbtRibbonWindowBase
+{
+    public MyToolWindow()
+    {
+        InitializeComponent();
+        
+        if (DesignerProperties.GetIsInDesignMode(this))
+            return;
+        
+        // Skip Revit initialization in sandbox
+        if (SandboxMode.IsActive)
+        {
+            DataContext = new MyToolDesignTimeViewModel();
+            return;
+        }
+        
+        // Normal runtime initialization with DI
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml.cs:37-48</code></p>
+</blockquote>
+<h3 id="sandboxmode-api">SandboxMode API</h3>
+<pre><code class="lang-csharp">namespace DBTools.Core.Compat;
+
+public static class SandboxMode
+{
+    /// &lt;summary&gt;
+    /// Returns true if running in the sandbox executable (no Revit API available).
+    /// &lt;/summary&gt;
+    public static bool IsActive { get; }
+    
+    /// &lt;summary&gt;
+    /// Called once at sandbox app startup to enable sandbox mode.
+    /// &lt;/summary&gt;
+    public static void Activate();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Compat/SandboxMode.cs:1-23</code></p>
+</blockquote>
+<h3 id="common-uses">Common Uses</h3>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Window constructors</td>
+<td>Use design-time ViewModel</td>
+</tr>
+<tr>
+<td>Preview renderers</td>
+<td>Skip GPU/DirectX initialization</td>
+</tr>
+<tr>
+<td>Service calls</td>
+<td>Return mock data</td>
+</tr>
+<tr>
+<td>Logging initialization</td>
+<td>Use null logger</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="validation-checks">Validation Checks</h2>
+<h3 id="distvalidator-pipeline">DistValidator Pipeline</h3>
+<p>The <code>DistValidator</code> runs these checks in sequence:</p>
+<pre><code class="lang-mermaid">flowchart LR
+    A[Dist Layout] --&gt; B[Assembly Resolver]
+    B --&gt; C[Embedded Resolver]
+    C --&gt; D[Merge/Payload Validation]
+    D --&gt; E[Addin Entrypoint]
+    E --&gt; F[SandboxMode Activation]
+    F --&gt; G[Theme Validation]
+    G --&gt; H[Core Windows]
+    H --&gt; I[Manifest Validation]
+    I --&gt; J[Tool Windows]
+    J --&gt; K[Binding Error Check]
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/DistValidator.cs:73-117</code></p>
+</blockquote>
+<h3 id="1-dist-layout-validation">1. Dist Layout Validation</h3>
+<p>Verifies required files exist:</p>
+<pre><code class="lang-csharp">var required = new[]
+{
+    &quot;DBTools.Loader.dll&quot;,
+    &quot;DBTools.dll&quot;,
+    &quot;DBTools.Themes.dll&quot;,
+    &quot;DBTools.HandyControl.dll&quot;,
+    &quot;DBTools.ControlzEx.dll&quot;,
+    &quot;DBTools.Fluent.Ribbon.dll&quot;
+};
+</code></pre>
+<h3 id="2-mergeembedded-payload-validation">2. Merge/Embedded Payload Validation</h3>
+<p><strong>Net48 (ILRepack):</strong></p>
+<ul>
+<li>Verifies types from merged assemblies exist inside DBTools.dll</li>
+<li>Checks that merged assemblies don't exist as separate files</li>
+<li>Validates internalization exclusions (required public types)</li>
+</ul>
+<p><strong>Net8 (Embedded Payload):</strong></p>
+<ul>
+<li>Verifies <code>DBTools.EmbeddedAssemblies.DBTools.Core.dll</code> resource exists</li>
+<li>Checks resource is loadable and has reasonable size (&gt;1KB)</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/MergeValidator.cs:17-221</code></p>
+</blockquote>
+<h3 id="3-manifest-validation">3. Manifest Validation</h3>
+<p>For each <code>manifest.yml</code>:</p>
+<ul>
+<li>Validates moduleType derives from <code>DbtToolModule</code></li>
+<li>Validates ribbon command types implement <code>IExternalCommand</code></li>
+<li>Validates availability types implement <code>IExternalCommandAvailability</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/ManifestValidator.cs:10-178</code></p>
+</blockquote>
+<h3 id="4-tool-window-validation">4. Tool Window Validation</h3>
+<p>For each sandbox window spec:</p>
+<ol>
+<li>Load the tool assembly</li>
+<li>Resolve window type and ViewModel type</li>
+<li>Instantiate both with parameterless constructors</li>
+<li>Set DataContext on window</li>
+<li>Run WindowGhostValidator (layout passes)</li>
+<li>Validate tab interactions (cycle through tabs)</li>
+<li>Validate DataGrid row expansion</li>
+<li>Validate preview mode switching</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/ToolWindowValidator.cs:13-412</code></p>
+</blockquote>
+<h3 id="5-windowghostvalidator">5. WindowGhostValidator</h3>
+<p>Forces layout passes to surface XAML errors:</p>
+<pre><code class="lang-csharp">// Pass 1: Fixed size (800x600) - typical window size
+ValidateLayoutPass(window, new Size(800, 600), &quot;fixed size&quot;);
+
+// Pass 2: Infinite size - catches controls that crash on &quot;desired&quot; size
+ValidateLayoutPass(window, new Size(double.PositiveInfinity, double.PositiveInfinity), &quot;infinite size&quot;);
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/WindowGhostValidator.cs:9-129</code></p>
+</blockquote>
+<h3 id="6-bindingerrorlistener">6. BindingErrorListener</h3>
+<p>Captures WPF data binding errors that normally fail silently:</p>
+<pre><code class="lang-csharp">using var bindingListener = BindingErrorListener.Install();
+// ... validation code ...
+bindingListener.ThrowIfErrors(&quot;full validation&quot;);
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/BindingErrorListener.cs:8-118</code></p>
+</blockquote>
+<hr>
+<h2 id="running-sandbox-locally">Running Sandbox Locally</h2>
+<h3 id="interactive-mode">Interactive Mode</h3>
+<p>Launch the sandbox for manual window exploration:</p>
+<pre><code class="lang-bash"># Build dist first
+bash csharp/build.sh BuildAll
+
+# Run sandbox (auto-detects dist)
+csharp/.artifacts/sandbox/Release/net8.0-windows/DBTools.Sandbox.exe
+
+# Or specify dist directory
+DBTools.Sandbox.exe --dist-dir &quot;C:/path/to/dist/Release/2026&quot;
+</code></pre>
+<p>The sandbox launcher shows all registered windows grouped by category.</p>
+<h3 id="headless-mode-manual">Headless Mode (Manual)</h3>
+<p>Run validation without UI:</p>
+<pre><code class="lang-bash"># Validate with all checks
+DBTools.Sandbox.exe --headless --dist-dir &quot;path/to/dist/Release/2026&quot;
+
+# Skip tool validation (faster)
+DBTools.Sandbox.exe --headless --dist-dir &quot;path/to/dist/Release/2026&quot; --skip-validate-tools
+
+# Skip manifest validation
+DBTools.Sandbox.exe --headless --dist-dir &quot;path/to/dist/Release/2026&quot; --skip-validate-manifests
+</code></pre>
+<h3 id="command-line-options">Command-Line Options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--headless</code></td>
+<td>Run validation without UI (exit code 0=pass, 1=fail)</td>
+</tr>
+<tr>
+<td><code>--dist-dir &lt;path&gt;</code></td>
+<td>Path to dist folder (defaults to build output)</td>
+</tr>
+<tr>
+<td><code>--revit-dir &lt;path&gt;</code></td>
+<td>Path to Revit installation (for RevitAPI resolution)</td>
+</tr>
+<tr>
+<td><code>--validate-manifests</code></td>
+<td>Enable manifest validation (default: true)</td>
+</tr>
+<tr>
+<td><code>--skip-validate-manifests</code></td>
+<td>Disable manifest validation</td>
+</tr>
+<tr>
+<td><code>--validate-tools</code></td>
+<td>Enable tool window validation (default: true)</td>
+</tr>
+<tr>
+<td><code>--skip-validate-tools</code></td>
+<td>Disable tool window validation</td>
+</tr>
+<tr>
+<td><code>--screenshot</code></td>
+<td>Screenshot mode for documentation</td>
+</tr>
+<tr>
+<td><code>--list</code></td>
+<td>List available tools (screenshot mode)</td>
+</tr>
+<tr>
+<td><code>--tool-id &lt;id&gt;</code></td>
+<td>Specific tool to screenshot</td>
+</tr>
+<tr>
+<td><code>--output &lt;path&gt;</code></td>
+<td>Screenshot output path</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Sandbox/Validation/SandboxValidateOptions.cs:7-113</code></p>
+</blockquote>
+<hr>
+<h2 id="headless-mode-ci">Headless Mode (CI)</h2>
+<p>The sandbox runs in CI as part of the <code>ValidateDist</code> NUKE target.</p>
+<h3 id="build-pipeline-integration">Build Pipeline Integration</h3>
+<pre><code class="lang-bash"># Full build with validation
+bash csharp/build.sh BuildAll
+
+# Build without validation (faster local dev)
+bash csharp/build.sh BuildOnly
+
+# Run validation separately after build
+bash csharp/build.sh ValidateDist
+</code></pre>
+<h3 id="validatedist-target">ValidateDist Target</h3>
+<p>The NUKE build invokes the sandbox for each Revit year:</p>
+<pre><code class="lang-csharp">Target ValidateDist =&gt; _ =&gt; _
+    .Description(&quot;Validate dist outputs via DBTools.Sandbox headless runner&quot;)
+    .DependsOn(BuildSandbox)
+    .After(PromoteToDist)
+    .OnlyWhenDynamic(() =&gt; Configuration == &quot;Release&quot;)
+    .Executes(() =&gt;
+    {
+        foreach (var year in RevitYears)
+        {
+            var distDir = ArtifactsDir / &quot;dist&quot; / Configuration / year;
+            var validatorExe = ArtifactsDir / &quot;sandbox&quot; / Configuration / tfm / &quot;DBTools.Sandbox.exe&quot;;
+            
+            var args = new[]
+            {
+                &quot;--headless&quot;,
+                &quot;--dist-dir&quot;, distDir,
+                &quot;--validate-manifests&quot;,
+                &quot;--validate-tools&quot;
+            };
+            
+            // Execute with 3-minute timeout
+            Process.Start(validatorExe, args);
+        }
+    });
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/build/BuildTargets.cs:1150-1258</code></p>
+</blockquote>
+<h3 id="tfm-selection">TFM Selection</h3>
+<p>The validator executable matches the Revit year's target framework:</p>
+<ul>
+<li><strong>2024:</strong> <code>net48</code> validator</li>
+<li><strong>2025+:</strong> <code>net8.0-windows</code> validator</li>
+</ul>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-failures">Common Failures</h3>
+<h4 id="sandbox-window-type-not-found">&quot;Sandbox window type not found&quot;</h4>
+<p><strong>Cause:</strong> WindowType in manifest doesn't match actual class name</p>
+<p><strong>Fix:</strong> Verify fully-qualified type name in manifest.yml matches code:</p>
+<pre><code class="lang-yaml">windowType: &quot;DBTools.MyTool.UI.Views.MyToolWindow&quot;  # Exact match required
+</code></pre>
+<h4 id="design-time-viewmodel-must-have-parameterless-constructor">&quot;Design-time ViewModel must have parameterless constructor&quot;</h4>
+<p><strong>Cause:</strong> ViewModel constructor requires DI parameters</p>
+<p><strong>Fix:</strong> Create a dedicated design-time ViewModel:</p>
+<pre><code class="lang-csharp">public MyToolDesignTimeViewModel()  // No parameters
+{
+    // Initialize with mock data
+}
+</code></pre>
+<h4 id="wpf-binding-errors-detected">&quot;WPF binding errors detected&quot;</h4>
+<p><strong>Cause:</strong> XAML bindings referencing properties that don't exist on design-time ViewModel</p>
+<p><strong>Fix:</strong> Ensure design-time ViewModel exposes all bound properties:</p>
+<pre><code class="lang-csharp">// XAML: {Binding Items}
+public ObservableCollection&lt;Item&gt; Items { get; } = new();
+
+// XAML: {Binding SelectedItem}
+public Item? SelectedItem { get; set; }
+</code></pre>
+<h4 id="ilrepack-merge-validation-failed">&quot;ILRepack merge validation failed&quot;</h4>
+<p><strong>Cause:</strong> Assembly merge configuration changed, expected types missing from DBTools.dll</p>
+<p><strong>Fix:</strong> Review ILRepack configuration in <code>csharp/src/DBTools.App/DBTools.App.csproj</code>:</p>
+<pre><code class="lang-xml">&lt;ILRepackOutput&gt;$(ArtifactsDir)dist\...&lt;/ILRepackOutput&gt;
+&lt;ILRepackInputAssemblies&gt;...&lt;/ILRepackInputAssemblies&gt;
+</code></pre>
+<h4 id="window-layout-validation-failed-infinite-size">&quot;Window layout validation failed (infinite size)&quot;</h4>
+<p><strong>Cause:</strong> Control doesn't handle infinite available size during measure pass</p>
+<p><strong>Fix:</strong> Add size constraints or check for infinite values:</p>
+<pre><code class="lang-csharp">protected override Size MeasureOverride(Size availableSize)
+{
+    var width = double.IsInfinity(availableSize.Width) ? 800 : availableSize.Width;
+    var height = double.IsInfinity(availableSize.Height) ? 600 : availableSize.Height;
+    // ...
+}
+</code></pre>
+<h4 id="sandboxmode-activation-failed">&quot;SandboxMode activation failed&quot;</h4>
+<p><strong>Cause:</strong> DBTools.Core not loaded correctly from dist</p>
+<p><strong>Fix:</strong> Ensure dist build completed successfully:</p>
+<pre><code class="lang-bash">bash csharp/build.sh Clean
+bash csharp/build.sh BuildAll
+</code></pre>
+<h3 id="debug-tips">Debug Tips</h3>
+<ol>
+<li><strong>Run sandbox interactively</strong> to see actual UI rendering</li>
+<li><strong>Check sandbox logs</strong> in <code>%LOCALAPPDATA%\DBTools\Logs\Sandbox-*.log</code></li>
+<li><strong>Enable verbose output</strong> by running from command line</li>
+<li><strong>Test single window</strong> by removing others from manifest temporarily</li>
+</ol>
+<hr>
+<h2 id="real-examples">Real Examples</h2>
+<h3 id="gm-multiple-windows">GM: Multiple Windows</h3>
+<p>GM registers multiple windows for different features:</p>
+<pre><code class="lang-yaml">sandboxWindows:
+  - id: DBTools.GM.Main
+    displayName: &quot;Global Mapper&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.GmShellDesignTimeViewModel&quot;
+  - id: DBTools.GM.MappingReport
+    displayName: &quot;Global Mapper - Mapping Report&quot;
+    group: &quot;Common&quot;
+    windowType: &quot;DBTools.GM.Features.Mapping.UI.Views.GmMappingReportWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Features.Mapping.DesignTime.GmMappingReportDesignTimeViewModel&quot;
+</code></pre>
+<p>The design-time ViewModel populates extensive sample data:</p>
+<pre><code class="lang-csharp">public GmShellDesignTimeViewModel()
+{
+    // Families tab with expanded row
+    var expandedFamily = new MatchingRow(12345, &quot;W10x33 (Expanded)&quot;, hasDeepScan: true)
+    {
+        IsExpanded = true,
+        CanExpandDetails = true
+    };
+    expandedFamily.ChildTypeMatches.Add(new MatchingRow(100, &quot;W10x33&quot;, hasDeepScan: false));
+    Families.FamilyMatches.Add(expandedFamily);
+    
+    // Duplicates tab
+    Duplicates.DuplicateGroups.Add(new DuplicateGroupRow(...));
+    
+    // Materials, Line Styles, etc.
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Shell/DesignTime/GmShellDesignTimeViewModel.cs:89-246</code></p>
+</blockquote>
+<h3 id="sgt-window-with-sandboxmode-check">SGT: Window with SandboxMode Check</h3>
+<p>SGT window uses SandboxMode in constructor:</p>
+<pre><code class="lang-csharp">public SgtWindow()
+{
+    InitializeComponent();
+    if (DesignerProperties.GetIsInDesignMode(this))
+        return;
+
+    if (SandboxMode.IsActive)
+    {
+        DataContext = new SgtWindowDesignTimeViewModel();
+        return;
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml.cs:43-47</code></p>
+</blockquote>
+<p>The design-time ViewModel provides preview data including mock wall geometry:</p>
+<pre><code class="lang-csharp">public WallPreviewData PreviewData { get; } = SgtDesignTimePreviewDataFactory.CreateMockWallPreviewData();
+public bool HasPreviewData =&gt; true;
+public bool Is3DAvailable =&gt; false;  // GPU not available in sandbox
+public string Unavailable3DReason =&gt; &quot;3D preview requires GPU (not available in sandbox/designer mode)&quot;;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/SGT/Shell/DesignTime/SgtWindowDesignTimeViewModel.cs:51-71</code></p>
+</blockquote>
+<hr>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../architecture/sandbox-validator.html">Sandbox Validator Architecture</a></li>
+<li><a href="../projects/sandbox.html">DBTools.Sandbox Project</a></li>
+<li><a href="new-tool-guide.html">New Tool Guide</a></li>
+<li><a href="ui-development.md">UI Development Guide</a></li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/sandbox-integration.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

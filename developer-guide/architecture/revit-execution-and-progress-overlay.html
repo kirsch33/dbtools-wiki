@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Revit Execution and Progress Overlay | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Revit Execution and Progress Overlay | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/architecture/revit-execution-and-progress-overlay.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="revit-execution-and-progress-overlay">Revit Execution and Progress Overlay</h1>
+
+<p>This guide captures the required execution flow for Revit API access and the progress overlay system used by DBTools tools. It summarizes the current contracts in code and shows practical do/don’t examples.</p>
+<h2 id="centralized-runner-responsibilities">Centralized runner responsibilities</h2>
+<h3 id="dbttoolcommand"><code>DbtToolCommand</code></h3>
+<ul>
+<li><strong>Owns the top-level Revit command entrypoint</strong>: <code>Execute</code> runs through <code>ISafeExecutor</code>, creates the run scope via <code>AppRuntime.CreateRunScope(...)</code>, and builds a <code>DbtToolContext</code> with the active run scope and profile before calling <code>RunAsync</code>.【F:csharp/src/DBTools.Core/Revit/Execution/DbtToolCommand.cs†L71-L130】</li>
+<li><strong>Provides convenience helpers that still route through the call gate</strong>: <code>RunInRevitAsync(...)</code> delegates to <code>context.RevitRunScope.CallGate.RunAsync(...)</code> and enforces <code>RequiresActiveView</code>. Use these helpers or call the call gate directly—never Revit API calls outside the gate.【F:csharp/src/DBTools.Core/Revit/Execution/DbtToolCommand.cs†L136-L204】</li>
+</ul>
+<h3 id="revitrunscopefactory"><code>RevitRunScopeFactory</code></h3>
+<ul>
+<li><strong>Composes the run scope</strong>: <code>CreateScope(...)</code> selects a call gate based on the profile (Inline or Queued), constructs <code>CallGateTransactionRunner</code> + <code>CallGateTransactionGroupService</code>, and publishes <code>RevitAppContext.Current</code>.【F:csharp/src/DBTools.Core/Revit/Execution/RevitRunScopeFactory.cs†L42-L74】</li>
+<li><strong>Profiles are the switch</strong>: <code>InlineUi</code> uses <code>ModalInlineCallGate</code>; <code>QueuedModeless</code> uses <code>ModelessQueuedCallGate</code>. The profile determines whether Revit API calls run inline (modal) or are queued via <code>IRevitTask</code> (modeless).【F:csharp/src/DBTools.Core/Revit/Execution/IRevitRunScope.cs†L17-L42】【F:csharp/src/DBTools.Core/Revit/Execution/RevitRunScopeFactory.cs†L55-L67】</li>
+</ul>
+<h3 id="irevitcallgate-profiles"><code>IRevitCallGate</code> profiles</h3>
+<ul>
+<li><strong>Modal inline (InlineUi)</strong>: <code>ModalInlineCallGate</code> runs callbacks immediately on the Revit UI thread and validates context (thread and <code>ActiveUIDocument</code>). Use for modal commands and RevitTest flows where Revit already owns the thread.【F:csharp/src/DBTools.Core/Revit/Execution/ModalInlineCallGate.cs†L10-L69】</li>
+<li><strong>Queued modeless (QueuedModeless)</strong>: <code>ModelessQueuedCallGate</code> schedules work via <code>IRevitTask</code> (ExternalEvent/Idling-style host) and enforces synchronous delegates (throws if a <code>Task</code> is returned). Use for modeless windows or long-running flows that must be queued to the UI thread.【F:csharp/src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L12-L122】</li>
+</ul>
+<h3 id="when-to-use-inlineui-vs-queuedmodeless">When to use <code>InlineUi</code> vs <code>QueuedModeless</code></h3>
+<ul>
+<li><strong><code>InlineUi</code></strong>: modal Revit commands or RevitTest contexts that already run on the UI thread and do not require <code>ExternalEvent</code>/Idling pumping.【F:csharp/src/DBTools.Core/Revit/Execution/IRevitRunScope.cs†L23-L33】</li>
+<li><strong><code>QueuedModeless</code></strong>: modeless tool windows or long-running workflows that must marshal Revit API work onto the UI thread via the queued host.【F:csharp/src/DBTools.Core/Revit/Execution/IRevitRunScope.cs†L35-L42】</li>
+</ul>
+<h3 id="itransactionrunner--itransactiongroupservice"><code>ITransactionRunner</code> / <code>ITransactionGroupService</code></h3>
+<ul>
+<li><strong>Always use the scope-provided services</strong> (<code>context.RevitRunScope.TransactionRunner</code> / <code>TransactionGroupService</code>) to ensure Revit API access is routed through the call gate and wrapped in proper transactions.【F:csharp/src/DBTools.Core/Revit/Execution/IRevitRunScope.cs†L12-L18】</li>
+<li><code>CallGateTransactionRunner</code> is explicitly built on top of <code>IRevitCallGate</code> and requires synchronous delegates (no async work inside the transaction). This keeps transactions and UI-thread access consistent with Revit’s rules.【F:csharp/src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs†L10-L78】</li>
+<li><code>ITransactionGroupService.RunAsync(...)</code> exists to guarantee cleanup on failures/cancellation—use it for multi-step operations that should commit/rollback as a unit.【F:csharp/src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs†L5-L15】</li>
+</ul>
+<h3 id="prohibition-revit-api-outside-irevitcallgate">Prohibition: Revit API outside <code>IRevitCallGate</code></h3>
+<ul>
+<li><code>IRevitCallGate</code> is the unified entry point for <strong>all</strong> Revit API access and enforces synchronous callbacks on the UI thread. Any direct Revit API usage outside the call gate risks invalid context exceptions or UI-thread violations.【F:csharp/src/DBTools.Core/Revit/Execution/IRevitCallGate.cs†L5-L26】</li>
+</ul>
+<h2 id="execution-context-best-practices-external-refs">Execution context best practices (external refs)</h2>
+<blockquote>
+<p>These are contextual practices aligned with Revit’s external API requirements and the current call-gate implementation.</p>
+</blockquote>
+<ul>
+<li><strong>Modeless UI should use ExternalEvent/Idling-style dispatch</strong>. The queued gate relies on an <code>IRevitTask</code> host (from <code>ricaun.Revit.UI.Tasks</code>) to marshal work to the Revit UI thread, which maps to the ExternalEvent/Idling pattern used by Revit for modeless execution.【F:csharp/src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L12-L122】</li>
+<li><strong>Use task-based wrappers to schedule synchronous Revit work</strong> (e.g., Revit.Async-style wrappers). The call gate explicitly rejects async delegates—if your work returns a <code>Task</code>, it throws, so wrap async workflows <em>outside</em> the gate and keep in-gate delegates synchronous.【F:csharp/src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L86-L108】</li>
+<li><strong>Validate API context before inline execution</strong>. The RevitTest task binder probes <code>ActiveAddInId</code> and host context (<code>InContext</code>) to determine whether inline execution is allowed, guarding against context leaks and invalid subscriptions outside Revit API context.【F:csharp/src/DBTools.Core/Revit/Execution/RevitTestTaskBinder.cs†L120-L177】</li>
+</ul>
+<h2 id="progress-overlay-usage">Progress overlay usage</h2>
+<h3 id="host-requirements">Host requirements</h3>
+<ul>
+<li><strong>Host windows must derive from <code>DbtWindowBase</code> or <code>DbtRibbonWindowBase</code></strong>. These base classes wire the initialization and ownership behaviors that the overlay system expects, and <code>DbtRibbonWindowBase</code> explicitly notes progress overlay integration as part of its contract.【F:csharp/src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L9-L30】【F:csharp/src/DBTools.Core/UI/Windows/DbtRibbonWindowBase.cs†L9-L29】</li>
+</ul>
+<h3 id="scope-and-dispatcher-rules">Scope and dispatcher rules</h3>
+<ul>
+<li><strong>Always use <code>Scope(...)</code> for long operations</strong>. The overlay’s <code>Scope(...)</code> shows the overlay, ties it to the current async flow, and ensures cleanup on dispose.【F:csharp/src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L96-L146】</li>
+<li><strong>Show/Update/Hide are UI-dispatched</strong>. <code>ProgressOverlayService</code> marshals public calls to the WPF dispatcher via <code>TryInvokeOnUi</code>, so callers should use the overlay API and avoid touching overlay state directly from background threads.【F:csharp/src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L115】【F:csharp/src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L164-L214】</li>
+</ul>
+<h3 id="cancel-handling">Cancel handling</h3>
+<ul>
+<li><strong>Poll <code>CancelRequested</code> and bridge to your CTS</strong>. The overlay exposes a thread-safe <code>CancelRequested</code> property, and view models (SGT, GM) poll it to cancel longer workflows.【F:csharp/src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L78-L82】【F:csharp/src/Tools/Structural/SGT/Features/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</li>
+</ul>
+<h2 id="dodont-examples-from-current-code">Do/Don’t examples (from current code)</h2>
+<h3 id="call-gate-usage">Call gate usage</h3>
+<p><strong>Do</strong>: queue modeless work with synchronous delegates.</p>
+<pre><code class="lang-csharp">await _gate.RunAsync(app =&gt;
+{
+    // Revit API work here (sync only)
+    return true;
+});
+</code></pre>
+<p>This aligns with <code>ModelessQueuedCallGate.RunAsync(...)</code>, which marshals to the Revit UI thread and enforces sync-only delegates.【F:csharp/src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L24-L108】</p>
+<p><strong>Don’t</strong>: return or await a <code>Task</code> inside the call gate delegate. The queued gate throws if a delegate returns a <code>Task</code> to prevent invalid async Revit API usage.【F:csharp/src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L86-L108】</p>
+<h3 id="progress-overlay-scope">Progress overlay scope</h3>
+<p><strong>Do (SGT)</strong>: create a scope and poll cancel status.</p>
+<pre><code class="lang-csharp">using var scope = _overlay.Scope(ProgressScopeAnalyze, cancelable: true);
+_overlay.Update(ProgressCalibratingFamilies, 0.0);
+if (_overlay.CancelRequested)
+{
+    linkedCts.Cancel();
+}
+</code></pre>
+<p>SGT’s view model creates a scope, updates it, and bridges cancel requests into the analysis CTS.【F:csharp/src/Tools/Structural/SGT/Features/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</p>
+<p><strong>Do (GM)</strong>: use <code>Scope(...)</code> and <code>CancelRequested</code> while applying mappings.</p>
+<pre><code class="lang-csharp">using var scope = _overlay.Scope(&quot;Applying mappings...&quot;, true);
+if (_overlay.CancelRequested)
+{
+    _cts.Cancel();
+}
+</code></pre>
+<p>GM’s mapping report view model follows this pattern to keep UI cancel actions responsive during long operations.【F:csharp/src/Tools/Common/GM/Features/Mapping/UI/ViewModels/MappingReportViewModel.cs†L206-L242】</p>
+<p><strong>Don’t</strong>: manipulate overlay state directly or bypass the dispatcher. Use <code>Show/Update/Hide/Scope</code> so the overlay stays UI-thread safe.【F:csharp/src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L169】</p>
+<h2 id="common-failure-modes">Common failure modes</h2>
+<ul>
+<li><strong>Dispatcher errors or missing host</strong>: calling overlay APIs without a registered <code>DbtWindowBase</code>/<code>DbtRibbonWindowBase</code> host or bypassing the overlay API can lead to dispatcher errors or missing state. Always use <code>Scope/Show/Update/Hide</code> on a supported window host.【F:csharp/src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L214】【F:csharp/src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L9-L30】</li>
+<li><strong>Revit context leaks</strong>: direct Revit API access outside <code>IRevitCallGate</code> or attempting async delegates inside the gate can lead to invalid context errors. Stick to the call gate + transaction runner, and keep delegates synchronous.【F:csharp/src/DBTools.Core/Revit/Execution/IRevitCallGate.cs†L5-L26】【F:csharp/src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L86-L108】【F:csharp/src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs†L10-L78】</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/architecture/revit-execution-and-progress-overlay.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

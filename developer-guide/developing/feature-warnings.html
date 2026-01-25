@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Feature Warnings | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Feature Warnings | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/feature-warnings.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="feature-warnings">Feature Warnings</h1>
+
+<p>Feature warnings provide a mechanism to notify users of configuration issues and automatically disable affected tools until the problem is resolved. This guide covers warning definition, triggering, display, and clearing.</p>
+<hr>
+<h2 id="overview">Overview</h2>
+<p>Feature warnings serve two purposes:</p>
+<ol>
+<li><strong>User Notification</strong>: Display prominent warnings in the Settings window when configuration issues exist</li>
+<li><strong>Tool Protection</strong>: Automatically disable ribbon buttons for tools that depend on valid configuration</li>
+</ol>
+<p>Warnings are declarative (defined in <code>manifest.yml</code>) but activated programmatically based on validation logic. When a warning is active:</p>
+<ul>
+<li>The warning card appears in the Settings window</li>
+<li>Associated ribbon buttons become disabled</li>
+<li>The Settings button icon shows a warning indicator</li>
+<li>The DB Tools tab gets a highlight marker</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/DbtSettingsWarningDefinition.cs:9-20</code></p>
+</blockquote>
+<hr>
+<h2 id="warning-lifecycle">Warning Lifecycle</h2>
+<pre><code>1. DEFINITION (manifest.yml)
+   Warning metadata declared: id, title, message, disableTools
+           |
+           v
+2. REGISTRATION (ToolModule.RegisterSettingsPacks)
+   DbtSettingsWarningDefinition created with validation logic
+           |
+           v
+3. VALIDATION (Settings window load / manual trigger)
+   Pack context validates settings, sets HasWarning flag
+           |
+           v
+4. ACTIVATION (IDbtSettingsWarningService.SetWarningAsync)
+   Warning state persisted, ribbon buttons disabled
+           |
+           v
+5. DISPLAY (SettingsWarningCardView)
+   Warning card shown with Clear button
+           |
+           v
+6. CLEARING (User clicks Clear / conditions change)
+   Warning state cleared, ribbon buttons re-enabled
+</code></pre>
+<hr>
+<h2 id="defining-warnings-in-manifestyml">Defining Warnings in manifest.yml</h2>
+<p>Warnings are declared within <code>settingsPacks</code> in your tool's <code>manifest.yml</code>:</p>
+<h3 id="complete-schema">Complete Schema</h3>
+<pre><code class="lang-yaml">tool:
+  settingsPacks:
+    - key: structural.foundation_tags          # Unique pack identifier
+      title: &quot;Combined Foundation Tags&quot;         # Display title in Settings
+      warnings:
+        - id: core.structural.combined_tags    # Unique warning identifier
+          title: &quot;Combined Foundation Tags Disabled&quot;  # Warning card title
+          message: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;
+          disableTools:                         # Tools to disable when active
+            - DBTools.UpdateCombinedFoundationTags
+            - DBTools.MoveCombinedFoundationTags
+            - DBTools.OrganizeFoundationTypes
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:8-18</code></p>
+</blockquote>
+<h3 id="warning-properties-reference">Warning Properties Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Yes</td>
+<td>Globally unique warning identifier (e.g., <code>core.structural.combined_tags</code>)</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>Yes</td>
+<td>Title shown in the warning card header</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>Yes</td>
+<td>Detailed message explaining the issue and resolution</td>
+</tr>
+<tr>
+<td><code>disableTools</code></td>
+<td>No</td>
+<td>List of ribbon tool <code>internalName</code> values to disable</td>
+</tr>
+</tbody>
+</table>
+<h3 id="id-naming-convention">ID Naming Convention</h3>
+<p>Use a hierarchical naming scheme:</p>
+<ul>
+<li><code>core.{domain}.{feature}</code> - For core/shared functionality</li>
+<li><code>tools.{toolname}.{warning}</code> - For tool-specific warnings</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><code>core.library.invalid</code> - Library paths are invalid</li>
+<li><code>core.structural.elevation_tags</code> - Elevation tag alignment warning</li>
+<li><code>core.structural.joist_girder</code> - Joist girder weight warning</li>
+</ul>
+<hr>
+<h2 id="warning-properties-in-code">Warning Properties in Code</h2>
+<p>The <code>DbtToolWarningManifest</code> class represents the YAML definition:</p>
+<pre><code class="lang-csharp">public sealed class DbtToolWarningManifest
+{
+    public string Id { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public List&lt;string&gt;? DisableTools { get; set; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtToolManifest.cs:44-50</code></p>
+</blockquote>
+<hr>
+<h2 id="registering-warning-definitions">Registering Warning Definitions</h2>
+<p>Warnings must be registered in your <code>ToolModule.RegisterSettingsPacks()</code> method. This connects the declarative manifest to the runtime validation logic.</p>
+<h3 id="complete-registration-pattern">Complete Registration Pattern</h3>
+<pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, DbtToolManifest manifest)
+{
+    Guard.NotNull(services, nameof(services));
+    Guard.NotNull(manifest, nameof(manifest));
+    
+    var configSection = manifest.GetRequiredConfigSection();
+    var pack = manifest.GetSingleSettingsPack();
+    var warning = pack.GetSingleWarning(manifest.Id);
+    var panel = DbtToolPanelResolver.GetSettingsPanelName(manifest.Id);
+    
+    services.AddSingleton&lt;IDbtSettingsPackDefinition&gt;(_ =&gt;
+    {
+        var warningDefinitions = new[]
+        {
+            new DbtSettingsWarningDefinition&lt;MyToolSettings, MySettingsPackContext&gt;(
+                warning.Id,                           // From manifest
+                pack.Key,                             // Pack key
+                warning.Title,                        // From manifest
+                warning.Message,                      // From manifest
+                // Options getter - how to read from settings
+                settings =&gt; settings.Get&lt;MyToolSettings&gt;(),
+                // Options saver - how to persist settings
+                (settings, options, ct) =&gt; settings.SaveAsync(configSection, options, ct),
+                // Options flag getter - read warning state from options
+                options =&gt; options.HasWarning,
+                // Options flag setter - write warning state to options
+                (options, active) =&gt;
+                {
+                    options.HasWarning = active;
+                    if (active) options.AutoUpdateEnabled = false;  // Disable auto-update when warning active
+                },
+                // Context flag getter - read warning state from context
+                context =&gt; context.HasWarning,
+                // Context flag setter - write warning state to context
+                (context, active) =&gt;
+                {
+                    context.HasWarning = active;
+                    if (active) context.AutoUpdateEnabled = false;
+                },
+                // Tools to disable (from manifest)
+                warning.DisableTools?.ToArray() ?? Array.Empty&lt;string&gt;())
+        };
+
+        return new DbtSettingsPackDefinition&lt;MyToolSettings, MySettingsPackContext&gt;(
+            pack.Key,
+            pack.Title,
+            panel,
+            () =&gt; new MySettingsPackContext(),
+            ctx =&gt; new MySettingsPackView { DataContext = ctx },
+            () =&gt; new MyToolSettings(),
+            settings =&gt; settings.Get&lt;MyToolSettings&gt;(),
+            (settings, options, ct) =&gt; settings.SaveAsync(configSection, options, ct),
+            warningDefinitions);  // Pass warning definitions to pack
+    });
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/FoundationTagsToolModule.cs:36-81</code></p>
+</blockquote>
+<h3 id="dbtsettingswarningdefinition-constructor-parameters">DbtSettingsWarningDefinition Constructor Parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>string</code></td>
+<td>Warning identifier from manifest</td>
+</tr>
+<tr>
+<td><code>packKey</code></td>
+<td><code>string</code></td>
+<td>Parent settings pack key</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td><code>string</code></td>
+<td>Display title</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>Display message</td>
+</tr>
+<tr>
+<td><code>optionsGetter</code></td>
+<td><code>Func&lt;ISettingsProvider, TOptions&gt;</code></td>
+<td>How to read options from settings</td>
+</tr>
+<tr>
+<td><code>optionsSaver</code></td>
+<td><code>Func&lt;ISettingsProvider, TOptions, CancellationToken, Task&gt;</code></td>
+<td>How to save options</td>
+</tr>
+<tr>
+<td><code>optionsFlagGetter</code></td>
+<td><code>Func&lt;TOptions, bool&gt;</code></td>
+<td>Get warning flag from options</td>
+</tr>
+<tr>
+<td><code>optionsFlagSetter</code></td>
+<td><code>Action&lt;TOptions, bool&gt;</code></td>
+<td>Set warning flag on options</td>
+</tr>
+<tr>
+<td><code>contextFlagGetter</code></td>
+<td><code>Func&lt;TContext, bool&gt;</code></td>
+<td>Get warning flag from context</td>
+</tr>
+<tr>
+<td><code>contextFlagSetter</code></td>
+<td><code>Action&lt;TContext, bool&gt;</code></td>
+<td>Set warning flag on context</td>
+</tr>
+<tr>
+<td><code>toolInternalNamesToDisable</code></td>
+<td><code>IReadOnlyCollection&lt;string&gt;?</code></td>
+<td>Tools to disable</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/DbtSettingsWarningDefinition.cs:33-57</code></p>
+</blockquote>
+<hr>
+<h2 id="settings-model-requirements">Settings Model Requirements</h2>
+<p>Your settings class must include a <code>HasWarning</code> property for warning state persistence:</p>
+<pre><code class="lang-csharp">using DBTools.Core.Settings.Models;
+
+namespace DBTools.MyTool.Settings;
+
+public sealed class MyToolSettings : IAutoUpdateSettings
+{
+    public bool AutoUpdateEnabled { get; set; }
+    public bool HasWarning { get; set; }
+    
+    // Other settings...
+}
+</code></pre>
+<p>The <code>IAutoUpdateSettings</code> interface requires both properties:</p>
+<pre><code class="lang-csharp">public interface IAutoUpdateSettings
+{
+    bool AutoUpdateEnabled { get; set; }
+    bool HasWarning { get; set; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/Models/IAutoUpdateSettings.cs:3-7</code></p>
+</blockquote>
+<hr>
+<h2 id="triggering-warnings">Triggering Warnings</h2>
+<p>Warnings are triggered through the <code>IDbtSettingsWarningService</code>:</p>
+<h3 id="service-interface">Service Interface</h3>
+<pre><code class="lang-csharp">public interface IDbtSettingsWarningService
+{
+    IReadOnlyCollection&lt;IDbtSettingsWarningDefinition&gt; Definitions { get; }
+    Task&lt;bool&gt; IsWarningActiveAsync(string warningId, CancellationToken ct = default);
+    Task SetWarningAsync(string warningId, bool active, object? context = null, CancellationToken ct = default);
+    Task PublishWarningChangesAsync(CancellationToken ct = default);
+    Task PublishWarningStateAsync(CancellationToken ct = default);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/DbtSettingsWarningService.cs:11-18</code></p>
+</blockquote>
+<h3 id="setting-a-warning-active">Setting a Warning Active</h3>
+<pre><code class="lang-csharp">// In your validation logic
+var warningService = serviceProvider.GetRequiredService&lt;IDbtSettingsWarningService&gt;();
+await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, true, packContext);
+</code></pre>
+<h3 id="clearing-a-warning">Clearing a Warning</h3>
+<pre><code class="lang-csharp">await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, false, packContext);
+</code></pre>
+<h3 id="validation-in-settings-pack-context">Validation in Settings Pack Context</h3>
+<p>Typically, warnings are validated when the settings pack loads or saves. Implement validation in your context's <code>ValidateAsync</code> method:</p>
+<pre><code class="lang-csharp">public async Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
+{
+    var errors = new List&lt;string&gt;();
+    
+    // Validate configuration
+    if (string.IsNullOrWhiteSpace(LibraryPath) || !Directory.Exists(LibraryPath))
+    {
+        errors.Add($&quot;Library path '{LibraryPath}' does not exist.&quot;);
+        HasWarnings = true;  // Set context warning flag
+    }
+    else
+    {
+        HasWarnings = false;
+    }
+    
+    return errors.Count &gt; 0
+        ? DbtSettingsValidationResult.Failed(errors)
+        : DbtSettingsValidationResult.Success();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:137-170</code></p>
+</blockquote>
+<hr>
+<h2 id="warning-ui-in-settings-window">Warning UI in Settings Window</h2>
+<p>When warnings are active, they appear as prominent cards in the Settings window:</p>
+<h3 id="settingswarningcardview">SettingsWarningCardView</h3>
+<pre><code class="lang-xml">&lt;Border Style=&quot;{DynamicResource WarningBar}&quot;
+        Visibility=&quot;{Binding IsActive, Converter={StaticResource Converter.BoolToVisibility}}&quot;&gt;
+    &lt;Grid&gt;
+        &lt;Grid.ColumnDefinitions&gt;
+            &lt;ColumnDefinition Width=&quot;*&quot; /&gt;
+            &lt;ColumnDefinition Width=&quot;Auto&quot; /&gt;
+        &lt;/Grid.ColumnDefinitions&gt;
+        &lt;StackPanel&gt;
+            &lt;TextBlock FontWeight=&quot;SemiBold&quot;
+                       Foreground=&quot;{DynamicResource {x:Static theme:BrushKeys.Warning}}&quot;
+                       Text=&quot;{Binding Title}&quot; /&gt;
+            &lt;TextBlock Margin=&quot;{DynamicResource TGap6}&quot;
+                       Style=&quot;{DynamicResource DescriptionText}&quot;
+                       Text=&quot;{Binding Message}&quot; /&gt;
+        &lt;/StackPanel&gt;
+        &lt;Button Grid.Column=&quot;1&quot;
+                MinWidth=&quot;70&quot;
+                Command=&quot;{Binding ClearCommand}&quot;
+                Content=&quot;Clear&quot;
+                Style=&quot;{DynamicResource SubtleButton}&quot; /&gt;
+    &lt;/Grid&gt;
+&lt;/Border&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/Views/SettingsWarningCardView.xaml:14-36</code></p>
+</blockquote>
+<h3 id="warning-viewmodel">Warning ViewModel</h3>
+<p>The <code>DbtSettingsWarningViewModel</code> provides the binding context:</p>
+<pre><code class="lang-csharp">public sealed partial class DbtSettingsWarningViewModel : ObservableObject, IDisposable
+{
+    public string WarningId =&gt; _definition.Id;
+    public string Title =&gt; _definition.Title;
+    public string Message =&gt; _definition.Message;
+    public bool IsActive =&gt; _definition.GetIsActive(_context);
+    public IAsyncRelayCommand ClearCommand { get; }
+
+    private async Task ClearAsync()
+    {
+        await _warnings.SetWarningAsync(_definition.Id, false, _context);
+        OnPropertyChanged(nameof(IsActive));
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/ViewModels/DbtSettingsWarningViewModel.cs:10-51</code></p>
+</blockquote>
+<hr>
+<h2 id="disabletools-mechanism">disableTools Mechanism</h2>
+<p>When a warning is active, the specified ribbon tools are automatically disabled.</p>
+<h3 id="event-flow">Event Flow</h3>
+<ol>
+<li><strong>Warning Activated</strong>: <code>IDbtSettingsWarningService.SetWarningAsync()</code> is called</li>
+<li><strong>Event Published</strong>: <code>ISettingsChangePublisher.PublishWarningChanged()</code> fires</li>
+<li><strong>Listener Receives</strong>: <code>RibbonSettingsListener.OnWarningChanged()</code> handles event</li>
+<li><strong>Buttons Disabled</strong>: <code>RibbonRegistry.SetToolsEnabled()</code> disables buttons</li>
+</ol>
+<pre><code class="lang-csharp">// RibbonSettingsListener.cs
+private void OnWarningChanged(object? sender, SettingsWarningChangedEventArgs e)
+{
+    RunOnUiThread(
+        () =&gt; RibbonRegistry.SetToolsEnabled(e.ToolInternalNamesToDisable, !e.IsActive),
+        &quot;Failed to apply ribbon warning change.&quot;);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/RibbonSettingsListener.cs:53-58</code></p>
+</blockquote>
+<h3 id="ribbonregistry-implementation">RibbonRegistry Implementation</h3>
+<pre><code class="lang-csharp">public static void SetToolsEnabled(IEnumerable&lt;string&gt; internalNames, bool enabled)
+{
+    foreach (var name in internalNames)
+    {
+        try { SetToolEnabled(name, enabled); }
+        catch (Exception ex) { Logger?.LogWarning(ex, &quot;Failed to set tool '{InternalName}' enabled state.&quot;, name); }
+    }
+}
+
+public static void SetToolEnabled(string internalName, bool enabled)
+{
+    if (!_toolButtons.TryGetValue(internalName, out var button))
+    {
+        Logger?.LogWarning(&quot;Tool button '{InternalName}' not found in registry.&quot;, internalName);
+        return;
+    }
+    button.Enabled = enabled;
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/RibbonRegistry.cs:31-52</code></p>
+</blockquote>
+<h3 id="visual-indicators">Visual Indicators</h3>
+<p>When warnings exist:</p>
+<ol>
+<li><strong>Settings Button Icon</strong>: Changes to show warning indicator</li>
+<li><strong>Tab Highlight</strong>: DB Tools tab shows a &quot;New&quot; highlight</li>
+</ol>
+<pre><code class="lang-csharp">private void OnWarningsChanged(object? sender, SettingsWarningsChangedEventArgs e)
+{
+    RunOnUiThread(
+        () =&gt;
+        {
+            RibbonRegistry.UpdateSettingsIcon(e.HasWarnings);
+            RibbonRegistry.UpdateTabHighlight(e.HasWarnings);
+        },
+        &quot;Failed to apply ribbon warning updates.&quot;);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Features/Ribbon/RibbonSettingsListener.cs:42-51</code></p>
+</blockquote>
+<hr>
+<h2 id="conditional-warnings">Conditional Warnings</h2>
+<p>Warnings can be conditional based on settings or environment. Implement the condition in your validation logic:</p>
+<h3 id="based-on-settings-value">Based on Settings Value</h3>
+<pre><code class="lang-csharp">public async Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
+{
+    // Only validate if feature is enabled
+    if (!AutoUpdateEnabled)
+    {
+        HasWarning = false;
+        return DbtSettingsValidationResult.Success();
+    }
+    
+    // Validate when enabled
+    if (!IsConfigurationValid())
+    {
+        HasWarning = true;
+        return DbtSettingsValidationResult.Failed(&quot;Configuration is invalid.&quot;);
+    }
+    
+    HasWarning = false;
+    return DbtSettingsValidationResult.Success();
+}
+</code></pre>
+<h3 id="based-on-environment">Based on Environment</h3>
+<pre><code class="lang-csharp">public async Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
+{
+    var errors = new List&lt;string&gt;();
+    
+    foreach (var path in LibraryPaths)
+    {
+        if (!Directory.Exists(path))
+        {
+            errors.Add($&quot;Path '{path}' does not exist.&quot;);
+        }
+    }
+    
+    HasWarnings = errors.Count &gt; 0;
+    return HasWarnings 
+        ? DbtSettingsValidationResult.Failed(errors)
+        : DbtSettingsValidationResult.Success();
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:137-170</code></p>
+</blockquote>
+<hr>
+<h2 id="auto-update-task-integration">Auto-Update Task Integration</h2>
+<p>For tools with auto-update functionality (triggered on view activation), the <code>ViewActivatedTaskBase</code> checks warning state before execution:</p>
+<pre><code class="lang-csharp">public async Task&lt;bool&gt; ShouldRunAsync(UIApplication uiapp, ViewActivatedEventArgs args, CancellationToken ct)
+{
+    var settings = GetSettings(_settingsProvider) ?? new TSettings();
+    
+    if (!settings.AutoUpdateEnabled)
+    {
+        LogSkip(&quot;auto-update disabled&quot;);
+        return false;
+    }
+
+    if (settings.HasWarning)
+    {
+        LogSkip(&quot;warning active&quot;);
+        return false;
+    }
+
+    return await ShouldRunInternalAsync(uiapp, args, settings, ct).ConfigureAwait(false);
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/ViewActivatedTaskBase.cs:46-65</code></p>
+</blockquote>
+<p>This ensures auto-update tasks don't run when warnings are active, protecting against potential failures.</p>
+<hr>
+<h2 id="clearing-warnings">Clearing Warnings</h2>
+<p>Warnings can be cleared in several ways:</p>
+<h3 id="1-user-clicks-clear-button">1. User Clicks Clear Button</h3>
+<p>The Settings window warning card has a &quot;Clear&quot; button that calls:</p>
+<pre><code class="lang-csharp">private async Task ClearAsync()
+{
+    await _warnings.SetWarningAsync(_definition.Id, false, _context);
+    OnPropertyChanged(nameof(IsActive));
+}
+</code></pre>
+<h3 id="2-programmatically-when-conditions-change">2. Programmatically When Conditions Change</h3>
+<pre><code class="lang-csharp">// After user fixes configuration
+if (IsConfigurationNowValid())
+{
+    await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, false, context);
+}
+</code></pre>
+<h3 id="3-through-settings-pack-context-reset">3. Through Settings Pack Context Reset</h3>
+<pre><code class="lang-csharp">public void ResetToDefaults()
+{
+    AutoUpdateEnabled = true;
+    HasWarning = false;  // Clear warning flag
+    // Reset other settings...
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettingsPackContext.cs:206-212</code></p>
+</blockquote>
+<hr>
+<h2 id="real-examples">Real Examples</h2>
+<h3 id="example-1-foundation-tags-warning">Example 1: Foundation Tags Warning</h3>
+<p>Disables multiple related tools when foundation tag configuration has issues:</p>
+<pre><code class="lang-yaml"># manifest.yml
+settingsPacks:
+  - key: structural.foundation_tags
+    title: &quot;Combined Foundation Tags&quot;
+    warnings:
+      - id: core.structural.combined_tags
+        title: &quot;Combined Foundation Tags Disabled&quot;
+        message: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;
+        disableTools:
+          - DBTools.UpdateCombinedFoundationTags
+          - DBTools.MoveCombinedFoundationTags
+          - DBTools.OrganizeFoundationTypes
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:8-18</code></p>
+</blockquote>
+<h3 id="example-2-library-paths-warning">Example 2: Library Paths Warning</h3>
+<p>Disables import/export when library paths are invalid:</p>
+<pre><code class="lang-yaml"># manifest.yml
+settingsPacks:
+  - key: core.library
+    title: &quot;Library Files&quot;
+    warnings:
+      - id: core.library.invalid
+        title: &quot;Library Paths Invalid&quot;
+        message: &quot;One or more library file paths are invalid. Fix the paths and clear the warning to re-enable import/export.&quot;
+        disableTools:
+          - DBTools.ExportToLibrary
+          - DBTools.ImportFromLibrary
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/TDV/manifest.yml:14-23</code></p>
+</blockquote>
+<h3 id="example-3-simple-single-tool-warning">Example 3: Simple Single-Tool Warning</h3>
+<pre><code class="lang-yaml"># manifest.yml
+settingsPacks:
+  - key: structural.joist_girder_weight
+    title: &quot;Joist Girder Weights&quot;
+    warnings:
+      - id: core.structural.joist_girder
+        title: &quot;Joist Girder Weights Disabled&quot;
+        message: &quot;Joist girder weight updates are disabled due to a warning. Clear the warning to re-enable.&quot;
+        disableTools:
+          - DBTools.UpdateJoistGirderWeights
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/JoistGirderWeight/manifest.yml:8-16</code></p>
+</blockquote>
+<hr>
+<h2 id="warning-event-args">Warning Event Args</h2>
+<p>The warning system uses specific event args for state changes:</p>
+<h3 id="settingswarningchangedeventargs">SettingsWarningChangedEventArgs</h3>
+<p>Fired when a specific warning's state changes:</p>
+<pre><code class="lang-csharp">public sealed class SettingsWarningChangedEventArgs : EventArgs
+{
+    public string WarningId { get; }
+    public string PackKey { get; }
+    public bool IsActive { get; }
+    public IReadOnlyCollection&lt;string&gt; ToolInternalNamesToDisable { get; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/Contracts/ISettingsChangePublisher.cs:25-43</code></p>
+</blockquote>
+<h3 id="settingswarningschangedeventargs">SettingsWarningsChangedEventArgs</h3>
+<p>Fired when the overall warning state changes (any warnings -&gt; no warnings, or vice versa):</p>
+<pre><code class="lang-csharp">public sealed class SettingsWarningsChangedEventArgs : EventArgs
+{
+    public bool HasWarnings { get; }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Settings/Contracts/ISettingsChangePublisher.cs:15-23</code></p>
+</blockquote>
+<hr>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-clear-warning-messages">1. Clear Warning Messages</h3>
+<p>Write messages that explain:</p>
+<ul>
+<li>What is wrong</li>
+<li>Why it matters</li>
+<li>How to fix it</li>
+</ul>
+<pre><code class="lang-yaml"># Good
+message: &quot;One or more library file paths are invalid. Fix the paths and clear the warning to re-enable import/export.&quot;
+
+# Bad
+message: &quot;Warning active.&quot;
+</code></pre>
+<h3 id="2-disable-only-affected-tools">2. Disable Only Affected Tools</h3>
+<p>Only list tools that actually depend on the valid configuration:</p>
+<pre><code class="lang-yaml"># Good - only disables tools that use foundation tags
+disableTools:
+  - DBTools.UpdateCombinedFoundationTags
+  - DBTools.MoveCombinedFoundationTags
+
+# Bad - disables unrelated tools
+disableTools:
+  - DBTools.UpdateCombinedFoundationTags
+  - DBTools.SomeUnrelatedTool
+</code></pre>
+<h3 id="3-auto-disable-auto-update">3. Auto-Disable Auto-Update</h3>
+<p>When setting a warning active, also disable auto-update to prevent background failures:</p>
+<pre><code class="lang-csharp">(options, active) =&gt;
+{
+    options.HasWarning = active;
+    if (active) options.AutoUpdateEnabled = false;  // Important!
+}
+</code></pre>
+<h3 id="4-test-warning-scenarios">4. Test Warning Scenarios</h3>
+<p>Ensure your tool handles:</p>
+<ul>
+<li>Warning active on startup</li>
+<li>Warning cleared mid-session</li>
+<li>Multiple warnings in same pack</li>
+</ul>
+<hr>
+<h2 id="cross-references">Cross-References</h2>
+<ul>
+<li><a href="new-tool-guide.html">Creating New Tools</a> - Tool module registration</li>
+<li><a href="settings-packs.html">Settings Packs</a> - Settings pack configuration</li>
+<li><a href="modularity.html">Modularity</a> - Tool module architecture</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/developing/feature-warnings.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

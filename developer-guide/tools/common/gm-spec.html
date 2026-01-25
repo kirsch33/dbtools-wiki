@@ -1,0 +1,2308 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Global Mapper Specification | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Global Mapper Specification | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/common/gm-spec.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="global-mapper-specification">Global Mapper Specification</h1>
+
+<p><strong>Version:</strong> 2.0
+<strong>Last Updated:</strong> November 26, 2025</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<h3 id="part-i-foundation">Part I: Foundation</h3>
+<ol>
+<li><a href="#1-overview">Overview</a></li>
+<li><a href="#2-architectural-principles">Architectural Principles</a></li>
+</ol>
+<h3 id="part-ii-architecture">Part II: Architecture</h3>
+<ol start="3">
+<li><a href="#3-domain-model">Domain Model</a></li>
+<li><a href="#4-cache-architecture">Cache Architecture</a></li>
+<li><a href="#5-error-handling">Error Handling</a></li>
+</ol>
+<h3 id="part-iii-uiux">Part III: UI/UX</h3>
+<ol start="6">
+<li><a href="#6-window-lifecycle">Window Lifecycle</a></li>
+<li><a href="#7-duplicates-tab">Duplicates Tab</a></li>
+<li><a href="#8-progress-overlays">Progress Overlays</a></li>
+<li><a href="#9-families-tab">Families Tab</a></li>
+<li><a href="#10-line-styles--object-styles--materials-tabs">Line Styles / Object Styles / Materials Tabs</a></li>
+<li><a href="#11-shared-parameters-tab">Shared Parameters Tab</a></li>
+<li><a href="#12-global-controls">Global Controls</a></li>
+<li><a href="#13-apply--review-workflow">Apply &amp; Review Workflow</a></li>
+<li><a href="#14-performance">Performance</a></li>
+</ol>
+<h3 id="part-iv-features">Part IV: Features</h3>
+<ol start="15">
+<li><a href="#15-deep-scan">Deep Scan</a></li>
+<li><a href="#16-type-mapping">Type Mapping</a></li>
+<li><a href="#17-preview-pane">Preview Pane</a></li>
+<li><a href="#18-sorting-filtering-threshold">Sorting, Filtering, Threshold</a></li>
+</ol>
+<h3 id="part-v-quality--implementation">Part V: Quality &amp; Implementation</h3>
+<ol start="19">
+<li><a href="#19-known-issues--roadmap">Known Issues &amp; Roadmap</a></li>
+<li><a href="#20-quality-acceptance-criteria">Quality Acceptance Criteria</a></li>
+</ol>
+<hr>
+<h1 id="part-i-foundation-1">Part I: Foundation</h1>
+<h2 id="1-overview">1. Overview</h2>
+<h3 id="11-purpose-and-scope">1.1 Purpose and Scope</h3>
+<p>This specification defines the complete behavioral, architectural, and quality requirements for the Global Mapper (GM) tool. It serves as the authoritative reference for:</p>
+<ul>
+<li><strong>Developers:</strong> Implementation guidance with detailed behavioral specifications</li>
+<li><strong>QA/Testers:</strong> Acceptance criteria and validation requirements</li>
+<li><strong>Product Owners:</strong> Feature completeness and user experience standards</li>
+<li><strong>AI Agents:</strong> Context for code generation and refactoring decisions</li>
+</ul>
+<h3 id="12-tool-overview">1.2 Tool Overview</h3>
+<p>Global Mapper is an advanced Revit plugin that enables bulk mapping and migration of:</p>
+<ul>
+<li><strong>Families</strong> → Families (with type, parameter, material, object style mappings)</li>
+<li><strong>Line Styles</strong> → Line Styles</li>
+<li><strong>Object Styles</strong> → Object Styles</li>
+<li><strong>Materials</strong> → Materials</li>
+<li><strong>Shared Parameters</strong> → Project parameters or embedded family parameters</li>
+</ul>
+<p>The tool provides similarity-based matching, manual overrides, deep scanning for detailed family analysis, and atomic apply/rollback workflows.</p>
+<hr>
+<h2 id="2-architectural-principles">2. Architectural Principles</h2>
+<p>These are the foundational, non-negotiable constraints that govern all GM code.</p>
+<h3 id="21-core-invariants">2.1 Core Invariants</h3>
+<p><strong>Kernel-Only, Ids-Only Data Model</strong></p>
+<ul>
+<li>All domain data is stored as Revit element IDs only (integers)</li>
+<li>No names or descriptive strings in core data structures</li>
+<li>Names are resolved only when visible in UI, never during render loops</li>
+<li>Data is section-gated: <code>families</code>, <code>usage</code> (line/object styles, materials), <code>shared_params</code></li>
+</ul>
+<hr>
+<p><strong>Fail-Fast, No Fallbacks, No Silent Failures</strong></p>
+<ul>
+<li>No fallback logic anywhere in codebase</li>
+<li>No broad exception catches (typed exceptions only at narrow boundaries)</li>
+<li>No defensive defaults to hide incorrect state</li>
+<li>Fix root causes, never add wrappers or UI patches</li>
+<li>Surface all errors via overlays, banners, or typed exceptions</li>
+</ul>
+<pre><code class="lang-csharp">// WRONG - swallows exception
+try { File.Delete(file); } catch { }
+
+// CORRECT - logs and propagates
+try { File.Delete(file); }
+catch (Exception ex)
+{
+    _logger.LogError(ex, &quot;Failed to delete cache file: {Path}&quot;, file);
+    throw;
+}
+</code></pre>
+<hr>
+<p><strong>Section-Gated Loading</strong></p>
+<ul>
+<li>Data is built in sections: families, usage, shared_params</li>
+<li>Sections load lazily on first tab visit (not all at startup)</li>
+<li>Never return placeholder/fallback content if section is missing</li>
+<li>Throw explicit error or build section exactly once</li>
+</ul>
+<hr>
+<p><strong>Always-Fresh Cache Architecture</strong></p>
+<ul>
+<li>Families, types, materials, usage, shared parameters are always queried fresh from Revit</li>
+<li>No snapshot caching of live data</li>
+<li>Deep scan cache only (global, name-keyed, cross-document portable)</li>
+<li>UI state persistence is separate from data (tab, search, scroll, filters)</li>
+</ul>
+<hr>
+<p><strong>DDD Layering (Domain → Application → Infrastructure)</strong></p>
+<ul>
+<li>Domain layer: pure entities, value objects, no Revit types</li>
+<li>Application layer: orchestrators, lifecycle, queries, read models</li>
+<li>Infrastructure layer: Revit adapters, persistence repositories</li>
+<li>UI layer: binds only to Application interfaces</li>
+</ul>
+<pre><code>DBTools.GM.App/Domain/*
+DBTools.GM.App/Application/*
+DBTools.GM.App/Infrastructure/*
+DBTools.UI/ViewModels/GM/* (consumes Application only)
+</code></pre>
+<p>Roslyn analyzers prevent forbidden cross-namespace usage.</p>
+<hr>
+<p><strong>First Paint, Then Work; Single Overlay Paradigm</strong></p>
+<ul>
+<li>Window renders immediately (first paint) without running collectors</li>
+<li>After paint, initial work runs via dispatcher under progress overlay with cancellation</li>
+<li>Never double-overlay (only overlay long work)</li>
+<li>Commands disabled while busy (IsBusy affects CanExecute)</li>
+</ul>
+<hr>
+<h3 id="22-data-model-constraints">2.2 Data Model Constraints</h3>
+<p><strong>Ids-Only Persistence</strong></p>
+<ul>
+<li>All persisted data uses element IDs (integers)</li>
+<li>Names/descriptors are UI-time hydration only</li>
+<li>Deep scan cache uses name/signature composite keys for portability</li>
+</ul>
+<p><strong>Hydration on Demand</strong></p>
+<ul>
+<li>Resolve names only for visible rows</li>
+<li>Target option lists are pre-built for current category only</li>
+<li>Nested details remain lazy (never pre-built)</li>
+</ul>
+<hr>
+<p><strong>Write Policy</strong></p>
+<ul>
+<li>UI state writes only on window close (no mid-session writes)</li>
+<li>Deep scan cache writes immediately on scan completion</li>
+<li>No resume JSON during session (always-fresh eliminates need)</li>
+</ul>
+<hr>
+<h3 id="23-error-handling-philosophy">2.3 Error Handling Philosophy</h3>
+<p><strong>Typed Exceptions at Boundaries</strong></p>
+<pre><code class="lang-csharp">// Domain exceptions
+GmKernelError (base)
+  ├── GmSnapshotLoadError (snapshot parse/version mismatch)
+  ├── GmCollectionError (adapter failures during bulk reads)
+  ├── GmInvalidMappingError (invalid/unsupported plan operations)
+  └── GmApplyStageError (with Stage name and inner failure aggregation)
+</code></pre>
+<p><strong>SafeExecute Boundary Pattern</strong></p>
+<p>All top-level UI entrypoints execute under <code>ISafeExecutor</code>:</p>
+<pre><code class="lang-csharp">// Entrypoint wrapper
+csharp/DBTools.Core/Execution/SafeExecutor.cs:10-29
+
+// Used by ViewModels
+csharp/DBTools.UI/ViewModels/GM/GlobalMapperViewModel.cs:185,238,265,314,336
+</code></pre>
+<p><strong>Error Surfaces</strong></p>
+<ol>
+<li><strong>Notification Banner</strong> — Single-instance manager, fade in/out, auto-close</li>
+<li><strong>Progress Overlay Errors</strong> — Overlay shows during long ops, surfaces errors inline</li>
+<li><strong>Output Window</strong> — Live window with search, copy/clear/export, level filters, duplicate grouping</li>
+<li><strong>Error Boundary (Window-Level)</strong> — UnobservedTaskException handling, banner on background failures</li>
+</ol>
+<hr>
+<h1 id="part-ii-architecture-1">Part II: Architecture</h1>
+<h2 id="3-domain-model">3. Domain Model</h2>
+<h3 id="31-gmprojectstate-root-aggregate">3.1 GMProjectState (Root Aggregate)</h3>
+<p>The kernel is the single source of truth for all domain data during a session.</p>
+<pre><code class="lang-csharp">namespace DBTools.GM.App.Kernel
+
+public sealed class GMProjectState
+{
+    // Snapshot reference (for resume)
+    public GMSourceSnapshot SourceSnapshot { get; init; }
+
+    // Families by ID
+    public IReadOnlyDictionary&lt;int, GMFamilyRecord&gt; Families { get; init; }
+
+    // Usage indices (materials, line styles, object styles)
+    public GMUsageIndex Usage { get; init; }
+
+    // Shared parameter ledger
+    public GMSharedParameterLedger SharedParameters { get; init; }
+
+    // Tab UI state
+    public GMTabStateCollection Tabs { get; init; }
+}
+</code></pre>
+<hr>
+<h3 id="32-gmfamilyrecord">3.2 GMFamilyRecord</h3>
+<pre><code class="lang-csharp">public sealed class GMFamilyRecord
+{
+    public int ElementId { get; init; }              // FamilyId
+    public int? CategoryId { get; init; }            // Optional category
+    public string? Name { get; init; }               // Lazy via names service; UI-only cache
+    public int InstanceCount { get; init; }
+
+    // Child entities
+    public IReadOnlyDictionary&lt;int, GMTypeRecord&gt; Types { get; init; }  // By SymbolId
+
+    // Usage references
+    public IReadOnlyCollection&lt;int&gt; Materials { get; init; }
+    public IReadOnlyCollection&lt;int&gt; ObjectStyles { get; init; }
+    public IReadOnlyCollection&lt;int&gt; LineStyles { get; init; }
+
+    // Parameters (name → descriptor)
+    public IReadOnlyDictionary&lt;string, GMParameterDescriptor&gt; Parameters { get; init; }
+
+    // Deep scan state
+    public GMDeepScanState DeepScanState { get; init; }
+}
+</code></pre>
+<p><strong>Parameter Inclusion Rules:</strong></p>
+<p>Parameters are filtered programmatically (no curated name lists). Include parameter if ALL of these are true:</p>
+<ul>
+<li><code>Definition</code> is InternalDefinition (not ExternalDefinition/shared)</li>
+<li><code>BuiltInParameter == INVALID</code></li>
+<li><code>Parameter.IsReadOnly == False</code></li>
+<li><code>Definition.UserModifiable == True</code></li>
+<li>De-duplicate by name across instance/type scopes</li>
+<li>Annotate scope as <code>Instance</code>, <code>Type</code>, or <code>Instance+Type</code></li>
+</ul>
+<hr>
+<h3 id="33-gmtyperecord">3.3 GMTypeRecord</h3>
+<pre><code class="lang-csharp">public sealed class GMTypeRecord
+{
+    public int SymbolId { get; init; }
+    public int FamilyId { get; init; }
+
+    // Usage for this type
+    public GMTypeUsage Usage { get; init; }  // Materials/styles referenced
+
+    // Sampled parameter values (for SP mapping UI)
+    public IReadOnlyDictionary&lt;string, string?&gt; ParameterValues { get; init; }
+
+    // Deep scan payload
+    public GMTypeDeepScan DeepScanPayload { get; init; }
+}
+</code></pre>
+<hr>
+<h3 id="34-gmusageindex">3.4 GMUsageIndex</h3>
+<pre><code class="lang-csharp">public sealed class GMUsageIndex
+{
+    public IReadOnlyDictionary&lt;int, GMUsageRecord&gt; LineStyles { get; init; }
+    public IReadOnlyDictionary&lt;int, GMUsageRecord&gt; ObjectStyles { get; init; }
+    public IReadOnlyDictionary&lt;int, GMUsageRecord&gt; Materials { get; init; }
+}
+
+public sealed class GMUsageRecord
+{
+    public int ElementId { get; init; }           // Style or material ID
+    public IReadOnlyCollection&lt;int&gt; Families { get; init; }  // Family IDs referencing this element
+}
+</code></pre>
+<p><strong>Canonical Uniqueness:</strong></p>
+<ul>
+<li>One row per style/object style/material from usage section</li>
+<li>No duplicates (duplicates indicate hydration or binding bugs)</li>
+<li>Built once per session, cached in kernel</li>
+</ul>
+<hr>
+<h3 id="35-gmdeepscanstate">3.5 GMDeepScanState</h3>
+<pre><code class="lang-csharp">public sealed class GMDeepScanState
+{
+    public bool IsDeepScanned { get; init; }
+    public IReadOnlyList&lt;int&gt; SampleInstanceIds { get; init; }
+    public IReadOnlyList&lt;string&gt; ParameterNames { get; init; }
+    public IReadOnlyCollection&lt;int&gt; StyleRefs { get; init; }
+    public IReadOnlyCollection&lt;int&gt; MaterialRefs { get; init; }
+}
+</code></pre>
+<p><strong>Deep Scan Augmentation:</strong></p>
+<ul>
+<li>Families discovered only via deep scan appear in usage lists with DS badge</li>
+<li>Usage count remains 0 if no instances in project</li>
+<li>DS badge distinguishes deep-scan-only from in-project usage</li>
+</ul>
+<hr>
+<h3 id="36-section-gating-rules">3.6 Section Gating Rules</h3>
+<p><strong>Families Section:</strong></p>
+<ul>
+<li>Built on initial load for default curated category</li>
+<li>Rebuilt on category change</li>
+<li>Never contains all categories at once (lazy per category)</li>
+</ul>
+<p><strong>Usage Section:</strong></p>
+<ul>
+<li>Built on first visit to Line Styles, Object Styles, or Materials tab</li>
+<li>Split into line vs object styles using <code>IStyleService</code></li>
+<li>Cached for session (reused across tabs)</li>
+</ul>
+<p><strong>Shared Parameters Section:</strong></p>
+<ul>
+<li>Built on first visit to SP tab</li>
+<li>Curated groups only (hard-coded list)</li>
+<li>Cached for session</li>
+</ul>
+<p><strong>Lazy Loading Policy:</strong></p>
+<ul>
+<li>Tabs other than active: lazily loaded on first visit (overlay if needed)</li>
+<li>Families and SP: reload on category change (overlay if needed)</li>
+<li>Expanded row details: always lazy (on &quot;+&quot; and/or after &quot;Scan Family&quot;)</li>
+</ul>
+<hr>
+<h3 id="37-element-uniqueness-guarantees">3.7 Element Uniqueness Guarantees</h3>
+<p><strong>Families:</strong></p>
+<ul>
+<li>One <code>GMFamilyRecord</code> per unique <code>FamilyId</code> in selected category</li>
+<li>Types: One <code>GMTypeRecord</code> per <code>SymbolId</code> under each family</li>
+</ul>
+<p><strong>Usage:</strong></p>
+<ul>
+<li>One <code>GMUsageRecord</code> per unique line style / object style / material ID</li>
+<li>No duplicates across tabs (line styles ≠ object styles ≠ materials)</li>
+</ul>
+<p><strong>Shared Parameters:</strong></p>
+<ul>
+<li>One group per SharedParameterFile group</li>
+<li>One definition per SP within group</li>
+</ul>
+<p><strong>Violation Handling:</strong></p>
+<ul>
+<li>Duplicates indicate collector or hydration bug</li>
+<li>Must throw <code>GmCollectionError</code> with details</li>
+<li>Never silently dedupe or use fallback</li>
+</ul>
+<hr>
+<h2 id="4-cache-architecture">4. Cache Architecture</h2>
+<h3 id="41-always-fresh-data-model">4.1 Always-Fresh Data Model</h3>
+<p><strong>Live Data (Always Fresh from Revit):</strong></p>
+<ul>
+<li>Families (for current category)</li>
+<li>Types (for loaded families)</li>
+<li>Materials (project + linked)</li>
+<li>Line Styles (project + linked)</li>
+<li>Object Styles (project + linked)</li>
+<li>Shared Parameters (from SharedParameterFile)</li>
+</ul>
+<p><strong>Querying:</strong></p>
+<ul>
+<li>Every tab load queries Revit API fresh</li>
+<li>Session in-memory cache for instant tab switching within session</li>
+<li>No staleness verification needed (data is current by definition)</li>
+</ul>
+<hr>
+<h3 id="42-deep-scan-cache-global-name-keyed">4.2 Deep Scan Cache (Global, Name-Keyed)</h3>
+<p><strong>Persistence:</strong></p>
+<ul>
+<li><strong>File:</strong> <code>.deepscans</code> in GM cache directory (global, NOT document-specific)</li>
+<li><strong>Format:</strong> JSON with composite keys</li>
+</ul>
+<p><strong>Composite Key:</strong></p>
+<pre><code class="lang-csharp">public sealed class DeepScanCacheKey
+{
+    public string FamilyName { get; init; }
+    public int TypeCount { get; init; }
+    public string ParameterSignature { get; init; }  // Hash of parameter names
+}
+</code></pre>
+<p><strong>Payload:</strong></p>
+<pre><code class="lang-csharp">public sealed class DeepScanCache
+{
+    public DeepScanCacheKey Key { get; init; }
+    public IReadOnlyList&lt;string&gt; ParameterNames { get; init; }
+    public IReadOnlyList&lt;int&gt; InstanceCounts { get; init; }
+    public IReadOnlyCollection&lt;int&gt; NestedFamilyIds { get; init; }
+    public DateTime CachedAt { get; init; }
+}
+</code></pre>
+<p><strong>Write Semantics:</strong></p>
+<ul>
+<li>Deep scan completion writes immediately to <code>.deepscans</code> file</li>
+<li>Enables cross-session and cross-document reuse</li>
+</ul>
+<p><strong>Rationale:</strong></p>
+<ul>
+<li>Name-based keys portable across documents</li>
+<li>Enables global cache (not doc-specific)</li>
+<li>Staleness detection via signature comparison (shown to user)</li>
+</ul>
+<hr>
+<h3 id="43-staleness-indicators">4.3 Staleness Indicators</h3>
+<p><strong>When Deep Scan Cache Might Be Stale:</strong></p>
+<ul>
+<li>Family renamed in external project</li>
+<li>Types added/removed (TypeCount mismatch)</li>
+<li>Parameters added/removed (ParameterSignature mismatch)</li>
+</ul>
+<p><strong>UI Behavior:</strong></p>
+<ul>
+<li>Show staleness indicator badge in UI (&quot;⚠ May be outdated&quot;)</li>
+<li>Tooltip: &quot;Deep scan data may be stale. Re-scan for latest.&quot;</li>
+<li>User can trigger re-scan manually</li>
+<li>Never use stale data silently without indicator</li>
+</ul>
+<hr>
+<h3 id="44-ui-state-cache-document-scoped">4.4 UI State Cache (Document-Scoped)</h3>
+<p><strong>Persistence:</strong></p>
+<ul>
+<li><strong>File:</strong> <code>.gmstate_{documentKey}.json</code> per document</li>
+<li><strong>Format:</strong> JSON with UI preferences</li>
+</ul>
+<p><strong>Content:</strong></p>
+<pre><code class="lang-csharp">public sealed class GmUiState
+{
+    public string DocumentKey { get; init; }
+    public int Version { get; init; } = 1;  // Strict version checking
+
+    // Tab state
+    public int SelectedTabIndex { get; init; }
+    public int? SelectedCategoryId { get; init; }
+
+    // Filters
+    public bool FilterUnused { get; init; }
+    public bool FilterApplied { get; init; }
+    public bool FilterUnscanned { get; init; }
+    public string? SearchText { get; init; }
+    public int SimilarityThreshold { get; init; }
+    public string SortMode { get; init; }  // &quot;Similarity&quot; | &quot;Alphabetical&quot;
+
+    // Scroll positions
+    public double? FamiliesScrollOffset { get; init; }
+    public double? StylesScrollOffset { get; init; }
+    public double? MaterialsScrollOffset { get; init; }
+    public double? SPTypesScrollOffset { get; init; }
+    public double? SPParamsScrollOffset { get; init; }
+
+    // Expanded state
+    public IReadOnlyList&lt;int&gt; ExpandedFamilies { get; init; }
+    public int? SelectedSPTypeSymbolId { get; init; }
+
+    // SP selections
+    public IReadOnlyList&lt;SPSelection&gt; SPSelections { get; init; }
+}
+
+public sealed class SPSelection
+{
+    public int SymbolId { get; init; }
+    public IReadOnlyList&lt;SPParamSelection&gt; Params { get; init; }
+}
+
+public sealed class SPParamSelection
+{
+    public string Name { get; init; }
+    public bool Apply { get; init; }
+    public bool IsHostLevel { get; init; }
+    public bool? IsTypeBinding { get; init; }
+    public string? MapFromName { get; init; }
+}
+</code></pre>
+<p><strong>Write Policy:</strong></p>
+<ul>
+<li>Only on window close (no mid-session writes)</li>
+<li>Exception: User-initiated &quot;Save Now&quot; if added (explicit, not automatic)</li>
+</ul>
+<p><strong>Version Checking:</strong></p>
+<ul>
+<li><code>CurrentVersion = 1</code> (increment on schema change)</li>
+<li>On load, if version mismatch → throw <code>GmSnapshotLoadException</code></li>
+<li>UI proceeds with fresh state (no fallback to old schema)</li>
+</ul>
+<hr>
+<h2 id="5-error-handling">5. Error Handling</h2>
+<h3 id="51-no-fallbacks-policy">5.1 No Fallbacks Policy</h3>
+<p><strong>Absolute Prohibitions:</strong></p>
+<ol>
+<li><p><strong>No fallback logic</strong> anywhere in codebase</p>
+<pre><code class="lang-csharp">// WRONG
+var names = _kernel?.FamilyNames ?? new Dictionary&lt;int, string&gt;();
+
+// CORRECT
+if (_kernel == null)
+    throw new InvalidOperationException(&quot;Kernel must be initialized before building plan context.&quot;);
+var names = _kernel.FamilyNames;
+</code></pre>
+</li>
+<li><p><strong>No broad catches</strong> — typed exceptions only</p>
+<pre><code class="lang-csharp">// WRONG
+try { ... } catch (Exception) { /* silent */ }
+
+// CORRECT
+try { ... }
+catch (GmCollectionError ex)
+{
+    _logger.LogError(ex, &quot;Failed to collect families for category {CategoryId}&quot;, categoryId);
+    throw;
+}
+</code></pre>
+</li>
+<li><p><strong>No silent failures</strong> — user must see what went wrong</p>
+<pre><code class="lang-csharp">// WRONG
+try { File.Delete(file); } catch { }
+
+// CORRECT
+try { File.Delete(file); }
+catch (Exception ex)
+{
+    _logger.LogError(ex, &quot;Failed to delete cache file: {Path}&quot;, file);
+    throw;
+}
+</code></pre>
+</li>
+<li><p><strong>No defensive defaults</strong> — fix root causes</p>
+</li>
+<li><p><strong>No wrapper shortcuts</strong> — address problems at source</p>
+</li>
+</ol>
+<hr>
+<h3 id="52-typed-exceptions">5.2 Typed Exceptions</h3>
+<p><strong>Exception Types (standalone, no inheritance required):</strong></p>
+<p>Each exception type is a standalone sealed class with an error code for programmatic handling.
+See <code>GmKernelExceptions.cs</code> for complete implementation.</p>
+<pre><code class="lang-csharp">namespace DBTools.GM.Kernel;
+
+// Error codes for kernel exceptions (1xxx=Build, 2xxx=Mapping, 3xxx=Invariant, 4xxx=Snapshot, 5xxx=Collection/Apply)
+public enum GmKernelErrorCode { ... }
+
+// Kernel build failures (name resolution, nesting index, etc.)
+public sealed class GmKernelBuildException : Exception
+{
+    public GmKernelErrorCode Code { get; }
+}
+
+// Invalid mapping operations
+public sealed class GmInvalidMappingException : Exception
+{
+    public GmKernelErrorCode Code { get; }
+}
+
+// Snapshot load failures
+public sealed class GmSnapshotLoadException : Exception
+{
+    public GmKernelErrorCode Code { get; }
+}
+
+// Invariant violations (invalid IDs, negative counts)
+public sealed class GmInvariantViolationException : Exception
+{
+    public GmKernelErrorCode Code { get; }
+}
+
+// Adapter/collection failures when retrieving data from Revit
+public sealed class GmCollectionError : Exception
+{
+    public GmKernelErrorCode Code { get; }
+    public string CollectorName { get; }
+}
+
+// Apply stage failures with aggregated inner exceptions
+public sealed class GmApplyStageError : Exception
+{
+    public GmKernelErrorCode Code { get; }
+    public string StageName { get; }
+    public IReadOnlyList&lt;Exception&gt; InnerFailures { get; }
+}
+</code></pre>
+<hr>
+<h3 id="53-safeexecute-integration">5.3 SafeExecute Integration</h3>
+<p><strong>Pattern:</strong></p>
+<pre><code class="lang-csharp">// All top-level UI entrypoints execute under ISafeExecutor
+await _runner.RunAsync(&quot;GM Apply - Full Plan&quot;, async () =&gt;
+{
+    // ... application logic that may throw typed exceptions
+});
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Catches all exceptions from inner lambda</li>
+<li>Logs to centralized logger</li>
+<li>Shows banner notification to user</li>
+<li>Never masks or silently swallows</li>
+</ul>
+<hr>
+<h3 id="54-overlay-error-surfacing">5.4 Overlay Error Surfacing</h3>
+<p><strong>When Used:</strong></p>
+<ul>
+<li>Initial tab load after paint</li>
+<li>Category change (Families, SP)</li>
+<li>Deep scan</li>
+<li>Refresh/rebuild operations</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Shows titled steps with ticks</li>
+<li>Throttled progress updates</li>
+<li>Cancel button sets <code>cancel_requested</code> (collectors honor it)</li>
+<li>On error: show error message in overlay, do NOT close window</li>
+</ul>
+<p><strong>Never:</strong></p>
+<ul>
+<li>Double-overlay (check <code>IsBusy</code> before showing)</li>
+<li>Close window on error (surface via overlay, let user decide)</li>
+</ul>
+<hr>
+<h1 id="part-iii-uiux-1">Part III: UI/UX</h1>
+<h2 id="6-window-lifecycle">6. Window Lifecycle</h2>
+<h3 id="61-entry-and-first-paint">6.1 Entry and First Paint</h3>
+<p><strong>Behavior:</strong></p>
+<ol>
+<li><strong>Entry:</strong> Global Mapper button clicked → window opens (modal)</li>
+<li><strong>First Paint:</strong> Show window immediately WITHOUT running collectors</li>
+<li><strong>Loaded Event:</strong>
+<ul>
+<li>Restore UI state from <code>.gmstate</code> file (tab, search, sort, threshold, filters, scroll offsets)</li>
+<li>Use dispatcher to start initial loads AFTER paint completes</li>
+</ul>
+</li>
+</ol>
+<p><strong>Critical:</strong> Window renders before any data collection begins.</p>
+<hr>
+<h3 id="62-initial-load-sequence">6.2 Initial Load Sequence</h3>
+<p><strong>After First Paint:</strong></p>
+<ol>
+<li><p>Dispatcher-posted initial work under progress overlay:</p>
+<pre><code>&quot;Loading Families...&quot;
+&quot;Building usage indices...&quot;
+&quot;Resolving names...&quot;
+</code></pre>
+</li>
+<li><p>Default tab (or restored tab from UI state) loads first</p>
+</li>
+<li><p>Other tabs lazy-loaded on first visit</p>
+</li>
+<li><p><code>_initial_load_complete</code> flag set when default tab ready</p>
+</li>
+</ol>
+<p><strong>Gating:</strong></p>
+<ul>
+<li><code>SelectionChanged</code> events ignored until <code>_initial_load_complete = true</code></li>
+<li>Commands disabled while <code>IsBusy = true</code></li>
+</ul>
+<hr>
+<h3 id="63-tab-lazy-loading">6.3 Tab Lazy Loading</h3>
+<p><strong>Policy:</strong></p>
+<ul>
+<li><strong>Families Tab:</strong> Load on first visit (or immediately if default tab)</li>
+<li><strong>Line Styles / Object Styles / Materials:</strong> Build usage section on first visit, then cache</li>
+<li><strong>Shared Parameters:</strong> Build SP ledger on first visit, then cache</li>
+</ul>
+<p><strong>Category Change:</strong></p>
+<ul>
+<li>Families tab: Reload families for new category (show overlay)</li>
+<li>SP tab: Reload family/type tree for new category (show overlay)</li>
+</ul>
+<p><strong>Never:</strong></p>
+<ul>
+<li>Reload tabs on revisit (data cached in session)</li>
+<li>Show overlay on tab switch if data already cached</li>
+</ul>
+<hr>
+<h3 id="64-close-behavior">6.4 Close Behavior</h3>
+<p><strong>On Window Close:</strong></p>
+<ol>
+<li><strong>Deep scan cache:</strong> Already written mid-session (global <code>.deepscans</code> file)</li>
+<li><strong>UI state:</strong> Write <code>.gmstate_{documentKey}.json</code> with all UI preferences</li>
+<li><strong>Session cache:</strong> Cleared (in-memory only, not persisted)</li>
+</ol>
+<p>No mid-session writes for UI state.</p>
+<hr>
+<h2 id="7-duplicates-tab">7. Duplicates Tab</h2>
+<p>The Duplicates tab is the FIRST tab in the Global Mapper window.</p>
+<h3 id="71-purpose">7.1 Purpose</h3>
+<p>Identifies potential duplicate families, styles, materials, and shared parameters in the project using similarity algorithms. Users can accept suggested consolidations which become mappings applied during the Apply workflow.</p>
+<hr>
+<h3 id="72-detection-service">7.2 Detection Service</h3>
+<p><strong>Trigger:</strong></p>
+<ul>
+<li>Runs on tab activation or manual &quot;Run Scan&quot; button</li>
+<li>Configurable similarity threshold (slider in tab header)</li>
+</ul>
+<p><strong>Categories Analyzed:</strong></p>
+<ol>
+<li><strong>Families</strong> — Name similarity + parameter overlap</li>
+<li><strong>Line Styles</strong> — Weight, color, pattern comparison</li>
+<li><strong>Object Styles</strong> — Weight, color, pattern comparison</li>
+<li><strong>Materials</strong> — ARGB, transparency, name comparison</li>
+<li><strong>Shared Parameters</strong> — Parameter key overlap (Jaccard index)</li>
+</ol>
+<p><strong>Output:</strong></p>
+<ul>
+<li>Grouped duplicate candidates with scores (0-100) and rationale text</li>
+<li>Each group has a source and multiple potential targets</li>
+</ul>
+<hr>
+<h3 id="73-similarity-algorithms">7.3 Similarity Algorithms</h3>
+<p><strong>Naming Similarity (<code>INamingSimilarityService</code>):</strong></p>
+<pre><code class="lang-csharp">double Similarity(string a, string b);      // Returns 0.0-1.0
+string Normalize(string name);               // Case-insensitive, trim whitespace
+bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffix);
+</code></pre>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li><strong>Numeric suffix priority:</strong> &quot;Type 1&quot; vs &quot;Type 2&quot; → high similarity (common duplicate pattern)</li>
+<li><strong>Dice coefficient (bigram) fallback:</strong> General string similarity for non-numeric names</li>
+<li><strong>Normalization:</strong> Case-insensitive, whitespace-trimmed comparison</li>
+</ol>
+<hr>
+<p><strong>Parameter Similarity (<code>IParameterSimilarityService</code>):</strong></p>
+<pre><code class="lang-csharp">int ComputeScore(IReadOnlyDictionary&lt;string, string&gt; left, IReadOnlyDictionary&lt;string, string&gt; right);
+</code></pre>
+<p><strong>Algorithm:</strong></p>
+<ul>
+<li>Jaccard index for parameter key overlap</li>
+<li>Ignores Revit built-in parameters</li>
+<li>Used for Families and Shared Parameters categories</li>
+</ul>
+<hr>
+<p><strong>Visual Property Similarity (Styles/Materials):</strong></p>
+<ul>
+<li><strong>Line Styles:</strong> Line weight, color RGB, line pattern</li>
+<li><strong>Object Styles:</strong> Same as Line Styles</li>
+<li><strong>Materials:</strong> ARGB values, transparency percentage, name similarity</li>
+</ul>
+<hr>
+<h3 id="74-ui-structure">7.4 UI Structure</h3>
+<p><strong>Main Grid (<code>DuplicateGroupRow</code>):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kind</td>
+<td>Category (Families, LineStyles, etc.)</td>
+</tr>
+<tr>
+<td>Source</td>
+<td>Source element name</td>
+</tr>
+<tr>
+<td>Suggestions</td>
+<td>Count of potential targets</td>
+</tr>
+<tr>
+<td>Highest Score</td>
+<td>Best match percentage</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>Accept All, Expand/Collapse</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Row Expansion (<code>DuplicatePairRow</code>):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apply</td>
+<td>Checkbox (enables this pair for mapping)</td>
+</tr>
+<tr>
+<td>Score</td>
+<td>Similarity percentage (0-100)</td>
+</tr>
+<tr>
+<td>Target</td>
+<td>Dropdown with target options</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Explanation of match reason</td>
+</tr>
+<tr>
+<td>Badges</td>
+<td>Lock (🔒) and DS indicators</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3 id="75-commands">7.5 Commands</h3>
+<p><strong>Run Scan:</strong></p>
+<ul>
+<li>Triggers detection for all categories</li>
+<li>Shows overlay: &quot;Detecting duplicates...&quot;</li>
+<li>Populates DuplicateGroups collection</li>
+</ul>
+<p><strong>Accept:</strong></p>
+<ul>
+<li>Converts selected pair to mapping rule</li>
+<li>Applies row locks to affected rows on other tabs</li>
+<li>Updates <code>_successMappings</code> dictionary</li>
+</ul>
+<p><strong>Ignore:</strong></p>
+<ul>
+<li>Sets <code>Apply = false</code> on pair</li>
+<li>Records in <code>_duplicateSelections</code> for persistence</li>
+</ul>
+<p><strong>Accept All in Group:</strong></p>
+<ul>
+<li>Batch accept for all <code>Apply = true</code> pairs in a group</li>
+<li>Single transaction for efficiency</li>
+</ul>
+<hr>
+<h3 id="76-row-locking">7.6 Row Locking</h3>
+<p>When a duplicate mapping is accepted:</p>
+<ol>
+<li>Source row on the target tab is locked (<code>IsLocked = true</code>)</li>
+<li>Checkbox disabled with tooltip: &quot;Locked by Duplicates tab (change there)&quot;</li>
+<li>User must change or remove mapping on Duplicates tab to unlock</li>
+</ol>
+<p><strong>Lock Sources:</strong></p>
+<ul>
+<li>Families tab selections (existing)</li>
+<li>Duplicates tab accepted mappings (this feature)</li>
+</ul>
+<p>Locking is ROW-level only. There is no tab-level locking.</p>
+<hr>
+<h3 id="77-persistence">7.7 Persistence</h3>
+<p><strong>Resume Snapshot Includes:</strong></p>
+<pre><code class="lang-csharp">public IDictionary&lt;string, int[]&gt;? DuplicateGroupMembers { get; set; }  // key: kind:sourceId
+public double? DuplicatesScrollOffset { get; set; }
+public int? DuplicatesSimilarityThreshold { get; set; }
+</code></pre>
+<p><strong>Write Policy:</strong></p>
+<ul>
+<li>Persisted on window close only (single JSON)</li>
+<li>No mid-session writes</li>
+</ul>
+<p><strong>Restore Behavior:</strong></p>
+<ul>
+<li>Rehydrate <code>DuplicateSelections</code> and group states</li>
+<li>Invalid group entries dropped with warning log</li>
+<li>No silent fallbacks</li>
+</ul>
+<hr>
+<h2 id="8-progress-overlays">8. Progress Overlays</h2>
+<h3 id="81-when-shown">8.1 When Shown</h3>
+<p><strong>Always Show Overlay:</strong></p>
+<ul>
+<li>Initial tab load after first paint</li>
+<li>Category change (Families, SP)</li>
+<li>Deep scan</li>
+<li>Apply plan execution</li>
+<li>Any &quot;long&quot; collector (&gt;500ms expected)</li>
+</ul>
+<p><strong>Never Show Overlay:</strong></p>
+<ul>
+<li>Tab switch if data already cached</li>
+<li>Name resolution for visible rows (fast lookup)</li>
+<li>Search/filter/sort (instant, no API calls)</li>
+</ul>
+<hr>
+<h3 id="82-behavior">8.2 Behavior</h3>
+<p><strong>Display:</strong></p>
+<ul>
+<li>Titled steps with tick marks</li>
+<li>Progress text: &quot;Loading Families...&quot; → &quot;Resolving names...&quot; → &quot;Complete&quot;</li>
+<li>Throttled updates (avoid UI spam)</li>
+</ul>
+<p><strong>Cancellation:</strong></p>
+<ul>
+<li>Cancel button sets <code>cancel_requested</code> flag</li>
+<li>Collectors honor flag and exit gracefully</li>
+<li>Partial results discarded (fail-fast, no half-loaded state)</li>
+</ul>
+<p><strong>Error Handling:</strong></p>
+<ul>
+<li>On error: show error message in overlay (do NOT close window)</li>
+<li>&quot;Retry&quot; button if operation is idempotent</li>
+<li>&quot;Close&quot; button dismisses overlay and returns to main UI</li>
+</ul>
+<hr>
+<h3 id="83-never-double-overlay">8.3 Never Double-Overlay</h3>
+<p><strong>Rule:</strong> Only ONE overlay at a time</p>
+<p><strong>Enforcement:</strong></p>
+<ul>
+<li>Check <code>IsBusy</code> flag before showing overlay</li>
+<li>If already busy, queue operation or reject with message</li>
+<li>Commands disabled via <code>CanExecute</code> while <code>IsBusy = true</code></li>
+</ul>
+<hr>
+<h3 id="84-throttled-progress-updates">8.4 Throttled Progress Updates</h3>
+<p><strong>Pattern:</strong></p>
+<pre><code class="lang-csharp">// Update progress every N items or 200ms, whichever comes first
+var progress = new Progress&lt;string&gt;(msg =&gt; BusyText = msg);
+
+foreach (var chunk in items.Chunk(100))
+{
+    // Process chunk
+    ((IProgress&lt;string&gt;)progress).Report($&quot;Processing {processedCount}/{totalCount}...&quot;);
+}
+</code></pre>
+<p><strong>Rationale:</strong> Avoid overwhelming UI thread with rapid updates.</p>
+<hr>
+<h2 id="9-families-tab">9. Families Tab</h2>
+<h3 id="91-category-dropdown">9.1 Category Dropdown</h3>
+<p><strong>Data Source:</strong></p>
+<ul>
+<li>Hard-coded curated category list (single source of truth)</li>
+<li>Exactly as currently implemented (no dynamic expansion)</li>
+<li>Mapped to actual Revit CategoryId via <code>Category.GetCategory</code> or <code>Settings.Categories</code></li>
+</ul>
+<p><strong>Implementation:</strong></p>
+<pre><code>csharp/DBTools.RevitAdapter/GM/Services/CategoryService.cs:17
+</code></pre>
+<p><strong>Default Selection:</strong></p>
+<ul>
+<li><strong>Visual default:</strong> &quot;Annotation Symbols&quot; (first curated label)</li>
+<li>Never blank when rows are loaded</li>
+</ul>
+<hr>
+<h3 id="92-loading-behaviors">9.2 Loading Behaviors</h3>
+<p><strong>Initial Load:</strong></p>
+<ol>
+<li>After first paint, load families for default curated category (&quot;Annotation Symbols&quot;)</li>
+<li>Show overlay with steps:
+<pre><code>&quot;Collecting families...&quot;
+&quot;Counting instances...&quot;
+&quot;Resolving names...&quot;
+</code></pre>
+</li>
+<li>Results appear with dropdown visually selected</li>
+</ol>
+<p><strong>Category Change:</strong></p>
+<ol>
+<li>User selects different category from dropdown</li>
+<li>Show overlay (lazy load is acceptable)</li>
+<li>Reload families for selected category only</li>
+<li>Pre-build target option lists for current category</li>
+</ol>
+<hr>
+<h3 id="93-row-structure">9.3 Row Structure</h3>
+<p><strong>Columns:</strong></p>
+<ol>
+<li><strong>Expand</strong> (<code>+</code> icon) — Shows details (Types, Object Styles, Materials, Parameters)</li>
+<li><strong>Quantity</strong> — <code>instance_count</code> for family ID (0 if no instances)</li>
+<li><strong>Apply</strong> — Checkbox (enables this family for mapping plan)</li>
+<li><strong>Saved</strong> — Badge (if mapping preference saved for this family)</li>
+<li><strong>Deep Scan Badge</strong> — DS icon if family has been deep scanned</li>
+<li><strong>Source</strong> — Family name (resolved from kernel name cache)</li>
+<li><strong>Target</strong> — Combobox with scored options (identity excluded)</li>
+<li><strong>Search/Sort/Filters</strong> — Applied across all rows</li>
+</ol>
+<hr>
+<h3 id="94-target-combobox-behaviors">9.4 Target Combobox Behaviors</h3>
+<p><strong>Options Source:</strong></p>
+<ul>
+<li>Built from peer families in same category (identity excluded)</li>
+<li>Pre-built at tab load for current category (cached for session)</li>
+<li>Switching into combobox should be instant (no delay)</li>
+</ul>
+<p><strong>Similarity Mode:</strong></p>
+<ul>
+<li>Each option shows colored label (green → orange → red)</li>
+<li>Similarity percentage appended: <code>&quot;Target Family Name (85%)&quot;</code></li>
+<li>Sorted high → low by score</li>
+<li>Threshold influences default selection only (never override manual selection)</li>
+</ul>
+<p><strong>Alphabetical Mode:</strong></p>
+<ul>
+<li>Options sorted alphabetically</li>
+<li>No similarity colors/scores (default styling)</li>
+<li>No threshold filtering</li>
+</ul>
+<p><strong>Manual Selection Preservation:</strong></p>
+<ul>
+<li>Manual selection is sticky across re-sorts and threshold changes</li>
+<li>Only reset if target disappears from options (e.g., family deleted)</li>
+</ul>
+<hr>
+<h3 id="95-unscanned-family-demotion">9.5 Unscanned Family Demotion</h3>
+<p>Unscanned families appear beneath horizontal separator in target combobox:</p>
+<ul>
+<li>Greyed out and disabled until scanned</li>
+<li>Above separator: Ready options (selectable, colored in similarity mode)</li>
+<li>Below separator: Unscanned options (disabled, requires deep scan)</li>
+</ul>
+<p><strong>After Scan:</strong></p>
+<ul>
+<li>Move to above separator</li>
+<li>Enable selection</li>
+<li>Apply normal scoring/coloring</li>
+</ul>
+<hr>
+<h3 id="96-expand-details">9.6 Expand Details</h3>
+<p><strong>With Instances (quantity &gt; 0):</strong></p>
+<p>Shows:</p>
+<ol>
+<li><strong>Types</strong> (from <code>symbol_ids</code> in kernel)</li>
+<li><strong>Object Styles</strong> (from usage indices)</li>
+<li><strong>Materials</strong> (from usage indices)</li>
+<li><strong>Parameter Names ONLY</strong> (not values)</li>
+</ol>
+<p>Built WITHOUT deep scan — kernel indices provide enough data for in-project families.</p>
+<p><strong>Zero-Qty Gating (quantity = 0):</strong></p>
+<p>Shows:</p>
+<ul>
+<li>&quot;Scan Family&quot; button</li>
+<li>Hint text: &quot;This family has no instances. Deep scan required to view details.&quot;</li>
+<li>Details panel disabled until scan completes</li>
+</ul>
+<p>After scan:</p>
+<ul>
+<li>Details unlock</li>
+<li>Types, Object Styles, Materials, Parameters appear</li>
+<li>DS badge added to top-level row</li>
+</ul>
+<hr>
+<h3 id="97-nested-target-comboboxes">9.7 Nested Target Comboboxes</h3>
+<p>Child grids within expanded family rows have target comboboxes:</p>
+<p><strong>Types:</strong></p>
+<ul>
+<li>Options from target family's symbols</li>
+<li>Same sort/threshold semantics as top-level</li>
+</ul>
+<p><strong>Object Styles:</strong></p>
+<ul>
+<li>Options from full universe of object styles</li>
+<li>Identity excluded</li>
+</ul>
+<p><strong>Materials:</strong></p>
+<ul>
+<li>Options from full universe of materials</li>
+<li>Identity excluded</li>
+</ul>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li>Options from target family's deep scan parameter names</li>
+<li><strong>First option:</strong> <code>&lt;Do Not Map&gt;</code> sentinel</li>
+<li>Deep scan required for parameter list (gated if not scanned)</li>
+</ul>
+<p><strong>Lazy Loading:</strong></p>
+<ul>
+<li>Do NOT pre-build nested options (only top-level pre-built)</li>
+<li>Build on expand or target change</li>
+</ul>
+<hr>
+<h3 id="98-parameter-pruning-rules">9.8 Parameter Pruning Rules</h3>
+<p>Include parameter if ALL of these are true:</p>
+<ol>
+<li><code>Definition</code> is <code>InternalDefinition</code> (NOT <code>ExternalDefinition</code> or shared)</li>
+<li><code>BuiltInParameter == INVALID</code></li>
+<li><code>Parameter.IsReadOnly == False</code></li>
+<li><code>Definition.UserModifiable == True</code></li>
+</ol>
+<p><strong>De-duplication:</strong></p>
+<ul>
+<li>De-duplicate by name across instance/type scopes</li>
+<li>Annotate scope: <code>Instance</code>, <code>Type</code>, or <code>Instance+Type</code></li>
+</ul>
+<p>No curated name lists (programmatic filters only).</p>
+<hr>
+<h3 id="99-cross-tab-apply-lock">9.9 Cross-Tab Apply Lock</h3>
+<p>When Families tab sets Apply on Object Style or Material mapping:</p>
+<ol>
+<li>Corresponding top-level row on Object Styles or Materials tab reflects this</li>
+<li>Row is locked (Apply checkbox disabled with &quot;F&quot; badge)</li>
+<li>Un-apply ONLY from Families tab (not from locked tab)</li>
+</ol>
+<p><strong>Visual Indicator:</strong></p>
+<ul>
+<li>Blue &quot;F&quot; badge next to Apply checkbox</li>
+<li>Tooltip: &quot;Locked by Families tab mapping&quot;</li>
+</ul>
+<hr>
+<h3 id="910-preview-pane-toggle">9.10 Preview Pane Toggle</h3>
+<p>Within expanded family details, when selecting:</p>
+<ul>
+<li>Object Style row → Show/hide preview pane (swatch + style line)</li>
+<li>Material row → Show/hide preview pane (color swatch + properties)</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Preview appears on right side of window</li>
+<li>Toggle via checkbox or auto-show on selection</li>
+</ul>
+<hr>
+<h3 id="911-instance-navigation">9.11 Instance Navigation</h3>
+<p>Families tab does NOT have instance navigation.</p>
+<ul>
+<li>Instance cycling is SP-only feature</li>
+<li>Families tab shows quantity and &quot;Views Containing&quot; list</li>
+<li>Double-click view navigates, but no prev/next cycling within tab</li>
+</ul>
+<hr>
+<h3 id="912-quantity-vs-views-containing-pane">9.12 Quantity vs Views Containing Pane</h3>
+<p><strong>Quantity Column:</strong></p>
+<ul>
+<li>Reflects <code>instance_count</code> from kernel</li>
+<li>0 means no instances in project</li>
+</ul>
+<p><strong>Views Containing Selected Family (Right Pane):</strong></p>
+<ul>
+<li>Populated ONLY when <code>quantity &gt; 0</code></li>
+<li>Shows all views containing selected family instances (EXCLUDES templates)</li>
+<li>Double-click view → navigates and zooms to instance</li>
+</ul>
+<p><strong>Consistency Rule:</strong></p>
+<ul>
+<li>If quantity = 0 → pane should be EMPTY</li>
+<li>If quantity &gt; 0 but pane empty → bug (count miscalculation)</li>
+</ul>
+<hr>
+<h2 id="10-line-styles--object-styles--materials-tabs">10. Line Styles / Object Styles / Materials Tabs</h2>
+<h3 id="101-row-sources">10.1 Row Sources</h3>
+<p><strong>Data:</strong></p>
+<ul>
+<li>One row per style/object style/material from usage section of kernel</li>
+<li>Canonical uniqueness: NO duplicates (violation = hydration bug)</li>
+</ul>
+<p><strong>Quantity:</strong></p>
+<ul>
+<li>Line Styles: Usage count (number of families using this style)</li>
+<li>Object Styles: Families count (number of families using this object style)</li>
+<li>Materials: Families count (number of families using this material)</li>
+</ul>
+<p><strong>Zero Quantities:</strong></p>
+<ul>
+<li>Visible (not filtered out)</li>
+<li>Deep-scan-only families may contribute to usage with 0-qty (DS badge shown)</li>
+</ul>
+<hr>
+<h3 id="102-target-options">10.2 Target Options</h3>
+<p><strong>Options Source:</strong></p>
+<ul>
+<li>Peer rows in current tab (identity excluded)</li>
+<li>Same universe as source rows</li>
+</ul>
+<p><strong>Similarity Mode:</strong></p>
+<ul>
+<li>Colored labels (green → orange → red)</li>
+<li>Similarity percentages: <code>&quot;Target Name (92%)&quot;</code></li>
+<li>Sorted high → low</li>
+</ul>
+<p><strong>Alphabetical Mode:</strong></p>
+<ul>
+<li>Default styling (no colors)</li>
+<li>No percentages</li>
+<li>Sorted lexicographically</li>
+</ul>
+<p><strong>Threshold:</strong></p>
+<ul>
+<li>Influences default selection only</li>
+<li>Never overrides manual selection</li>
+<li>Materials/Styles rows are NOT filtered by threshold (only option selection affected)</li>
+</ul>
+<hr>
+<h3 id="103-validation-no-duplicates">10.3 Validation (No Duplicates)</h3>
+<p><strong>Enforcement:</strong></p>
+<ul>
+<li>Collector source must provide unique IDs</li>
+<li>Hydration/binding must not duplicate rows</li>
+</ul>
+<p><strong>Violation Handling:</strong></p>
+<ul>
+<li>If duplicates detected → throw <code>GmCollectionError</code></li>
+<li>Never silently dedupe</li>
+</ul>
+<hr>
+<h3 id="104-sorting-modes">10.4 Sorting Modes</h3>
+<p><strong>Similarity:</strong></p>
+<ul>
+<li>Rows sorted by highest similarity to target (if target selected)</li>
+<li>Or by usage count descending</li>
+</ul>
+<p><strong>Alphabetical:</strong></p>
+<ul>
+<li>Rows sorted by source name A-Z</li>
+<li>Threshold ignored</li>
+</ul>
+<p><strong>Threshold Influence:</strong></p>
+<ul>
+<li>Threshold slider affects option list default selection only</li>
+<li>Row visibility unaffected (all rows shown regardless of threshold)</li>
+</ul>
+<hr>
+<h3 id="105-preview-and-usage-lists">10.5 Preview and Usage Lists</h3>
+<p><strong>Selection Behavior:</strong></p>
+<p><strong>Line Styles:</strong></p>
+<ol>
+<li>Select row → preview updates (swatch and style line rendering)</li>
+<li>No &quot;Families Using This ...&quot; pane (line styles are host-document-only)</li>
+</ol>
+<p><strong>Object Styles:</strong></p>
+<ol>
+<li>Select row → preview updates (swatch and style line rendering)</li>
+<li>&quot;Families Using This Object Style&quot; pane populates with family names</li>
+<li>Double-click family → navigate to view and show instance</li>
+</ol>
+<p><strong>Materials:</strong></p>
+<ol>
+<li>Select row → preview updates (color swatch, texture, properties)</li>
+<li>&quot;Families Using This Material&quot; list populates</li>
+<li>Double-click family → navigate to view and show instance</li>
+</ol>
+<hr>
+<h3 id="106-ds-badges">10.6 DS Badges</h3>
+<p><strong>When Shown:</strong></p>
+<ul>
+<li>Row has any DS-scanned families in usage list</li>
+<li>Badge: &quot;DS&quot; icon or text</li>
+<li>Tooltip: &quot;Includes deep-scanned families&quot;</li>
+</ul>
+<p><strong>Deep Scan Augmentation:</strong></p>
+<ul>
+<li>Families discovered ONLY via deep scan appear in &quot;Families Using This ...&quot; lists (Object Styles, Materials)</li>
+<li>DS badge distinguishes them</li>
+<li>Usage count remains accurate (0 if no instances)</li>
+</ul>
+<hr>
+<h2 id="11-shared-parameters-tab">11. Shared Parameters Tab</h2>
+<h3 id="111-layout">11.1 Layout</h3>
+<p><strong>Left Panel:</strong></p>
+<ul>
+<li>Groups from SharedParameterFile</li>
+<li>Definitions within selected group</li>
+<li>Browse-only (no mutations)</li>
+</ul>
+<p><strong>Right Panel (Main Grid):</strong></p>
+<ul>
+<li>Families → Types → Parameters tree for selected curated category</li>
+<li>Single-selection semantics (only one type expanded at a time)</li>
+</ul>
+<hr>
+<h3 id="112-group-and-category-dropdowns">11.2 Group and Category Dropdowns</h3>
+<p><strong>Group Dropdown:</strong></p>
+<ul>
+<li>Populated from SharedParameterFile (or pre-collected snapshot)</li>
+<li><strong>Default:</strong> First group alphabetically</li>
+<li>Never blank</li>
+</ul>
+<p><strong>Category Dropdown:</strong></p>
+<ul>
+<li>Hard-coded curated category labels (e.g., Walls, Doors, Mechanical Equipment, Windows)</li>
+<li>No dynamic expansion</li>
+<li><strong>Default:</strong> First curated category</li>
+<li>Never blank</li>
+</ul>
+<p><strong>Loading:</strong></p>
+<ul>
+<li>After selecting group and category, main grid updates</li>
+<li>Shows families/types for curated category with SP inventory</li>
+</ul>
+<hr>
+<h3 id="113-main-grid-scoping">11.3 Main Grid Scoping</h3>
+<p><strong>Data Sources:</strong></p>
+<ul>
+<li><code>shared_params</code> section: powers left panel (groups/definitions)</li>
+<li><code>families</code> section: powers family/type tree (right grid) for selected category</li>
+</ul>
+<p><strong>Scoping:</strong></p>
+<ul>
+<li>Grid shows ONLY families in selected curated category</li>
+<li>Each row: Family → Types → Parameters</li>
+</ul>
+<p><strong>Empty Grid:</strong></p>
+<ul>
+<li>If no families in curated category → show clear banner</li>
+<li>&quot;No eligible families in selected category&quot;</li>
+<li>Keep categories curated (do NOT expand dynamically)</li>
+</ul>
+<hr>
+<h3 id="114-type-details-expansion">11.4 Type Details Expansion</h3>
+<p><strong>Header:</strong></p>
+<ol>
+<li><strong>Instance Navigator:</strong> Left/right arrows (cycles instances)</li>
+<li><strong>Instance Count:</strong> &quot;Instance 3 of 27&quot;</li>
+<li><strong>Zoom to Instance Button:</strong> Navigates and highlights current instance</li>
+<li><strong>Compact Summary:</strong> Current instance name and ElementId</li>
+</ol>
+<p><strong>Parameter Grid (below header):</strong></p>
+<p><strong>Section 1: Existing Parameters</strong></p>
+<ul>
+<li>Type and instance parameters for selected type</li>
+<li>Current values from sampled instances (sampling cap applies)</li>
+<li>NOT editable (read-only display)</li>
+</ul>
+<p><strong>Separator</strong></p>
+<p><strong>Section 2: Shared Parameters from Selected Group</strong></p>
+<ul>
+<li>Each SP row:
+<ul>
+<li><strong>Apply Checkbox:</strong> Enables mapping</li>
+<li><strong>End-State Toggle:</strong> <code>Host-level</code> vs <code>Embed-in-family</code></li>
+<li><strong>Map From Dropdown:</strong> Existing parameters with values (scored by name similarity + coverage)</li>
+<li><strong>Current Value:</strong> From visible instance</li>
+<li><strong>Proposed Value:</strong> From &quot;Map From&quot; parameter</li>
+<li><strong>Diff Styling:</strong> Old struck-through, new in red/bold when different</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="115-instance-navigation">11.5 Instance Navigation</h3>
+<p>Instance navigation is available on the Shared Parameters tab only.</p>
+<p><strong>Behavior:</strong></p>
+<ol>
+<li>Navigator appears inside SP type rows when instances sampled</li>
+<li>Prev/Next arrows cycle through instances</li>
+<li>Current and Proposed values update live on cycle</li>
+<li>Proposed turns red/bold when different from Current</li>
+</ol>
+<p><strong>Families Tab:</strong></p>
+<ul>
+<li>Does NOT have instance navigation</li>
+<li>Shows quantity and &quot;Views Containing&quot; list only</li>
+</ul>
+<hr>
+<h3 id="116-scoring-and-defaults-for-map-from">11.6 Scoring and Defaults for &quot;Map From&quot;</h3>
+<p><strong>Algorithm:</strong></p>
+<ul>
+<li>Combine name similarity (same as Families tab matching) with value coverage</li>
+<li>Coverage = % of sampled instances with non-empty values</li>
+<li>Highest combined score preselected</li>
+</ul>
+<p><strong>Manual Override:</strong></p>
+<ul>
+<li>User can change &quot;Map From&quot; selection</li>
+<li>Selection preserved across refreshes</li>
+</ul>
+<hr>
+<h3 id="117-visual-indicators">11.7 Visual Indicators</h3>
+<p><strong>Badges:</strong></p>
+<ol>
+<li><strong>Host-level bound:</strong> Badge if SP already exists as project parameter</li>
+<li><strong>Embedded:</strong> Badge if SP already embedded in family</li>
+<li><strong>Deep Scan:</strong> DS badge if deep scan data available for this family</li>
+</ol>
+<p><strong>Gating Label:</strong></p>
+<ul>
+<li>&quot;Deep Scan required&quot; shown when reading embedded schema needed (e.g., unplaced types)</li>
+</ul>
+<hr>
+<h3 id="118-apply-semantics">11.8 Apply Semantics</h3>
+<p><strong>Host-Level:</strong></p>
+<ol>
+<li>Bind SP to Category (Type or Instance per SP definition)</li>
+<li>Copy values from selected &quot;Map From&quot; parameter</li>
+<li>Batch operation (all checked SPs in one transaction)</li>
+</ol>
+<p><strong>Embed-in-Family:</strong></p>
+<ol>
+<li>Open family in background</li>
+<li>Add SP per definition (Type or Instance)</li>
+<li>Set default values</li>
+<li>Reload family</li>
+<li>Copy values from &quot;Map From&quot; parameter</li>
+</ol>
+<p><strong>No &quot;Remove Source&quot; Option:</strong></p>
+<ul>
+<li>Source parameter retained after copy</li>
+<li>User must manually delete if desired</li>
+</ul>
+<hr>
+<h3 id="119-persistence">11.9 Persistence</h3>
+<p><strong>On Close (UI State):</strong></p>
+<ul>
+<li>Selected SP type (<code>SelectedSPTypeSymbolId</code>)</li>
+<li>SP Types and Parameters scroll offsets</li>
+<li>Per-type parameter selections:
+<ul>
+<li>Apply checkbox state</li>
+<li>Host-level vs Embed toggle</li>
+<li>&quot;Map From&quot; selection by name</li>
+</ul>
+</li>
+</ul>
+<p><strong>NOT Persisted:</strong></p>
+<ul>
+<li>Nested scroll positions inside type details</li>
+<li>Sampled instance values (always fresh on load)</li>
+</ul>
+<hr>
+<h2 id="12-global-controls">12. Global Controls</h2>
+<h3 id="121-sort-mode">12.1 Sort Mode</h3>
+<p><strong>Options:</strong></p>
+<ul>
+<li><strong>Similarity:</strong> Colored labels with percentages, sorted high→low, threshold-aware</li>
+<li><strong>Alphabetical:</strong> Default styling, lexicographic sort, threshold ignored</li>
+</ul>
+<p><strong>Applies To:</strong></p>
+<ul>
+<li>ALL target option lists (top-level and nested)</li>
+<li>Families, Line Styles, Object Styles, Materials tabs</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Switching mode updates ALL visible comboboxes instantly</li>
+<li>Manual selections preserved (only re-sorted, not cleared)</li>
+</ul>
+<hr>
+<h3 id="122-threshold-slider">12.2 Threshold Slider</h3>
+<p><strong>Purpose:</strong></p>
+<ul>
+<li>In similarity mode: influences default selection only</li>
+<li>Options below threshold NOT auto-selected</li>
+<li>Manual selections NEVER overridden by threshold change</li>
+</ul>
+<p><strong>Range:</strong> 0-100 (similarity percentage)</p>
+<p><strong>Debounced:</strong> 200ms debounce to avoid UI spam</p>
+<p><strong>Applies To:</strong></p>
+<ul>
+<li>Families, Line Styles, Object Styles, Materials tabs</li>
+<li>Top-level AND nested target option lists</li>
+</ul>
+<p><strong>Does NOT Apply To:</strong></p>
+<ul>
+<li>Row visibility (all rows shown regardless of threshold)</li>
+<li>Alphabetical mode (threshold ignored)</li>
+</ul>
+<hr>
+<h3 id="123-search">12.3 Search</h3>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Filters SourceName for active tab</li>
+<li>Case-insensitive substring match</li>
+<li>Real-time (no debounce needed for simple string filter)</li>
+</ul>
+<p><strong>Applies To:</strong></p>
+<ul>
+<li>Families, Line Styles, Object Styles, Materials, SP tabs</li>
+</ul>
+<hr>
+<h3 id="124-filters">12.4 Filters</h3>
+<p><strong>Available Filters:</strong></p>
+<ol>
+<li><p><strong>Hide Unscanned</strong> (Families only)</p>
+<ul>
+<li>Hides families without deep scan data</li>
+<li>Checkbox toggle</li>
+</ul>
+</li>
+<li><p><strong>Show Applied Only</strong></p>
+<ul>
+<li>Shows only rows with Apply checkbox checked</li>
+<li>Applies to all tabs</li>
+</ul>
+</li>
+</ol>
+<p><strong>Persistence:</strong></p>
+<ul>
+<li>Filter states saved in UI state cache</li>
+<li>Restored on window reopen</li>
+</ul>
+<hr>
+<h3 id="125-clear-scans">12.5 Clear Scans</h3>
+<p><strong>Purpose:</strong></p>
+<ul>
+<li>Clears global <code>.deepscans</code> cache file</li>
+<li>Forces re-scan of all families</li>
+</ul>
+<p><strong>When to Use:</strong></p>
+<ul>
+<li>User knows families have changed significantly</li>
+<li>Staleness indicator suggests outdated deep scan data</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Deletes <code>.deepscans</code> file</li>
+<li>DS badges removed from all rows</li>
+<li>Next deep scan rebuilds cache</li>
+</ul>
+<hr>
+<h3 id="126-clear-preferences">12.6 Clear Preferences</h3>
+<p><strong>Purpose:</strong></p>
+<ul>
+<li>Clears saved mapping preferences (Apply states, target selections)</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Resets all Apply checkboxes to unchecked</li>
+<li>Clears target selections to defaults</li>
+<li>Shows banner: &quot;Mapping preferences cleared&quot;</li>
+</ul>
+<p><strong>Does NOT Clear:</strong></p>
+<ul>
+<li>Deep scan cache</li>
+<li>UI state (tab, search, filters)</li>
+</ul>
+<hr>
+<h2 id="13-apply--review-workflow">13. Apply &amp; Review Workflow</h2>
+<h3 id="131-plan-construction">13.1 Plan Construction</h3>
+<p>User selections are tracked in live dictionaries throughout the session. When the user clicks &quot;Apply&quot;:</p>
+<ol>
+<li><strong>BuildPlanAsync()</strong> normalizes all checked rows into categorized operations</li>
+<li>Plan operations are grouped by category and validated</li>
+</ol>
+<p><strong>Plan Categories:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parameters</td>
+<td>Parameter value migrations</td>
+</tr>
+<tr>
+<td>TypeCreation</td>
+<td>New types to create (ghost types)</td>
+</tr>
+<tr>
+<td>HostReplacements</td>
+<td>Host-level element replacements</td>
+</tr>
+<tr>
+<td>NestedFamilies</td>
+<td>Nested family swaps</td>
+</tr>
+<tr>
+<td>TypeReplacements</td>
+<td>Family type replacements</td>
+</tr>
+<tr>
+<td>StyleReplacements</td>
+<td>Line/Object style replacements</td>
+</tr>
+<tr>
+<td>MaterialReplacements</td>
+<td>Material replacements</td>
+</tr>
+<tr>
+<td>SharedParameters</td>
+<td>SP bindings and value copies</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Validation:</strong></p>
+<ul>
+<li>Self-maps rejected (source == target)</li>
+<li>Zero/negative IDs rejected</li>
+<li>Invalid operations throw <code>GmInvalidMappingError</code></li>
+</ul>
+<hr>
+<h3 id="132-review-window-mapping-report">13.2 Review Window (Mapping Report)</h3>
+<p>Before execution, the Mapping Report window displays the plan for user review.</p>
+<p><strong>Display Content:</strong></p>
+<ul>
+<li>Operation breakdown by category with counts</li>
+<li>Affected element counts per operation</li>
+<li>Normalized details showing from → to mappings</li>
+<li>Error indicators for any validation failures</li>
+</ul>
+<p><strong>User Actions:</strong></p>
+<ul>
+<li><strong>Commit:</strong> Proceeds with execution</li>
+<li><strong>Cancel:</strong> Returns to main window without changes</li>
+</ul>
+<p><strong>Implementation:</strong></p>
+<pre><code>csharp/DBTools.GM/UI/ViewModels/MappingReportViewModel.cs
+csharp/DBTools.GM/Services/Planning/GmPlanningService.cs
+</code></pre>
+<hr>
+<h3 id="133-execution-order">13.3 Execution Order</h3>
+<p>Operations execute in strict order within a transaction group:</p>
+<ol>
+<li><strong>Parameters</strong> — Copy parameter values first (source data preserved)</li>
+<li><strong>Create Types</strong> — Duplicate symbols for ghost types</li>
+<li><strong>Host Replacements</strong> — Replace host-level elements</li>
+<li><strong>Nested Families</strong> — Swap nested family references</li>
+<li><strong>Type Replacements</strong> — Replace family instances by type</li>
+<li><strong>Style/Material Replacements</strong> — Apply style and material mappings</li>
+<li><strong>Shared Parameters</strong> — Bind SPs and copy values</li>
+</ol>
+<p><strong>Transaction Management:</strong></p>
+<ul>
+<li>All operations wrapped in single transaction group</li>
+<li>Fail-fast: first error aborts entire transaction</li>
+<li>Rollback on failure (atomic)</li>
+</ul>
+<p><strong>Progress Overlay:</strong></p>
+<ul>
+<li>Shows current step name</li>
+<li>Throttled progress updates</li>
+<li>Cancel button sets <code>cancel_requested</code> flag</li>
+</ul>
+<hr>
+<h3 id="134-row-locking">13.4 Row Locking</h3>
+<p>Individual rows are locked when their target is involved in another mapping.</p>
+<p><strong>Lock Sources:</strong></p>
+<ol>
+<li><strong>Families Tab:</strong> When a family row's nested mapping (Object Style, Material) is set to Apply, the corresponding row on the Object Styles or Materials tab is locked</li>
+<li><strong>Duplicates Tab:</strong> When a duplicate mapping is accepted, the source row on the target tab is locked</li>
+</ol>
+<p><strong>Lock Behavior:</strong></p>
+<ul>
+<li><code>IsLocked = true</code> on affected row</li>
+<li>Apply checkbox disabled</li>
+<li>Tooltip explains lock source: &quot;Locked by Families tab (change there)&quot; or &quot;Locked by Duplicates tab (change there)&quot;</li>
+</ul>
+<p><strong>Implementation:</strong></p>
+<pre><code class="lang-csharp">// ApplyRowLocks() at GmWindowViewModel.MappingInitAndInfrastructure.cs
+private void ApplyRowLocks()
+{
+    // Families-derived locks
+    // Duplicates-derived locks
+    // Sets IsLocked and LockTooltip on individual rows
+}
+</code></pre>
+<p><strong>Critical:</strong> Locking is ROW-level only. There is no tab-level locking.</p>
+<hr>
+<h3 id="135-error-handling">13.5 Error Handling</h3>
+<p><strong>Typed Exceptions:</strong></p>
+<ul>
+<li><code>GmInvalidMappingError</code> — Invalid plan operations</li>
+<li><code>GmApplyStageError</code> — Execution failures with stage name and inner failures</li>
+</ul>
+<p><strong>Error Surfaces:</strong></p>
+<ul>
+<li>Mapping Report shows validation errors before commit</li>
+<li>Progress overlay shows execution errors with details</li>
+<li>Notification banner summarizes outcome</li>
+</ul>
+<p><strong>Fail-Fast:</strong></p>
+<ul>
+<li>First error aborts transaction</li>
+<li>User sees error message with option to retry or cancel</li>
+<li>Partial changes rolled back</li>
+</ul>
+<hr>
+<h2 id="14-performance">14. Performance</h2>
+<h3 id="141-virtualization">14.1 Virtualization</h3>
+<p><strong>Requirement:</strong></p>
+<ul>
+<li>DataGrids use virtualization for large row counts (1000+ rows)</li>
+<li>TextBlock (read-only) shown by default while scrolling</li>
+<li>Switches to ComboBox when cell enters edit mode</li>
+</ul>
+<p><strong>Rationale:</strong></p>
+<ul>
+<li>Avoids UI hangs during scrolling with large datasets</li>
+<li>Pre-building comboboxes for all rows is prohibitively expensive</li>
+</ul>
+<p><strong>Example (WPF):</strong></p>
+<pre><code class="lang-xml">&lt;DataGridTemplateColumn&gt;
+    &lt;DataGridTemplateColumn.CellTemplate&gt;
+        &lt;TextBlock Text=&quot;{Binding TargetName}&quot; /&gt;
+    &lt;/DataGridTemplateColumn.CellTemplate&gt;
+    &lt;DataGridTemplateColumn.CellEditingTemplate&gt;
+        &lt;ComboBox ItemsSource=&quot;{Binding TargetOptions}&quot; ... /&gt;
+    &lt;/DataGridTemplateColumn.CellEditingTemplate&gt;
+&lt;/DataGridTemplateColumn&gt;
+</code></pre>
+<hr>
+<h3 id="142-pre-building-target-options">14.2 Pre-building Target Options</h3>
+<p><strong>Policy:</strong></p>
+<p><strong>Pre-built:</strong></p>
+<ul>
+<li>Top-level target option lists for current category only (fast startup priority, &lt;1000 families)</li>
+<li>Families tab: when category selected, pre-build options for all families in that category</li>
+<li>Materials/Styles tabs: pre-build on first visit</li>
+</ul>
+<p><strong>NOT Pre-built:</strong></p>
+<ul>
+<li>Nested detail options (Types, Parameters, Styles within expanded family rows)</li>
+<li>Other curated categories (lazy load on category change)</li>
+</ul>
+<p><strong>Rationale:</strong></p>
+<ul>
+<li>Balances startup time with responsiveness</li>
+<li>Pre-building ALL categories would be memory-intensive and slow</li>
+</ul>
+<p><strong>Background Pre-warming:</strong></p>
+<ul>
+<li>Background pre-warming on idle thread is not feasible due to Revit API UI thread constraint</li>
+<li>First category switch warms cache; subsequent switches are instant</li>
+<li>This is an accepted trade-off for correctness and architectural cleanliness</li>
+</ul>
+<hr>
+<h3 id="143-lazy-loading-policy">14.3 Lazy Loading Policy</h3>
+<p><strong>Section Gating:</strong></p>
+<p><strong>Families Section:</strong></p>
+<ul>
+<li>Built on first Families tab visit (or immediately if default tab)</li>
+<li>Rebuilt on category change</li>
+</ul>
+<p><strong>Usage Section:</strong></p>
+<ul>
+<li>Built on first visit to Line Styles, Object Styles, or Materials tab</li>
+<li>Cached for session (reused across these three tabs)</li>
+</ul>
+<p><strong>Shared Parameters Section:</strong></p>
+<ul>
+<li>Built on first visit to SP tab</li>
+<li>Cached for session</li>
+</ul>
+<p><strong>Expanded Row Details:</strong></p>
+<ul>
+<li>Always lazy (never pre-built)</li>
+<li>Build on &quot;+&quot; expand or &quot;Scan Family&quot; button</li>
+<li>Nested target options built on target change</li>
+</ul>
+<hr>
+<h3 id="144-option-list-caching">14.4 Option List Caching</h3>
+<p><strong>Session Cache:</strong></p>
+<ul>
+<li>Target option lists cached in memory for session</li>
+<li>Instant tab switching (no re-query)</li>
+<li>Cleared on window close</li>
+</ul>
+<p><strong>Invalidation:</strong></p>
+<ul>
+<li>Category change: rebuild options for new category</li>
+<li>Clear Scans: rebuild options affected by deep scan data</li>
+</ul>
+<hr>
+<h3 id="145-visible-row-only-name-resolution">14.5 Visible-Row-Only Name Resolution</h3>
+<p><strong>Strategy:</strong></p>
+<ul>
+<li>Resolve names for top N visible rows immediately (batch: 250 IDs)</li>
+<li>Additional rows resolve as they scroll into view (if hooked to scroll event)</li>
+<li>Or use id fallback text until explicit &quot;Resolve All Names&quot; action</li>
+</ul>
+<p><strong>Implementation:</strong></p>
+<pre><code class="lang-csharp">// Batch resolution (limit 250)
+csharp/DBTools.UI/ViewModels/GM/GlobalMapperViewModel.cs
+  ResolveNamesAsync, EnsureNamesForIdsAsync
+  RebuildMaterialStyleViews, RebuildTypeRows, RebuildFamilyList
+
+// Scroll handlers
+csharp/DBTools.UI/Views/GM/GlobalMapperWindow.xaml(.cs)
+  OnFamiliesScrollChanged, OnStylesScrollChanged, etc.
+</code></pre>
+<hr>
+<h3 id="146-throttling">14.6 Throttling</h3>
+<p><strong>Overlay Updates:</strong></p>
+<ul>
+<li>Progress steps tick at chunk boundaries</li>
+<li>Throttled to ~200ms minimum between updates</li>
+<li>Avoid UI spam</li>
+</ul>
+<p><strong>Threshold Debounce:</strong></p>
+<ul>
+<li>Threshold slider debounced 200ms</li>
+<li>Avoid rebuilding options on every pixel drag</li>
+</ul>
+<hr>
+<h1 id="part-iv-features-1">Part IV: Features</h1>
+<h2 id="15-deep-scan">15. Deep Scan</h2>
+<h3 id="151-trigger-policy">15.1 Trigger Policy</h3>
+<p><strong>Manual Only:</strong></p>
+<ul>
+<li>Never auto-triggered</li>
+<li>User clicks &quot;Scan Family&quot; button or &quot;Deep Scan&quot; from context menu/toolbar</li>
+</ul>
+<p><strong>Rationale:</strong></p>
+<ul>
+<li>Deep scan opens family in background (expensive operation)</li>
+<li>User should control when this happens</li>
+</ul>
+<hr>
+<h3 id="152-execution-flow">15.2 Execution Flow</h3>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Show overlay: &quot;Preparing scan...&quot;</li>
+<li>Open family via <code>EditFamily</code> (Revit API call)</li>
+<li>Collect:
+<ul>
+<li>Type IDs and names</li>
+<li>Parameter names (all instance/type parameters)</li>
+<li>Material IDs used in family document</li>
+<li>Object Style IDs (GraphicsStyle.Id of subcategories)</li>
+<li>Nested family IDs</li>
+</ul>
+</li>
+<li>Close family document</li>
+<li>Update kernel <code>GMDeepScanState</code></li>
+<li>Write to <code>.deepscans</code> cache file (mid-session write)</li>
+<li>Update UI: badges, details unlock, augment usage lists</li>
+</ol>
+<p><strong>Cancellation:</strong></p>
+<ul>
+<li>User can cancel during scan</li>
+<li>Partial results discarded</li>
+</ul>
+<hr>
+<h3 id="153-cache-persistence">15.3 Cache Persistence</h3>
+<p><strong>File:</strong> <code>.deepscans</code> (global, NOT document-specific)</p>
+<p><strong>Key (Composite):</strong></p>
+<pre><code class="lang-json">{
+  &quot;FamilyName&quot;: &quot;Wall-Basic&quot;,
+  &quot;TypeCount&quot;: 5,
+  &quot;ParameterSignature&quot;: &quot;abc123def456&quot;
+}
+</code></pre>
+<p><strong>Payload:</strong></p>
+<pre><code class="lang-json">{
+  &quot;ParameterNames&quot;: [&quot;Width&quot;, &quot;Height&quot;, &quot;Material&quot;, ...],
+  &quot;InstanceCounts&quot;: [10, 5, 0, ...],
+  &quot;NestedFamilyIds&quot;: [123, 456, ...],
+  &quot;MaterialRefs&quot;: [789, 101],
+  &quot;ObjectStyleRefs&quot;: [111, 222],
+  &quot;CachedAt&quot;: &quot;2025-11-21T10:30:00Z&quot;
+}
+</code></pre>
+<p><strong>Write Timing:</strong></p>
+<ul>
+<li>Immediately on scan completion (mid-session write)</li>
+</ul>
+<p><strong>Cross-Session Reuse:</strong></p>
+<ul>
+<li>Name-based keys enable global cache</li>
+<li>Different documents can share deep scan data for same family</li>
+</ul>
+<hr>
+<h3 id="154-staleness-detection">15.4 Staleness Detection</h3>
+<p><strong>Indicators:</strong></p>
+<ul>
+<li>TypeCount mismatch → &quot;⚠ Type count changed, re-scan recommended&quot;</li>
+<li>ParameterSignature mismatch → &quot;⚠ Parameters may have changed, re-scan recommended&quot;</li>
+</ul>
+<p><strong>UI Display:</strong></p>
+<ul>
+<li>Staleness badge next to DS badge</li>
+<li>Tooltip with details</li>
+<li>User can re-scan to refresh</li>
+</ul>
+<p><strong>Never Use Stale Data Silently:</strong></p>
+<ul>
+<li>Always show indicator if staleness detected</li>
+<li>Never fall back to stale data without warning user</li>
+</ul>
+<hr>
+<h3 id="155-badge-indicators">15.5 Badge Indicators</h3>
+<p><strong>DS Icon:</strong></p>
+<ul>
+<li>Shown on top-level family row when deep scan completed</li>
+<li>Tooltip: &quot;Deep scanned on {date}&quot;</li>
+</ul>
+<p><strong>Staleness Indicator:</strong></p>
+<ul>
+<li>&quot;⚠&quot; icon if cache key mismatch detected</li>
+<li>Tooltip: &quot;Deep scan data may be outdated. Click to re-scan.&quot;</li>
+</ul>
+<hr>
+<h3 id="156-augmentation-of-usage-lists">15.6 Augmentation of Usage Lists</h3>
+<p>Families discovered ONLY via deep scan (no instances in project) appear in:</p>
+<ul>
+<li>&quot;Families Using This Object Style&quot; lists</li>
+<li>&quot;Families Using This Material&quot; lists</li>
+</ul>
+<p><strong>Styling:</strong></p>
+<ul>
+<li>DS badge distinguishes deep-scan-only families</li>
+<li>Usage count remains 0 (not inflated)</li>
+</ul>
+<hr>
+<h2 id="16-type-mapping">16. Type Mapping</h2>
+<h3 id="161-create-new-type">16.1 Create New Type</h3>
+<p><strong>UI:</strong></p>
+<ul>
+<li>&quot;New Type&quot; button in Type Mappings expander header</li>
+<li>Acts on selected family row</li>
+<li>Shown only when expander expanded AND target family selected</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ol>
+<li>Click &quot;New Type&quot; → creates ghost type entry in grid</li>
+<li>Ghost type has inline TextBox for name</li>
+<li>User enters name → Apply checkbox auto-checked</li>
+<li>Type marked with &quot;New&quot; badge (blue)</li>
+</ol>
+<hr>
+<h3 id="162-inline-rename">16.2 Inline Rename</h3>
+<p><strong>UI:</strong></p>
+<ul>
+<li>TextBox shown for ghost types (IsGhost = true)</li>
+<li>Editable name field</li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<ol>
+<li>User edits name inline</li>
+<li>Name stored in <code>MatchedOption.SourceTypeName</code></li>
+<li>Planning uses this name for <code>create_type_host</code> operation</li>
+</ol>
+<p><strong>Visual Indicators:</strong></p>
+<ul>
+<li>Created types: Highlighted (background color)</li>
+<li>Renamed types: <strong>Bold</strong> font</li>
+</ul>
+<hr>
+<h3 id="163-planapplyreview-integration">16.3 Plan/Apply/Review Integration</h3>
+<p><strong>Planning:</strong></p>
+<ul>
+<li><code>MatchedOption.SourceTypeName</code> used for create operation</li>
+<li>Operation kind: <code>GmOperationKind.CreateType</code></li>
+</ul>
+<p><strong>Apply:</strong></p>
+<ul>
+<li>Transaction: <code>new Transaction(doc, &quot;Create Type&quot;)</code></li>
+<li><code>FamilySymbol.Duplicate(name)</code> → returns ElementId</li>
+<li>Must call <code>doc.GetElement(id)</code> to get symbol</li>
+</ul>
+<p><strong>Review:</strong></p>
+<ul>
+<li>Created types shown in Mapping Report with &quot;New&quot; indicator</li>
+<li>Count included in summary: &quot;5 types created&quot;</li>
+</ul>
+<hr>
+<h2 id="17-preview-pane">17. Preview Pane</h2>
+<h3 id="171-toggle-behavior">17.1 Toggle Behavior</h3>
+<p>Within expanded family details:</p>
+<ul>
+<li>Selecting Object Style row → show preview (swatch + style line)</li>
+<li>Selecting Material row → show preview (color swatch + texture)</li>
+</ul>
+<p><strong>Toggle:</strong></p>
+<ul>
+<li>Checkbox or auto-show on selection</li>
+<li>Positioned on right side of window</li>
+</ul>
+<hr>
+<h3 id="172-preview-content">17.2 Preview Content</h3>
+<p><strong>Object Styles:</strong></p>
+<ul>
+<li>Swatch (color/pattern)</li>
+<li>Line weight</li>
+<li>Line pattern</li>
+<li>Sample line rendering</li>
+</ul>
+<p><strong>Materials:</strong></p>
+<ul>
+<li>Color swatch</li>
+<li>Texture preview (if applicable)</li>
+<li>Shininess, transparency properties</li>
+<li>Sample material rendering</li>
+</ul>
+<hr>
+<h2 id="18-sorting-filtering-threshold">18. Sorting, Filtering, Threshold</h2>
+<h3 id="181-similarity-mode">18.1 Similarity Mode</h3>
+<p><strong>Visual Styling:</strong></p>
+<ul>
+<li>Colored labels: Green (high similarity) → Orange (medium) → Red (low)</li>
+<li>Percentages appended: <code>&quot;Target Name (92%)&quot;</code></li>
+<li>Sorted high → low by score</li>
+</ul>
+<p><strong>Threshold Behavior:</strong></p>
+<ul>
+<li>Options below threshold NOT auto-selected</li>
+<li>Manual selections NEVER overridden</li>
+<li>Lowering threshold can clear auto-matches (NOT manual selections)</li>
+</ul>
+<p><strong>Applies To:</strong></p>
+<ul>
+<li>ALL target comboboxes (top-level and nested)</li>
+<li>Families, Line Styles, Object Styles, Materials tabs</li>
+</ul>
+<hr>
+<h3 id="182-alphabetical-mode">18.2 Alphabetical Mode</h3>
+<p><strong>Visual Styling:</strong></p>
+<ul>
+<li>Default styling (no colored labels)</li>
+<li>NO percentages appended</li>
+<li>Sorted lexicographically A-Z</li>
+</ul>
+<p><strong>Threshold Behavior:</strong></p>
+<ul>
+<li>Threshold slider has NO effect (ignored)</li>
+<li>All options visible regardless of score</li>
+</ul>
+<p><strong>Applies To:</strong></p>
+<ul>
+<li>ALL target comboboxes (top-level and nested)</li>
+</ul>
+<hr>
+<h3 id="183-manual-selection-preservation">18.3 Manual Selection Preservation</h3>
+<p><strong>Critical Rule:</strong></p>
+<p>Manual selections are sticky across:</p>
+<ul>
+<li>Sort mode changes (Similarity ↔ Alphabetical)</li>
+<li>Threshold changes</li>
+<li>Refresh operations</li>
+</ul>
+<p><strong>Only Reset If:</strong></p>
+<ul>
+<li>Target disappears from options (e.g., family deleted, category changed)</li>
+</ul>
+<p><strong>Visual Marking:</strong></p>
+<ul>
+<li>Manual selections visually distinguished (bold or icon)</li>
+<li>Auto-selections use default styling</li>
+</ul>
+<hr>
+<h3 id="184-nested-target-list-behaviors">18.4 Nested Target List Behaviors</h3>
+<p>Nested target comboboxes (Types, Parameters, Styles, Materials within expanded family rows) must:</p>
+<ol>
+<li><p><strong>Respect Sort Mode:</strong></p>
+<ul>
+<li>Similarity: colored labels, percentages, high→low</li>
+<li>Alphabetical: default styling, A-Z, no scores</li>
+</ul>
+</li>
+<li><p><strong>Respect Threshold:</strong></p>
+<ul>
+<li>Similarity mode: threshold affects default selection</li>
+<li>Alphabetical mode: threshold ignored</li>
+</ul>
+</li>
+<li><p><strong>Preserve User Selections:</strong></p>
+<ul>
+<li>Sticky across sort/threshold changes</li>
+</ul>
+</li>
+<li><p><strong>Update on Target Change:</strong></p>
+<ul>
+<li>When top-level target family changes, rebuild nested options from new target</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h1 id="part-v-quality--implementation-1">Part V: Quality &amp; Implementation</h1>
+<h2 id="19-known-issues--roadmap">19. Known Issues &amp; Roadmap</h2>
+<h3 id="191-completed-features">19.1 Completed Features</h3>
+<p>The following features are fully implemented:</p>
+<ol>
+<li><strong>Families Parameter Pruning</strong> — Programmatic filters in <code>RevitCompat.IsUserMappable</code></li>
+<li><strong>Nested Target Comboboxes</strong> — Four nested collection types (Types, Parameters, Materials, Object Styles)</li>
+<li><strong>Unscanned Family Demotion</strong> — <code>MatchingOption.Separator</code> with greyed-out styling</li>
+<li><strong>Deep-Scan Augmentation of Usage Lists</strong> — DS-only families merged with &quot;(DS)&quot; badge</li>
+<li><strong>Cross-Tab Apply Lock</strong> — <code>ApplyRowLocks()</code> with <code>IsLocked</code> property</li>
+<li><strong>Create New Type + Inline Rename</strong> — <code>CreateNewType</code>, <code>NewTypeName</code> properties with <code>GmTypeCreationService</code></li>
+<li><strong>Parameter Mapping <code>&lt;Do Not Map&gt;</code> Sentinel</strong> — <code>MatchingOption.DoNotMap</code> as first option</li>
+<li><strong>Nested List Sorting/Threshold</strong> — Debounced refresh with selection preservation</li>
+<li><strong>Deep Scan Overlay Bug Fix</strong> — <code>!IsBusy</code> check prevents double overlay</li>
+</ol>
+<hr>
+<h3 id="192-remaining-implementation-tasks">19.2 Remaining Implementation Tasks</h3>
+<p><strong>HIGH PRIORITY:</strong></p>
+<p><strong>Deep Scan Global Cache</strong></p>
+<ul>
+<li>Status: Spec describes global <code>.deepscans</code> file; implementation uses document-specific snapshots only</li>
+<li>Impact: Deep scan results cannot be reused across documents</li>
+<li>Files to create:
+<ul>
+<li><code>DBTools.GM.App/Infrastructure/Caching/DeepScanCache.cs</code></li>
+<li><code>DBTools.GM.App/Infrastructure/Caching/DeepScanCacheStrategy.cs</code></li>
+</ul>
+</li>
+</ul>
+<p><strong>Line Styles Tab Stability</strong></p>
+<ul>
+<li>Issue: Selecting Line Styles can error and close window</li>
+<li>Likely causes: SelectionChanged executing before initial load, missing descriptor, VM contract violations</li>
+<li>Tasks:
+<ol>
+<li>Gate SelectionChanged until <code>_initial_load_complete</code> AND sender is real row</li>
+<li>Enforce VM contract post-enrichment; surface failures via overlay</li>
+<li>Validate descriptor presence at collection time</li>
+</ol>
+</li>
+</ul>
+<hr>
+<p><strong>MEDIUM PRIORITY:</strong></p>
+<p><strong>Preview Pane Toggle</strong></p>
+<ul>
+<li>Status: Preview panels exist but are always visible when data available</li>
+<li>Task: Add user-controlled toggle button/checkbox in family details</li>
+</ul>
+<p><strong>SP Grid Empty State</strong></p>
+<ul>
+<li>Status: Generic &quot;wrong category&quot; banner exists</li>
+<li>Task: Add specific &quot;No shared parameters&quot; banner</li>
+</ul>
+<p><strong>Broad Exception Cleanup</strong></p>
+<ul>
+<li>Task: Remove or narrow broad try/except to typed, narrow boundaries</li>
+<li>Task: Verify no residual legacy module references</li>
+</ul>
+<hr>
+<p><strong>LOW PRIORITY:</strong></p>
+<p><strong>Families Details Must Stay Linked</strong></p>
+<ul>
+<li>Task: Wire nested child grids to current target</li>
+<li>Task: Refresh all nested target lists on family-level target change</li>
+</ul>
+<p><strong>Nested Threshold Verification</strong></p>
+<ul>
+<li>Task: Document whether threshold applies to nested Type comboboxes</li>
+</ul>
+<hr>
+<h3 id="193-implementation-roadmap">19.3 Implementation Roadmap</h3>
+<p><strong>Phase 1: Foundation</strong></p>
+<ol>
+<li>Add Application-layer query wrappers</li>
+<li>Refactor <code>PlanningOrchestrator</code> to accept <code>IGmPlanningService</code> dependency</li>
+<li>Repository hardening: Add <code>SnapshotVersion</code>, strict parsing</li>
+</ol>
+<p><strong>Phase 2: UI Refactor</strong></p>
+<ol start="4">
+<li>UI refactor (<code>GmWindowViewModel</code>):
+<ul>
+<li>Constructor: accept only Application services</li>
+<li>Remove adapter/service deps</li>
+<li>Use kernel for families, usage, styles, materials</li>
+</ul>
+</li>
+<li>Report window: consume <code>IMappingExecutionService</code> from main VM</li>
+</ol>
+<p><strong>Phase 3: DI and Cleanup</strong></p>
+<ol start="6">
+<li>DI consolidation in shell: compose adapters → Application services → VM</li>
+<li>Clean deletions: remove UI callsites referencing Infrastructure/Services</li>
+</ol>
+<p><strong>Phase 4: Validation</strong></p>
+<ol start="8">
+<li>Build solution; verify no UI project references Infrastructure namespaces</li>
+<li>Manual sanity pass: Families tab, Usage tabs, Deep scan, SP authoring, Mapping report</li>
+</ol>
+<hr>
+<h2 id="20-quality-acceptance-criteria">20. Quality Acceptance Criteria</h2>
+<h3 id="201-perfection-standards">20.1 Perfection Standards</h3>
+<p><strong>Core Philosophy:</strong></p>
+<blockquote>
+<p>&quot;Deliver a near-perfect, clean, spec-compliant GM codebase that we could ship to 1,000,000,000 users with confidence.&quot;</p>
+</blockquote>
+<p><strong>What &quot;Perfection&quot; Means:</strong></p>
+<ol>
+<li><strong>Spec → Code Traceability:</strong> Every clause maps to concrete code</li>
+<li><strong>One Way to Do a Thing:</strong> Canonical, testable paths (no duplicate logic)</li>
+<li><strong>Clean Layering:</strong> Collectors produce unique sets; controllers bind once</li>
+<li><strong>Readable, Minimal, Modular:</strong> No dead blocks or drift</li>
+<li><strong>Zero Tolerance for Silent Failures:</strong> All errors surfaced explicitly</li>
+</ol>
+<hr>
+<h3 id="202-green-checks-only">20.2 Green Checks Only</h3>
+<p><strong>Acceptance Policy:</strong></p>
+<p>ALL of the following must be true before merge:</p>
+<ol>
+<li>All tests pass (no warnings)</li>
+<li>No duplicate curated lists outside single source</li>
+<li>No duplicate top-level rows</li>
+<li>Revisit any tab → no overlay reload</li>
+<li>Sort-mode switch updates Display/brush across all visible rows</li>
+<li>Families details: Types/OS/Materials/Parameter Names without DS when Qty&gt;0</li>
+<li>SP tab: group default = first alphabetical; category = first curated</li>
+</ol>
+<hr>
+<h3 id="203-behavioral-validation">20.3 Behavioral Validation</h3>
+<p><strong>Manual Testing Scenarios:</strong></p>
+<ol>
+<li><p><strong>Kernel Determinism:</strong></p>
+<ul>
+<li>Given same Revit document and filters → two builds produce identical kernel</li>
+<li>Changing category filter only replaces Families (preserves Usage)</li>
+</ul>
+</li>
+<li><p><strong>No Duplicate Reads Per Tab:</strong></p>
+<ul>
+<li>Navigate between tabs → verify no additional adapter calls beyond name previews</li>
+<li>Use adapter call counters</li>
+</ul>
+</li>
+<li><p><strong>Mapping Planning Correctness:</strong></p>
+<ul>
+<li>Self-maps and zero/negative IDs rejected with <code>GmInvalidMappingError</code></li>
+<li>Parameter copies precede type/style/material replacements</li>
+</ul>
+</li>
+<li><p><strong>Placement Taxonomy:</strong></p>
+<ul>
+<li>Adapter placements normalize into { NotHosted, FaceBased, WorkPlaneBased } only</li>
+</ul>
+</li>
+<li><p><strong>Snapshot Round-Trip:</strong></p>
+<ul>
+<li>Save → close → reopen → verify UI state restored (category, filters, scroll, kernel snapshot)</li>
+<li>Corrupt snapshot throws <code>GmSnapshotLoadException</code>, UI proceeds with fresh build</li>
+</ul>
+</li>
+<li><p><strong>Deep Scan UX Integration:</strong></p>
+<ul>
+<li>Run deep scan → badges update, availability changes, no usage indices re-read</li>
+</ul>
+</li>
+</ol>
+<hr>
+<p><strong>END OF SPECIFICATION</strong></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/common/gm-spec.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

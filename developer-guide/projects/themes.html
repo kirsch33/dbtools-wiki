@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>DBTools.Themes | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="DBTools.Themes | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/projects/themes.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="dbtoolsthemes">DBTools.Themes</h1>
+
+<p>The <code>DBTools.Themes</code> project provides a unified dark theme system for all DBTools WPF applications. It establishes design tokens, brush definitions, and control styles that ensure visual consistency across the application while avoiding conflicts with Revit's host environment.</p>
+<h2 id="overview">Overview</h2>
+<p>DBTools.Themes solves several key challenges:</p>
+<ol>
+<li><p><strong>Host Isolation</strong>: Revit's UI can interfere with WPF resource dictionaries. This project uses vendored, renamed libraries (e.g., <code>DBTools.HandyControl</code> instead of <code>HandyControl</code>) to prevent conflicts with pyRevit or other add-ins.</p>
+</li>
+<li><p><strong>Consistent Branding</strong>: Implements the DBTools brand colors (deep blue <code>#1946B9</code> and golden yellow <code>#FEC425</code>) across all UI controls.</p>
+</li>
+<li><p><strong>WCAG Accessibility</strong>: Text colors are designed to meet WCAG AA contrast requirements (min 4.5:1 ratio on dark backgrounds).</p>
+</li>
+<li><p><strong>Template Boundary Crossing</strong>: The <code>BrushKeys</code> system using <code>ComponentResourceKey</code> allows brushes to propagate correctly across <code>DataTemplate</code> and <code>ControlTemplate</code> boundaries.</p>
+</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:1-73</code></p>
+</blockquote>
+<h2 id="project-structure">Project Structure</h2>
+<pre><code>DBTools.Themes/
+├── DBTools.Themes.csproj        # Project configuration
+├── BrushKeys.cs                 # ComponentResourceKey definitions
+├── Assets/
+│   └── db_tools_icon.png        # Application icon
+└── Themes/
+    ├── App.Theme.xaml           # Root dictionary (entry point)
+    ├── App.Tokens.xaml          # Design tokens (spacing, sizing)
+    ├── App.Brushes.xaml         # Color/brush definitions
+    ├── App.Converters.xaml      # Value converters
+    ├── App.Controls.Base.xaml   # Base control styles
+    ├── App.DataGrid.xaml        # DataGrid-specific styles
+    ├── App.Menus.xaml           # Menu/ContextMenu styles
+    ├── App.Components.xaml      # Higher-level component styles
+    └── App.FluentRibbon.xaml    # Fluent.Ribbon theme bridge
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:38-51</code></p>
+</blockquote>
+<h2 id="key-files">Key Files</h2>
+<h3 id="appthemexaml---root-entry-point">App.Theme.xaml - Root Entry Point</h3>
+<p>The root resource dictionary that merges all theme components. This is what consuming projects reference.</p>
+<pre><code class="lang-xml">&lt;ResourceDictionary.MergedDictionaries&gt;
+    &lt;!-- HandyControl Foundation --&gt;
+    &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.HandyControl;component/Themes/SkinDark.xaml&quot;/&gt;
+    &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.HandyControl;component/Themes/Theme.xaml&quot;/&gt;
+
+    &lt;!-- Fluent.Ribbon for ribbon windows --&gt;
+    &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.Fluent.Ribbon;component/Themes/Generic.xaml&quot; /&gt;
+
+    &lt;!-- DBTools Custom Themes --&gt;
+    &lt;ResourceDictionary Source=&quot;App.Tokens.xaml&quot; /&gt;
+    &lt;ResourceDictionary Source=&quot;App.Brushes.xaml&quot; /&gt;
+    &lt;!-- ... additional dictionaries ... --&gt;
+&lt;/ResourceDictionary.MergedDictionaries&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Theme.xaml:1-22</code></p>
+</blockquote>
+<h3 id="brushkeyscs---componentresourcekey-system">BrushKeys.cs - ComponentResourceKey System</h3>
+<p>Defines strongly-typed keys for all theme brushes. This pattern enables brushes to work correctly inside <code>DataTemplate</code> and <code>ControlTemplate</code> boundaries where <code>DynamicResource</code> with string keys may fail.</p>
+<pre><code class="lang-csharp">public static class BrushKeys
+{
+    public static ComponentResourceKey Primary =&gt; new(typeof(BrushKeys), &quot;Brush.Primary&quot;);
+    public static ComponentResourceKey Secondary =&gt; new(typeof(BrushKeys), &quot;Brush.Secondary&quot;);
+    // ... 100+ additional keys
+}
+</code></pre>
+<p><strong>Usage in XAML:</strong></p>
+<pre><code class="lang-xml">&lt;Border Background=&quot;{DynamicResource {x:Static theme:BrushKeys.Primary}}&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/BrushKeys.cs:1-140</code></p>
+</blockquote>
+<h2 id="design-tokens">Design Tokens</h2>
+<p>Design tokens provide consistent spacing, sizing, typography, and other visual constants.</p>
+<h3 id="spacing-tokens">Spacing Tokens</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Spacing4</code></td>
+<td>4px</td>
+<td>Tight spacing (icon margins)</td>
+</tr>
+<tr>
+<td><code>Spacing8</code></td>
+<td>8px</td>
+<td>Standard spacing</td>
+</tr>
+<tr>
+<td><code>Spacing12</code></td>
+<td>12px</td>
+<td>Medium spacing</td>
+</tr>
+<tr>
+<td><code>Spacing16</code></td>
+<td>16px</td>
+<td>Large spacing</td>
+</tr>
+<tr>
+<td><code>Spacing32</code></td>
+<td>32px</td>
+<td>Section spacing</td>
+</tr>
+</tbody>
+</table>
+<p>Scalar variants (<code>Spacing8.Value</code>, etc.) are provided for properties that require <code>Double</code> instead of <code>Thickness</code>.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:5-18</code></p>
+</blockquote>
+<h3 id="padding-tokens">Padding Tokens</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Pad4</code></td>
+<td>4px uniform</td>
+<td>Compact padding</td>
+</tr>
+<tr>
+<td><code>Pad8</code></td>
+<td>8px uniform</td>
+<td>Standard padding</td>
+</tr>
+<tr>
+<td><code>Pad16</code></td>
+<td>16px uniform</td>
+<td>Large padding</td>
+</tr>
+<tr>
+<td><code>Pad8x4</code></td>
+<td>8px H, 4px V</td>
+<td>Button padding</td>
+</tr>
+<tr>
+<td><code>Card.Padding</code></td>
+<td>16px H, 12px V</td>
+<td>Card content</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:24-56</code></p>
+</blockquote>
+<h3 id="gap-tokens">Gap Tokens</h3>
+<p>Directional margins for layout:</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TGap8</code></td>
+<td>Top 8px</td>
+<td>Top margin</td>
+</tr>
+<tr>
+<td><code>BGap8</code></td>
+<td>Bottom 8px</td>
+<td>Bottom margin</td>
+</tr>
+<tr>
+<td><code>LGap8</code></td>
+<td>Left 8px</td>
+<td>Left margin</td>
+</tr>
+<tr>
+<td><code>RGap8</code></td>
+<td>Right 8px</td>
+<td>Right margin</td>
+</tr>
+<tr>
+<td><code>VGap8</code></td>
+<td>Top/Bottom 8px</td>
+<td>Vertical margin</td>
+</tr>
+<tr>
+<td><code>HGap8</code></td>
+<td>Left 8px</td>
+<td>Horizontal gap</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:30-64</code></p>
+</blockquote>
+<h3 id="typography-tokens">Typography Tokens</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Size</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FontSize.Caption</code></td>
+<td>11px</td>
+<td>Captions, timestamps</td>
+</tr>
+<tr>
+<td><code>FontSize.Body.Small</code></td>
+<td>12px</td>
+<td>Secondary text</td>
+</tr>
+<tr>
+<td><code>FontSize.Body</code></td>
+<td>13px</td>
+<td>Default body text</td>
+</tr>
+<tr>
+<td><code>FontSize.Subtitle</code></td>
+<td>14px</td>
+<td>Subtitles</td>
+</tr>
+<tr>
+<td><code>FontSize.Title</code></td>
+<td>16px</td>
+<td>Section titles</td>
+</tr>
+<tr>
+<td><code>FontSize.Header</code></td>
+<td>20px</td>
+<td>Page headers</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:66-72</code></p>
+</blockquote>
+<h3 id="corner-radius-tokens">Corner Radius Tokens</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Radius4</code></td>
+<td>4px</td>
+<td>Buttons, inputs</td>
+</tr>
+<tr>
+<td><code>Radius6</code></td>
+<td>6px</td>
+<td>Cards, chips</td>
+</tr>
+<tr>
+<td><code>Radius8</code></td>
+<td>8px</td>
+<td>Dialogs, overlays</td>
+</tr>
+<tr>
+<td><code>Radius12</code></td>
+<td>12px</td>
+<td>Large surfaces</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:43-46</code></p>
+</blockquote>
+<h3 id="control-size-tokens">Control Size Tokens</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MinHeight.Control</code></td>
+<td>32px</td>
+<td>Minimum control height</td>
+</tr>
+<tr>
+<td><code>Size.CheckBox.Box</code></td>
+<td>18px</td>
+<td>Checkbox dimensions</td>
+</tr>
+<tr>
+<td><code>Size.ToggleTrack.Width</code></td>
+<td>44px</td>
+<td>Toggle switch track</td>
+</tr>
+<tr>
+<td><code>Size.DataGridRow.MinHeight</code></td>
+<td>32px</td>
+<td>Grid row height</td>
+</tr>
+<tr>
+<td><code>Size.ScrollBar.Width</code></td>
+<td>10px</td>
+<td>Scrollbar width</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:98-114</code></p>
+</blockquote>
+<h2 id="color-system-appbrushesxaml">Color System (App.Brushes.xaml)</h2>
+<p>The color system is built around the DBTools brand colors with carefully designed semantic roles.</p>
+<h3 id="brand-colors">Brand Colors</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Color</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Primary</code></td>
+<td><code>#1946B9</code></td>
+<td>Deep blue - primary actions</td>
+</tr>
+<tr>
+<td><code>PrimaryLight</code></td>
+<td><code>#3D6AD4</code></td>
+<td>Hover state</td>
+</tr>
+<tr>
+<td><code>PrimaryDark</code></td>
+<td><code>#0D2E7A</code></td>
+<td>Pressed state</td>
+</tr>
+<tr>
+<td><code>Secondary</code></td>
+<td><code>#FEC425</code></td>
+<td>Golden yellow - accents</td>
+</tr>
+<tr>
+<td><code>SecondaryLight</code></td>
+<td><code>#FFD54F</code></td>
+<td>Hover state</td>
+</tr>
+<tr>
+<td><code>SecondaryDark</code></td>
+<td><code>#C79100</code></td>
+<td>Pressed state</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:14-19</code></p>
+</blockquote>
+<h3 id="surface-colors">Surface Colors</h3>
+<p>Neutral dark palette with reduced blue tint:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Color</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Paper</code></td>
+<td><code>#181820</code></td>
+<td>Window background</td>
+</tr>
+<tr>
+<td><code>Surface</code></td>
+<td><code>#222228</code></td>
+<td>Card/panel background</td>
+</tr>
+<tr>
+<td><code>SurfaceAlt</code></td>
+<td><code>#1C1C22</code></td>
+<td>Alternate surface</td>
+</tr>
+<tr>
+<td><code>SurfaceHover</code></td>
+<td><code>#2A2A32</code></td>
+<td>Hover state</td>
+</tr>
+<tr>
+<td><code>CardSurface</code></td>
+<td><code>#1E1E24</code></td>
+<td>Card background</td>
+</tr>
+<tr>
+<td><code>CardSurfaceElevated</code></td>
+<td><code>#282830</code></td>
+<td>Elevated cards</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:24-30</code></p>
+</blockquote>
+<h3 id="text-colors-wcag-compliant">Text Colors (WCAG Compliant)</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Color</th>
+<th>Contrast</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Body</code> / <code>Text</code></td>
+<td><code>#E6E6E6</code></td>
+<td>~12:1</td>
+<td>Primary text</td>
+</tr>
+<tr>
+<td><code>BodyLight</code> / <code>TextSecondary</code></td>
+<td><code>#BDBDBD</code></td>
+<td>~9:1</td>
+<td>Secondary text</td>
+</tr>
+<tr>
+<td><code>TextMuted</code> / <code>Muted</code></td>
+<td><code>#999999</code></td>
+<td>~7:1</td>
+<td>Muted text</td>
+</tr>
+<tr>
+<td><code>OnAccent</code></td>
+<td><code>#FFFFFF</code></td>
+<td>-</td>
+<td>Text on colored bg</td>
+</tr>
+<tr>
+<td><code>OnSecondary</code></td>
+<td><code>#181820</code></td>
+<td>-</td>
+<td>Text on yellow</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:35-44</code></p>
+</blockquote>
+<h3 id="selection--highlight-colors">Selection &amp; Highlight Colors</h3>
+<p>Alpha transparency reference: <code>#33</code> = 20%, <code>#44</code> = 27%, <code>#55</code> = 33%, <code>#66</code> = 40%, <code>#99</code> = 60%</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Color</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Selection</code></td>
+<td><code>#441946B9</code> (27%)</td>
+<td>Standard selection</td>
+</tr>
+<tr>
+<td><code>SelectionStrong</code></td>
+<td><code>#661946B9</code> (40%)</td>
+<td>Strong selection</td>
+</tr>
+<tr>
+<td><code>SelectionGold</code></td>
+<td><code>#33FEC425</code> (20%)</td>
+<td>Row highlighting</td>
+</tr>
+<tr>
+<td><code>SelectionGoldStrong</code></td>
+<td><code>#55FEC425</code> (33%)</td>
+<td>Strong gold</td>
+</tr>
+<tr>
+<td><code>Hover</code></td>
+<td><code>#33FEC425</code> (20%)</td>
+<td>Hover state</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:59-78</code></p>
+</blockquote>
+<h3 id="status-colors">Status Colors</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Color</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Success</code></td>
+<td><code>#4CAF50</code></td>
+<td>Success state</td>
+</tr>
+<tr>
+<td><code>Warning</code></td>
+<td><code>#FFA000</code></td>
+<td>Warning state</td>
+</tr>
+<tr>
+<td><code>Error</code></td>
+<td><code>#CF6679</code></td>
+<td>Error state</td>
+</tr>
+<tr>
+<td><code>Info</code></td>
+<td><code>#1946B9</code></td>
+<td>Informational</td>
+</tr>
+</tbody>
+</table>
+<p>Each status color has <code>Light</code> and <code>Background</code> variants for subtle backgrounds.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:84-95</code></p>
+</blockquote>
+<h3 id="specialized-brush-categories">Specialized Brush Categories</h3>
+<p>The brush system includes specialized categories for:</p>
+<ul>
+<li><strong>DataGrid</strong>: Header, row, cell, selection colors</li>
+<li><strong>Input Controls</strong>: Background, border, focus states</li>
+<li><strong>Buttons</strong>: Primary, secondary, accent, danger variants</li>
+<li><strong>Checkbox/Toggle</strong>: Box, checked, indeterminate states</li>
+<li><strong>Tabs</strong>: Background, indicator, hover states</li>
+<li><strong>ScrollBar/Slider</strong>: Track, thumb, hover/pressed states</li>
+<li><strong>VTC Diff View</strong>: Add/remove/missing background colors</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:100-232</code></p>
+</blockquote>
+<h2 id="brushkeys-system">BrushKeys System</h2>
+<h3 id="why-componentresourcekey">Why ComponentResourceKey?</h3>
+<p>WPF has a limitation where <code>DynamicResource</code> with string keys doesn't always resolve correctly inside <code>DataTemplate</code> or <code>ControlTemplate</code> boundaries. <code>ComponentResourceKey</code> solves this by creating type-safe keys that the resource system can resolve across template boundaries.</p>
+<h3 id="key-categories">Key Categories</h3>
+<p>The <code>BrushKeys</code> class defines 100+ keys organized into categories:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Example Keys</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Brand</td>
+<td><code>Primary</code>, <code>Secondary</code>, <code>PrimaryLight</code></td>
+<td>6</td>
+</tr>
+<tr>
+<td>Surface</td>
+<td><code>Paper</code>, <code>Surface</code>, <code>CardSurface</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>Body</code>, <code>Text</code>, <code>TextMuted</code></td>
+<td>10</td>
+</tr>
+<tr>
+<td>Border</td>
+<td><code>Border</code>, <code>Divider</code>, <code>BorderSubtle</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td>Selection</td>
+<td><code>Selection</code>, <code>SelectionGold</code>, <code>Hover</code></td>
+<td>12</td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>Success</code>, <code>Warning</code>, <code>Error</code>, <code>Info</code></td>
+<td>12</td>
+</tr>
+<tr>
+<td>DataGrid</td>
+<td><code>DataGridHeader</code>, <code>DataGridRow</code>, etc.</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Input</td>
+<td><code>InputBackground</code>, <code>InputBorder</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>Button</td>
+<td><code>ButtonPrimary</code>, <code>ButtonDanger</code></td>
+<td>10</td>
+</tr>
+<tr>
+<td>Checkbox</td>
+<td><code>CheckBox</code>, <code>CheckChecked</code></td>
+<td>6</td>
+</tr>
+<tr>
+<td>Toggle</td>
+<td><code>ToggleTrackOn</code>, <code>ToggleThumb</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>Tab</td>
+<td><code>TabBackground</code>, <code>TabIndicator</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>ScrollBar</td>
+<td><code>ScrollBarTrack</code>, <code>ScrollBarThumb</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td>Slider</td>
+<td><code>SliderTrack</code>, <code>SliderThumb</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>Progress</td>
+<td><code>ProgressTrack</code>, <code>ProgressFill</code></td>
+<td>3</td>
+</tr>
+<tr>
+<td>Toolbar</td>
+<td><code>ToolbarChipBackground</code>, etc.</td>
+<td>6</td>
+</tr>
+<tr>
+<td>VTC Diff</td>
+<td><code>VtcDiffAddBackground</code>, etc.</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/BrushKeys.cs:11-139</code></p>
+</blockquote>
+<h3 id="usage-pattern">Usage Pattern</h3>
+<p><strong>In XAML:</strong></p>
+<pre><code class="lang-xml">xmlns:theme=&quot;clr-namespace:DBTools.Themes;assembly=DBTools.Themes&quot;
+
+&lt;Border Background=&quot;{DynamicResource {x:Static theme:BrushKeys.CardSurface}}&quot;
+        BorderBrush=&quot;{DynamicResource {x:Static theme:BrushKeys.CardBorder}}&quot; /&gt;
+</code></pre>
+<p><strong>In Code:</strong></p>
+<pre><code class="lang-csharp">var brush = (Brush)FindResource(BrushKeys.Primary);
+</code></pre>
+<h2 id="control-styles">Control Styles</h2>
+<h3 id="window-styles">Window Styles</h3>
+<p>The theme provides implicit styles for <code>DbtWindowBase</code> and <code>DbtRibbonWindowBase</code>:</p>
+<ul>
+<li>Sets the DBTools icon</li>
+<li>Applies <code>Paper</code> background and <code>Body</code> foreground</li>
+<li>Includes progress overlay support via <code>ProgressOverlayService</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Controls.Base.xaml:13-55</code></p>
+</blockquote>
+<h3 id="base-control-styles">Base Control Styles</h3>
+<p><strong>TextBlock</strong></p>
+<ul>
+<li>Foreground: <code>Body</code> brush</li>
+<li>TextWrapping: <code>Wrap</code></li>
+<li>TextTrimming: <code>CharacterEllipsis</code></li>
+</ul>
+<p><strong>Button</strong></p>
+<ul>
+<li>MinWidth: 88px, MinHeight: 36px</li>
+<li>Hover: <code>SecondaryHover</code> background, <code>Secondary</code> border</li>
+<li>Pressed: <code>PrimaryHover</code> background, <code>Primary</code> border</li>
+</ul>
+<p><strong>TextBox</strong></p>
+<ul>
+<li>Background: <code>InputBackground</code></li>
+<li>Border: <code>InputBorder</code> (hover: <code>Secondary</code>, focus: <code>FocusBorder</code>)</li>
+<li>Validation error: Red border with tooltip</li>
+</ul>
+<p><strong>ComboBox</strong></p>
+<ul>
+<li>Custom dropdown template with dark popup background</li>
+<li>Drop shadow effect on dropdown</li>
+<li>Proper dark theme item highlighting</li>
+</ul>
+<p><strong>CheckBox / RadioButton</strong></p>
+<ul>
+<li>Custom templates with theme-consistent colors</li>
+<li>Checked: <code>CheckChecked</code> background</li>
+<li>Indeterminate: <code>CheckIndeterminate</code> fill (yellow)</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Controls.Base.xaml:61-449</code></p>
+</blockquote>
+<h3 id="datagrid-styles">DataGrid Styles</h3>
+<p>Comprehensive DataGrid theming with:</p>
+<p><strong>Row Features:</strong></p>
+<ul>
+<li>Yellow accent stripe on left edge</li>
+<li>Gold hover highlighting (<code>DataGridRowHover</code>)</li>
+<li>Blue selection with yellow accent (<code>DataGridRowSelected</code>)</li>
+<li>Keyboard focus indicator (<code>DataGridRowFocus</code>)</li>
+</ul>
+<p><strong>Cell Features:</strong></p>
+<ul>
+<li>Focus state with primary border</li>
+<li>Edit mode with secondary border</li>
+<li>Conflict highlighting support</li>
+</ul>
+<p><strong>Column Header:</strong></p>
+<ul>
+<li>Hover state</li>
+<li>Sort direction indicators (yellow arrows)</li>
+<li>Resizable column grippers</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.DataGrid.xaml:1-476</code></p>
+</blockquote>
+<h3 id="component-styles-appcomponentsxaml">Component Styles (App.Components.xaml)</h3>
+<p>Higher-level UI component styles:</p>
+<table>
+<thead>
+<tr>
+<th>Style Key</th>
+<th>Target</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ToolBar</code></td>
+<td>ToolBar</td>
+<td>Dark themed toolbar</td>
+</tr>
+<tr>
+<td><code>StatusBar</code></td>
+<td>StatusBar</td>
+<td>Dark themed status bar</td>
+</tr>
+<tr>
+<td><code>ToolbarChip</code></td>
+<td>ToggleButton</td>
+<td>Pill-shaped filter buttons</td>
+</tr>
+<tr>
+<td><code>OverlayCard</code></td>
+<td>Border</td>
+<td>Modal dialog container</td>
+</tr>
+<tr>
+<td><code>Card</code></td>
+<td>Border</td>
+<td>Standard card surface</td>
+</tr>
+<tr>
+<td><code>Card.Elevated</code></td>
+<td>Border</td>
+<td>Card with drop shadow</td>
+</tr>
+<tr>
+<td><code>Dbt.Section</code></td>
+<td>GroupBox</td>
+<td>Section with accent stripe</td>
+</tr>
+<tr>
+<td><code>Dbt.Callout</code></td>
+<td>Border</td>
+<td>Info callout box</td>
+</tr>
+<tr>
+<td><code>WarningBar</code></td>
+<td>Border</td>
+<td>Warning message container</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Typography Styles:</strong></p>
+<ul>
+<li><code>HeaderText</code>, <code>SubtitleText</code>, <code>BodyText</code>, <code>DescriptionText</code>, <code>CaptionText</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Components.xaml:1-414</code></p>
+</blockquote>
+<h3 id="menu-styles">Menu Styles</h3>
+<p>Custom templates for proper dark theme rendering in Revit:</p>
+<ul>
+<li><strong>ContextMenu</strong>: Dark background, rounded corners, drop shadow</li>
+<li><strong>MenuItem</strong>: Hover highlighting, keyboard shortcut display</li>
+<li><strong>MenuSeparator</strong>: Subtle divider</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Menus.xaml:1-136</code></p>
+</blockquote>
+<h2 id="vendored-library-integration">Vendored Library Integration</h2>
+<h3 id="why-vendored-libraries">Why Vendored Libraries?</h3>
+<p>Revit hosts multiple add-ins that may use conflicting versions of UI libraries like HandyControl or Fluent.Ribbon. By vendoring and renaming these libraries, DBTools avoids:</p>
+<ol>
+<li>Assembly version conflicts</li>
+<li>Resource dictionary collisions</li>
+<li>pyRevit theme interference</li>
+</ol>
+<h3 id="vendored-assemblies">Vendored Assemblies</h3>
+<table>
+<thead>
+<tr>
+<th>Original</th>
+<th>Vendored</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HandyControl</td>
+<td>DBTools.HandyControl</td>
+<td>Control library foundation</td>
+</tr>
+<tr>
+<td>Fluent.Ribbon</td>
+<td>DBTools.Fluent.Ribbon</td>
+<td>Ribbon window support</td>
+</tr>
+<tr>
+<td>ControlzEx</td>
+<td>DBTools.ControlzEx</td>
+<td>Window chrome (dependency)</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="lang-xml">&lt;Reference Include=&quot;DBTools.HandyControl&quot;&gt;
+  &lt;HintPath&gt;$(DBT_VendorArtifactsRoot)handycontrol\$(TargetFramework)\DBTools.HandyControl.dll&lt;/HintPath&gt;
+&lt;/Reference&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:55-71</code></p>
+</blockquote>
+<h3 id="fluentribbon-theme-bridge">Fluent.Ribbon Theme Bridge</h3>
+<p><code>App.FluentRibbon.xaml</code> provides a complete dark theme override with 196 brush key mappings to integrate Fluent.Ribbon with the DBTools color system.</p>
+<p>Key integrations:</p>
+<ul>
+<li>Window chrome (title bar, caption buttons)</li>
+<li>Ribbon tabs and groups</li>
+<li>All control variants (buttons, checkboxes, textboxes)</li>
+<li>Gallery and backstage views</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.FluentRibbon.xaml:1-575</code></p>
+</blockquote>
+<h2 id="build-configuration">Build Configuration</h2>
+<h3 id="target-frameworks">Target Frameworks</h3>
+<p>The project multi-targets:</p>
+<ul>
+<li><code>net48</code> (Revit 2024 and earlier)</li>
+<li><code>net8.0-windows</code> (Revit 2025+)</li>
+</ul>
+<h3 id="xaml-compilation">XAML Compilation</h3>
+<p>Some XAML files are kept as raw resources (not compiled to BAML) to avoid requiring a project reference to <code>DBTools.Core</code>:</p>
+<pre><code class="lang-xml">&lt;Page Remove=&quot;Themes\App.Converters.xaml&quot; /&gt;
+&lt;Resource Include=&quot;Themes\App.Converters.xaml&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:38-46</code></p>
+</blockquote>
+<h3 id="dependency-rules">Dependency Rules</h3>
+<p><strong>Critical:</strong> <code>DBTools.Themes</code> must NOT reference <code>DBTools.Core</code> to avoid circular dependencies. Theme dictionaries that need Core types are defined in Core and merged via pack URIs.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:31-34</code></p>
+</blockquote>
+<h2 id="how-to-extend">How to Extend</h2>
+<h3 id="adding-new-brushes">Adding New Brushes</h3>
+<ol>
+<li><p>Add the <code>ComponentResourceKey</code> to <code>BrushKeys.cs</code>:</p>
+<pre><code class="lang-csharp">public static ComponentResourceKey MyNewBrush =&gt; new(typeof(BrushKeys), &quot;Brush.MyNew&quot;);
+</code></pre>
+</li>
+<li><p>Define the brush in <code>App.Brushes.xaml</code>:</p>
+<pre><code class="lang-xml">&lt;SolidColorBrush x:Key=&quot;{x:Static theme:BrushKeys.MyNewBrush}&quot; Color=&quot;#FF123456&quot; /&gt;
+</code></pre>
+</li>
+</ol>
+<h3 id="adding-new-tokens">Adding New Tokens</h3>
+<p>Add to <code>App.Tokens.xaml</code> following existing patterns:</p>
+<pre><code class="lang-xml">&lt;sys:Double x:Key=&quot;Size.MyNew&quot;&gt;24&lt;/sys:Double&gt;
+&lt;Thickness x:Key=&quot;Pad.MyNew&quot;&gt;8,4&lt;/Thickness&gt;
+</code></pre>
+<h3 id="creating-new-control-styles">Creating New Control Styles</h3>
+<ol>
+<li>For base controls, add to <code>App.Controls.Base.xaml</code></li>
+<li>For higher-level components, add to <code>App.Components.xaml</code></li>
+<li>Use <code>DynamicResource</code> with <code>BrushKeys</code> for all colors</li>
+<li>Use token resources for spacing/sizing</li>
+</ol>
+<h3 id="adding-converters">Adding Converters</h3>
+<ol>
+<li>Implement converter in <code>DBTools.Core.UI.Converters</code></li>
+<li>Add resource entry in <code>App.Converters.xaml</code>:
+<pre><code class="lang-xml">&lt;conv:MyConverter x:Key=&quot;Converter.MyConverter&quot; /&gt;
+</code></pre>
+</li>
+</ol>
+<h2 id="cross-references">Cross-References</h2>
+<ul>
+<li><a href="../architecture/theme-system.html">Theme System Architecture</a> - Detailed architecture documentation</li>
+<li><a href="core.html">DBTools.Core</a> - Theme loading and initialization</li>
+</ul>
+<h2 id="value-converters">Value Converters</h2>
+<p>Available converters (defined in <code>App.Converters.xaml</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Converter.BoolToVisibility</code></td>
+<td>BooleanToVisibilityConverter</td>
+<td>Standard bool-to-visibility</td>
+</tr>
+<tr>
+<td><code>Converter.InverseBoolToVisibility</code></td>
+<td>InverseBooleanToVisibilityConverter</td>
+<td>Inverted visibility</td>
+</tr>
+<tr>
+<td><code>Converter.NullToVisibility</code></td>
+<td>NullToVisibilityConverter</td>
+<td>Collapsed when not null</td>
+</tr>
+<tr>
+<td><code>Converter.NullToInverseVisibility</code></td>
+<td>NullToInverseVisibilityConverter</td>
+<td>Collapsed when null</td>
+</tr>
+<tr>
+<td><code>Converter.RowKindToVisibility</code></td>
+<td>RowKindToVisibilityConverter</td>
+<td>DataGrid row type filtering</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Converters.xaml:1-12</code></p>
+</blockquote>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/projects/themes.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Project References and Dependency Management | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Project References and Dependency Management | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/architecture/project-references.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="project-references-and-dependency-management">Project References and Dependency Management</h1>
+
+<!-- STATUS: draft -->
+<!-- Last Updated: 2026-01-24 -->
+<!-- Verified By: docs-run-20260124-020412 -->
+<p>This document describes how DBTools projects reference each other, manage dependencies, and use file linking patterns.</p>
+<h2 id="project-dependency-graph">Project Dependency Graph</h2>
+<pre><code>                                 +-----------------------+
+                                 |   DBTools.Themes      |
+                                 |  (WPF theme resources)|
+                                 +-----------+-----------+
+                                             |
+                    +------------------------+------------------------+
+                    |                                                 |
+          +---------v---------+                             +---------v---------+
+          |   DBTools.Core    |&lt;----------------------------+   DBTools.App     |
+          | (shared services, |                             | (assembly output: |
+          |  UI, Revit infra) |                             |   DBTools.dll)    |
+          +---------+---------+                             +---------+---------+
+                    ^                                                 ^
+                    |                                                 |
+        +-----------+-----------+                         +-----------+-----------+
+        |                       |                         |                       |
++-------+-------+       +-------+-------+         +-------+-------+       +-------+-------+
+| DBTools.GM    |       | DBTools.SGT   |         | File-linked   |       | File-linked   |
+| (XAML design) |       | (XAML design) |         | tool sources  |       | tool assets   |
++---------------+       +---------------+         +---------------+       +---------------+
+        ^                       ^
+        |                       |
++-------+-------+       +-------+-------+
+|DBTools.GM.Tests|      |DBTools.SGT.Tests|
++---------------+       +---------------+
+
++-------------------+       +-------------------+
+| DBTools.Loader    |       | DBTools.Sandbox   |
+| (Revit entrypoint)|       | (standalone exe)  |
++-------------------+       +-------------------+
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:56-59</code></p>
+</blockquote>
+<h3 id="key-relationships">Key Relationships</h3>
+<table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Reference Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DBTools.App</td>
+<td>DBTools.Core</td>
+<td>ProjectReference</td>
+<td>Core services, UI infrastructure</td>
+</tr>
+<tr>
+<td>DBTools.App</td>
+<td>DBTools.Themes</td>
+<td>ProjectReference</td>
+<td>WPF theme resources</td>
+</tr>
+<tr>
+<td>DBTools.Core</td>
+<td>DBTools.Themes</td>
+<td>ProjectReference</td>
+<td>ComponentResourceKey definitions</td>
+</tr>
+<tr>
+<td>Tool projects</td>
+<td>DBTools.Core</td>
+<td>ProjectReference</td>
+<td>Shared infrastructure</td>
+</tr>
+<tr>
+<td>Test projects</td>
+<td>DBTools.App + DBTools.Core</td>
+<td>ProjectReference</td>
+<td>Test compilation</td>
+</tr>
+<tr>
+<td>DBTools.Sandbox</td>
+<td>DBTools.Core + DBTools.Themes</td>
+<td>ProjectReference</td>
+<td>Standalone preview</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="file-linking-vs-project-references">File Linking vs Project References</h2>
+<p>DBTools uses two distinct patterns for code sharing:</p>
+<h3 id="pattern-1-project-references-standard">Pattern 1: Project References (Standard)</h3>
+<p>Used when the referenced assembly should be included as a separate DLL in output.</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.Core.csproj:165 --&gt;
+&lt;ProjectReference Include=&quot;..\DBTools.Themes\DBTools.Themes.csproj&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/DBTools.Core.csproj:165</code></p>
+</blockquote>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Shared infrastructure code (Core, Themes)</li>
+<li>Code that defines types needed at runtime via reflection</li>
+<li>WPF resources that use pack:// URIs</li>
+</ul>
+<h3 id="pattern-2-file-linking-compile-time-inclusion">Pattern 2: File Linking (Compile-time inclusion)</h3>
+<p>Used when source files should be compiled directly into another assembly.</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.App.csproj:64-67 --&gt;
+&lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
+         Exclude=&quot;..\Tools\**\Tests\**\*.cs;..\Tools\**\obj\**\*.cs&quot;
+         Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:64-67</code></p>
+</blockquote>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Tool source code compiled into DBTools.dll</li>
+<li>Shared test utilities across test projects</li>
+<li>Polyfill files for net48 compatibility</li>
+</ul>
+<hr>
+<h2 id="file-linking-patterns-in-detail">File Linking Patterns in Detail</h2>
+<h3 id="tool-source-files-into-dbtoolsapp">Tool Source Files into DBTools.App</h3>
+<p>All tool code from <code>src/Tools/</code> is file-linked into DBTools.App:</p>
+<pre><code class="lang-xml">&lt;!-- C# source files --&gt;
+&lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
+         Exclude=&quot;..\Tools\**\Tests\**\*.cs;..\Tools\**\obj\**\*.cs&quot;
+         Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+
+&lt;!-- XAML files --&gt;
+&lt;Page Include=&quot;..\Tools\**\*.xaml&quot;
+      Exclude=&quot;..\Tools\**\obj\**\*.xaml;..\Tools\**\Properties\DesignTimeResources.xaml&quot;
+      Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+
+&lt;!-- Icon assets --&gt;
+&lt;EmbeddedResource Include=&quot;..\Tools\**\Assets\*.png&quot;
+                  Link=&quot;Resources\Icons\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:63-78</code></p>
+</blockquote>
+<p><strong>Why file linking for tools?</strong></p>
+<ul>
+<li>Single deployable assembly (DBTools.dll)</li>
+<li>Eliminates plugin DLL proliferation</li>
+<li>Tool projects exist primarily for XAML designer support</li>
+</ul>
+<h3 id="shared-test-utilities">Shared Test Utilities</h3>
+<p>Test projects link shared test infrastructure:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.GM.Tests.csproj:62-79 --&gt;
+&lt;Compile Include=&quot;..\..\..\..\..\testing\TestSupport\ApsEnv.cs&quot; Link=&quot;TestSupport\ApsEnv.cs&quot; /&gt;
+&lt;Compile Include=&quot;..\..\..\..\..\testing\TestSupport\CommonTestDoubles.cs&quot; Link=&quot;TestSupport\CommonTestDoubles.cs&quot; /&gt;
+&lt;Compile Include=&quot;..\..\..\..\..\testing\TestSupport\TestHost\RevitHost.cs&quot; Link=&quot;TestSupport\TestHost\RevitHost.cs&quot; /&gt;
+&lt;!-- ... more linked files ... --&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:62-79</code></p>
+</blockquote>
+<h3 id="bcl-polyfills-for-net48">BCL Polyfills for net48</h3>
+<p>Polyfill files enable C# 10+ features on .NET Framework:</p>
+<pre><code class="lang-xml">&lt;!-- From Directory.Build.props:215-219 --&gt;
+&lt;Compile Include=&quot;$(MSBuildThisFileDirectory)build/BuildSupport/Polyfills/IsExternalInit.cs&quot; 
+         Condition=&quot;'$(TargetFramework)'=='net48'&quot; /&gt;
+&lt;Compile Include=&quot;$(MSBuildThisFileDirectory)build/BuildSupport/Polyfills/StringExtensions.cs&quot; 
+         Condition=&quot;'$(TargetFramework)'=='net48'&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/Directory.Build.props:215-219</code></p>
+</blockquote>
+<hr>
+<h2 id="centralized-package-management">Centralized Package Management</h2>
+<h3 id="directorypackagesprops">Directory.Packages.props</h3>
+<p>All NuGet package versions are centralized:</p>
+<pre><code class="lang-xml">&lt;Project&gt;
+  &lt;PropertyGroup&gt;
+    &lt;ManagePackageVersionsCentrally&gt;true&lt;/ManagePackageVersionsCentrally&gt;
+    &lt;CentralPackageTransitivePinningEnabled&gt;true&lt;/CentralPackageTransitivePinningEnabled&gt;
+  &lt;/PropertyGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;!-- Package versions defined once --&gt;
+    &lt;PackageVersion Include=&quot;CommunityToolkit.Mvvm&quot; Version=&quot;8.2.2&quot; /&gt;
+    &lt;PackageVersion Include=&quot;Microsoft.Extensions.DependencyInjection&quot; Version=&quot;8.0.1&quot; /&gt;
+    &lt;!-- ... --&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/Directory.Packages.props:1-5</code></p>
+</blockquote>
+<h3 id="consuming-packages">Consuming Packages</h3>
+<p>Projects reference packages without specifying versions:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.Core.csproj:107-127 --&gt;
+&lt;PackageReference Include=&quot;CSharpFunctionalExtensions&quot; /&gt;
+&lt;PackageReference Include=&quot;Ardalis.GuardClauses&quot; /&gt;
+&lt;PackageReference Include=&quot;AutoMapper&quot; /&gt;
+&lt;PackageReference Include=&quot;Serilog&quot; /&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/DBTools.Core.csproj:107-127</code></p>
+</blockquote>
+<h3 id="version-pinning-strategy">Version Pinning Strategy</h3>
+<table>
+<thead>
+<tr>
+<th>Package Category</th>
+<th>Version Strategy</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M.E.* (DI, Config, Logging)</td>
+<td>8.x</td>
+<td>Match Revit 2026 .NET 8 runtime</td>
+</tr>
+<tr>
+<td>Serilog</td>
+<td>4.x/6.x/8.x</td>
+<td>Compatible with both TFMs</td>
+</tr>
+<tr>
+<td>BCL packages (System.Memory)</td>
+<td>Pinned</td>
+<td>Align with vendored Fluent.Ribbon</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/Directory.Packages.props:73-95</code></p>
+</blockquote>
+<hr>
+<h2 id="multi-targeting-configuration">Multi-Targeting Configuration</h2>
+<h3 id="target-framework-definitions">Target Framework Definitions</h3>
+<p>All Revit-facing projects target both frameworks:</p>
+<pre><code class="lang-xml">&lt;!-- From Revit.props:2-6 --&gt;
+&lt;PropertyGroup Label=&quot;Revit TFMs&quot;&gt;
+  &lt;DBT_RevitLegacyTFM&gt;net48&lt;/DBT_RevitLegacyTFM&gt;
+  &lt;DBT_RevitModernTFM&gt;net8.0-windows&lt;/DBT_RevitModernTFM&gt;
+  &lt;DBT_RevitTargetFrameworks&gt;$(DBT_RevitLegacyTFM);$(DBT_RevitModernTFM)&lt;/DBT_RevitTargetFrameworks&gt;
+&lt;/PropertyGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/build/Revit.props:2-6</code></p>
+</blockquote>
+<h3 id="consuming-in-projects">Consuming in Projects</h3>
+<pre><code class="lang-xml">&lt;!-- Standard pattern in all Revit projects --&gt;
+&lt;TargetFrameworks&gt;$(DBT_RevitTargetFrameworks)&lt;/TargetFrameworks&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/DBTools.Core.csproj:3</code></p>
+</blockquote>
+<h3 id="revit-api-reference-patterns">Revit API Reference Patterns</h3>
+<p>References are conditional on TFM and build type:</p>
+<pre><code class="lang-xml">&lt;!-- net48 references Revit 2024 --&gt;
+&lt;ItemGroup Condition=&quot;'$(TargetFramework)'=='net48'&quot;&gt;
+  &lt;Reference Include=&quot;RevitAPI&quot;&gt;
+    &lt;HintPath&gt;$(REVIT2024_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+    &lt;Private&gt;false&lt;/Private&gt;
+  &lt;/Reference&gt;
+&lt;/ItemGroup&gt;
+
+&lt;!-- net8 references Revit 2025/2026 --&gt;
+&lt;ItemGroup Condition=&quot;'$(TargetFramework)'=='net8.0-windows'&quot;&gt;
+  &lt;Reference Include=&quot;RevitAPI&quot; Condition=&quot;'$(REVIT_NET8_DIR)'!=''&quot;&gt;
+    &lt;HintPath&gt;$(REVIT_NET8_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+    &lt;Private&gt;false&lt;/Private&gt;
+  &lt;/Reference&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:110-165</code></p>
+</blockquote>
+<hr>
+<h2 id="vendored-dependencies">Vendored Dependencies</h2>
+<h3 id="why-vendored">Why Vendored?</h3>
+<p>Some UI libraries are vendored (renamed) to avoid conflicts with other Revit add-ins:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.Core.csproj:144-152 --&gt;
+&lt;Reference Include=&quot;DBTools.Fluent.Ribbon&quot;&gt;
+  &lt;HintPath&gt;$(DBT_VendorArtifactsRoot)fluentribbon\$(TargetFramework)\DBTools.Fluent.Ribbon.dll&lt;/HintPath&gt;
+  &lt;Private&gt;true&lt;/Private&gt;
+&lt;/Reference&gt;
+&lt;Reference Include=&quot;DBTools.ControlzEx&quot;&gt;
+  &lt;HintPath&gt;$(DBT_VendorArtifactsRoot)controlzex\$(TargetFramework)\DBTools.ControlzEx.dll&lt;/HintPath&gt;
+  &lt;Private&gt;true&lt;/Private&gt;
+&lt;/Reference&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/DBTools.Core.csproj:144-152</code></p>
+</blockquote>
+<h3 id="vendored-libraries">Vendored Libraries</h3>
+<table>
+<thead>
+<tr>
+<th>Original</th>
+<th>Vendored As</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fluent.Ribbon</td>
+<td>DBTools.Fluent.Ribbon</td>
+<td>Avoid pyRevit conflicts</td>
+</tr>
+<tr>
+<td>ControlzEx</td>
+<td>DBTools.ControlzEx</td>
+<td>Avoid pyRevit conflicts</td>
+</tr>
+<tr>
+<td>HandyControl</td>
+<td>DBTools.HandyControl</td>
+<td>Avoid host conflicts</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:53-70</code></p>
+</blockquote>
+<hr>
+<h2 id="assembly-embedding-dbtoolsapp">Assembly Embedding (DBTools.App)</h2>
+<h3 id="embedded-assembly-strategy">Embedded Assembly Strategy</h3>
+<p>DBTools.App embeds most dependencies into the main DLL:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.App.csproj:234-270 --&gt;
+&lt;Target Name=&quot;DBT_EmbedCopyLocalAssemblies&quot;
+        AfterTargets=&quot;ResolveReferences&quot;
+        Condition=&quot;'$(DesignTimeBuild)'!='true'&quot;&gt;
+  &lt;ItemGroup&gt;
+    &lt;_EmbedCandidate Include=&quot;@(ReferenceCopyLocalPaths)&quot;
+                     Condition=&quot;...&quot; /&gt;
+    &lt;!-- Exclude host-provided assemblies --&gt;
+    &lt;_EmbedCandidate Remove=&quot;@(_EmbedCandidate)&quot;
+                     Condition=&quot;'%(Filename)%(Extension)' == 'RevitAPI.dll'&quot; /&gt;
+  &lt;/ItemGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;EmbeddedResource Include=&quot;%(_EmbedLogicalDistinct.SourcePath)&quot;
+                      LogicalName=&quot;%(_EmbedLogicalDistinct.Identity)&quot; /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Target&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:234-270</code></p>
+</blockquote>
+<h3 id="what-gets-embedded">What Gets Embedded</h3>
+<table>
+<thead>
+<tr>
+<th>Embedded</th>
+<th>Not Embedded</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DBTools.Core</td>
+<td>RevitAPI/RevitAPIUI</td>
+<td>Revit provides at runtime</td>
+</tr>
+<tr>
+<td>Serilog.*</td>
+<td>Newtonsoft.Json</td>
+<td>Revit provides</td>
+</tr>
+<tr>
+<td>M.E.DependencyInjection</td>
+<td>DBTools.Fluent.Ribbon</td>
+<td>WPF needs file-based Location</td>
+</tr>
+<tr>
+<td>AutoMapper</td>
+<td>DBTools.ControlzEx</td>
+<td>WPF needs file-based Location</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="test-project-references">Test Project References</h2>
+<h3 id="reference-strategy">Reference Strategy</h3>
+<p>Test projects reference both App and Core:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.GM.Tests.csproj:83-86 --&gt;
+&lt;ItemGroup&gt;
+  &lt;ProjectReference Include=&quot;..\..\..\..\DBTools.App\DBTools.App.csproj&quot; /&gt;
+  &lt;ProjectReference Include=&quot;..\..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:83-86</code></p>
+</blockquote>
+<p><strong>Why reference both?</strong></p>
+<ul>
+<li>Tool code is file-linked into App (need App for tool types)</li>
+<li>Core exposes internal types via InternalsVisibleTo</li>
+<li>Tests need access to both layers</li>
+</ul>
+<h3 id="internalsvisibleto-declarations">InternalsVisibleTo Declarations</h3>
+<pre><code class="lang-xml">&lt;!-- From DBTools.Core.csproj:27-32 --&gt;
+&lt;ItemGroup&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.App&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.GM.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.SGT.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.TDV.Tests&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/DBTools.Core.csproj:27-32</code></p>
+</blockquote>
+<hr>
+<h2 id="common-pitfalls-and-solutions">Common Pitfalls and Solutions</h2>
+<h3 id="pitfall-1-circular-reference-between-themes-and-core">Pitfall 1: Circular Reference Between Themes and Core</h3>
+<p><strong>Problem:</strong> DBTools.Core needs theme resources; themes might need Core types.</p>
+<p><strong>Solution:</strong> Theme dictionaries that need Core types are kept as raw Resource XAML (not compiled BAML):</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.Themes.csproj:38-46 --&gt;
+&lt;ItemGroup&gt;
+  &lt;Page Remove=&quot;Themes\App.Converters.xaml&quot; /&gt;
+  &lt;Resource Include=&quot;Themes\App.Converters.xaml&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:38-46</code></p>
+</blockquote>
+<h3 id="pitfall-2-forbidden-host-assemblies-in-output">Pitfall 2: Forbidden Host Assemblies in Output</h3>
+<p><strong>Problem:</strong> Transitive dependencies may copy Revit-provided DLLs to output.</p>
+<p><strong>Solution:</strong> Build targets explicitly remove forbidden assemblies:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.App.csproj:169-177 --&gt;
+&lt;ItemGroup&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;RevitAPI.dll&quot; /&gt;
+  &lt;ForbiddenHostAssembly Include=&quot;Newtonsoft.Json.dll&quot; /&gt;
+  &lt;!-- ... --&gt;
+&lt;/ItemGroup&gt;
+
+&lt;Target Name=&quot;DBT_RemoveForbiddenAfterCopy&quot; AfterTargets=&quot;CopyFilesToOutputDirectory&quot;&gt;
+  &lt;Delete Files=&quot;@(_DBT_ForbiddenToClear)&quot; /&gt;
+&lt;/Target&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:169-196</code></p>
+</blockquote>
+<h3 id="pitfall-3-xaml-designer-cannot-load-x64-assemblies">Pitfall 3: XAML Designer Cannot Load x64 Assemblies</h3>
+<p><strong>Problem:</strong> XDesProc.exe is 32-bit; DBTools.App is x64 for Revit.</p>
+<p><strong>Solution:</strong> Override PlatformTarget during design-time builds:</p>
+<pre><code class="lang-xml">&lt;!-- From Directory.Build.targets:27-30 --&gt;
+&lt;PropertyGroup Condition=&quot;'$(DBT_IsDesignerBuild)'=='true' and '$(TargetFramework)'=='net48'&quot;&gt;
+  &lt;PlatformTarget&gt;AnyCPU&lt;/PlatformTarget&gt;
+  &lt;Prefer32Bit&gt;false&lt;/Prefer32Bit&gt;
+&lt;/PropertyGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/Directory.Build.targets:27-30</code></p>
+</blockquote>
+<h3 id="pitfall-4-test-projects-missing-revit-api-types">Pitfall 4: Test Projects Missing Revit API Types</h3>
+<p><strong>Problem:</strong> Revit API references aren't transitive.</p>
+<p><strong>Solution:</strong> Test projects explicitly reference Revit APIs:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.GM.Tests.csproj:95-109 --&gt;
+&lt;ItemGroup Condition=&quot;'$(TargetFramework)'=='net48'&quot;&gt;
+  &lt;Reference Include=&quot;RevitAPI&quot;&gt;
+    &lt;HintPath&gt;$(REVIT2024_DIR)\RevitAPI.dll&lt;/HintPath&gt;
+    &lt;Private&gt;false&lt;/Private&gt;
+  &lt;/Reference&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:95-109</code></p>
+</blockquote>
+<h3 id="pitfall-5-dbtoolsthemes-polyfill-conflicts">Pitfall 5: DBTools.Themes Polyfill Conflicts</h3>
+<p><strong>Problem:</strong> Themes is referenced by other net48 projects; polyfill types could conflict.</p>
+<p><strong>Solution:</strong> Themes explicitly removes polyfill files:</p>
+<pre><code class="lang-xml">&lt;!-- From DBTools.Themes.csproj:24-29 --&gt;
+&lt;ItemGroup Condition=&quot;'$(TargetFramework)'=='net48'&quot;&gt;
+  &lt;Compile Remove=&quot;$(MSBuildThisFileDirectory)../../build/BuildSupport/Polyfills/IsExternalInit.cs&quot; /&gt;
+  &lt;Compile Remove=&quot;$(MSBuildThisFileDirectory)../../build/BuildSupport/Polyfills/StringExtensions.cs&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:24-29</code></p>
+</blockquote>
+<hr>
+<h2 id="build-configuration-inheritance">Build Configuration Inheritance</h2>
+<h3 id="directorybuildprops-flow">Directory.Build.props Flow</h3>
+<pre><code>csharp/Directory.Build.props
+    |
+    +-- Imports Version.props (version numbers)
+    +-- Imports build/Revit.props (TFM definitions)
+    +-- Sets artifact paths (.artifacts/)
+    +-- Configures analyzers, warnings
+    +-- Defines shared package references
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/Directory.Build.props:1-6</code></p>
+</blockquote>
+<h3 id="directorybuildtargets-flow">Directory.Build.targets Flow</h3>
+<pre><code>csharp/Directory.Build.targets
+    |
+    +-- Enforces NUKE entrypoint (DBT_Entry)
+    +-- Handles WPF temp project intermediates
+    +-- Copies vendored DLLs for XAML designer
+    +-- Cleans up wpftmp artifacts
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/Directory.Build.targets:1-312</code></p>
+</blockquote>
+<hr>
+<h2 id="quick-reference-adding-a-new-project">Quick Reference: Adding a New Project</h2>
+<h3 id="tool-project-checklist">Tool Project Checklist</h3>
+<ol>
+<li>Create project in <code>src/Tools/{Category}/{ToolName}/</code></li>
+<li>Use standard template:
+<pre><code class="lang-xml">&lt;TargetFrameworks&gt;$(DBT_RevitTargetFrameworks)&lt;/TargetFrameworks&gt;
+&lt;ProjectReference Include=&quot;..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
+</code></pre>
+</li>
+<li>Add conditional Revit API references (copy from existing tool)</li>
+<li>Tool sources are automatically file-linked into DBTools.App via wildcard</li>
+</ol>
+<h3 id="test-project-checklist">Test Project Checklist</h3>
+<ol>
+<li>Create in <code>src/Tools/{Category}/{ToolName}/Tests/</code></li>
+<li>Reference both App and Core:
+<pre><code class="lang-xml">&lt;ProjectReference Include=&quot;..\..\..\..\DBTools.App\DBTools.App.csproj&quot; /&gt;
+&lt;ProjectReference Include=&quot;..\..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
+</code></pre>
+</li>
+<li>Link shared test utilities from <code>testing/TestSupport/</code></li>
+<li>Add explicit Revit API references (not transitive)</li>
+</ol>
+<hr>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="build-pipeline.html">Build Pipeline</a> - How projects are built</li>
+<li><a href="ilrepack-embedding.html">ILRepack &amp; Embedding</a> - Assembly merging details</li>
+<li><a href="overview.html">Architecture Overview</a> - High-level system architecture</li>
+</ul>
+<hr>
+<h2 id="verification-status">Verification Status</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source anchors for all claims</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>UNVERIFIED markers where needed</td>
+<td>No (all verified)</td>
+</tr>
+<tr>
+<td>Cross-references added</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Examples tested</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td>No assumptions without evidence</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verified by:</strong> docs-run-20260124-020412<br>
+<strong>Date:</strong> 2026-01-24</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/architecture/project-references.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

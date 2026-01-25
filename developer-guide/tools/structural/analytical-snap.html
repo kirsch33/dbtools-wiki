@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Analytical Snap To Level | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Analytical Snap To Level | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/structural/analytical-snap.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="analytical-snap-to-level">Analytical Snap To Level</h1>
+
+<p><strong>Analytical Snap To Level</strong> is a Revit tool that snaps selected analytical model elements (beams and columns) to a user-specified level elevation.</p>
+<h2 id="overview">Overview</h2>
+<p>This tool provides a streamlined workflow for aligning analytical model geometry to structural levels. It supports two structural roles with role-specific snapping behavior:</p>
+<ul>
+<li><strong>Beams</strong>: Both endpoints are moved to the target level elevation</li>
+<li><strong>Columns</strong>: Only the endpoint closest to the target level is moved, preserving the other endpoint's position</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalLevelSnapper.cs:88-119</code></p>
+</blockquote>
+<h2 id="features">Features</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Selection-Based</strong></td>
+<td>Operates on pre-selected analytical elements</td>
+</tr>
+<tr>
+<td><strong>Level Picker</strong></td>
+<td>Interactive dialog to choose target level</td>
+</tr>
+<tr>
+<td><strong>Role-Aware Snapping</strong></td>
+<td>Different snap behavior for beams vs columns</td>
+</tr>
+<tr>
+<td><strong>Batch Processing</strong></td>
+<td>Processes multiple elements in a single transaction</td>
+</tr>
+<tr>
+<td><strong>Summary Report</strong></td>
+<td>Displays processed/skipped counts after execution</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalSnapToLevelCommand.cs:19-70</code></p>
+</blockquote>
+<h2 id="workflow">Workflow</h2>
+<ol>
+<li><strong>Select Elements</strong>: Pre-select analytical members in the Revit view</li>
+<li><strong>Launch Tool</strong>: Click &quot;Analytical Snap To Level&quot; button on the ribbon</li>
+<li><strong>Pick Level</strong>: Select target level from the level picker dialog</li>
+<li><strong>Review Results</strong>: View summary showing processed and skipped element counts</li>
+</ol>
+<h3 id="supported-elements">Supported Elements</h3>
+<p>The tool only processes elements that meet these criteria:</p>
+<ul>
+<li>Category: <code>OST_AnalyticalMember</code></li>
+<li>Type: Must be castable to <code>AnalyticalMember</code></li>
+<li>Structural Role: &quot;Beam&quot; or &quot;Column&quot; (other roles are skipped)</li>
+<li>Geometry: Must have a valid curve</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalLevelSnapper.cs:55-81</code></p>
+</blockquote>
+<h3 id="snapping-behavior">Snapping Behavior</h3>
+<h4 id="beams">Beams</h4>
+<p>Beams are horizontal members. Both endpoints are moved to the target elevation while preserving X and Y coordinates:</p>
+<pre><code>Original:   Start(X1, Y1, Z1) ---- End(X2, Y2, Z2)
+Snapped:    Start(X1, Y1, TargetElev) ---- End(X2, Y2, TargetElev)
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalLevelSnapper.cs:88-93</code></p>
+</blockquote>
+<h4 id="columns">Columns</h4>
+<p>Columns are vertical members. Only the endpoint closest to the target level is moved:</p>
+<pre><code>Original:   Top(X, Y, 20) | Bottom(X, Y, 10)
+Target at 12: Top(X, Y, 20) | Bottom(X, Y, 12)  [bottom was closer]
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalLevelSnapper.cs:95-112</code></p>
+</blockquote>
+<h2 id="architecture">Architecture</h2>
+<h3 id="module-structure">Module Structure</h3>
+<pre><code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/
++-- manifest.yml                              # Tool declaration
++-- AnalyticalSnapToLevelToolModule.cs        # DI module registration
++-- DBTools.Structural.AnalyticalSnapToLevel.csproj  # Project file
++-- Features/
+|   +-- AnalyticalSnapToLevelCommand.cs       # Ribbon command entry point
+|   +-- AnalyticalLevelSnapper.cs             # Core snapping logic
++-- Assets/
+    +-- analytical_snap_icon.png              # Ribbon icon
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> Directory structure of <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/</code></p>
+</blockquote>
+<h3 id="key-classes">Key Classes</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AnalyticalSnapToLevelToolModule</code></td>
+<td><code>AnalyticalSnapToLevelToolModule.cs:5-7</code></td>
+<td>Empty tool module for registration</td>
+</tr>
+<tr>
+<td><code>AnalyticalSnapToLevelCommand</code></td>
+<td><code>Features/AnalyticalSnapToLevelCommand.cs:17-71</code></td>
+<td>Command entry point; orchestrates workflow</td>
+</tr>
+<tr>
+<td><code>AnalyticalLevelSnapper</code></td>
+<td><code>Features/AnalyticalLevelSnapper.cs:16-135</code></td>
+<td>Core snapping service</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/AnalyticalSnapToLevelToolModule.cs:5-7</code></p>
+</blockquote>
+<h3 id="data-flow">Data Flow</h3>
+<pre><code>+----------------------------+
+| AnalyticalSnapToLevelCommand|
++-------------+--------------+
+              |
+              | 1. Get selected element IDs
+              | 2. Show level picker
+              v
+    +-------------------+
+    | LevelPickerHelper |  (from DBTools.Core)
+    +-------------------+
+              |
+              | Returns selected Level
+              v
++----------------------------+
+|   AnalyticalLevelSnapper   |
++-------------+--------------+
+              |
+              | 3. Iterate selected IDs
+              | 4. Filter to AnalyticalMember
+              | 5. Check structural role
+              | 6. Compute new curve
+              | 7. SetCurve on member
+              v
++----------------------------+
+|     Summary Alert          |
++----------------------------+
+</code></pre>
+<h3 id="dependencies">Dependencies</h3>
+<p>The tool depends on these core services:</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IAlertService</code></td>
+<td>DBTools.Core</td>
+<td>Show level picker and summary dialogs</td>
+</tr>
+<tr>
+<td><code>LevelPickerHelper</code></td>
+<td>DBTools.Core</td>
+<td>Utility for level selection UI</td>
+</tr>
+<tr>
+<td><code>ITransactionRunner</code></td>
+<td>DBTools.Core</td>
+<td>Transaction execution via call gate</td>
+</tr>
+<tr>
+<td><code>ILogger</code></td>
+<td>Microsoft.Extensions.Logging</td>
+<td>Debug logging</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalSnapToLevelCommand.cs:35-46</code></p>
+</blockquote>
+<h2 id="settings">Settings</h2>
+<p>This tool has no persistent settings. All configuration is provided at runtime via:</p>
+<ul>
+<li><strong>Element Selection</strong>: User pre-selects elements before invoking the command</li>
+<li><strong>Target Level</strong>: User picks from level dialog at runtime</li>
+</ul>
+<h2 id="manifest">Manifest</h2>
+<pre><code class="lang-yaml">id: DBTools.Structural.AnalyticalSnapToLevel
+assembly: DBTools
+moduleType: DBTools.Structural.AnalyticalSnapToLevel.AnalyticalSnapToLevelToolModule
+order: 0
+tool:
+  ribbonTools:
+    - internalName: DBTools.AnalyticalSnapToLevel
+      commandType: DBTools.Structural.AnalyticalSnapToLevel.AnalyticalSnapToLevelCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtSelectionAvailability
+      runProfile: InlineUi
+      displayText: &quot;Analytical Snap\nTo Level&quot;
+      iconBaseKey: analytical_snap
+      tooltip: &quot;Snap analytical model elements to specified level&quot;
+      controlKind: PushButton
+      order: 20
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/manifest.yml:1-15</code></p>
+</blockquote>
+<h3 id="manifest-properties">Manifest Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>DBTools.Structural.AnalyticalSnapToLevel</code></td>
+<td>Unique tool identifier</td>
+</tr>
+<tr>
+<td><code>availabilityType</code></td>
+<td><code>DbtSelectionAvailability</code></td>
+<td>Button enabled when elements are selected</td>
+</tr>
+<tr>
+<td><code>runProfile</code></td>
+<td><code>InlineUi</code></td>
+<td>Runs with inline UI support</td>
+</tr>
+<tr>
+<td><code>controlKind</code></td>
+<td><code>PushButton</code></td>
+<td>Standard push button control</td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td><code>20</code></td>
+<td>Position in ribbon panel</td>
+</tr>
+</tbody>
+</table>
+<h3 id="availability">Availability</h3>
+<p>The command uses <code>DbtSelectionAvailability</code>, which enables the ribbon button when at least one element is selected:</p>
+<pre><code class="lang-csharp">public class DbtSelectionAvailability : IExternalCommandAvailability
+{
+    public bool IsCommandAvailable(UIApplication applicationData, CategorySet selectedCategories)
+    {
+        var selection = uidoc.Selection?.GetElementIds();
+        if (selection == null || selection.Count == 0) return false;
+        // ...
+        return selection.Any(id =&gt; /* element matches */);
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Tools/Availability/DbtSelectionAvailability.cs:13-51</code></p>
+</blockquote>
+<h2 id="error-handling">Error Handling</h2>
+<p>The tool handles errors at multiple levels:</p>
+<h3 id="command-level">Command Level</h3>
+<ul>
+<li>Throws <code>InvalidOperationException</code> if no elements are selected</li>
+<li>Throws <code>InvalidOperationException</code> if no target level is selected</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalSnapToLevelCommand.cs:29-40</code></p>
+</blockquote>
+<h3 id="snapper-level">Snapper Level</h3>
+<p>Elements are silently skipped (with debug logging) when:</p>
+<ul>
+<li>Element is null</li>
+<li>Element category is not <code>OST_AnalyticalMember</code></li>
+<li>Element cannot be cast to <code>AnalyticalMember</code></li>
+<li>Element has no curve geometry</li>
+<li>Structural role is not &quot;Beam&quot; or &quot;Column&quot;</li>
+<li>Any exception occurs during curve modification</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalLevelSnapper.cs:46-129</code></p>
+</blockquote>
+<h2 id="logging">Logging</h2>
+<p>The tool logs debug information via <code>ILogger</code>:</p>
+<pre><code class="lang-csharp">// Target level selection
+logger.LogDebug(&quot;[AnalyticalSnap] Target level: {LevelName} (Elev: {Elevation})&quot;, 
+    targetLevel.Name, targetLevel.Elevation);
+
+// Skip reasons
+_logger.LogDebug(&quot;[AnalyticalSnap] Skipping element {ElementId} - not an analytical member.&quot;, 
+    RevitId.ToInt(elementId));
+
+// Success
+_logger.LogDebug(&quot;[AnalyticalSnap] Snapped {Role} {ElementId} to level {LevelName}.&quot;, 
+    role, RevitId.ToInt(elementId), level.Name);
+
+// Summary
+logger.LogDebug(&quot;[AnalyticalSnap] Processed {Processed}; skipped {Skipped}.&quot;, 
+    processed, skipped);
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalSnapToLevelCommand.cs:42-52</code></p>
+</blockquote>
+<h2 id="api-reference">API Reference</h2>
+<h3 id="analyticallevelsnapper">AnalyticalLevelSnapper</h3>
+<p>The core snapping service:</p>
+<pre><code class="lang-csharp">public sealed class AnalyticalLevelSnapper
+{
+    public AnalyticalLevelSnapper(ITransactionRunner tx, Document doc, ILogger logger);
+    
+    public (int ProcessedCount, int SkippedCount) Run(
+        ICollection&lt;ElementId&gt; selectedIds, 
+        Level targetLevel);
+}
+</code></pre>
+<h4 id="parameters">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tx</code></td>
+<td><code>ITransactionRunner</code></td>
+<td>Transaction runner for Revit operations</td>
+</tr>
+<tr>
+<td><code>doc</code></td>
+<td><code>Document</code></td>
+<td>Active Revit document</td>
+</tr>
+<tr>
+<td><code>logger</code></td>
+<td><code>ILogger</code></td>
+<td>Logger for debug output</td>
+</tr>
+</tbody>
+</table>
+<h4 id="return-value">Return Value</h4>
+<p>Returns a tuple with:</p>
+<ul>
+<li><code>ProcessedCount</code>: Number of elements successfully snapped</li>
+<li><code>SkippedCount</code>: Number of elements skipped (invalid category, role, or errors)</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/AnalyticalSnapToLevel/Features/AnalyticalLevelSnapper.cs:22-29</code></p>
+</blockquote>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Button disabled</td>
+<td>No elements selected</td>
+<td>Select analytical elements before clicking</td>
+</tr>
+<tr>
+<td>&quot;No elements selected&quot; error</td>
+<td>Selection cleared before command ran</td>
+<td>Re-select elements and try again</td>
+</tr>
+<tr>
+<td>High skip count</td>
+<td>Non-analytical elements in selection</td>
+<td>Select only analytical members</td>
+</tr>
+<tr>
+<td>Elements not moving</td>
+<td>Role is not &quot;Beam&quot; or &quot;Column&quot;</td>
+<td>Check element's Structural Role parameter</td>
+</tr>
+<tr>
+<td>Partial success</td>
+<td>Some elements have errors</td>
+<td>Check debug log for skip reasons</td>
+</tr>
+</tbody>
+</table>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="sgt.html">SGT Tool</a> - Structural Grid Tool (uses similar snapping concepts)</li>
+<li><a href="framing-joins.html">Framing Joins</a> - Related structural framing tool</li>
+</ul>
+<h2 id="source-files-reviewed">Source Files Reviewed</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>manifest.yml</code></td>
+<td>Tool declaration</td>
+</tr>
+<tr>
+<td><code>AnalyticalSnapToLevelToolModule.cs</code></td>
+<td>Module registration</td>
+</tr>
+<tr>
+<td><code>AnalyticalSnapToLevelCommand.cs</code></td>
+<td>Command entry point</td>
+</tr>
+<tr>
+<td><code>AnalyticalLevelSnapper.cs</code></td>
+<td>Core snapping logic</td>
+</tr>
+<tr>
+<td><code>DBTools.Structural.AnalyticalSnapToLevel.csproj</code></td>
+<td>Project configuration</td>
+</tr>
+<tr>
+<td><code>DbtSelectionAvailability.cs</code></td>
+<td>Availability predicate</td>
+</tr>
+<tr>
+<td><code>LevelPickerHelper.cs</code></td>
+<td>Level picker utility</td>
+</tr>
+</tbody>
+</table>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/structural/analytical-snap.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

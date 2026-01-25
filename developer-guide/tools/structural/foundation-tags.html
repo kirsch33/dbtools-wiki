@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Foundation Tags | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Foundation Tags | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/structural/foundation-tags.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="foundation-tags">Foundation Tags</h1>
+
+<h2 id="overview">Overview</h2>
+<p>The Foundation Tags tool automates the management and positioning of combined foundation tags in Revit structural documentation. It provides two main capabilities: updating parameter values on foundation elements based on pier associations, and moving tags to consistent corner positions on their tagged footings.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:1-4</code></p>
+</blockquote>
+<p><strong>Location</strong>: <code>csharp/src/Tools/Structural/FoundationTags/</code></p>
+<p><strong>Tool ID</strong>: <code>DBTools.Structural.FoundationTags</code></p>
+<p><strong>Ribbon Location</strong>: Structural group, split button <code>foundation_tags</code></p>
+<h2 id="features">Features</h2>
+<h3 id="core-functionality">Core Functionality</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Update Combined Tags</strong></td>
+<td>Updates pier-footing associations and elevation parameters</td>
+</tr>
+<tr>
+<td><strong>Move Combined Tags</strong></td>
+<td>Moves tags to corner positions on footings</td>
+</tr>
+<tr>
+<td><strong>Auto-Update on View</strong></td>
+<td>Automatically updates tags when activating floor/ceiling plans</td>
+</tr>
+<tr>
+<td><strong>Linked Element Support</strong></td>
+<td>Processes tags on footings in linked Revit models</td>
+</tr>
+<tr>
+<td><strong>Selection Sets</strong></td>
+<td>Creates timestamped selection sets for modified/skipped elements</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:19-39</code></p>
+</blockquote>
+<h3 id="ribbon-commands">Ribbon Commands</h3>
+<h4 id="update-combined-foundation-tags">Update Combined Foundation Tags</h4>
+<p>Updates parameter values on piers and footings in the current view:</p>
+<ol>
+<li><strong>Pier Processing</strong>: Calculates <code>Foundation Pier Top</code> elevation from <code>Top Level</code> + <code>Top Offset</code></li>
+<li><strong>Footing Processing</strong>: Associates each footing with its nearest pier (within 2-foot threshold)</li>
+<li><strong>Parameter Updates</strong>: Sets <code>Associated Pier</code> (type mark) and <code>Associated Pier Elevation</code> on footings</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:68-267</code></p>
+</blockquote>
+<p><strong>Command</strong>: <code>DBTools.UpdateCombinedFoundationTags</code><br>
+<strong>Display Text</strong>: &quot;Update Combined Foundation Tags&quot;<br>
+<strong>Run Profile</strong>: InlineUi</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:20-29</code></p>
+</blockquote>
+<h4 id="move-combined-foundation-tags">Move Combined Foundation Tags</h4>
+<p>Repositions foundation tags to specific corners of their tagged footings:</p>
+<ol>
+<li><strong>Tag Collection</strong>: Finds structural foundation tags matching configured family patterns</li>
+<li><strong>Footing Resolution</strong>: Retrieves tagged footing (host or linked)</li>
+<li><strong>Corner Calculation</strong>: Computes footing corners using geometry tessellation</li>
+<li><strong>Position Assignment</strong>: Moves tag to the corner specified by the tag name/type</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsMover.cs:58-116</code></p>
+</blockquote>
+<p><strong>Command</strong>: <code>DBTools.MoveCombinedFoundationTags</code><br>
+<strong>Display Text</strong>: &quot;Move Combined Tags&quot;<br>
+<strong>Run Profile</strong>: InlineUi</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:30-39</code></p>
+</blockquote>
+<h3 id="view-activated-auto-update">View-Activated Auto-Update</h3>
+<p>When enabled, the tool automatically runs the Update Combined Tags operation when activating floor or ceiling plan views.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs:37-49</code></p>
+</blockquote>
+<p><strong>Supported View Types:</strong></p>
+<ul>
+<li>FloorPlan</li>
+<li>CeilingPlan</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs:48</code></p>
+</blockquote>
+<h2 id="architecture">Architecture</h2>
+<h3 id="directory-structure">Directory Structure</h3>
+<pre><code>csharp/src/Tools/Structural/FoundationTags/
++-- Features/                    # Core feature implementations
+|   +-- CombinedFoundationTagsUpdater.cs    # Update logic
+|   +-- CombinedFoundationTagsMover.cs      # Move logic
+|   +-- FoundationTagsGeometry.cs           # Pure geometry calculations
+|   +-- UpdateCombinedFoundationTagsCommand.cs
+|   +-- MoveCombinedFoundationTagsCommand.cs
++-- Hooks/                       # Event handlers
+|   +-- CombinedTagsViewActivatedTask.cs    # Auto-update on view activation
++-- Settings/                    # Configuration
+|   +-- FoundationTagsSettings.cs
+|   +-- FoundationTagsSettingsPackContext.cs
+|   +-- FoundationTagsSettingsPackView.xaml
++-- Tests/                       # Unit tests
+|   +-- FoundationTagsGeometryTests.cs
++-- FoundationTagsToolModule.cs  # DI registration
++-- manifest.yml                 # Tool manifest
+</code></pre>
+<h3 id="key-components">Key Components</h3>
+<h4 id="foundationtagstoolmodule">FoundationTagsToolModule</h4>
+<p>The module class registers settings, services, and settings packs with the dependency injection container.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/FoundationTagsToolModule.cs:14-91</code></p>
+</blockquote>
+<p><strong>Registration Points:</strong></p>
+<ul>
+<li><code>RegisterSettings</code>: Binds <code>FoundationTagsSettings</code> to configuration section <code>Tools.FoundationTags</code></li>
+<li><code>RegisterServices</code>: Registers <code>CombinedTagsViewActivatedTask</code> as <code>IViewActivatedTask</code></li>
+<li><code>RegisterSettingsPacks</code>: Creates settings UI with warning definitions</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/FoundationTagsToolModule.cs:16-81</code></p>
+</blockquote>
+<h4 id="combinedfoundationtagsupdater">CombinedFoundationTagsUpdater</h4>
+<p>The core service that updates pier and footing parameters.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:16-275</code></p>
+</blockquote>
+<p><strong>Processing Flow:</strong></p>
+<ol>
+<li>Collect piers matching configured family patterns</li>
+<li>Collect footings matching configured family patterns</li>
+<li>For each pier: calculate and set <code>Foundation Pier Top</code></li>
+<li>For each footing: find nearest pier and set association parameters</li>
+<li>Create selection sets for modified and skipped elements</li>
+</ol>
+<p><strong>Pier-Footing Association:</strong></p>
+<ul>
+<li>Uses 2D distance (X, Y only) to find nearest pier</li>
+<li>Maximum distance threshold: 2 feet (squared distance = 4.0)</li>
+<li>Clears association if no pier found within threshold</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:167</code></p>
+</blockquote>
+<h4 id="combinedfoundationtagsmover">CombinedFoundationTagsMover</h4>
+<p>The service that repositions tags to footing corners.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsMover.cs:18-376</code></p>
+</blockquote>
+<p><strong>Corner Selection Algorithm:</strong></p>
+<ol>
+<li>Extract footing geometry points via tessellation</li>
+<li>Project corners onto view coordinate system (right/up axes)</li>
+<li>Select corner based on tag name using dot product projection</li>
+</ol>
+<p><strong>Supported Corner Names:</strong></p>
+<ul>
+<li>&quot;Top Right&quot;</li>
+<li>&quot;Top Left&quot;</li>
+<li>&quot;Bottom Right&quot;</li>
+<li>&quot;Bottom Left&quot;</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:142-149</code></p>
+</blockquote>
+<h4 id="foundationtagsgeometry">FoundationTagsGeometry</h4>
+<p>A pure, testable geometry module with no Revit dependencies.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:112-250</code></p>
+</blockquote>
+<p><strong>Functions:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SelectCornerByViewOrientation</code></td>
+<td>Selects corner based on view direction vectors</td>
+</tr>
+<tr>
+<td><code>FindNearestPoint2D</code></td>
+<td>Finds nearest candidate point within threshold</td>
+</tr>
+<tr>
+<td><code>IsValidCornerName</code></td>
+<td>Validates corner name strings</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:123-249</code></p>
+</blockquote>
+<p><strong>Data Types:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Point2D</code></td>
+<td>2D point for distance calculations</td>
+</tr>
+<tr>
+<td><code>Point3D</code></td>
+<td>3D point/vector for projections</td>
+</tr>
+<tr>
+<td><code>FootingCornerPoints</code></td>
+<td>Four corners of a rectangular footing</td>
+</tr>
+<tr>
+<td><code>NearestPointResult</code></td>
+<td>Result of nearest point search</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:11-106</code></p>
+</blockquote>
+<h2 id="settings">Settings</h2>
+<h3 id="configuration-section">Configuration Section</h3>
+<p><strong>Path</strong>: <code>Tools.FoundationTags</code></p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:7</code></p>
+</blockquote>
+<h3 id="foundationtagssettings">FoundationTagsSettings</h3>
+<p>Settings class implementing <code>IAutoUpdateSettings</code>.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:9-50</code></p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AutoUpdateEnabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable auto-update on view activation</td>
+</tr>
+<tr>
+<td><code>HasWarning</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Warning state (disables auto-update)</td>
+</tr>
+<tr>
+<td><code>TagFamilyPatterns</code></td>
+<td><code>List&lt;string&gt;</code></td>
+<td>See below</td>
+<td>Regex patterns for tag families</td>
+</tr>
+<tr>
+<td><code>PierFamilyPatterns</code></td>
+<td><code>List&lt;string&gt;</code></td>
+<td>See below</td>
+<td>Regex patterns for pier families</td>
+</tr>
+<tr>
+<td><code>FootingFamilyPatterns</code></td>
+<td><code>List&lt;string&gt;</code></td>
+<td>See below</td>
+<td>Regex patterns for footing families</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:14-49</code></p>
+</blockquote>
+<h3 id="default-patterns">Default Patterns</h3>
+<p><strong>Tag Family Patterns (Move Combined Tags):</strong></p>
+<pre><code>^Combined Foundation Tag
+^DB Foundation Tag
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:26-30</code></p>
+</blockquote>
+<p><strong>Pier Family Patterns (Update Combined Tags):</strong></p>
+<pre><code>^Foundation Pier
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:36-39</code></p>
+</blockquote>
+<p><strong>Footing Family Patterns (Update Combined Tags):</strong></p>
+<pre><code>^Footing-Rectangular$
+^Pile Cap-Rectangular$
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:45-49</code></p>
+</blockquote>
+<h3 id="settings-ui">Settings UI</h3>
+<p>The settings pack provides a configuration panel with:</p>
+<ul>
+<li><strong>Auto-Update Toggle</strong>: Enable/disable automatic tag updates</li>
+<li><strong>Tag Family Patterns</strong>: Up to 3 regex patterns for matching tag families</li>
+<li><strong>Pier Family Patterns</strong>: Up to 3 regex patterns for matching pier families</li>
+<li><strong>Footing Family Patterns</strong>: Up to 3 regex patterns for matching footing families</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettingsPackContext.cs:35-48</code></p>
+</blockquote>
+<p><strong>UI Features:</strong></p>
+<ul>
+<li>Pattern validation with regex syntax checking</li>
+<li>Add/remove pattern buttons (max 3 per group)</li>
+<li>Warning state management with clear action</li>
+<li>Pending changes detection</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettingsPackContext.cs:132-166</code></p>
+</blockquote>
+<h3 id="warning-system">Warning System</h3>
+<p>The tool uses a warning system to disable functionality when issues occur.</p>
+<p><strong>Warning Definition:</strong></p>
+<ul>
+<li><strong>ID</strong>: <code>core.structural.combined_tags</code></li>
+<li><strong>Title</strong>: &quot;Combined Foundation Tags Disabled&quot;</li>
+<li><strong>Message</strong>: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:12-18</code></p>
+</blockquote>
+<p><strong>Disabled Tools When Warning Active:</strong></p>
+<ul>
+<li><code>DBTools.UpdateCombinedFoundationTags</code></li>
+<li><code>DBTools.MoveCombinedFoundationTags</code></li>
+<li><code>DBTools.OrganizeFoundationTypes</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:15-18</code></p>
+</blockquote>
+<h2 id="manifest">Manifest</h2>
+<pre><code class="lang-yaml">id: DBTools.Structural.FoundationTags
+assembly: DBTools
+moduleType: DBTools.Structural.FoundationTags.FoundationTagsToolModule
+order: 0
+tool:
+  settings:
+    configSection: Tools.FoundationTags
+  settingsPacks:
+    - key: structural.foundation_tags
+      title: &quot;Combined Foundation Tags&quot;
+      warnings:
+        - id: core.structural.combined_tags
+          title: &quot;Combined Foundation Tags Disabled&quot;
+          message: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;
+          disableTools:
+            - DBTools.UpdateCombinedFoundationTags
+            - DBTools.MoveCombinedFoundationTags
+            - DBTools.OrganizeFoundationTypes
+  ribbonTools:
+    - internalName: DBTools.UpdateCombinedFoundationTags
+      commandType: DBTools.Structural.FoundationTags.UpdateCombinedFoundationTagsCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtActiveViewAvailability
+      runProfile: InlineUi
+      displayText: &quot;Update Combined\nFoundation Tags&quot;
+      iconBaseKey: update_combined
+      tooltip: &quot;Update combined foundation tag instances&quot;
+      controlKind: SplitButtonItem
+      splitGroup: foundation_tags
+      order: 0
+    - internalName: DBTools.MoveCombinedFoundationTags
+      commandType: DBTools.Structural.FoundationTags.MoveCombinedFoundationTagsCommand
+      availabilityType: DBTools.App.Tools.Availability.DbtActiveViewAvailability
+      runProfile: InlineUi
+      displayText: &quot;Move Combined Tags&quot;
+      iconBaseKey: move_combined
+      tooltip: &quot;Move combined foundation tags to corner positions&quot;
+      controlKind: SplitButtonItem
+      splitGroup: foundation_tags
+      order: 1
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/manifest.yml:1-39</code></p>
+</blockquote>
+<h2 id="integration-points">Integration Points</h2>
+<h3 id="revit-api-integration">Revit API Integration</h3>
+<p>The tool interacts with Revit through standard API patterns:</p>
+<ul>
+<li><strong>FilteredElementCollector</strong>: Queries piers, footings, and tags</li>
+<li><strong>FamilyInstance.Location</strong>: Extracts element positions</li>
+<li><strong>Parameter.Set/ClearValue</strong>: Updates element parameters</li>
+<li><strong>IndependentTag.TagHeadPosition</strong>: Repositions tags</li>
+<li><strong>SelectionFilterElement</strong>: Creates selection sets for results</li>
+<li><strong>RevitLinkInstance</strong>: Supports linked model elements</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsMover.cs:67-189</code></p>
+</blockquote>
+<h3 id="transaction-management">Transaction Management</h3>
+<p>Operations use the <code>ITransactionRunner</code> interface for transaction management:</p>
+<pre><code class="lang-csharp">_tx.RunAsync(_doc, &quot;DB Tools - Update Combined Foundation Tags...&quot;, doc =&gt;
+{
+    // Parameter updates
+});
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:96-222</code></p>
+</blockquote>
+<h3 id="related-documentation">Related Documentation</h3>
+<ul>
+<li><a href="../../architecture/overview.html">System Architecture</a> - Overall system design</li>
+<li><a href="organize-foundation.html">Organize Foundation Types</a> - Related foundation tool</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<p>The tool includes unit tests for the geometry module:</p>
+<p><strong>Test File:</strong> <code>FoundationTagsGeometryTests.cs</code></p>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Tests/FoundationTagsGeometryTests.cs:12</code></p>
+</blockquote>
+<p><strong>Test Categories:</strong></p>
+<ul>
+<li>Corner selection by view orientation</li>
+<li>Rotated view handling</li>
+<li>Case-insensitive corner name matching</li>
+<li>Invalid input handling</li>
+<li>Nearest point 2D search</li>
+<li>Corner name validation</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>csharp/src/Tools/Structural/FoundationTags/Tests/FoundationTagsGeometryTests.cs:24-432</code></p>
+</blockquote>
+<p>Run headless tests:</p>
+<pre><code class="lang-bash">dotnet test csharp/src/Tools/Structural/FoundationTags/Tests/DBTools.Structural.FoundationTags.Tests.csproj -c Release
+</code></pre>
+<hr>
+<blockquote>
+<p><strong>Documentation Status</strong>: Complete</p>
+<p><strong>Last Updated</strong>: 2026-01-24</p>
+<p><strong>Source Review</strong>: Verified against source files in <code>csharp/src/Tools/Structural/FoundationTags/</code></p>
+</blockquote>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/structural/foundation-tags.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
