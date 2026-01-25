@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Record Set Tool - Complete Technical Specification | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Record Set Tool - Complete Technical Specification | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/testing/recordset-spec.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20260125" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="record-set-tool---complete-technical-specification">Record Set Tool - Complete Technical Specification</h1>
+
+<h2 id="overview">Overview</h2>
+<p>The Record Set tool is a comprehensive multi-file copy and repath system designed for managing Revit project packages. It enables users to collect a set of Revit host models along with their linked files (RVT, DWG, and other external references), copy them to a new target folder structure organized by discipline and building, and automatically update all internal link references to point to the new file locations.</p>
+<p><strong>Legacy Python Location (pre-C# port):</strong> <code>./DB Tools/DB Tools.extension/DB Tools.tab/DB Tools Testing.panel/Record Set.pushbutton/</code></p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#core-concepts">Core Concepts</a></li>
+<li><a href="#data-models">Data Models</a></li>
+<li><a href="#complete-file-lifecycle">Complete File Lifecycle</a></li>
+<li><a href="#ui-components">UI Components</a></li>
+<li><a href="#operations-layer">Operations Layer</a></li>
+<li><a href="#services-layer">Services Layer</a></li>
+<li><a href="#cad-xref-handling">CAD Xref Handling</a></li>
+<li><a href="#safety-system">Safety System</a></li>
+<li><a href="#error-handling">Error Handling</a></li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#lisp-scripts">LISP Scripts</a></li>
+<li><a href="#functional-requirements">Functional Requirements</a></li>
+<li><a href="#non-functional-requirements">Non-Functional Requirements</a></li>
+<li><a href="#ui-control-reference">UI Control Reference</a></li>
+<li><a href="#interaction-scenarios">Interaction Scenarios</a></li>
+</ol>
+<hr>
+<h2 id="1-core-concepts">1. Core Concepts</h2>
+<h3 id="11-purpose">1.1 Purpose</h3>
+<p>Record Set solves the problem of creating portable, self-contained Revit project packages. When Revit models reference external files (linked RVTs, DWGs), those references use absolute paths. Moving files breaks these references. Record Set:</p>
+<ol>
+<li><strong>Collects</strong> all host files and their dependencies</li>
+<li><strong>Copies</strong> everything to a structured target folder</li>
+<li><strong>Remaps</strong> all internal references to use the new locations</li>
+<li><strong>Handles CAD</strong> files with special Xref processing (discovery, binding, or relative pathing)</li>
+</ol>
+<h3 id="12-workflow-stages">1.2 Workflow Stages</h3>
+<pre><code>┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   1. SELECT     │───&gt;│   2. PREVIEW    │───&gt;│   3. EXECUTE    │
+│   - Host RVTs   │    │   - Build plan  │    │   - Copy files  │
+│   - Target dir  │    │   - Show tree   │    │   - Repath refs │
+│   - CAD modes   │    │   - Validate    │    │   - CAD process │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+</code></pre>
+<h3 id="13-preview-execute-pattern">1.3 Preview-Execute Pattern</h3>
+<p>All operations are planned before execution:</p>
+<ul>
+<li><strong>Preview phase:</strong> Analyze files, discover links, compute new paths, validate constraints</li>
+<li><strong>Execute phase:</strong> Execute the plan atomically with progress tracking and cancellation support</li>
+</ul>
+<hr>
+<h2 id="2-data-models">2. Data Models</h2>
+<h3 id="21-recordsetfile">2.1 RecordSetFile</h3>
+<p>Represents a single file (host RVT or linked file) in the record set.</p>
+<pre><code>RecordSetFile
+├── name: string              # Filename (e.g., &quot;Model.rvt&quot;)
+├── path: string              # Absolute path to source file
+├── discipline: string        # Category (e.g., &quot;Structural&quot;, &quot;MEP&quot;) - empty string allowed
+├── building: string          # Building name (e.g., &quot;Building A&quot;) - &quot;-&quot; for none
+├── link_id: object|null      # Revit ElementId of link (for linked files)
+├── link_type: LinkType       # RVT | DWG | OTHER
+├── is_common: bool           # True if shared across multiple hosts
+├── new_path: string|null     # Computed destination path (set during preview)
+├── cad_mode: CadHandlingMode # INHERIT | ADD_XREFS | BIND_ALL
+├── bind_type: BindType       # BIND (0) | INSERT (1)
+└── children_manual: List&lt;RecordSetFile&gt;  # Manually added Xrefs (DWG only)
+</code></pre>
+<h3 id="22-linktype-enumeration">2.2 LinkType Enumeration</h3>
+<pre><code>LinkType
+├── RVT   = &quot;rvt&quot;    # Revit model link
+├── DWG   = &quot;dwg&quot;    # AutoCAD drawing link
+└── OTHER = &quot;other&quot;  # Any other external file (IFC, DGN, etc.)
+</code></pre>
+<h3 id="23-cadhandlingmode-enumeration">2.3 CadHandlingMode Enumeration</h3>
+<p>Controls how DWG files are processed:</p>
+<pre><code>CadHandlingMode
+├── INHERIT    = &quot;inherit&quot;    # Use parent/global setting
+├── ADD_XREFS  = &quot;add_xrefs&quot;  # Discover and copy Xrefs, update paths
+└── BIND_ALL   = &quot;bind_all&quot;   # Bind all Xrefs into the DWG
+</code></pre>
+<h3 id="24-bindtype-enumeration">2.4 BindType Enumeration</h3>
+<p>When binding Xrefs:</p>
+<pre><code>BindType
+├── BIND   = 0  # Prefix layer/block names with Xref name (preserves uniqueness)
+└── INSERT = 1  # Merge without prefix (may cause name conflicts)
+</code></pre>
+<h3 id="25-cadref">2.5 CadRef</h3>
+<p>Represents an AutoCAD Xref with hierarchical structure:</p>
+<pre><code>CadRef
+├── host_path: string         # Path to host DWG containing this Xref
+├── xref_path: string         # Path to the Xref file
+├── xref_name: string         # Block name of the Xref
+├── overlay: bool             # True if overlay attachment (vs. attachment)
+└── children: List&lt;CadRef&gt;    # Nested Xrefs within this Xref
+</code></pre>
+<h3 id="26-planitem">2.6 PlanItem</h3>
+<p>Single action in the execution plan:</p>
+<pre><code>PlanItem
+├── action: string            # Action type (see Action Types below)
+└── payload: Dict&lt;string,any&gt; # Parameters for the action
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Payload Keys</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fs_create_dir</code></td>
+<td><code>path</code></td>
+<td>Create directory</td>
+</tr>
+<tr>
+<td><code>fs_copy</code></td>
+<td><code>src</code>, <code>dst</code></td>
+<td>Copy file or directory</td>
+</tr>
+<tr>
+<td><code>cad_copy</code></td>
+<td><code>src</code>, <code>dst</code></td>
+<td>Copy CAD file</td>
+</tr>
+<tr>
+<td><code>cad_repath</code></td>
+<td><code>host</code>, <code>new_root</code></td>
+<td>Repath Xrefs to relative paths</td>
+</tr>
+<tr>
+<td><code>cad_bind_all</code></td>
+<td><code>host</code>, <code>bindtype</code></td>
+<td>Bind all Xrefs into DWG</td>
+</tr>
+<tr>
+<td><code>revit_repath</code></td>
+<td><code>host</code>, <code>mapping</code></td>
+<td>Update Revit TransmissionData</td>
+</tr>
+<tr>
+<td><code>ui_warn</code></td>
+<td><code>msg</code></td>
+<td>Display warning message</td>
+</tr>
+<tr>
+<td><code>ui_info</code></td>
+<td><code>msg</code></td>
+<td>Display info message</td>
+</tr>
+</tbody>
+</table>
+<h3 id="27-recordsetplan">2.7 RecordSetPlan</h3>
+<p>Complete execution blueprint:</p>
+<pre><code>RecordSetPlan
+├── items: List&lt;PlanItem&gt;     # Ordered list of actions
+├── total_bytes: int          # Total size of files to copy
+└── summary: Dict             # Statistics (counts, sizes, etc.)
+</code></pre>
+<h3 id="28-context">2.8 Context</h3>
+<p>Execution context container:</p>
+<pre><code>Context
+├── target_folder: string           # Destination root path
+├── selected_hosts: List&lt;RecordSetFile&gt;  # Selected host RVT files
+├── ui_flags: Dict                  # UI configuration flags
+│   ├── auto_discover_cad_xrefs: bool (default: True)
+│   └── allow_cad_repath: bool (default: True)
+├── all_links: List&lt;RecordSetFile&gt;  # All discovered links (built during preview)
+├── common_links: Set&lt;Tuple&gt;        # Set of (name, link_type) for shared links
+├── preview_copy_bytes: int         # Estimated copy size
+└── preview_predicted_output_bytes: int  # Estimated output size
+</code></pre>
+<h3 id="29-config-constants">2.9 Config (Constants)</h3>
+<p>Global configuration constants:</p>
+<pre><code>Config
+├── COMMON_LINKS_FOLDER = &quot;Common Linked Files&quot;
+├── MAX_TOTAL_BYTES = 80 GB          # Size limit
+├── MAX_TOTAL_ITEMS = 10,000         # Item count limit
+├── AUTO_DISCOVER_CAD_XREFS = True   # Default flag
+├── ALLOW_CAD_REPATH = True          # Default flag
+├── CAD_FALLBACK_DEPTH = 1           # Fallback scan depth
+├── CAD_SIBLING_DIRNAMES = (&quot;xrefs&quot;, &quot;xref&quot;, &quot;refs&quot;, &quot;ref&quot;, &quot;external&quot;, &quot;dwg&quot;, &quot;cad&quot;)
+└── ACCORECONSOLE_HINTS = List of paths to search for AutoCAD Core Console
+</code></pre>
+<h3 id="210-safetypolicy">2.10 SafetyPolicy</h3>
+<p>Runtime safety constraints (loaded from JSON):</p>
+<pre><code>SafetyPolicy
+├── allowed_target_roots: List&lt;string&gt;  # Whitelisted target directories
+├── delete_mode: string                 # &quot;quarantine&quot; or &quot;delete&quot;
+├── require_sentinel_for_delete: bool   # Require sentinel file
+├── verify_after_copy: bool             # Checksum verification
+├── min_free_bytes: int                 # Minimum free space (default: 10 GB)
+├── allowed_extensions: List&lt;string&gt;|null  # Whitelist extensions
+├── denied_extensions: List&lt;string&gt;|null   # Blacklist extensions
+├── deny_globs: List&lt;string&gt;            # Glob patterns to deny
+└── paths: Dict
+    └── enable_long_paths: bool         # Windows long path support
+</code></pre>
+<h3 id="211-safetyruntime">2.11 SafetyRuntime</h3>
+<p>Per-execution metadata:</p>
+<pre><code>SafetyRuntime
+├── target_root: string      # Target folder path
+├── run_id: string           # Format: YYYYMMDD-HHMMSS-XXXX (XXXX = random hex)
+├── fingerprint: string      # SHA256[:16] of plan
+├── lock_path: string        # {target}/.recordset.lock
+├── sentinel: string         # {target}/.recordset_sentinel
+├── trash_root: string       # {target}/_RS_TRASH/{run_id}
+├── manifest_dir: string     # {target}/_recordset_manifests
+└── manifest_path: string    # {manifest_dir}/{run_id}.json
+</code></pre>
+<h3 id="212-canceltoken">2.12 CancelToken</h3>
+<p>User cancellation signal:</p>
+<pre><code>CancelToken
+├── _cancelled: bool = False
+├── cancel() -&gt; void    # Sets _cancelled = True
+└── is_cancelled() -&gt; bool  # Returns _cancelled
+</code></pre>
+<hr>
+<h2 id="3-complete-file-lifecycle">3. Complete File Lifecycle</h2>
+<h3 id="31-phase-1-initialization">3.1 Phase 1: Initialization</h3>
+<pre><code>1. User clicks &quot;Record Set&quot; button on ribbon
+   └──&gt; pyRevit executes Record Set_script.py
+        └──&gt; Imports and calls _rs_entry.run()
+
+2. run() function:
+   └──&gt; Calls _prechecks() - validation stub returning True
+   └──&gt; Creates _MainCtl instance
+        └──&gt; Loads RecordSetForm.xaml via DBToolsWindow base class
+        └──&gt; Initializes empty state:
+             - services = Services(app=None)
+             - ctx = None
+             - plan = None
+             - selected_hosts = []
+             - target_folder = None
+             - ui_flags = {auto_discover_cad_xrefs: True, allow_cad_repath: True}
+   └──&gt; Calls ShowDialog() (modal)
+</code></pre>
+<h3 id="32-phase-2-host-file-selection">3.2 Phase 2: Host File Selection</h3>
+<pre><code>1. User clicks &quot;Add Host...&quot; button
+   └──&gt; add_file() handler
+
+2. add_file():
+   └──&gt; _pick_rvt() opens Windows file picker for .rvt files
+   └──&gt; Creates RecordSetFile:
+        - name = filename
+        - path = os.path.normcase(os.path.abspath(selected_path))
+        - discipline = &quot;&quot;
+        - building = &quot;-&quot;
+        - link_type = LinkType.RVT
+   └──&gt; Calls services.scan_links_for_host(host)
+        └──&gt; RevitOps.read_external_refs(host.path)
+             └──&gt; Opens TransmissionData from RVT file
+             └──&gt; Iterates ExternalFileReferences
+             └──&gt; For each ref:
+                  - Extracts absolute path
+                  - Determines link_type (rvt/dwg/other) from extension or type
+                  - Creates RecordSetFile for link
+             └──&gt; Returns list of RecordSetFile links
+        └──&gt; Stores links in host.links_to_keep
+   └──&gt; Appends host to selected_hosts[]
+   └──&gt; Logs action
+   └──&gt; Does NOT auto-sync (user must click &quot;Sync Preview&quot;)
+</code></pre>
+<h3 id="33-phase-3-target-folder-selection">3.3 Phase 3: Target Folder Selection</h3>
+<pre><code>1. User clicks &quot;Target Folder...&quot; button
+   └──&gt; choose_target_folder() handler
+
+2. choose_target_folder():
+   └──&gt; Opens folder picker dialog
+   └──&gt; Normalizes path: os.path.normcase(os.path.abspath(...))
+   └──&gt; Updates target_folder attribute
+   └──&gt; Updates target_tb.Text display
+</code></pre>
+<h3 id="34-phase-4-previewplan-generation">3.4 Phase 4: Preview/Plan Generation</h3>
+<pre><code>1. User clicks &quot;Sync Preview&quot; button
+   └──&gt; sync_tree() handler
+
+2. sync_tree():
+   └──&gt; VALIDATION:
+        - If target_folder is None: show error, return
+
+   └──&gt; READ UI FLAGS:
+        - auto_discover = auto_cad_xref_cb.IsChecked
+        - ui_flags[&quot;auto_discover_cad_xrefs&quot;] = auto_discover
+
+   └──&gt; BUILD CONTEXT:
+        └──&gt; services.build_context(target_folder, selected_hosts, ui_flags)
+             └──&gt; Creates Context object
+             └──&gt; Calls _mark_common_links():
+                  - Counts (name, link_type) pairs across all hosts
+                  - For links appearing in 2+ hosts:
+                    - Sets link.is_common = True
+                    - Adds to ctx.common_links set
+             └──&gt; Returns ctx
+
+   └──&gt; GENERATE PLAN:
+        └──&gt; services.preview_plan(ctx)
+             └──&gt; Creates RecordSetPlan()
+
+             └──&gt; FOR EACH HOST:
+                  - new_path = compute_host_target_path(target_root, host)
+                    Formula: {target}/{building}/{discipline}/{name}
+                    Or if building == &quot;-&quot;: {target}/{discipline}/{name}
+                  - Add: fs_create_dir(dirname(new_path))
+                  - Add: fs_copy(src=host.path, dst=new_path)
+
+                  └──&gt; FOR EACH LINK IN HOST:
+                       - new_path = compute_link_target_path(target_root, link, is_common)
+                         If is_common: {target}/Common Linked Files/{name}
+                         Else if building == &quot;-&quot;: {target}/{discipline}/Linked Files/{name}
+                         Else: {target}/{building}/{discipline}/Linked Files/{name}
+                       - Add: fs_create_dir(dirname(new_path))
+                       - If NOT DWG: Add: fs_copy(src, dst)
+                       - If DWG: Defer to CAD planning
+
+             └──&gt; CAD PLANNING (for each host):
+                  └──&gt; _build_cad_plan_for_host(ctx, plan, host)
+                       └──&gt; Find accore = CadXrefOps.find_core_console()
+
+                       └──&gt; FOR EACH DWG LINK:
+                            - Add: fs_create_dir(dirname(new_path))
+                            - Add: cad_copy(src, dst)
+
+                            └──&gt; IF cad_mode == BIND_ALL:
+                                 - Add: cad_bind_all(host=new_path, bindtype=link.bind_type)
+                                 - CONTINUE (skip Xref discovery)
+
+                            └──&gt; IF auto_discover AND accore exists:
+                                 TRY:
+                                   - tree = CadXrefOps.scan_xref_tree(accore, dwg, lsp_dir)
+                                   - copy_pairs = CadXrefOps.expand_tree_to_plan(tree)
+                                   - For each Xref path (skip host itself):
+                                     - Add: fs_create_dir + cad_copy
+                                   - If allow_cad_repath:
+                                     - Add: cad_repath(host=new_path, new_root=target_root)
+                                 EXCEPT:
+                                   - Add: ui_warn(error message)
+                                   - Fallback to _fallback_cad_copy()
+
+                            └──&gt; ELSE (no accore):
+                                 - Add: ui_info(&quot;AutoCAD Core Console not found&quot;)
+                                 - Fallback to _fallback_cad_copy()
+
+             └──&gt; _fallback_cad_copy(plan, dwg):
+                  - Heuristic: copy sibling directories named &quot;xrefs&quot;, &quot;xref&quot;, etc.
+                  - For each CAD_SIBLING_DIRNAME:
+                    - If exists: Add fs_create_dir + fs_copy for directory
+
+             └──&gt; REVIT REPATH (for each host):
+                  - Build mapping: {old_link_path: new_link_path} for all links
+                  - Add: revit_repath(host=new_host_path, mapping=mapping)
+
+             └──&gt; CALCULATE SIZES:
+                  - total_bytes = sum of all source file sizes
+                  - predicted_output = total_bytes + bind expansion estimates
+
+             └──&gt; VALIDATION:
+                  - If total_bytes &gt; MAX_TOTAL_BYTES: Add ui_warn
+                  - If item_count &gt; MAX_TOTAL_ITEMS: Add ui_warn
+
+             └──&gt; _prevent_name_collisions(plan):
+                  - Track all destination paths
+                  - If collision (same dst, different src):
+                    - Rename to: name (2).ext, name (3).ext, etc.
+                    - Add: ui_warn(&quot;Renamed due to collision&quot;)
+
+             └──&gt; Return (plan, messages)
+
+   └──&gt; DISPLAY PLAN:
+        └──&gt; Show messages in plan_msgs_ic ItemsControl
+        └──&gt; Show AutoCAD Core Console status in accore_tb TextBlock
+        └──&gt; _render_tree():
+             - Clear links_tv TreeView
+             - For each host:
+               - Create TreeViewItem &quot;Host: {name}&quot;
+               - For each link:
+                 - Create child TreeViewItem &quot;{link_type}: {name}&quot;
+                 - If DWG with manual children:
+                   - Create grandchild TreeViewItems
+             - Set Tag property on each item for object reference
+
+   └──&gt; COMPUTE FINGERPRINT:
+        └──&gt; _fingerprint(plan):
+             - Concatenate: action + sorted(payload.items())
+             - SHA256[:16] of concatenation
+        └──&gt; Store in plan_fingerprint
+</code></pre>
+<h3 id="35-phase-5-cad-mode-configuration-optional">3.5 Phase 5: CAD Mode Configuration (Optional)</h3>
+<pre><code>1. User selects DWG node in TreeView
+   └──&gt; UI enables CAD handling panel
+
+2. User clicks &quot;Keep/Add Xrefs&quot; radio button:
+   └──&gt; checked_addxrefs():
+        - node = _selected_cad_node()
+        - services.set_cad_mode(ctx, node, CadHandlingMode.ADD_XREFS)
+        - _set_cad_panel_enabled(addxrefs=True, bindall=False)
+        - sync_tree()  // Re-plan
+
+3. User clicks &quot;Bind all Xrefs&quot; radio button:
+   └──&gt; checked_bindall():
+        - node = _selected_cad_node()
+        - services.set_cad_mode(ctx, node, CadHandlingMode.BIND_ALL)
+        - Clear node.children_manual[]
+        - _set_cad_panel_enabled(addxrefs=False, bindall=True)
+        - sync_tree()  // Re-plan
+
+4. User selects BindType (BIND vs INSERT):
+   └──&gt; bindtype_changed():
+        - services.set_cad_mode(..., bindtype=selected_value)
+
+5. User clicks &quot;Add CAD Xref...&quot; button:
+   └──&gt; add_cad_xref():
+        - parent = _selected_cad_node()
+        - _pick_dwg() opens file picker
+        - services.add_manual_cad_xref(ctx, parent, dwg_path)
+        - sync_tree()  // Re-plan
+</code></pre>
+<h3 id="36-phase-6-execution">3.6 Phase 6: Execution</h3>
+<pre><code>1. User clicks &quot;Process&quot; button
+   └──&gt; process_files() handler
+
+2. process_files():
+   └──&gt; VALIDATION:
+        - If plan is None: show error, return
+
+   └──&gt; CREATE PROGRESS UI:
+        - cancel_token = CancelToken()
+        - progress_ctl = _ProgressCtl()
+        - progress_ctl.cancel_token = cancel_token
+        - progress_ctl.show()  // Non-modal
+        - Define log_cb = lambda msg: progress_ctl.log(msg)
+        - Define progress_cb = lambda pct: progress_ctl.set_progress(pct)
+
+   └──&gt; EXECUTE:
+        └──&gt; services.execute(ctx, plan, progress_cb, log_cb, cancel_token)
+
+             └──&gt; SETUP:
+                  - Create Progress tracker with action weights
+                  - policy = _load_policy(target_root, log_cb)
+                    - Load recordset_policy.json
+                    - Return SafetyPolicy object
+                  - run_id = _make_run_id()  // YYYYMMDD-HHMMSS-XXXX
+                  - fingerprint = _fingerprint_plan(plan)
+                  - rt = SafetyRuntime(target_root, run_id, fingerprint)
+
+             └──&gt; VALIDATE:
+                  - If target_root not in policy.allowed_target_roots:
+                    - Raise Exception(&quot;Target not in allowed roots&quot;)
+                  - If free_space &lt; policy.min_free_bytes + plan.total_bytes:
+                    - Raise Exception(&quot;Insufficient disk space&quot;)
+
+             └──&gt; ACQUIRE LOCK:
+                  └──&gt; SafeFsOps.acquire_lock(rt, log_cb):
+                       - Create rt.lock_path file with content: run_id + fingerprint
+                       - If file already exists: Raise Exception(&quot;Concurrent execution&quot;)
+
+             └──&gt; WRITE SENTINEL:
+                  - SafeFsOps.write_sentinel(rt, log_cb)
+                  - Touch file at rt.sentinel
+
+             └──&gt; TRY:
+                  └──&gt; FOR EACH PLAN ITEM:
+                       - Check cancel_token.is_cancelled(): break if True
+
+                       └──&gt; DISPATCH BY ACTION:
+
+                            fs_create_dir:
+                              FsOps.make_dir(payload[&quot;path&quot;])
+
+                            fs_copy:
+                              FsOps.copy_file(payload[&quot;src&quot;], payload[&quot;dst&quot;], log_cb)
+                              - If src is directory: recursive copy via os.walk()
+                              - If src is file: shutil.copy2() (preserves metadata)
+
+                            cad_copy:
+                              FsOps.copy_file(payload[&quot;src&quot;], payload[&quot;dst&quot;], log_cb)
+
+                            cad_repath:
+                              accore = CadXrefOps.find_core_console()
+                              CadXrefOps.repath_xrefs_relative(
+                                accore, payload[&quot;host&quot;], lsp_dir, payload[&quot;new_root&quot;])
+                              - Runs rs_repath_xrefs.lsp via accoreconsole
+                              - Converts Xref paths to relative under new_root
+
+                            cad_bind_all:
+                              accore = CadXrefOps.find_core_console()
+                              CadXrefOps.bind_all(
+                                accore, payload[&quot;host&quot;], lsp_dir, payload[&quot;bindtype&quot;])
+                              - Runs rs_bind_all_xrefs.lsp via accoreconsole
+                              - Binds all Xrefs with specified BindType
+                              - Purges unused 3x
+                              - Quick-saves
+
+                            revit_repath:
+                              RevitOps.write_transmission(
+                                payload[&quot;host&quot;], payload[&quot;mapping&quot;])
+                              - Read TransmissionData from RVT
+                              - For each external reference:
+                                - old_path = ext_ref.GetPath() or GetAbsolutePath()
+                                - new_path = mapping.get(normalize(old_path))
+                                - If found: ext_ref.SetDesiredReferenceData(new_path)
+                              - Write TransmissionData back if changed
+
+                            ui_warn:
+                              log_cb(&quot;[WARNING] &quot; + payload[&quot;msg&quot;])
+
+                            ui_info:
+                              log_cb(&quot;[INFO] &quot; + payload[&quot;msg&quot;])
+
+                       - progress.step(action_weight)
+
+                  └──&gt; WRITE MANIFEST (success):
+                       - SafeFsOps.write_manifest(rt, plan.summary, &quot;ok&quot;, log_cb)
+                       - JSON at rt.manifest_path:
+                         {
+                           &quot;run_id&quot;: &quot;...&quot;,
+                           &quot;fingerprint&quot;: &quot;...&quot;,
+                           &quot;target_root&quot;: &quot;...&quot;,
+                           &quot;utc&quot;: &quot;2025-01-13T...&quot;,
+                           &quot;summary&quot;: plan.summary,
+                           &quot;status&quot;: &quot;ok&quot;
+                         }
+
+             └──&gt; EXCEPT Exception as e:
+                  - SafeFsOps.write_manifest(rt, plan.summary, f&quot;failed:{e}&quot;, log_cb)
+                  - Re-raise exception
+
+             └──&gt; FINALLY:
+                  - SafeFsOps.release_lock(rt, log_cb)
+                  - Delete rt.lock_path file
+
+   └──&gt; COMPLETION:
+        - progress_ctl.enable_close()
+        - User can now close progress window
+</code></pre>
+<h3 id="37-phase-7-completion">3.7 Phase 7: Completion</h3>
+<pre><code>1. Execution completes (success or failure)
+   └──&gt; Progress window remains open with logs
+
+2. User interactions:
+   └──&gt; &quot;Copy logs&quot; button: Copies step_tb.Text to clipboard
+   └──&gt; &quot;Close&quot; button: Closes window (only enabled after completion)
+
+3. Output folder structure:
+   {target_folder}/
+   ├── {Building}/
+   │   └── {Discipline}/
+   │       ├── Host.rvt
+   │       └── Linked Files/
+   │           ├── Link1.rvt
+   │           └── Link2.dwg
+   ├── Common Linked Files/
+   │   ├── SharedLink1.rvt
+   │   └── SharedLink2.dwg
+   ├── _recordset_manifests/
+   │   └── {run_id}.json
+   └── .recordset_sentinel
+</code></pre>
+<hr>
+<h2 id="4-ui-components">4. UI Components</h2>
+<h3 id="41-main-window-recordsetformxaml">4.1 Main Window (RecordSetForm.xaml)</h3>
+<p><strong>Window Properties:</strong></p>
+<ul>
+<li>Title: &quot;Record Set&quot;</li>
+<li>Size: 1100 x 720 pixels</li>
+<li>Resizable, centered on screen</li>
+<li>Modal display via ShowDialog()</li>
+<li>Not shown in taskbar</li>
+</ul>
+<p><strong>Layout Structure:</strong></p>
+<pre><code>┌────────────────────────────────────────────────────────────────────┐
+│ [Wizard Bar: 1-Select | 2-Preview | 3-Execute]                     │
+├────────────────────────────────────────────────────────────────────┤
+│ [Policy Status: Allowed Root | Free Space | AutoCAD | Sentinel]    │
+├──────────────────────────────────────────┬─────────────────────────┤
+│ [Control Bar]                            │ [Target Folder: ____]   │
+│ [Manage Disciplines] [Manage Buildings]  │ [Sync Preview] [Process]│
+│ [Add Host] [Remove Selected]             │                         │
+│ [x] Auto-discover nested CAD Xrefs       │                         │
+├──────────────────────────────────────────┴─────────────────────────┤
+│ [Plan Messages: ItemsControl with warnings/info]                   │
+├────────────────────────────────┬───────────────────────────────────┤
+│ [Files DataGrid]               │ [CAD Panel]                       │
+│ ┌─────────────────────────┐    │ ┌─────────────────────────────┐   │
+│ │ Host File | Disc | Bldg │    │ │ ( ) Keep/Add Xrefs          │   │
+│ ├─────────────────────────┤    │ │ ( ) Bind all Xrefs          │   │
+│ │ Model.rvt | STR  | Bld1 │    │ │ [BindType: v] [Add Xref...] │   │
+│ │ MEP.rvt   | MEP  | Bld1 │    │ └─────────────────────────────┘   │
+│ └─────────────────────────┘    │ [Links TreeView]                  │
+│                                │ ├── Host: Model.rvt               │
+│                                │ │   ├── rvt: Linked.rvt           │
+│                                │ │   └── dwg: CAD.dwg              │
+│                                │ │       └── dwg: Xref1.dwg        │
+│                                │ └── Host: MEP.rvt                 │
+│                                │     └── ...                       │
+└────────────────────────────────┴───────────────────────────────────┘
+</code></pre>
+<h3 id="42-manage-dialog-recordsetformmanagexaml">4.2 Manage Dialog (RecordSetFormManage.xaml)</h3>
+<p><strong>Window Properties:</strong></p>
+<ul>
+<li>Title: &quot;Record Set - Manage&quot;</li>
+<li>Size: 520 x 420 pixels</li>
+<li>Resizable with grip</li>
+<li>Modal display</li>
+</ul>
+<p><strong>Layout:</strong></p>
+<pre><code>┌────────────────────────────────────────┐
+│ [Add...] [Rename] [Delete]             │
+│ Double-click item to rename            │
+├────────────────────────────────────────┤
+│ [ListBox: items]                       │
+│ ┌──────────────────────────────────┐   │
+│ │ Structural                       │   │
+│ │ MEP                              │   │
+│ │ Architectural                    │   │
+│ └──────────────────────────────────┘   │
+├────────────────────────────────────────┤
+│                              [Close]   │
+└────────────────────────────────────────┘
+</code></pre>
+<p><strong>Functionality:</strong></p>
+<ul>
+<li>Add: Prompts for name, appends to list</li>
+<li>Rename: Prompts for new name, updates in-place</li>
+<li>Delete: Removes selected item</li>
+</ul>
+<h3 id="43-progress-window-recordsetformprogressxaml">4.3 Progress Window (RecordSetFormProgress.xaml)</h3>
+<p><strong>Window Properties:</strong></p>
+<ul>
+<li>Title: &quot;Record Set - Progress&quot;</li>
+<li>Size: 820 x 520 pixels</li>
+<li>Resizable with grip</li>
+<li>Non-modal display initially</li>
+<li>Close prevented until execution completes</li>
+</ul>
+<p><strong>Layout:</strong></p>
+<pre><code>┌────────────────────────────────────────────────────────────────────┐
+│ [████████████████████░░░░░░░░░░░░░░░░░░░] 65%                      │
+├────────────────────────────────────────────────────────────────────┤
+│ [Scrollable Log TextBox]                                           │
+│ ┌──────────────────────────────────────────────────────────────┐   │
+│ │ Creating directory: C:\Output\Structural                      │   │
+│ │ Copying: Model.rvt -&gt; C:\Output\Structural\Model.rvt         │   │
+│ │ Copying: Link.rvt -&gt; C:\Output\Structural\Linked Files\...   │   │
+│ │ Processing CAD Xrefs for CAD.dwg...                          │   │
+│ │ Updating link references in Model.rvt...                     │   │
+│ └──────────────────────────────────────────────────────────────┘   │
+├────────────────────────────────────────────────────────────────────┤
+│ [Recap Panel - collapsed until complete]                           │
+│ Copy size: 2.5 GB | Output size: 2.8 GB | Duration: 3m 42s        │
+│ Manifest: C:\Output\_recordset_manifests\20250113-154200-a1b2.json│
+├────────────────────────────────────────────────────────────────────┤
+│ [Copy logs]                                    [Cancel]   [Close]  │
+└────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Functionality:</strong></p>
+<ul>
+<li>Progress bar: 0-100 with percentage text</li>
+<li>Log area: Scrolling TextBox with auto-scroll</li>
+<li>Copy logs: Copies log text to clipboard</li>
+<li>Cancel: Signals cancel_token.cancel()</li>
+<li>Close: Disabled until execution completes</li>
+</ul>
+<hr>
+<h2 id="5-operations-layer">5. Operations Layer</h2>
+<h3 id="51-fsops-filesystem-operations">5.1 FsOps (Filesystem Operations)</h3>
+<p>Basic filesystem operations without safety validation:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make_dir</code></td>
+<td>path, log</td>
+<td>Creates directory if not exists (os.makedirs)</td>
+</tr>
+<tr>
+<td><code>copy_file</code></td>
+<td>src, dst, log</td>
+<td>If directory: recursive copy via os.walk(). If file: shutil.copy2()</td>
+</tr>
+<tr>
+<td><code>remove_path</code></td>
+<td>path, log</td>
+<td>Removes file or directory tree (shutil.rmtree)</td>
+</tr>
+<tr>
+<td><code>calc_size_bytes</code></td>
+<td>path</td>
+<td>Recursively sums file sizes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-safefsops-safety-enhanced-operations">5.2 SafeFsOps (Safety-Enhanced Operations)</h3>
+<p>Hardened operations with policy enforcement:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_is_under</code></td>
+<td>root, path</td>
+<td>Returns True if path is under root</td>
+</tr>
+<tr>
+<td><code>acquire_lock</code></td>
+<td>rt, log</td>
+<td>Creates exclusive lock file with run_id/fingerprint</td>
+</tr>
+<tr>
+<td><code>release_lock</code></td>
+<td>rt, log</td>
+<td>Removes lock file</td>
+</tr>
+<tr>
+<td><code>write_sentinel</code></td>
+<td>rt, log</td>
+<td>Touches sentinel file</td>
+</tr>
+<tr>
+<td><code>make_dir</code></td>
+<td>rt, pol, path, log</td>
+<td>Delegates to FsOps.make_dir()</td>
+</tr>
+<tr>
+<td><code>copy_file</code></td>
+<td>rt, pol, src, dst, log</td>
+<td>Delegates to FsOps.copy_file()</td>
+</tr>
+<tr>
+<td><code>write_manifest</code></td>
+<td>rt, summary, status, log</td>
+<td>Writes JSON manifest file</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-revitops-revit-document-operations">5.3 RevitOps (Revit Document Operations)</h3>
+<p>Revit API operations for document manipulation:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>open_doc</code></td>
+<td>app, path, workshared, detach_preserve</td>
+<td>Opens RVT with OpenAllWorksets, DetachFromCentral</td>
+</tr>
+<tr>
+<td><code>close_doc</code></td>
+<td>doc, save, new_path</td>
+<td>Closes document, optionally saves to new path</td>
+</tr>
+<tr>
+<td><code>purge_unused</code></td>
+<td>doc</td>
+<td>Stub (not implemented)</td>
+</tr>
+<tr>
+<td><code>delete_views</code></td>
+<td>doc, view_ids</td>
+<td>Transaction: deletes specified views</td>
+</tr>
+<tr>
+<td><code>delete_links</code></td>
+<td>doc, link_ids</td>
+<td>Transaction: deletes specified links</td>
+</tr>
+<tr>
+<td><code>read_external_refs</code></td>
+<td>rvt_path</td>
+<td>Reads TransmissionData, returns list of (abs_path, kind)</td>
+</tr>
+<tr>
+<td><code>write_transmission</code></td>
+<td>rvt_path, mapping</td>
+<td>Updates link paths in TransmissionData</td>
+</tr>
+</tbody>
+</table>
+<h3 id="54-cadxrefops-autocad-core-console-operations">5.4 CadXrefOps (AutoCAD Core Console Operations)</h3>
+<p>CAD operations via AutoCAD Core Console:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>find_core_console</code></td>
+<td>-</td>
+<td>Searches for accoreconsole.exe</td>
+</tr>
+<tr>
+<td><code>scan_xref_tree</code></td>
+<td>accore, host_dwg, lsp_dir</td>
+<td>Returns JSON tree of Xrefs</td>
+</tr>
+<tr>
+<td><code>repath_xrefs_relative</code></td>
+<td>accore, host, lsp_dir, new_root</td>
+<td>Converts Xref paths to relative</td>
+</tr>
+<tr>
+<td><code>bind_all</code></td>
+<td>accore, host, lsp_dir, bindtype</td>
+<td>Binds all Xrefs with purge</td>
+</tr>
+<tr>
+<td><code>expand_tree_to_plan</code></td>
+<td>tree_json, copy_pairs</td>
+<td>Extracts all unique paths from tree</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="6-services-layer">6. Services Layer</h2>
+<h3 id="61-context-management">6.1 Context Management</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>build_context</code></td>
+<td>target_folder, selected_hosts, ui_flags</td>
+<td>Creates Context, marks common links</td>
+</tr>
+<tr>
+<td><code>set_cad_mode</code></td>
+<td>ctx, parent_dwg, mode, bindtype</td>
+<td>Sets CAD handling mode for DWG</td>
+</tr>
+<tr>
+<td><code>add_manual_cad_xref</code></td>
+<td>ctx, parent_link, dwg_path</td>
+<td>Adds manual Xref to DWG</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-link-discovery">6.2 Link Discovery</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scan_links_for_host</code></td>
+<td>host</td>
+<td>Reads TransmissionData, creates RecordSetFile for each link</td>
+</tr>
+<tr>
+<td><code>_mark_common_links</code></td>
+<td>ctx</td>
+<td>Identifies links shared across multiple hosts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-plan-generation">6.3 Plan Generation</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>preview_plan</code></td>
+<td>ctx</td>
+<td>Generates complete execution plan with validation</td>
+</tr>
+<tr>
+<td><code>_build_cad_plan_for_host</code></td>
+<td>ctx, plan, host</td>
+<td>Generates CAD-specific plan items</td>
+</tr>
+<tr>
+<td><code>_fallback_cad_copy</code></td>
+<td>plan, dwg</td>
+<td>Heuristic copy of sibling CAD directories</td>
+</tr>
+<tr>
+<td><code>_prevent_name_collisions</code></td>
+<td>plan</td>
+<td>Renames duplicate destinations</td>
+</tr>
+</tbody>
+</table>
+<h3 id="64-execution">6.4 Execution</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>execute</code></td>
+<td>ctx, plan, progress_cb, log_cb, cancel_token</td>
+<td>Executes plan with progress tracking</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="7-cad-xref-handling">7. CAD Xref Handling</h2>
+<h3 id="71-cad-handling-modes">7.1 CAD Handling Modes</h3>
+<p><strong>INHERIT:</strong></p>
+<ul>
+<li>Uses parent/global setting</li>
+<li>Default mode for newly discovered DWGs</li>
+</ul>
+<p><strong>ADD_XREFS (Keep/Add Xrefs):</strong></p>
+<ol>
+<li>Discover Xref tree via AutoCAD Core Console (rs_list_xrefs.lsp)</li>
+<li>Copy host DWG and all discovered Xrefs to target</li>
+<li>Repath Xrefs to use relative paths (rs_repath_xrefs.lsp)</li>
+<li>Allow manual addition of extra Xrefs</li>
+</ol>
+<p><strong>BIND_ALL:</strong></p>
+<ol>
+<li>Copy host DWG to target</li>
+<li>Bind all Xrefs into the DWG (rs_bind_all_xrefs.lsp)</li>
+<li>Purge unused content (3x)</li>
+<li>Result: Self-contained DWG with no external dependencies</li>
+</ol>
+<h3 id="72-bindtype-options">7.2 BindType Options</h3>
+<p><strong>BIND (0):</strong></p>
+<ul>
+<li>Prefixes layer/block names with Xref name</li>
+<li>Example: &quot;0&quot; layer becomes &quot;XrefName$0$0&quot;</li>
+<li>Preserves uniqueness, avoids conflicts</li>
+</ul>
+<p><strong>INSERT (1):</strong></p>
+<ul>
+<li>Merges layers/blocks without prefix</li>
+<li>Example: &quot;0&quot; layer merges with existing &quot;0&quot;</li>
+<li>May cause naming conflicts, but cleaner result</li>
+</ul>
+<h3 id="73-fallback-behavior">7.3 Fallback Behavior</h3>
+<p>When AutoCAD Core Console is not available:</p>
+<ol>
+<li>Log info message about missing accore</li>
+<li>Heuristically copy sibling directories with known CAD names:
+<ul>
+<li>xrefs, xref, refs, ref, external, dwg, cad</li>
+</ul>
+</li>
+<li>No path repathing (Xrefs may still break)</li>
+</ol>
+<hr>
+<h2 id="8-safety-system">8. Safety System</h2>
+<h3 id="81-lock-file-mechanism">8.1 Lock File Mechanism</h3>
+<p>Prevents concurrent execution:</p>
+<pre><code>File: {target}/.recordset.lock
+Content: {run_id}\n{fingerprint}
+</code></pre>
+<ul>
+<li>Created at execution start</li>
+<li>Deleted at execution end (finally block)</li>
+<li>If exists when starting: throw exception</li>
+</ul>
+<h3 id="82-sentinel-file">8.2 Sentinel File</h3>
+<p>Marks target as managed by Record Set:</p>
+<pre><code>File: {target}/.recordset_sentinel
+Content: (empty - just touched)
+</code></pre>
+<ul>
+<li>Created/touched at execution start</li>
+<li>Required before any delete operations (configurable)</li>
+<li>Never deleted</li>
+</ul>
+<h3 id="83-manifest-files">8.3 Manifest Files</h3>
+<p>Execution audit trail:</p>
+<pre><code>File: {target}/_recordset_manifests/{run_id}.json
+Content:
+{
+  &quot;run_id&quot;: &quot;20250113-154200-a1b2&quot;,
+  &quot;fingerprint&quot;: &quot;abc123def456...&quot;,
+  &quot;target_root&quot;: &quot;C:\\Output&quot;,
+  &quot;utc&quot;: &quot;2025-01-13T15:42:00Z&quot;,
+  &quot;summary&quot;: { ... },
+  &quot;status&quot;: &quot;ok&quot; | &quot;failed:...&quot;
+}
+</code></pre>
+<h3 id="84-safety-policy">8.4 Safety Policy</h3>
+<p>Configurable constraints in <code>recordset_policy.json</code>:</p>
+<ul>
+<li><code>allowed_target_roots</code>: Whitelist of valid target directories</li>
+<li><code>min_free_bytes</code>: Minimum free disk space (default: 10 GB)</li>
+<li><code>denied_extensions</code>: File types to skip (.dwl, .dwl2, .tmp, .bak, .lnk, .exe)</li>
+<li><code>deny_globs</code>: Patterns to skip (<em>backup</em>.rvt, <em>.old, ~$</em>)</li>
+</ul>
+<hr>
+<h2 id="9-error-handling">9. Error Handling</h2>
+<h3 id="91-error-scenarios">9.1 Error Scenarios</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Handling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No target folder selected</td>
+<td>UI error message, abort preview</td>
+</tr>
+<tr>
+<td>Target not in allowed roots</td>
+<td>Exception during execute</td>
+</tr>
+<tr>
+<td>Insufficient disk space</td>
+<td>Exception during execute</td>
+</tr>
+<tr>
+<td>Lock file exists</td>
+<td>Exception during execute</td>
+</tr>
+<tr>
+<td>File copy fails</td>
+<td>Exception propagates, manifest written with failure status</td>
+</tr>
+<tr>
+<td>CAD Core Console not found</td>
+<td>Fallback to heuristic copy, continue</td>
+</tr>
+<tr>
+<td>CAD script fails</td>
+<td>Warning logged, continue with partial plan</td>
+</tr>
+<tr>
+<td>TransmissionData read fails</td>
+<td>Empty link list returned, continue</td>
+</tr>
+<tr>
+<td>User cancels</td>
+<td>Break execution loop, release lock, exit</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-recovery">9.2 Recovery</h3>
+<ul>
+<li>Lock file: Manually delete <code>.recordset.lock</code> if stale</li>
+<li>Failed execution: Check manifest for failure status and details</li>
+<li>Partial copy: Target folder may contain incomplete files; re-run after cleanup</li>
+</ul>
+<hr>
+<h2 id="10-configuration">10. Configuration</h2>
+<h3 id="101-recordset_policyjson">10.1 recordset_policy.json</h3>
+<p>Default location: Same directory as script</p>
+<pre><code class="lang-json">{
+  &quot;allowed_target_roots&quot;: [
+    &quot;\\\\fileserver\\Projects&quot;
+  ],
+  &quot;delete_mode&quot;: &quot;quarantine&quot;,
+  &quot;require_sentinel_for_delete&quot;: true,
+  &quot;verify_after_copy&quot;: false,
+  &quot;min_free_bytes&quot;: 10737418240,
+  &quot;denied_extensions&quot;: [&quot;.dwl&quot;, &quot;.dwl2&quot;, &quot;.tmp&quot;, &quot;.bak&quot;, &quot;.lnk&quot;, &quot;.exe&quot;],
+  &quot;deny_globs&quot;: [&quot;*backup*.rvt&quot;, &quot;*.old&quot;, &quot;~$*&quot;],
+  &quot;paths&quot;: {
+    &quot;enable_long_paths&quot;: false
+  }
+}
+</code></pre>
+<h3 id="102-config-constants">10.2 Config Constants</h3>
+<p>Hardcoded in <code>_rs_models.py</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>COMMON_LINKS_FOLDER</code></td>
+<td>&quot;Common Linked Files&quot;</td>
+<td>Folder name for shared links</td>
+</tr>
+<tr>
+<td><code>MAX_TOTAL_BYTES</code></td>
+<td>80 GB</td>
+<td>Maximum total copy size</td>
+</tr>
+<tr>
+<td><code>MAX_TOTAL_ITEMS</code></td>
+<td>10,000</td>
+<td>Maximum item count</td>
+</tr>
+<tr>
+<td><code>CAD_SIBLING_DIRNAMES</code></td>
+<td>(&quot;xrefs&quot;, &quot;xref&quot;, ...)</td>
+<td>Fallback CAD directory names</td>
+</tr>
+<tr>
+<td><code>ACCORECONSOLE_HINTS</code></td>
+<td>[...paths...]</td>
+<td>AutoCAD Core Console search paths</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="11-lisp-scripts">11. LISP Scripts</h2>
+<h3 id="111-rs_list_xrefslsp">11.1 rs_list_xrefs.lsp</h3>
+<p><strong>Purpose:</strong> Discover Xref tree for a DWG</p>
+<p><strong>Input:</strong> Drawing path (via accoreconsole /i flag)</p>
+<p><strong>Output:</strong> JSON structure:</p>
+<pre><code class="lang-json">{
+  &quot;host&quot;: &quot;path/to/drawing.dwg&quot;,
+  &quot;xrefs&quot;: [
+    {
+      &quot;name&quot;: &quot;xref_name&quot;,
+      &quot;path&quot;: &quot;path/to/xref.dwg&quot;,
+      &quot;overlay&quot;: false,
+      &quot;children&quot;: [...]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Open drawing (context from accoreconsole)</li>
+<li>Iterate Blocks collection</li>
+<li>For each Xref block:
+<ul>
+<li>Extract name and path</li>
+<li>Recursively open child and scan</li>
+<li>Build nested structure</li>
+</ul>
+</li>
+<li>Output JSON to stdout</li>
+</ol>
+<h3 id="112-rs_repath_xrefslsp">11.2 rs_repath_xrefs.lsp</h3>
+<p><strong>Purpose:</strong> Convert Xref paths to relative</p>
+<p><strong>Input:</strong> <code>&quot;host.dwg|target_root&quot;</code> (pipe-separated)</p>
+<p><strong>Output:</strong> <code>{&quot;ok&quot;:true}</code></p>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Parse argument</li>
+<li>For each Xref:
+<ul>
+<li>If path starts with target_root: strip root, make relative</li>
+</ul>
+</li>
+<li>Save drawing</li>
+</ol>
+<h3 id="113-rs_bind_all_xrefslsp">11.3 rs_bind_all_xrefs.lsp</h3>
+<p><strong>Purpose:</strong> Bind all Xrefs into DWG</p>
+<p><strong>Input:</strong> <code>&quot;BIND|host.dwg&quot;</code> or <code>&quot;INSERT|host.dwg&quot;</code></p>
+<p><strong>Output:</strong> <code>{&quot;ok&quot;:true}</code></p>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Parse mode (BIND=0, INSERT=1)</li>
+<li>Set BINDTYPE variable</li>
+<li>Execute: <code>-xref bind *</code></li>
+<li>Execute: <code>-purge a * n</code> (3x)</li>
+<li>Execute: <code>_.qsave</code></li>
+</ol>
+<hr>
+<h2 id="12-functional-requirements">12. Functional Requirements</h2>
+<h3 id="121-host-file-management">12.1 Host File Management</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-1.1</td>
+<td>Add host RVT files via file picker</td>
+</tr>
+<tr>
+<td>FR-1.2</td>
+<td>Remove selected host files</td>
+</tr>
+<tr>
+<td>FR-1.3</td>
+<td>Automatically scan host for linked files</td>
+</tr>
+<tr>
+<td>FR-1.4</td>
+<td>Assign discipline to host files</td>
+</tr>
+<tr>
+<td>FR-1.5</td>
+<td>Assign building to host files</td>
+</tr>
+<tr>
+<td>FR-1.6</td>
+<td>Display host files in editable DataGrid</td>
+</tr>
+</tbody>
+</table>
+<h3 id="122-target-folder-management">12.2 Target Folder Management</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-2.1</td>
+<td>Select target folder via folder picker</td>
+</tr>
+<tr>
+<td>FR-2.2</td>
+<td>Display selected target folder path</td>
+</tr>
+<tr>
+<td>FR-2.3</td>
+<td>Validate target folder against allowed roots</td>
+</tr>
+</tbody>
+</table>
+<h3 id="123-preview-system">12.3 Preview System</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-3.1</td>
+<td>Generate execution plan on demand</td>
+</tr>
+<tr>
+<td>FR-3.2</td>
+<td>Display file hierarchy in TreeView</td>
+</tr>
+<tr>
+<td>FR-3.3</td>
+<td>Show validation warnings/info messages</td>
+</tr>
+<tr>
+<td>FR-3.4</td>
+<td>Detect and report name collisions</td>
+</tr>
+<tr>
+<td>FR-3.5</td>
+<td>Calculate and display total copy size</td>
+</tr>
+<tr>
+<td>FR-3.6</td>
+<td>Compute plan fingerprint for verification</td>
+</tr>
+</tbody>
+</table>
+<h3 id="124-cad-handling">12.4 CAD Handling</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-4.1</td>
+<td>Support ADD_XREFS mode (discover + copy + repath)</td>
+</tr>
+<tr>
+<td>FR-4.2</td>
+<td>Support BIND_ALL mode (bind into single DWG)</td>
+</tr>
+<tr>
+<td>FR-4.3</td>
+<td>Support BIND vs INSERT bind types</td>
+</tr>
+<tr>
+<td>FR-4.4</td>
+<td>Allow manual Xref addition for DWGs</td>
+</tr>
+<tr>
+<td>FR-4.5</td>
+<td>Auto-discover nested Xrefs via AutoCAD Core Console</td>
+</tr>
+<tr>
+<td>FR-4.6</td>
+<td>Fallback to heuristic copy when accore unavailable</td>
+</tr>
+</tbody>
+</table>
+<h3 id="125-execution">12.5 Execution</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-5.1</td>
+<td>Copy all files to target folder</td>
+</tr>
+<tr>
+<td>FR-5.2</td>
+<td>Create organized folder structure</td>
+</tr>
+<tr>
+<td>FR-5.3</td>
+<td>Update Revit TransmissionData for all hosts</td>
+</tr>
+<tr>
+<td>FR-5.4</td>
+<td>Process CAD files according to mode</td>
+</tr>
+<tr>
+<td>FR-5.5</td>
+<td>Display real-time progress</td>
+</tr>
+<tr>
+<td>FR-5.6</td>
+<td>Support user cancellation</td>
+</tr>
+<tr>
+<td>FR-5.7</td>
+<td>Generate execution manifest</td>
+</tr>
+</tbody>
+</table>
+<h3 id="126-safety">12.6 Safety</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR-6.1</td>
+<td>Enforce allowed target roots</td>
+</tr>
+<tr>
+<td>FR-6.2</td>
+<td>Check minimum free disk space</td>
+</tr>
+<tr>
+<td>FR-6.3</td>
+<td>Prevent concurrent execution via lock file</td>
+</tr>
+<tr>
+<td>FR-6.4</td>
+<td>Create sentinel file for managed folders</td>
+</tr>
+<tr>
+<td>FR-6.5</td>
+<td>Filter denied file extensions</td>
+</tr>
+<tr>
+<td>FR-6.6</td>
+<td>Filter denied glob patterns</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="13-non-functional-requirements">13. Non-Functional Requirements</h2>
+<h3 id="131-performance">13.1 Performance</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-1.1</td>
+<td>Handle projects up to 80 GB total size</td>
+</tr>
+<tr>
+<td>NFR-1.2</td>
+<td>Support up to 10,000 items in plan</td>
+</tr>
+<tr>
+<td>NFR-1.3</td>
+<td>Provide responsive UI during execution</td>
+</tr>
+<tr>
+<td>NFR-1.4</td>
+<td>Weighted progress tracking for accurate estimates</td>
+</tr>
+</tbody>
+</table>
+<h3 id="132-reliability">13.2 Reliability</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-2.1</td>
+<td>Atomic execution with lock file</td>
+</tr>
+<tr>
+<td>NFR-2.2</td>
+<td>Manifest generation for audit trail</td>
+</tr>
+<tr>
+<td>NFR-2.3</td>
+<td>Graceful handling of missing AutoCAD</td>
+</tr>
+<tr>
+<td>NFR-2.4</td>
+<td>Error recovery via manifest status</td>
+</tr>
+</tbody>
+</table>
+<h3 id="133-usability">13.3 Usability</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-3.1</td>
+<td>Three-step wizard workflow</td>
+</tr>
+<tr>
+<td>NFR-3.2</td>
+<td>Real-time log display</td>
+</tr>
+<tr>
+<td>NFR-3.3</td>
+<td>Copy logs to clipboard</td>
+</tr>
+<tr>
+<td>NFR-3.4</td>
+<td>Clear validation messages</td>
+</tr>
+</tbody>
+</table>
+<h3 id="134-security">13.4 Security</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-4.1</td>
+<td>Policy-based target root restriction</td>
+</tr>
+<tr>
+<td>NFR-4.2</td>
+<td>Extension and glob filtering</td>
+</tr>
+<tr>
+<td>NFR-4.3</td>
+<td>Sentinel requirement for destructive operations</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="14-ui-control-reference">14. UI Control Reference</h2>
+<h3 id="141-main-window-controls">14.1 Main Window Controls</h3>
+<table>
+<thead>
+<tr>
+<th>Control Name</th>
+<th>Type</th>
+<th>Binding/Handler</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_tb</code></td>
+<td>TextBox</td>
+<td>Read-only display</td>
+<td>Shows selected target folder</td>
+</tr>
+<tr>
+<td><code>auto_cad_xref_cb</code></td>
+<td>CheckBox</td>
+<td>ui_flags</td>
+<td>Toggle auto CAD Xref discovery</td>
+</tr>
+<tr>
+<td><code>files_dg</code></td>
+<td>DataGrid</td>
+<td>selected_hosts</td>
+<td>Host file list with discipline/building</td>
+</tr>
+<tr>
+<td><code>links_tv</code></td>
+<td>TreeView</td>
+<td>plan hierarchy</td>
+<td>Host/link hierarchy display</td>
+</tr>
+<tr>
+<td><code>plan_msgs_ic</code></td>
+<td>ItemsControl</td>
+<td>plan messages</td>
+<td>Validation warnings/info</td>
+</tr>
+<tr>
+<td><code>accore_tb</code></td>
+<td>TextBlock</td>
+<td>display</td>
+<td>AutoCAD Core Console path</td>
+</tr>
+<tr>
+<td><code>rb_addxrefs</code></td>
+<td>RadioButton</td>
+<td>checked_addxrefs</td>
+<td>Select ADD_XREFS mode</td>
+</tr>
+<tr>
+<td><code>rb_bindall</code></td>
+<td>RadioButton</td>
+<td>checked_bindall</td>
+<td>Select BIND_ALL mode</td>
+</tr>
+<tr>
+<td><code>bindtype_cb</code></td>
+<td>ComboBox</td>
+<td>bindtype_changed</td>
+<td>BIND vs INSERT selection</td>
+</tr>
+<tr>
+<td><code>add_cad_xref_b</code></td>
+<td>Button</td>
+<td>add_cad_xref</td>
+<td>Add manual Xref button</td>
+</tr>
+</tbody>
+</table>
+<h3 id="142-manage-dialog-controls">14.2 Manage Dialog Controls</h3>
+<table>
+<thead>
+<tr>
+<th>Control Name</th>
+<th>Type</th>
+<th>Handler</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>list_lb</code></td>
+<td>ListBox</td>
+<td>items binding</td>
+<td>Display discipline/building list</td>
+</tr>
+<tr>
+<td>Add button</td>
+<td>Button</td>
+<td>button_add</td>
+<td>Add new item</td>
+</tr>
+<tr>
+<td>Rename button</td>
+<td>Button</td>
+<td>button_rename</td>
+<td>Rename selected item</td>
+</tr>
+<tr>
+<td>Delete button</td>
+<td>Button</td>
+<td>button_del</td>
+<td>Delete selected item</td>
+</tr>
+</tbody>
+</table>
+<h3 id="143-progress-window-controls">14.3 Progress Window Controls</h3>
+<table>
+<thead>
+<tr>
+<th>Control Name</th>
+<th>Type</th>
+<th>Binding/Handler</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>overall_pb</code></td>
+<td>ProgressBar</td>
+<td>set_progress</td>
+<td>Visual progress (0-100)</td>
+</tr>
+<tr>
+<td><code>progress_tb</code></td>
+<td>TextBlock</td>
+<td>set_progress</td>
+<td>Percentage text</td>
+</tr>
+<tr>
+<td><code>step_tb</code></td>
+<td>TextBox</td>
+<td>log</td>
+<td>Scrolling log output</td>
+</tr>
+<tr>
+<td><code>step_sv</code></td>
+<td>ScrollViewer</td>
+<td>auto-scroll</td>
+<td>Log container</td>
+</tr>
+<tr>
+<td>Copy logs button</td>
+<td>Button</td>
+<td>button_copylogs</td>
+<td>Copy log to clipboard</td>
+</tr>
+<tr>
+<td>Cancel button</td>
+<td>Button</td>
+<td>button_cancel</td>
+<td>Cancel execution</td>
+</tr>
+<tr>
+<td>Close button</td>
+<td>Button</td>
+<td>button_close</td>
+<td>Close window</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="15-interaction-scenarios">15. Interaction Scenarios</h2>
+<h3 id="151-basic-workflow">15.1 Basic Workflow</h3>
+<ol>
+<li>User opens Record Set tool</li>
+<li>Clicks &quot;Add Host...&quot; and selects Model.rvt</li>
+<li>System scans links, finds Link.rvt and CAD.dwg</li>
+<li>User assigns discipline &quot;Structural&quot; in DataGrid</li>
+<li>User clicks &quot;Target Folder...&quot; and selects C:\Output</li>
+<li>User clicks &quot;Sync Preview&quot;</li>
+<li>System shows tree: Host: Model.rvt -&gt; Link.rvt, CAD.dwg</li>
+<li>User clicks &quot;Process&quot;</li>
+<li>Progress window shows copying progress</li>
+<li>Files copied, links repathed</li>
+<li>User closes progress window</li>
+</ol>
+<h3 id="152-cad-bind-scenario">15.2 CAD Bind Scenario</h3>
+<ol>
+<li>User adds host with DWG links</li>
+<li>User syncs preview (auto-discovers Xrefs)</li>
+<li>User selects CAD.dwg in TreeView</li>
+<li>User clicks &quot;Bind all Xrefs&quot; radio button</li>
+<li>User selects &quot;Insert (merge names)&quot; in BindType dropdown</li>
+<li>User syncs preview again</li>
+<li>Plan now shows cad_bind_all action instead of cad_copy + cad_repath</li>
+<li>User executes</li>
+<li>CAD.dwg is copied, all Xrefs bound and purged</li>
+</ol>
+<h3 id="153-manual-xref-addition">15.3 Manual Xref Addition</h3>
+<ol>
+<li>User adds host with DWG link</li>
+<li>User syncs preview</li>
+<li>User selects CAD.dwg in TreeView</li>
+<li>Ensures &quot;Keep/Add Xrefs&quot; is selected</li>
+<li>User clicks &quot;Add CAD Xref...&quot;</li>
+<li>Selects additional DWG file</li>
+<li>New Xref appears as child of CAD.dwg in TreeView</li>
+<li>User syncs preview</li>
+<li>New Xref included in plan</li>
+<li>User executes</li>
+</ol>
+<h3 id="154-policy-violation-handling">15.4 Policy Violation Handling</h3>
+<ol>
+<li>User adds hosts and selects target folder</li>
+<li>Target folder is NOT in allowed_target_roots</li>
+<li>User clicks &quot;Process&quot;</li>
+<li>System throws exception: &quot;Target not in allowed roots&quot;</li>
+<li>User updates target to allowed location</li>
+<li>User re-executes successfully</li>
+</ol>
+<h3 id="155-cancellation-scenario">15.5 Cancellation Scenario</h3>
+<ol>
+<li>User starts execution</li>
+<li>Progress shows 30% complete</li>
+<li>User clicks &quot;Cancel&quot; button</li>
+<li>cancel_token.cancel() called</li>
+<li>Current action completes</li>
+<li>Loop breaks on next iteration</li>
+<li>Lock released, manifest written with partial status</li>
+<li>User can close window</li>
+</ol>
+<hr>
+<h2 id="appendix-a-python-file-summary">Appendix A: Python File Summary</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Lines</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Record Set_script.py</code></td>
+<td>6</td>
+<td>Entry point</td>
+</tr>
+<tr>
+<td><code>_rs_entry.py</code></td>
+<td>448</td>
+<td>UI controllers (3 window classes)</td>
+</tr>
+<tr>
+<td><code>_rs_models.py</code></td>
+<td>115</td>
+<td>Data models and enums</td>
+</tr>
+<tr>
+<td><code>_rs_ops.py</code></td>
+<td>388</td>
+<td>Operations layer (Fs, Safe, Revit, CAD)</td>
+</tr>
+<tr>
+<td><code>_rs_services.py</code></td>
+<td>422</td>
+<td>Services layer (orchestration)</td>
+</tr>
+<tr>
+<td><code>_rs_utils.py</code></td>
+<td>68</td>
+<td>Utility functions</td>
+</tr>
+<tr>
+<td><code>RecordSetForm.xaml</code></td>
+<td>98</td>
+<td>Main window UI</td>
+</tr>
+<tr>
+<td><code>RecordSetFormManage.xaml</code></td>
+<td>23</td>
+<td>Manage dialog UI</td>
+</tr>
+<tr>
+<td><code>RecordSetFormProgress.xaml</code></td>
+<td>48</td>
+<td>Progress window UI</td>
+</tr>
+<tr>
+<td><code>rs_list_xrefs.lsp</code></td>
+<td>56</td>
+<td>LISP: Xref discovery</td>
+</tr>
+<tr>
+<td><code>rs_repath_xrefs.lsp</code></td>
+<td>32</td>
+<td>LISP: Xref repathing</td>
+</tr>
+<tr>
+<td><code>rs_bind_all_xrefs.lsp</code></td>
+<td>17</td>
+<td>LISP: Xref binding</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total Python Lines:</strong> ~1,447
+<strong>Total XAML Lines:</strong> ~169
+<strong>Total LISP Lines:</strong> ~105</p>
+<hr>
+<h2 id="appendix-b-path-computation-formulas">Appendix B: Path Computation Formulas</h2>
+<h3 id="compute_host_target_pathtarget_root-host">compute_host_target_path(target_root, host)</h3>
+<pre><code>IF host.building IN (&quot;-&quot;, &quot;&quot;):
+    RETURN {target_root}/{host.discipline}/{host.name}
+ELSE:
+    RETURN {target_root}/{host.building}/{host.discipline}/{host.name}
+</code></pre>
+<h3 id="compute_link_target_pathtarget_root-link-is_common">compute_link_target_path(target_root, link, is_common)</h3>
+<pre><code>IF is_common:
+    RETURN {target_root}/Common Linked Files/{link.name}
+ELSE IF link.building IN (&quot;-&quot;, &quot;&quot;):
+    RETURN {target_root}/{link.discipline}/Linked Files/{link.name}
+ELSE:
+    RETURN {target_root}/{link.building}/{link.discipline}/Linked Files/{link.name}
+</code></pre>
+<hr>
+<h2 id="appendix-c-fingerprint-algorithm">Appendix C: Fingerprint Algorithm</h2>
+<pre><code class="lang-python">def _fingerprint(plan):
+    parts = []
+    for item in plan.items:
+        parts.append(item.action)
+        for k, v in sorted(item.payload.items()):
+            parts.append(f&quot;{k}={v}&quot;)
+    content = &quot;|&quot;.join(parts)
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
+</code></pre>
+<hr>
+<p><em>Document Version: 1.0</em>
+<em>Generated: 2026-01-14</em>
+<em>Source: Python Record Set tool analysis</em></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/testing/recordset-spec.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

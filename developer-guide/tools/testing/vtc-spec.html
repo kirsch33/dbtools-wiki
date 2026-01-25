@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>VTC (View Template Comparer) Enhanced Design Document | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="VTC (View Template Comparer) Enhanced Design Document | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/testing/vtc-spec.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20260125" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="vtc-view-template-comparer-enhanced-design-document">VTC (View Template Comparer) Enhanced Design Document</h1>
+
+<h2 id="overview">Overview</h2>
+<p>This document outlines the enhanced design for the VTC tool based on stakeholder feedback. The tool enables comparison, selective merging, and conflict resolution of Revit view template settings with a UI that mirrors Revit's native Visibility/Graphics dialog organization.</p>
+<hr>
+<h2 id="1-category-organization---revit-vg-tab-structure">1. Category Organization - Revit VG Tab Structure</h2>
+<h3 id="design-decision">Design Decision</h3>
+<p>Category organization will <strong>exactly mimic</strong> Revit's Visibility/Graphics dialog tabs.</p>
+<h3 id="tab-structure">Tab Structure</h3>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>CategoryType Filter</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Model Categories</strong></td>
+<td><code>CategoryType.Model</code></td>
+<td>Exclude imported categories (Id &gt; 0 with no BuiltInCategory)</td>
+</tr>
+<tr>
+<td><strong>Annotation Categories</strong></td>
+<td><code>CategoryType.Annotation</code></td>
+<td>Tags, dimensions, text, symbols</td>
+</tr>
+<tr>
+<td><strong>Analytical Model Categories</strong></td>
+<td><code>CategoryType.AnalyticalModel</code></td>
+<td>Structural analytical elements</td>
+</tr>
+<tr>
+<td><strong>Imported Categories</strong></td>
+<td><code>CategoryType.Model</code></td>
+<td>Where <code>Category.Id.IntegerValue &gt; 0</code> and no valid <code>BuiltInCategory</code></td>
+</tr>
+<tr>
+<td><strong>Filters</strong></td>
+<td>N/A</td>
+<td>View filters (ParameterFilterElement)</td>
+</tr>
+<tr>
+<td><strong>Revit Links</strong></td>
+<td>N/A</td>
+<td>Linked RVT files - spawns child window</td>
+</tr>
+<tr>
+<td><strong>Worksets</strong></td>
+<td>N/A</td>
+<td>Conditional - only if model uses worksets</td>
+</tr>
+<tr>
+<td><strong>Design Options</strong></td>
+<td>N/A</td>
+<td>Conditional - only if design options exist</td>
+</tr>
+</tbody>
+</table>
+<h3 id="implementation">Implementation</h3>
+<pre><code class="lang-csharp">public enum VtcCategoryTab
+{
+    ModelCategories,
+    AnnotationCategories,
+    AnalyticalModelCategories,
+    ImportedCategories,
+    Filters,
+    RevitLinks,
+    Worksets,
+    DesignOptions
+}
+
+public static class VtcCategoryClassifier
+{
+    public static VtcCategoryTab GetTab(Category category)
+    {
+        // Check for imported category first (Model type but not built-in)
+        if (category.CategoryType == CategoryType.Model)
+        {
+            var idValue = ElementIdCompat.GetValue(category.Id);
+            if (idValue &gt; 0 &amp;&amp; !IsBuiltInCategory(idValue))
+                return VtcCategoryTab.ImportedCategories;
+            return VtcCategoryTab.ModelCategories;
+        }
+
+        return category.CategoryType switch
+        {
+            CategoryType.Annotation =&gt; VtcCategoryTab.AnnotationCategories,
+            CategoryType.AnalyticalModel =&gt; VtcCategoryTab.AnalyticalModelCategories,
+            _ =&gt; VtcCategoryTab.ModelCategories // Fallback
+        };
+    }
+
+    private static bool IsBuiltInCategory(long categoryId)
+    {
+        return Enum.IsDefined(typeof(BuiltInCategory), (int)categoryId);
+    }
+}
+</code></pre>
+<h3 id="data-model-changes">Data Model Changes</h3>
+<pre><code class="lang-csharp">// Enhanced category data with tab classification
+public sealed record VtcCategoryGraphicsData(
+    long CategoryId,
+    string Name,
+    bool IsVisible,
+    VtcOverrideGraphicsData Overrides,
+    VtcCategoryTab Tab);  // NEW: Tab classification
+
+// Enhanced tree node with tab grouping
+public enum VtcDiffNodeType
+{
+    Root,           // Top-level root
+    Tab,            // NEW: VG Tab (Model Categories, Annotation, etc.)
+    CategoryGroup,  // Parent category with subcategories
+    Setting         // Leaf node with actual value
+}
+</code></pre>
+<hr>
+<h2 id="2-containerized-diff-view-component">2. Containerized Diff View Component</h2>
+<h3 id="design-decision-1">Design Decision</h3>
+<p>The diff view will be <strong>containerized as a reusable UserControl</strong> so it can be embedded in:</p>
+<ol>
+<li>The main VTC window</li>
+<li>Child windows for Linked File overrides</li>
+<li>Future comparison contexts</li>
+</ol>
+<h3 id="architecture">Architecture</h3>
+<pre><code>VtcDiffViewControl (UserControl)
+├── CategoryTabControl (TabControl)
+│   ├── Model Categories Tab
+│   ├── Annotation Categories Tab
+│   ├── Analytical Model Categories Tab
+│   ├── Imported Categories Tab
+│   └── Filters Tab
+├── Side-by-side TreeViews (Left/Right)
+├── Selection Controls
+└── Action Bar (Apply/Merge buttons)
+</code></pre>
+<h3 id="child-window-pattern-for-linked-files">Child Window Pattern for Linked Files</h3>
+<pre><code class="lang-csharp">public sealed class VtcLinkedFileWindow : DbtWindowBase
+{
+    // Reuses the same VtcDiffViewControl
+    public VtcLinkedFileWindow(
+        RevitLinkInstance linkInstance,
+        VtcTemplateSettingsModel leftTemplate,
+        VtcTemplateSettingsModel rightTemplate)
+    {
+        Title = $&quot;Linked File Overrides: {linkInstance.Name}&quot;;
+        Content = new VtcDiffViewControl
+        {
+            DataContext = new VtcLinkedFileDiffViewModel(
+                linkInstance, leftTemplate, rightTemplate)
+        };
+    }
+}
+</code></pre>
+<h3 id="component-interface">Component Interface</h3>
+<pre><code class="lang-csharp">public interface IVtcDiffViewHost
+{
+    /// &lt;summary&gt;
+    /// The comparison result to display.
+    /// &lt;/summary&gt;
+    VtcComparisonResult Comparison { get; }
+
+    /// &lt;summary&gt;
+    /// Tree roots organized by VG tab structure.
+    /// &lt;/summary&gt;
+    ObservableCollection&lt;VtcDiffTreeNode&gt; DiffTreeRoots { get; }
+
+    /// &lt;summary&gt;
+    /// Currently selected tab.
+    /// &lt;/summary&gt;
+    VtcCategoryTab SelectedTab { get; set; }
+
+    /// &lt;summary&gt;
+    /// Collect all current selections.
+    /// &lt;/summary&gt;
+    IReadOnlyCollection&lt;VtcSelection&gt; CollectSelections();
+
+    /// &lt;summary&gt;
+    /// Apply selections and return conflict report.
+    /// &lt;/summary&gt;
+    VtcApplyResult ApplySelections(VtcTemplateSide targetSide);
+}
+</code></pre>
+<hr>
+<h2 id="3-selection-ui---single-and-nested-selection">3. Selection UI - Single and Nested Selection</h2>
+<h3 id="design-decision-2">Design Decision</h3>
+<p>Provide <strong>dual-action selection controls</strong> for both single-item and cascading (single + all nested) selection/deselection.</p>
+<h3 id="ui-pattern-dual-checkbox-column">UI Pattern: Dual Checkbox Column</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ Setting                    │ Sel │ All │  Value (Template A)   │
+├─────────────────────────────────────────────────────────────────┤
+│ ▼ Structural Framing       │ [☑] │ [☑] │                       │
+│    ├─ Visibility           │ [☑] │     │  Visible              │
+│    ├─ Line Color           │ [☑] │     │  RGB(0,0,255)         │
+│    └─ Line Weight          │ [ ] │     │  3                    │
+│ ▼ Walls                    │ [ ] │ [ ] │                       │
+│    ├─ Visibility           │ [ ] │     │  Visible              │
+│    └─ Cut Pattern          │ [ ] │     │  Solid Fill           │
+└─────────────────────────────────────────────────────────────────┘
+
+Legend:
+[Sel] = Select this single item only
+[All] = Select this item AND all nested children (only shown for parent nodes)
+</code></pre>
+<h3 id="data-model-extension">Data Model Extension</h3>
+<pre><code class="lang-csharp">public sealed class VtcDiffTreeNode : INotifyPropertyChanged
+{
+    // Existing properties...
+
+    /// &lt;summary&gt;
+    /// Select/deselect this single node only.
+    /// &lt;/summary&gt;
+    public bool SelectLeft { get; set; }
+    public bool SelectRight { get; set; }
+
+    /// &lt;summary&gt;
+    /// Select/deselect this node AND all descendants.
+    /// Only applicable to non-leaf nodes (Root, Tab, CategoryGroup).
+    /// &lt;/summary&gt;
+    public bool SelectLeftWithChildren
+    {
+        get =&gt; _selectLeftWithChildren;
+        set
+        {
+            _selectLeftWithChildren = value;
+            if (value)
+                PropagateSelectionToChildren(VtcTemplateSide.Left, true);
+            OnPropertyChanged();
+        }
+    }
+
+    public bool SelectRightWithChildren
+    {
+        get =&gt; _selectRightWithChildren;
+        set
+        {
+            _selectRightWithChildren = value;
+            if (value)
+                PropagateSelectionToChildren(VtcTemplateSide.Right, true);
+            OnPropertyChanged();
+        }
+    }
+
+    /// &lt;summary&gt;
+    /// Shows whether this node can cascade selection (has children).
+    /// &lt;/summary&gt;
+    public bool CanCascadeSelection =&gt; Children.Count &gt; 0;
+
+    private void PropagateSelectionToChildren(VtcTemplateSide side, bool selected)
+    {
+        foreach (var child in Children)
+        {
+            if (side == VtcTemplateSide.Left)
+                child.SelectLeft = selected;
+            else
+                child.SelectRight = selected;
+
+            child.PropagateSelectionToChildren(side, selected);
+        }
+    }
+}
+</code></pre>
+<h3 id="alternative-ui-consideration-context-menu">Alternative UI Consideration: Context Menu</h3>
+<p>For cleaner UI, offer right-click context menu:</p>
+<pre><code>Right-click on &quot;Structural Framing&quot; →
+┌─────────────────────────────────┐
+│ ☑ Select (Template A)          │
+│ ☐ Select (Template B)          │
+├─────────────────────────────────┤
+│ ☑ Select All Nested (A)        │
+│ ☐ Select All Nested (B)        │
+├─────────────────────────────────┤
+│   Clear Selection              │
+│   Clear All Nested             │
+└─────────────────────────────────┘
+</code></pre>
+<h3 id="recommended-approach-split-button">Recommended Approach: Split Button</h3>
+<p>A <strong>split button</strong> provides the cleanest UX:</p>
+<pre><code>┌───────────────────────────────────────────────────────────────────┐
+│ Setting                    │ Use A          │  Value             │
+├───────────────────────────────────────────────────────────────────┤
+│ ▼ Structural Framing       │ [☑ ▾]          │                    │
+│                            │  ├─ Select     │                    │
+│                            │  └─ Select All │                    │
+└───────────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>The checkbox selects the single item; clicking the dropdown arrow shows &quot;Select&quot; / &quot;Select All Children&quot; options.</p>
+<hr>
+<h2 id="4-merge-strategy---disk-based-workflow">4. Merge Strategy - Disk-Based Workflow</h2>
+<h3 id="design-decision-3">Design Decision</h3>
+<ul>
+<li><strong>Option A</strong>: Write changes to disk (JSON snapshots)</li>
+<li>Create merged templates as new elements</li>
+<li>Update existing templates based on selected properties</li>
+</ul>
+<h3 id="workflow">Workflow</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                        MERGE WORKFLOW                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. COMPARE                                                      │
+│     ├─ Extract Template A settings → VtcTemplateSettingsModel   │
+│     ├─ Extract Template B settings → VtcTemplateSettingsModel   │
+│     └─ Generate diff tree with tab organization                  │
+│                                                                  │
+│  2. SELECT                                                       │
+│     ├─ User picks settings from A or B per property             │
+│     ├─ Single or cascading selection                            │
+│     └─ Selections stored in VtcSelection list                   │
+│                                                                  │
+│  3. PREVIEW (Optional)                                          │
+│     └─ Show merged result before applying                       │
+│                                                                  │
+│  4. APPLY                                                        │
+│     ├─ Option: Apply to Template A (in-place update)            │
+│     ├─ Option: Apply to Template B (in-place update)            │
+│     └─ Option: Create New Template (merged copy)                │
+│                                                                  │
+│  5. PERSIST (Optional)                                          │
+│     ├─ Save merged template snapshot to JSON                    │
+│     └─ Store in Template Library for future use                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="merge-operation-types">Merge Operation Types</h3>
+<pre><code class="lang-csharp">public enum VtcMergeOperation
+{
+    /// &lt;summary&gt;
+    /// Update Template A with selected settings from comparison.
+    /// &lt;/summary&gt;
+    ApplyToLeft,
+
+    /// &lt;summary&gt;
+    /// Update Template B with selected settings from comparison.
+    /// &lt;/summary&gt;
+    ApplyToRight,
+
+    /// &lt;summary&gt;
+    /// Create a new template by duplicating base and applying selections.
+    /// &lt;/summary&gt;
+    CreateMerged,
+
+    /// &lt;summary&gt;
+    /// Export merged settings to JSON file (no Revit changes).
+    /// &lt;/summary&gt;
+    ExportToJson
+}
+</code></pre>
+<hr>
+<h2 id="5-conflict-handling-and-apply-workflow">5. Conflict Handling and Apply Workflow</h2>
+<h3 id="design-decision-4">Design Decision</h3>
+<ol>
+<li><strong>Attempt all</strong> selected changes</li>
+<li><strong>Report conflicts</strong> after apply attempt</li>
+<li><strong>Retain selections</strong> (don't clear on partial failure)</li>
+<li><strong>Highlight problematic</strong> selections</li>
+<li><strong>Filter control</strong> to show/hide conflicts (hidden until apply attempted)</li>
+</ol>
+<h3 id="conflict-types">Conflict Types</h3>
+<pre><code class="lang-csharp">public enum VtcConflictType
+{
+    /// &lt;summary&gt;
+    /// No conflict - change applied successfully.
+    /// &lt;/summary&gt;
+    None,
+
+    /// &lt;summary&gt;
+    /// Category/Filter doesn't exist in target document.
+    /// &lt;/summary&gt;
+    ElementNotFound,
+
+    /// &lt;summary&gt;
+    /// Parameter is read-only or controlled by another template.
+    /// &lt;/summary&gt;
+    ReadOnlyParameter,
+
+    /// &lt;summary&gt;
+    /// Value format incompatible (e.g., pattern ID doesn't exist).
+    /// &lt;/summary&gt;
+    IncompatibleValue,
+
+    /// &lt;summary&gt;
+    /// Revit API threw an exception during apply.
+    /// &lt;/summary&gt;
+    ApiError
+}
+
+public sealed record VtcConflictInfo(
+    string SettingKey,
+    VtcConflictType ConflictType,
+    string Message,
+    Exception? Exception);
+
+public sealed record VtcApplyResult(
+    int TotalAttempted,
+    int SuccessCount,
+    int FailedCount,
+    IReadOnlyList&lt;VtcConflictInfo&gt; Conflicts);
+</code></pre>
+<h3 id="enhanced-tree-node-with-conflict-state">Enhanced Tree Node with Conflict State</h3>
+<pre><code class="lang-csharp">public sealed class VtcDiffTreeNode : INotifyPropertyChanged
+{
+    // Existing properties...
+
+    /// &lt;summary&gt;
+    /// Conflict information after apply attempt. Null if not yet attempted or no conflict.
+    /// &lt;/summary&gt;
+    public VtcConflictInfo? Conflict { get; set; }
+
+    /// &lt;summary&gt;
+    /// Whether this node has a conflict after apply.
+    /// &lt;/summary&gt;
+    public bool HasConflict =&gt; Conflict != null;
+
+    /// &lt;summary&gt;
+    /// Whether apply has been attempted on this node.
+    /// &lt;/summary&gt;
+    public bool ApplyAttempted { get; set; }
+}
+</code></pre>
+<h3 id="ui-state-machine">UI State Machine</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                      UI STATE MACHINE                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  State: INITIAL                                                  │
+│  ├─ Conflict filter: HIDDEN                                     │
+│  ├─ Apply button: ENABLED                                       │
+│  └─ Conflict highlights: NONE                                   │
+│                                                                  │
+│  ──[User clicks Apply]──────────────────────────────────────────│
+│                                                                  │
+│  State: APPLYING                                                 │
+│  ├─ Conflict filter: HIDDEN                                     │
+│  ├─ Apply button: DISABLED (with spinner)                       │
+│  └─ Progress indicator shown                                    │
+│                                                                  │
+│  ──[Apply completes]────────────────────────────────────────────│
+│                                                                  │
+│  State: POST_APPLY (if any conflicts)                           │
+│  ├─ Conflict filter: VISIBLE                                    │
+│  │   ├─ [Show All]                                              │
+│  │   ├─ [Show Conflicts Only]                                   │
+│  │   └─ [Hide Conflicts]                                        │
+│  ├─ Apply button: ENABLED (for retry)                           │
+│  ├─ Conflict highlights: ACTIVE                                 │
+│  │   ├─ Red border on conflicting rows                          │
+│  │   ├─ Warning icon with tooltip                               │
+│  │   └─ Conflict count badge                                    │
+│  └─ Selections: RETAINED (user can modify and retry)            │
+│                                                                  │
+│  State: POST_APPLY (no conflicts)                               │
+│  ├─ Conflict filter: HIDDEN                                     │
+│  ├─ Success message shown                                       │
+│  └─ Selections: CLEARED or RETAINED (configurable)              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="conflict-filter-control">Conflict Filter Control</h3>
+<pre><code class="lang-xaml">&lt;!-- Only visible after apply has been attempted AND conflicts exist --&gt;
+&lt;StackPanel Orientation=&quot;Horizontal&quot;
+            Visibility=&quot;{Binding ShowConflictFilter, Converter={StaticResource BoolToVisibility}}&quot;&gt;
+
+    &lt;TextBlock Text=&quot;Filter:&quot; Margin=&quot;0,0,8,0&quot; VerticalAlignment=&quot;Center&quot; /&gt;
+
+    &lt;RadioButton Content=&quot;All&quot;
+                 IsChecked=&quot;{Binding ConflictFilter, Converter={StaticResource EnumToBool},
+                            ConverterParameter=All}&quot;
+                 GroupName=&quot;ConflictFilter&quot; /&gt;
+
+    &lt;RadioButton Content=&quot;Conflicts Only&quot;
+                 IsChecked=&quot;{Binding ConflictFilter, Converter={StaticResource EnumToBool},
+                            ConverterParameter=ConflictsOnly}&quot;
+                 GroupName=&quot;ConflictFilter&quot; /&gt;
+
+    &lt;RadioButton Content=&quot;Successful Only&quot;
+                 IsChecked=&quot;{Binding ConflictFilter, Converter={StaticResource EnumToBool},
+                            ConverterParameter=SuccessfulOnly}&quot;
+                 GroupName=&quot;ConflictFilter&quot; /&gt;
+
+    &lt;!-- Conflict count badge --&gt;
+    &lt;Border Background=&quot;{DynamicResource Error}&quot; CornerRadius=&quot;10&quot;
+            Padding=&quot;6,2&quot; Margin=&quot;12,0,0,0&quot;
+            Visibility=&quot;{Binding HasConflicts, Converter={StaticResource BoolToVisibility}}&quot;&gt;
+        &lt;TextBlock Text=&quot;{Binding ConflictCount, StringFormat='{0} conflicts'}&quot;
+                   Foreground=&quot;White&quot; FontSize=&quot;11&quot; /&gt;
+    &lt;/Border&gt;
+&lt;/StackPanel&gt;
+</code></pre>
+<h3 id="conflict-highlighting-in-treeview">Conflict Highlighting in TreeView</h3>
+<pre><code class="lang-xaml">&lt;!-- Enhanced tree node template with conflict indication --&gt;
+&lt;Style x:Key=&quot;Vtc.ConflictBorder&quot; TargetType=&quot;Border&quot;&gt;
+    &lt;Style.Triggers&gt;
+        &lt;DataTrigger Binding=&quot;{Binding HasConflict}&quot; Value=&quot;True&quot;&gt;
+            &lt;Setter Property=&quot;BorderBrush&quot; Value=&quot;{DynamicResource Error}&quot; /&gt;
+            &lt;Setter Property=&quot;BorderThickness&quot; Value=&quot;2&quot; /&gt;
+            &lt;Setter Property=&quot;Background&quot; Value=&quot;{DynamicResource ErrorBackground}&quot; /&gt;
+        &lt;/DataTrigger&gt;
+    &lt;/Style.Triggers&gt;
+&lt;/Style&gt;
+
+&lt;!-- Conflict warning icon --&gt;
+&lt;TextBlock x:Name=&quot;ConflictIcon&quot;
+           FontFamily=&quot;Segoe MDL2 Assets&quot;
+           Text=&quot;&amp;#xE7BA;&quot;
+           Foreground=&quot;{DynamicResource Error}&quot;
+           ToolTip=&quot;{Binding Conflict.Message}&quot;
+           Visibility=&quot;{Binding HasConflict, Converter={StaticResource BoolToVisibility}}&quot; /&gt;
+</code></pre>
+<hr>
+<h2 id="6-complete-viewmodel-structure">6. Complete ViewModel Structure</h2>
+<pre><code class="lang-csharp">public sealed partial class VtcWindowViewModel : ObservableObject, IVtcDiffViewHost
+{
+    // Template selection
+    [ObservableProperty] private VtcTemplateOption? _selectedLeft;
+    [ObservableProperty] private VtcTemplateOption? _selectedRight;
+
+    // Tab navigation (mirrors Revit VG tabs)
+    [ObservableProperty] private VtcCategoryTab _selectedTab = VtcCategoryTab.ModelCategories;
+    public ObservableCollection&lt;VtcCategoryTab&gt; AvailableTabs { get; }
+
+    // Diff tree organized by tabs
+    public ObservableCollection&lt;VtcDiffTreeNode&gt; DiffTreeRoots { get; }
+
+    // Conflict management (hidden until apply attempted)
+    [ObservableProperty] private bool _applyAttempted;
+    [ObservableProperty] private VtcConflictFilter _conflictFilter = VtcConflictFilter.All;
+    [ObservableProperty] private VtcApplyResult? _lastApplyResult;
+
+    public bool ShowConflictFilter =&gt; ApplyAttempted &amp;&amp; (LastApplyResult?.FailedCount ?? 0) &gt; 0;
+    public bool HasConflicts =&gt; (LastApplyResult?.FailedCount ?? 0) &gt; 0;
+    public int ConflictCount =&gt; LastApplyResult?.FailedCount ?? 0;
+
+    // Linked files (spawns child windows)
+    public ObservableCollection&lt;VtcLinkedFileInfo&gt; LinkedFiles { get; }
+
+    // Commands
+    [RelayCommand] private void ApplyToLeft() =&gt; ApplyWithConflictHandling(VtcTemplateSide.Left);
+    [RelayCommand] private void ApplyToRight() =&gt; ApplyWithConflictHandling(VtcTemplateSide.Right);
+    [RelayCommand] private void OpenLinkedFileOverrides(VtcLinkedFileInfo link) =&gt; SpawnLinkedFileWindow(link);
+    [RelayCommand] private void SelectAllInTab() =&gt; SelectAllNodesInCurrentTab(true);
+    [RelayCommand] private void DeselectAllInTab() =&gt; SelectAllNodesInCurrentTab(false);
+
+    private void ApplyWithConflictHandling(VtcTemplateSide targetSide)
+    {
+        var selections = CollectSelections();
+        var result = _comparer.ApplySelectionsWithReport(target, _comparison!, selections);
+
+        ApplyAttempted = true;
+        LastApplyResult = result;
+
+        // Update tree nodes with conflict info
+        foreach (var conflict in result.Conflicts)
+        {
+            var node = FindNodeByKey(conflict.SettingKey);
+            if (node != null)
+            {
+                node.Conflict = conflict;
+                node.ApplyAttempted = true;
+            }
+        }
+
+        // Mark successful nodes
+        foreach (var selection in selections)
+        {
+            if (!result.Conflicts.Any(c =&gt; c.SettingKey == selection.Key))
+            {
+                var node = FindNodeByKey(selection.Key);
+                if (node != null)
+                {
+                    node.Conflict = null;
+                    node.ApplyAttempted = true;
+                }
+            }
+        }
+
+        OnPropertyChanged(nameof(ShowConflictFilter));
+        OnPropertyChanged(nameof(HasConflicts));
+        OnPropertyChanged(nameof(ConflictCount));
+
+        ShowApplyResultSummary(result);
+    }
+}
+
+public enum VtcConflictFilter
+{
+    All,
+    ConflictsOnly,
+    SuccessfulOnly
+}
+</code></pre>
+<hr>
+<h2 id="7-file-structure-after-implementation">7. File Structure After Implementation</h2>
+<pre><code>VTC/
+├── Documentation/
+│   └── VTC_Enhanced_Design.md          # This document
+├── Contracts/
+│   ├── VtcDataModels.cs                # Enhanced with Tab classification
+│   ├── VtcEnums.cs                     # Add VtcCategoryTab, VtcConflictType
+│   ├── IVtcComparisonService.cs        # Add ApplySelectionsWithReport
+│   └── VtcConflictModels.cs            # NEW: Conflict handling types
+├── UI/
+│   ├── Controls/
+│   │   └── VtcDiffViewControl.xaml     # NEW: Reusable diff view control
+│   ├── ViewModels/
+│   │   ├── VtcWindowViewModel.cs       # Enhanced with conflict handling
+│   │   ├── VtcDiffTreeNode.cs          # Enhanced with conflict state
+│   │   ├── VtcDiffTreeBuilder.cs       # Enhanced with tab organization
+│   │   ├── VtcLinkedFileDiffViewModel.cs # NEW: For child windows
+│   │   └── VtcCategoryClassifier.cs    # NEW: Tab classification logic
+│   ├── Views/
+│   │   ├── VtcWindow.xaml              # Main window (uses VtcDiffViewControl)
+│   │   └── VtcLinkedFileWindow.xaml    # NEW: Child window for linked files
+│   ├── Converters/
+│   │   ├── VtcDiffBackgroundConverter.cs
+│   │   ├── VtcConflictToVisibilityConverter.cs  # NEW
+│   │   └── VtcCategoryTabToIconConverter.cs     # NEW
+│   └── Behaviors/
+│       └── ScrollSyncBehavior.cs
+├── Revit/
+│   └── Services/
+│       ├── VtcComparisonService.cs     # Enhanced with conflict reporting
+│       └── VtcCategoryClassifier.cs    # NEW: Revit-specific classification
+└── Services/
+    └── VtcTemplateStorageService.cs
+</code></pre>
+<hr>
+<h2 id="8-implementation-priority">8. Implementation Priority</h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Feature</th>
+<th>Complexity</th>
+<th>Dependencies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Tab-based category organization</td>
+<td>Medium</td>
+<td>VtcCategoryClassifier</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Dual selection (single/nested)</td>
+<td>Medium</td>
+<td>VtcDiffTreeNode changes</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Conflict handling workflow</td>
+<td>High</td>
+<td>Apply result reporting</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Containerized diff view control</td>
+<td>Medium</td>
+<td>Extract from VtcWindow</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Linked file child windows</td>
+<td>Medium</td>
+<td>VtcDiffViewControl</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Conflict filter UI</td>
+<td>Low</td>
+<td>After conflict handling</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="9-linked-file-extraction-revitlinktype-overrides">9. Linked File Extraction (RevitLinkType Overrides)</h2>
+<h3 id="design-decision-5">Design Decision</h3>
+<p>Extract and display RevitLinkType visibility overrides from view templates, enabling full comparison and merging of linked file settings.</p>
+<h3 id="revit-api-integration">Revit API Integration</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Data model for linked file visibility overrides within a view template.
+/// &lt;/summary&gt;
+public sealed record VtcLinkedFileOverrideData(
+    long LinkTypeId,
+    string LinkName,
+    string FilePath,
+    bool IsVisible,
+    VtcLinkedFileVisibility LinkedViewId,  // None, ByHostView, or specific view ID
+    IReadOnlyList&lt;VtcCategoryGraphicsData&gt; CategoryOverrides);
+
+public enum VtcLinkedFileVisibility
+{
+    None,       // Link hidden
+    ByHostView, // Use host view's VG settings
+    Custom      // Uses stored view ID for overrides
+}
+</code></pre>
+<h3 id="extraction-implementation">Extraction Implementation</h3>
+<pre><code class="lang-csharp">public List&lt;VtcLinkedFileOverrideData&gt; ExtractLinkedFileOverrides(View template)
+{
+    var results = new List&lt;VtcLinkedFileOverrideData&gt;();
+
+    // Get all RevitLinkType elements in the document
+    var linkTypes = new FilteredElementCollector(_document)
+        .OfClass(typeof(RevitLinkType))
+        .Cast&lt;RevitLinkType&gt;();
+
+    foreach (var linkType in linkTypes)
+    {
+        var linkId = linkType.Id;
+
+        // Get visibility state from template
+        var isVisible = !template.GetCategoryHidden(linkId);
+
+        // Get linked view override (determines how link displays)
+        var linkedViewId = template.GetLinkedOverrideViewId(linkId);
+        var visibility = linkedViewId == ElementId.InvalidElementId
+            ? VtcLinkedFileVisibility.ByHostView
+            : VtcLinkedFileVisibility.Custom;
+
+        // Extract category-level overrides for this link
+        var categoryOverrides = ExtractLinkedCategoryOverrides(template, linkType);
+
+        results.Add(new VtcLinkedFileOverrideData(
+            ElementIdCompat.GetValue(linkId),
+            linkType.Name,
+            linkType.GetExternalResourceReference()?.GetReferenceInformation()?.GetPath() ?? string.Empty,
+            isVisible,
+            visibility,
+            categoryOverrides));
+    }
+
+    return results;
+}
+</code></pre>
+<hr>
+<h2 id="10-worksets--design-options-support">10. Worksets &amp; Design Options Support</h2>
+<h3 id="design-decision-6">Design Decision</h3>
+<p>Conditionally display Worksets and Design Options tabs when the model contains these features.</p>
+<h3 id="detection-logic">Detection Logic</h3>
+<pre><code class="lang-csharp">public bool HasWorksets(Document doc) =&gt; doc.IsWorkshared;
+
+public bool HasDesignOptions(Document doc)
+{
+    return new FilteredElementCollector(doc)
+        .OfClass(typeof(DesignOption))
+        .Any();
+}
+</code></pre>
+<h3 id="data-models">Data Models</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Workset visibility override data.
+/// &lt;/summary&gt;
+public sealed record VtcWorksetOverrideData(
+    long WorksetId,
+    string Name,
+    WorksetVisibility Visibility);  // Visible, Hidden, UseGlobalSetting
+
+/// &lt;summary&gt;
+/// Design option visibility override data.
+/// &lt;/summary&gt;
+public sealed record VtcDesignOptionOverrideData(
+    long DesignOptionId,
+    string Name,
+    string SetName,  // Parent design option set
+    bool IsActive);
+</code></pre>
+<h3 id="tab-visibility-control">Tab Visibility Control</h3>
+<pre><code class="lang-csharp">// In VtcWindowViewModel
+public bool ShowWorksetsTab =&gt; _hasWorksets;
+public bool ShowDesignOptionsTab =&gt; _hasDesignOptions;
+
+// Initialize during comparison
+private void CheckConditionalTabs()
+{
+    _hasWorksets = _documentInfo.IsWorkshared;
+    _hasDesignOptions = new FilteredElementCollector(_document)
+        .OfClass(typeof(DesignOption))
+        .Any();
+
+    OnPropertyChanged(nameof(ShowWorksetsTab));
+    OnPropertyChanged(nameof(ShowDesignOptionsTab));
+}
+</code></pre>
+<hr>
+<h2 id="11-searchfilter-by-name">11. Search/Filter by Name</h2>
+<h3 id="design-decision-7">Design Decision</h3>
+<p>Provide a text search box that filters settings by name across all categories in real-time.</p>
+<h3 id="ui-layout">UI Layout</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ [🔍] Search settings...                         [Clear] [×]     │
+├─────────────────────────────────────────────────────────────────┤
+│ ▼ Model Categories (3 matches)                                  │
+│   ├─ Structural Framing        [☑] Visible    [☐] Hidden       │
+│   └─ Structural Columns        [☑] Visible    [☐] Hidden       │
+│ ▼ Annotation Categories (1 match)                               │
+│   └─ Structural Framing Tags   [☑] Visible    [☐] Visible      │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="implementation-1">Implementation</h3>
+<pre><code class="lang-csharp">[ObservableProperty]
+[NotifyPropertyChangedFor(nameof(FilteredDiffTreeRoots))]
+private string _searchText = string.Empty;
+
+public IEnumerable&lt;VtcDiffTreeNode&gt; FilteredDiffTreeRoots
+{
+    get
+    {
+        var roots = GetConflictFilteredRoots();
+
+        if (string.IsNullOrWhiteSpace(SearchText))
+            return roots;
+
+        return roots
+            .Select(root =&gt; FilterNodeBySearch(root, SearchText))
+            .Where(node =&gt; node != null)!;
+    }
+}
+
+private static VtcDiffTreeNode? FilterNodeBySearch(VtcDiffTreeNode node, string searchText)
+{
+    // Check if this node's name matches
+    var nameMatches = node.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+
+    // Filter children recursively
+    var filteredChildren = node.Children
+        .Select(c =&gt; FilterNodeBySearch(c, searchText))
+        .Where(c =&gt; c != null)
+        .ToList();
+
+    // Include node if name matches OR has matching children
+    if (!nameMatches &amp;&amp; filteredChildren.Count == 0)
+        return null;
+
+    // Create filtered copy
+    var filteredNode = new VtcDiffTreeNode(node.DisplayName, node.NodeType)
+    {
+        Change = node.Change,
+        CategoryTab = node.CategoryTab
+    };
+
+    foreach (var child in filteredChildren)
+        filteredNode.Children.Add(child!);
+
+    filteredNode.IsExpanded = true;  // Auto-expand when filtering
+    return filteredNode;
+}
+
+[RelayCommand]
+private void ClearSearch() =&gt; SearchText = string.Empty;
+</code></pre>
+<hr>
+<h2 id="12-copy-linked-file-overrides">12. Copy Linked File Overrides</h2>
+<h3 id="design-decision-8">Design Decision</h3>
+<p>Enable copying visibility overrides from one linked file to another within the same view template.</p>
+<h3 id="workflow-1">Workflow</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ Copy Linked File Overrides                                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Source Link:  [▼ Architectural.rvt                    ]        │
+│                                                                  │
+│  Target Link:  [▼ Structural.rvt                       ]        │
+│                                                                  │
+│  Options:                                                        │
+│  [☑] Copy visibility state                                      │
+│  [☑] Copy category overrides                                    │
+│  [☑] Copy linked view reference                                 │
+│                                                                  │
+│                              [Cancel]  [Copy Overrides]          │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="implementation-2">Implementation</h3>
+<pre><code class="lang-csharp">public sealed record VtcCopyLinkedOverridesOptions(
+    long SourceLinkTypeId,
+    long TargetLinkTypeId,
+    bool CopyVisibility,
+    bool CopyCategoryOverrides,
+    bool CopyLinkedViewReference);
+
+public void CopyLinkedFileOverrides(View template, VtcCopyLinkedOverridesOptions options)
+{
+    var sourceId = new ElementId(options.SourceLinkTypeId);
+    var targetId = new ElementId(options.TargetLinkTypeId);
+
+    using var tx = new Transaction(_document, &quot;Copy Linked File Overrides&quot;);
+    tx.Start();
+
+    if (options.CopyVisibility)
+    {
+        var isHidden = template.GetCategoryHidden(sourceId);
+        template.SetCategoryHidden(targetId, isHidden);
+    }
+
+    if (options.CopyCategoryOverrides)
+    {
+        var ogs = template.GetCategoryOverrides(sourceId);
+        template.SetCategoryOverrides(targetId, ogs);
+    }
+
+    if (options.CopyLinkedViewReference)
+    {
+        var linkedViewId = template.GetLinkedOverrideViewId(sourceId);
+        template.SetLinkedOverrideViewId(targetId, linkedViewId);
+    }
+
+    tx.Commit();
+}
+</code></pre>
+<hr>
+<h2 id="13-interactive-diff-view-with-inline-override-controls">13. Interactive Diff View with Inline Override Controls</h2>
+<h3 id="design-decision-9">Design Decision</h3>
+<p>Mirror Revit's Visibility/Graphics dialog by providing inline controls for each category row, allowing direct editing of override settings.</p>
+<h3 id="row-control-layout">Row Control Layout</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Category Name    │ Projection/Surface         │ Cut           │ HT │ Detail    │
+│                  │ [Lines] [Patterns] [Trans] │ [Lines] [Pat] │ [☐]│ [▼ Fine ] │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Structural       │  [⚫]    [◻]       [50% ]  │  [⚫]   [◻]   │ [☐]│ [▼ Med  ] │
+│ Framing          │                            │               │    │           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+[⚫] = Lines button (opens Line Settings dialog)
+[◻]  = Patterns button (opens Fill Pattern dialog)
+[50%] = Transparency button (opens Transparency slider dialog)
+[☐] = Halftone checkbox (direct toggle)
+[▼] = Detail Level dropdown (Coarse/Medium/Fine)
+</code></pre>
+<h3 id="control-types">Control Types</h3>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Type</th>
+<th>Dialog</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Projection Lines</td>
+<td>Button</td>
+<td>Line Settings Dialog</td>
+</tr>
+<tr>
+<td>Projection Patterns</td>
+<td>Button</td>
+<td>Fill Pattern Dialog</td>
+</tr>
+<tr>
+<td>Transparency</td>
+<td>Button</td>
+<td>Transparency Slider Dialog</td>
+</tr>
+<tr>
+<td>Cut Lines</td>
+<td>Button</td>
+<td>Line Settings Dialog</td>
+</tr>
+<tr>
+<td>Cut Patterns</td>
+<td>Button</td>
+<td>Fill Pattern Dialog</td>
+</tr>
+<tr>
+<td>Halftone</td>
+<td>Checkbox</td>
+<td>Inline (no dialog)</td>
+</tr>
+<tr>
+<td>Detail Level</td>
+<td>ComboBox</td>
+<td>Inline dropdown</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="14-override-editing-dialogs">14. Override Editing Dialogs</h2>
+<h3 id="141-line-settings-dialog">14.1 Line Settings Dialog</h3>
+<p>A compact modal for configuring line overrides.</p>
+<pre><code>┌─────────────────────────────────────────────────┐
+│ Line Settings                              [×]  │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Preview:  ────────────────────────             │
+│            (live preview of current settings)   │
+│                                                 │
+│  Weight:   [▼ 3                              ]  │
+│                                                 │
+│  Color:    [■ Blue     ] [🎨]                   │
+│                                                 │
+│  Pattern:  [▼ Solid                          ]  │
+│                                                 │
+│            [Reset to Default]                   │
+│                                                 │
+│                      [Cancel]  [Apply]          │
+└─────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Data Model:</strong></p>
+<pre><code class="lang-csharp">public sealed record VtcLineSettingsData
+{
+    public int? LineWeight { get; init; }
+    public VtcColorData? LineColor { get; init; }
+    public long? LinePatternId { get; init; }
+    public string? LinePatternName { get; init; }  // For display
+}
+</code></pre>
+<h3 id="142-fill-pattern-dialog">14.2 Fill Pattern Dialog</h3>
+<p>A compact modal for configuring foreground/background fill patterns.</p>
+<pre><code>┌─────────────────────────────────────────────────┐
+│ Fill Pattern Settings                      [×]  │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Preview:  ┌──────────────────┐                 │
+│            │▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│                 │
+│            │▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│                 │
+│            └──────────────────┘                 │
+│                                                 │
+│  ─── Foreground ───                             │
+│  [☑] Visible                                    │
+│  Pattern: [▼ Crosshatch                      ]  │
+│  Color:   [■ Gray      ] [🎨]                   │
+│                                                 │
+│  ─── Background ───                             │
+│  [☑] Visible                                    │
+│  Pattern: [▼ Solid Fill                      ]  │
+│  Color:   [■ White     ] [🎨]                   │
+│                                                 │
+│            [Reset to Default]                   │
+│                                                 │
+│                      [Cancel]  [Apply]          │
+└─────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Data Model:</strong></p>
+<pre><code class="lang-csharp">public sealed record VtcFillPatternData
+{
+    public bool ForegroundVisible { get; init; }
+    public long? ForegroundPatternId { get; init; }
+    public string? ForegroundPatternName { get; init; }
+    public VtcColorData? ForegroundColor { get; init; }
+
+    public bool BackgroundVisible { get; init; }
+    public long? BackgroundPatternId { get; init; }
+    public string? BackgroundPatternName { get; init; }
+    public VtcColorData? BackgroundColor { get; init; }
+}
+</code></pre>
+<h3 id="143-transparency-dialog">14.3 Transparency Dialog</h3>
+<p>A minimal modal with just a slider control.</p>
+<pre><code>┌─────────────────────────────────────────────────┐
+│ Transparency                               [×]  │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Preview:  [░░░░░░░░░░░░░░░░]  50%              │
+│                                                 │
+│  [────────────●────────────] 0    50   100      │
+│                                                 │
+│                      [Cancel]  [Apply]          │
+└─────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Data Model:</strong></p>
+<pre><code class="lang-csharp">public sealed record VtcTransparencyData(int Transparency);  // 0-100
+</code></pre>
+<hr>
+<h2 id="15-dialog-implementation-with-alertservice">15. Dialog Implementation with AlertService</h2>
+<h3 id="common-dialog-pattern">Common Dialog Pattern</h3>
+<pre><code class="lang-csharp">public sealed class VtcLineSettingsBodyViewModel : ObservableObject, IAlertBody
+{
+    private int? _lineWeight;
+    private VtcColorData? _lineColor;
+    private long? _linePatternId;
+
+    public VtcLineSettingsBodyViewModel(
+        VtcLineSettingsData initialData,
+        IReadOnlyList&lt;VtcLinePatternInfo&gt; availablePatterns,
+        IReadOnlyList&lt;int&gt; availableWeights)
+    {
+        _lineWeight = initialData?.LineWeight;
+        _lineColor = initialData?.LineColor;
+        _linePatternId = initialData?.LinePatternId;
+
+        AvailablePatterns = availablePatterns;
+        AvailableWeights = availableWeights;
+    }
+
+    public int? LineWeight
+    {
+        get =&gt; _lineWeight;
+        set =&gt; SetProperty(ref _lineWeight, value);
+    }
+
+    public VtcColorData? LineColor
+    {
+        get =&gt; _lineColor;
+        set =&gt; SetProperty(ref _lineColor, value);
+    }
+
+    public long? LinePatternId
+    {
+        get =&gt; _linePatternId;
+        set =&gt; SetProperty(ref _linePatternId, value);
+    }
+
+    public IReadOnlyList&lt;VtcLinePatternInfo&gt; AvailablePatterns { get; }
+    public IReadOnlyList&lt;int&gt; AvailableWeights { get; }
+
+    // IAlertBody implementation
+    public bool IsValid =&gt; true;  // Always valid, changes are optional
+    public event EventHandler? ValidityChanged;
+
+    public object? GetResult() =&gt; new VtcLineSettingsData
+    {
+        LineWeight = LineWeight,
+        LineColor = LineColor,
+        LinePatternId = LinePatternId
+    };
+}
+</code></pre>
+<h3 id="dialog-invocation">Dialog Invocation</h3>
+<pre><code class="lang-csharp">public VtcLineSettingsData? ShowLineSettingsDialog(
+    VtcLineSettingsData? current,
+    string settingName)
+{
+    var body = new VtcLineSettingsBodyViewModel(
+        current,
+        GetAvailableLinePatterns(),
+        GetAvailableLineWeights());
+
+    var request = new AlertRequest($&quot;Line Settings: {settingName}&quot;, body)
+    {
+        Variant = AlertVariant.Info,
+        Options = new AlertWindowOptions
+        {
+            Width = 350,
+            Height = 280,
+            MinWidth = 300,
+            MinHeight = 250
+        },
+        Buttons = new[]
+        {
+            new AlertButtonSpec(&quot;cancel&quot;, &quot;Cancel&quot;) { IsCancel = true },
+            new AlertButtonSpec(&quot;apply&quot;, &quot;Apply&quot;) { IsDefault = true, SetDialogResult = true }
+        }
+    };
+
+    var result = _alerts.Show(request);
+
+    return result.ClickedButtonId == &quot;apply&quot;
+        ? result.Payload as VtcLineSettingsData
+        : null;
+}
+</code></pre>
+<hr>
+<h2 id="16-visual-preview-components">16. Visual Preview Components</h2>
+<h3 id="line-preview-control">Line Preview Control</h3>
+<pre><code class="lang-xaml">&lt;!-- Preview showing line weight, color, and pattern --&gt;
+&lt;Canvas Height=&quot;20&quot; Width=&quot;200&quot; ClipToBounds=&quot;True&quot;&gt;
+    &lt;Line X1=&quot;10&quot; Y1=&quot;10&quot; X2=&quot;190&quot; Y2=&quot;10&quot;
+          Stroke=&quot;{Binding PreviewBrush}&quot;
+          StrokeThickness=&quot;{Binding LineWeight}&quot;
+          StrokeDashArray=&quot;{Binding PatternDashes}&quot; /&gt;
+&lt;/Canvas&gt;
+</code></pre>
+<h3 id="fill-pattern-preview-control">Fill Pattern Preview Control</h3>
+<pre><code class="lang-xaml">&lt;!-- Preview showing foreground over background pattern --&gt;
+&lt;Grid Width=&quot;100&quot; Height=&quot;60&quot;&gt;
+    &lt;!-- Background pattern --&gt;
+    &lt;Rectangle Fill=&quot;{Binding BackgroundBrush}&quot;
+               Visibility=&quot;{Binding BackgroundVisible, Converter={StaticResource BoolToVis}}&quot; /&gt;
+    &lt;!-- Foreground pattern overlay --&gt;
+    &lt;Rectangle Fill=&quot;{Binding ForegroundBrush}&quot;
+               Visibility=&quot;{Binding ForegroundVisible, Converter={StaticResource BoolToVis}}&quot; /&gt;
+&lt;/Grid&gt;
+</code></pre>
+<h3 id="transparency-preview-control">Transparency Preview Control</h3>
+<pre><code class="lang-xaml">&lt;!-- Checkerboard background with semi-transparent overlay --&gt;
+&lt;Grid Width=&quot;100&quot; Height=&quot;30&quot;&gt;
+    &lt;Rectangle&gt;
+        &lt;Rectangle.Fill&gt;
+            &lt;DrawingBrush TileMode=&quot;Tile&quot; Viewport=&quot;0,0,10,10&quot; ViewportUnits=&quot;Absolute&quot;&gt;
+                &lt;DrawingBrush.Drawing&gt;
+                    &lt;GeometryDrawing Brush=&quot;LightGray&quot;&gt;
+                        &lt;GeometryDrawing.Geometry&gt;
+                            &lt;GeometryGroup&gt;
+                                &lt;RectangleGeometry Rect=&quot;0,0,5,5&quot; /&gt;
+                                &lt;RectangleGeometry Rect=&quot;5,5,5,5&quot; /&gt;
+                            &lt;/GeometryGroup&gt;
+                        &lt;/GeometryDrawing.Geometry&gt;
+                    &lt;/GeometryDrawing&gt;
+                &lt;/DrawingBrush.Drawing&gt;
+            &lt;/DrawingBrush&gt;
+        &lt;/Rectangle.Fill&gt;
+    &lt;/Rectangle&gt;
+    &lt;Rectangle Fill=&quot;{DynamicResource Primary}&quot;
+               Opacity=&quot;{Binding TransparencyDecimal}&quot; /&gt;
+&lt;/Grid&gt;
+</code></pre>
+<hr>
+<h2 id="17-updated-file-structure">17. Updated File Structure</h2>
+<pre><code>VTC/
+├── Documentation/
+│   └── VTC_Enhanced_Design.md          # This document
+├── Contracts/
+│   ├── VtcDataModels.cs                # Enhanced with linked files, worksets, design options
+│   ├── VtcEnums.cs                     # Add VtcLinkedFileVisibility
+│   ├── IVtcComparisonService.cs
+│   └── VtcOverrideEditingModels.cs     # NEW: Line, pattern, transparency data
+├── UI/
+│   ├── Controls/
+│   │   ├── VtcDiffViewControl.xaml     # Enhanced with search and inline controls
+│   │   ├── VtcLinePreviewControl.xaml  # NEW: Line preview
+│   │   ├── VtcPatternPreviewControl.xaml # NEW: Pattern preview
+│   │   └── VtcTransparencyPreviewControl.xaml # NEW: Transparency preview
+│   ├── ViewModels/
+│   │   ├── VtcWindowViewModel.cs       # Enhanced with search, conditional tabs
+│   │   ├── VtcDiffTreeNode.cs          # Enhanced with edit commands
+│   │   ├── VtcDiffTreeBuilder.cs       # Enhanced with linked files, worksets
+│   │   ├── VtcLinkedFileDiffViewModel.cs
+│   │   ├── VtcLineSettingsBodyViewModel.cs    # NEW: Line dialog body
+│   │   ├── VtcFillPatternBodyViewModel.cs     # NEW: Pattern dialog body
+│   │   └── VtcTransparencyBodyViewModel.cs    # NEW: Transparency dialog body
+│   ├── Views/
+│   │   ├── VtcWindow.xaml              # Main window with search
+│   │   ├── VtcLinkedFileWindow.xaml
+│   │   └── VtcCopyLinkedOverridesWindow.xaml  # NEW: Copy dialog
+│   ├── Converters/
+│   │   ├── VtcDiffBackgroundConverter.cs
+│   │   ├── VtcEnumToBoolConverter.cs
+│   │   └── VtcPatternToBrushConverter.cs      # NEW: Pattern preview
+│   └── Behaviors/
+│       └── ScrollSyncBehavior.cs
+├── Revit/
+│   └── Services/
+│       ├── VtcComparisonService.cs     # Enhanced with linked files, worksets, design options
+│       └── VtcCategoryClassifier.cs
+└── Services/
+    └── VtcTemplateStorageService.cs
+</code></pre>
+<hr>
+<h2 id="18-implementation-priority-updated">18. Implementation Priority (Updated)</h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Feature</th>
+<th>Complexity</th>
+<th>Dependencies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Search/Filter by Name</td>
+<td>Low</td>
+<td>None</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Linked File Extraction</td>
+<td>High</td>
+<td>Revit API integration</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Worksets &amp; Design Options</td>
+<td>Medium</td>
+<td>Conditional tab visibility</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Copy Linked File Overrides</td>
+<td>Medium</td>
+<td>Linked file extraction</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Inline Override Controls</td>
+<td>High</td>
+<td>All dialogs</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Line Settings Dialog</td>
+<td>Medium</td>
+<td>Preview controls</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Fill Pattern Dialog</td>
+<td>Medium</td>
+<td>Preview controls</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Transparency Dialog</td>
+<td>Low</td>
+<td>Preview control</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://help.autodesk.com/view/RVT/2025/ENU/?guid=GUID-FB8D0ABE-8521-4EA0-A47E-FF3DEBC403A5">Revit Visibility/Graphics Documentation</a></li>
+<li><a href="https://apidocs.co/apps/revit/2022/ba1c5b30-242f-5fdc-8ea9-ec3b61e6e722.htm">Revit API BuiltInCategory Enumeration</a></li>
+<li><a href="https://learnrevitapi.com/blog/get-all-categories-in-revit-api">Revit Category Management</a></li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/testing/vtc-spec.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

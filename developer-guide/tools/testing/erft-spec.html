@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Extreme Roof Framing Tool (ERFT) - Complete Technical Specification | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Extreme Roof Framing Tool (ERFT) - Complete Technical Specification | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/testing/erft-spec.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20260125" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="extreme-roof-framing-tool-erft---complete-technical-specification">Extreme Roof Framing Tool (ERFT) - Complete Technical Specification</h1>
+
+<h2 id="overview">Overview</h2>
+<p>ERFT is a Revit add-in that adjusts structural columns and beams to match the slope of a target floor or roof element. Users select a target element (floor/roof from host or linked model), then select source framing elements (columns/beams from host document). The tool analyzes the framing hierarchy, computes required vertical adjustments based on closest-point projection to the target surface, and applies offset parameter changes with configurable rounding tolerance.</p>
+<p><strong>Tool Location:</strong> <code>csharp/src/Tools/Testing/ERFT/</code>
+<strong>Ribbon Location:</strong> DB Tools &gt; Testing &gt; ERFT</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-core-concepts">Core Concepts</a></li>
+<li><a href="#2-user-workflow">User Workflow</a></li>
+<li><a href="#3-data-models">Data Models</a></li>
+<li><a href="#4-architecture">Architecture</a></li>
+<li><a href="#5-selection--validation">Selection &amp; Validation</a></li>
+<li><a href="#6-geometry-analysis">Geometry Analysis</a></li>
+<li><a href="#7-framing-hierarchy-detection">Framing Hierarchy Detection</a></li>
+<li><a href="#8-adjustment-algorithm">Adjustment Algorithm</a></li>
+<li><a href="#9-3d-preview-system">3D Preview System</a></li>
+<li><a href="#10-ui-components">UI Components</a></li>
+<li><a href="#11-extensiblestorage-schema">ExtensibleStorage Schema</a></li>
+<li><a href="#12-contextual-ribbon-integration">Contextual Ribbon Integration</a></li>
+<li><a href="#13-error-handling">Error Handling</a></li>
+<li><a href="#14-test-strategy">Test Strategy</a></li>
+<li><a href="#15-implementation-phases">Implementation Phases</a></li>
+</ol>
+<hr>
+<h2 id="1-core-concepts">1. Core Concepts</h2>
+<h3 id="11-purpose">1.1 Purpose</h3>
+<p>ERFT solves the problem of manually adjusting structural framing to follow sloped roofs or floors. Instead of tediously calculating and applying offsets to each element, users:</p>
+<ol>
+<li><strong>Select</strong> the target slope surface (floor/roof)</li>
+<li><strong>Select</strong> the framing elements to adjust (columns and beams)</li>
+<li><strong>Configure</strong> rounding tolerance (e.g., nearest 1/4&quot;)</li>
+<li><strong>Preview</strong> the adjustments in 3D with status highlighting</li>
+<li><strong>Apply</strong> changes atomically with a single click</li>
+</ol>
+<h3 id="12-key-principles">1.2 Key Principles</h3>
+<ul>
+<li><strong>Offset-Only Adjustments</strong>: Never modify Level parameters; only adjust offset values</li>
+<li><strong>Closest-Point Projection</strong>: Each endpoint is projected to the nearest point on the target surface</li>
+<li><strong>Auto-Detect Hierarchy</strong>: Automatically determine which beams frame to columns vs. other beams</li>
+<li><strong>Cascading Adjustments</strong>: Columns first → beams-to-columns → beams-to-beams</li>
+<li><strong>SSOT Pattern</strong>: Single ErftPlan object holds all state; UI mutates it; Apply reads it</li>
+</ul>
+<h3 id="13-workflow-stages">1.3 Workflow Stages</h3>
+<pre><code>┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  1. PICK TARGET │───&gt;│  2. PICK SOURCE │───&gt;│  3. CONFIGURE   │───&gt;│   4. APPLY      │
+│  - Floor/Roof   │    │  - Columns      │    │  - Preview 3D   │    │  - Adjust cols  │
+│  - Host/Linked  │    │  - Beams        │    │  - Tolerance    │    │  - Adjust beams │
+└─────────────────┘    └─────────────────┘    │  - Round up/dn  │    │  - Tag elements │
+                                              └─────────────────┘    └─────────────────┘
+</code></pre>
+<hr>
+<h2 id="2-user-workflow">2. User Workflow</h2>
+<h3 id="21-initial-flow-new">2.1 Initial Flow (New)</h3>
+<ol>
+<li>User clicks &quot;ERFT&quot; ribbon button</li>
+<li>Status bar: &quot;Pick target floor or roof (ESC to cancel)&quot;</li>
+<li>User picks floor/roof from host or linked model</li>
+<li>Status bar: &quot;Pick columns and beams to adjust (Finish to continue)&quot;</li>
+<li>User picks multiple columns/beams, clicks Finish</li>
+<li>Validation: Must have at least 1 column OR 1 beam framing to a column</li>
+<li>Progress overlay appears: &quot;Analyzing geometry...&quot;</li>
+<li>Pre-analysis runs:
+<ul>
+<li>Extract target surface geometry (mesh + slope data)</li>
+<li>Analyze source element positions</li>
+<li>Detect framing hierarchy (what frames to what)</li>
+<li>Warm profile loops for 3D preview</li>
+<li>Compute initial adjustment deltas</li>
+</ul>
+</li>
+<li>UI window opens with:
+<ul>
+<li>3D preview showing target surface + framing</li>
+<li>Tolerance controls (presets + custom)</li>
+<li>Round up/down toggle</li>
+<li>Element list with status indicators</li>
+</ul>
+</li>
+<li>User adjusts tolerance as needed</li>
+<li>Preview updates in real-time</li>
+<li>User clicks &quot;Apply&quot;</li>
+<li>Transaction group commits all changes</li>
+<li>ExtensibleStorage tags applied to modified elements</li>
+</ol>
+<h3 id="22-edit-flow-via-contextual-ribbon">2.2 Edit Flow (via Contextual Ribbon)</h3>
+<ol>
+<li>User selects elements with ERFT ExtensibleStorage data</li>
+<li>Contextual &quot;Edit ERFT&quot; button appears in Modify tab</li>
+<li>User clicks button</li>
+<li>System loads stored plan from DataStorage</li>
+<li>UI opens with previous settings populated</li>
+<li>User can:
+<ul>
+<li>Re-pick target floor/roof</li>
+<li>Adjust tolerances</li>
+<li>Re-apply changes</li>
+</ul>
+</li>
+<li>Apply overwrites previous offsets (not cumulative)</li>
+</ol>
+<hr>
+<h2 id="3-data-models">3. Data Models</h2>
+<h3 id="31-erftplan-single-source-of-truth">3.1 ErftPlan (Single Source of Truth)</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Central domain model holding all ERFT state.
+/// UI binds to this; Apply reads from it.
+/// &lt;/summary&gt;
+public sealed class ErftPlan
+{
+    // === TARGET CONTEXT ===
+    public int? HostTargetId { get; set; }          // Floor/Roof in host doc
+    public int? LinkedTargetId { get; set; }        // Floor/Roof in linked doc
+    public int? LinkInstanceId { get; set; }        // RevitLinkInstance if linked
+    public TargetSurfaceGeometry? TargetGeometry { get; set; }
+    
+    // === SOURCE ELEMENTS ===
+    public List&lt;ErftColumnItem&gt; Columns { get; init; } = new();
+    public List&lt;ErftBeamItem&gt; Beams { get; init; } = new();
+    
+    // === FRAMING HIERARCHY ===
+    public ErftFramingGraph FramingGraph { get; set; } = new();
+    
+    // === TOLERANCE SETTINGS ===
+    public double ToleranceFeet { get; set; } = 1.0 / 48.0;  // 1/4&quot; default
+    public RoundingMode RoundingMode { get; set; } = RoundingMode.Nearest;
+    
+    // === PREVIEW STATE ===
+    public IReadOnlyDictionary&lt;int, MemberProfileLoops&gt; ProfilesByTypeId { get; set; }
+    
+    // === METADATA ===
+    public string SystemId { get; set; } = Guid.NewGuid().ToString();
+    public int Version { get; set; } = 1;
+}
+</code></pre>
+<h3 id="32-erftcolumnitem">3.2 ErftColumnItem</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Represents a structural column in the adjustment plan.
+/// &lt;/summary&gt;
+public sealed class ErftColumnItem
+{
+    public int ElementId { get; init; }
+    public int TypeId { get; init; }
+    public string TypeName { get; init; } = string.Empty;
+    
+    // Original state (read from Revit)
+    public Vector3 TopPoint { get; init; }              // Current top coordinate
+    public double OriginalTopOffsetFeet { get; init; }  // Current Top Offset parameter
+    public int TopLevelId { get; init; }                // Top Level (never changed)
+    
+    // Computed adjustment
+    public double TargetElevationFeet { get; set; }     // Z of closest point on target
+    public double DeltaFeet { get; set; }               // Raw delta (target - current)
+    public double RoundedDeltaFeet { get; set; }        // After tolerance rounding
+    public double NewTopOffsetFeet { get; set; }        // Original + RoundedDelta
+    
+    // Status
+    public AdjustmentStatus Status { get; set; }
+}
+</code></pre>
+<h3 id="33-erftbeamitem">3.3 ErftBeamItem</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Represents a structural beam in the adjustment plan.
+/// &lt;/summary&gt;
+public sealed class ErftBeamItem
+{
+    public int ElementId { get; init; }
+    public int TypeId { get; init; }
+    public string TypeName { get; init; } = string.Empty;
+    
+    // Original state
+    public Vector3 StartPoint { get; init; }
+    public Vector3 EndPoint { get; init; }
+    public double OriginalStartOffsetFeet { get; init; }
+    public double OriginalEndOffsetFeet { get; init; }
+    public int ReferenceLevelId { get; init; }
+    
+    // Connection classification
+    public BeamEndConnection StartConnection { get; set; }  // Column, Beam, or Free
+    public BeamEndConnection EndConnection { get; set; }
+    public int? StartConnectionElementId { get; set; }      // Column or Beam it connects to
+    public int? EndConnectionElementId { get; set; }
+    
+    // Computed adjustment
+    public double StartTargetElevationFeet { get; set; }
+    public double EndTargetElevationFeet { get; set; }
+    public double StartDeltaFeet { get; set; }
+    public double EndDeltaFeet { get; set; }
+    public double RoundedStartDeltaFeet { get; set; }
+    public double RoundedEndDeltaFeet { get; set; }
+    public double NewStartOffsetFeet { get; set; }
+    public double NewEndOffsetFeet { get; set; }
+    
+    // Status
+    public AdjustmentStatus Status { get; set; }
+}
+</code></pre>
+<h3 id="34-supporting-types">3.4 Supporting Types</h3>
+<pre><code class="lang-csharp">public enum BeamEndConnection
+{
+    Free,           // Endpoint not connected to anything in selection
+    ToColumn,       // Frames into a column top
+    ToBeam          // Frames into another beam's location line
+}
+
+public enum AdjustmentStatus
+{
+    Pending,        // Will be modified
+    NoChangeNeeded, // Already at correct elevation (within tolerance)
+    Error           // Cannot compute adjustment (missing geometry, etc.)
+}
+
+public enum RoundingMode
+{
+    Nearest,        // Round to nearest increment
+    Up,             // Always round up (toward target)
+    Down            // Always round down (away from target)
+}
+
+/// &lt;summary&gt;
+/// Extracted geometry of the target floor/roof surface.
+/// &lt;/summary&gt;
+public sealed class TargetSurfaceGeometry
+{
+    public IReadOnlyList&lt;Vector3&gt; Vertices { get; init; }
+    public IReadOnlyList&lt;int&gt; TriangleIndices { get; init; }
+    public BoundingBox Bounds { get; init; }
+    public Transform? LinkTransform { get; init; }  // null if host element
+}
+
+/// &lt;summary&gt;
+/// Graph representing framing connectivity.
+/// &lt;/summary&gt;
+public sealed class ErftFramingGraph
+{
+    public IReadOnlyDictionary&lt;int, List&lt;int&gt;&gt; ColumnToBeams { get; set; }  // columnId → beamIds framing to it
+    public IReadOnlyDictionary&lt;int, List&lt;int&gt;&gt; BeamToBeams { get; set; }    // beamId → beamIds framing to it
+    public IReadOnlyList&lt;int&gt; ProcessingOrder { get; set; }  // Topological sort for cascading
+}
+</code></pre>
+<hr>
+<h2 id="4-architecture">4. Architecture</h2>
+<h3 id="41-folder-structure">4.1 Folder Structure</h3>
+<pre><code>csharp/src/Tools/Testing/ERFT/
+├── Assets/
+│   └── erft_icon.png                    # 32x32 tool icon
+├── Common/
+│   ├── Domain/
+│   │   ├── ErftPlan.cs                  # SSOT plan object
+│   │   ├── ErftColumnItem.cs            # Column data
+│   │   ├── ErftBeamItem.cs              # Beam data
+│   │   ├── TargetSurfaceGeometry.cs     # Mesh representation
+│   │   ├── ErftFramingGraph.cs          # Connectivity graph
+│   │   ├── ErftStoredPlan.cs            # Serialization snapshot
+│   │   ├── Vector3.cs                   # (reuse from SGT or create)
+│   │   └── MemberProfileLoops.cs        # (reuse from SGT)
+│   ├── Models/
+│   │   ├── ErftSchemaDefinition.cs      # ExtensibleStorage constants
+│   │   └── TolerancePreset.cs           # Rounding preset options
+│   ├── Revit/
+│   │   └── ErftSystemRepository.cs      # ExtensibleStorage CRUD
+│   └── State/
+│       └── ErftPlanStore.cs             # Thread-safe plan holder
+├── Features/
+│   ├── Commands/
+│   │   ├── ErftNewCommand.cs            # Ribbon entry point
+│   │   ├── ErftRunner.cs                # Modal flow orchestration
+│   │   ├── ErftContextualRibbonInjector.cs  # Edit button injection
+│   │   └── ErftMode.cs                  # New/Edit enum
+│   ├── Analysis/
+│   │   ├── Logic/
+│   │   │   ├── TargetSurfaceAnalyzer.cs    # Extract mesh from floor/roof
+│   │   │   ├── FramingHierarchyBuilder.cs  # Build connectivity graph
+│   │   │   └── AdjustmentCalculator.cs     # Compute deltas
+│   │   └── Revit/
+│   │       ├── FloorRoofGeometryService.cs # Revit API geometry extraction
+│   │       ├── ColumnQueryService.cs       # Read column properties
+│   │       └── BeamQueryService.cs         # Read beam properties
+│   ├── Apply/
+│   │   ├── Logic/
+│   │   │   └── ErftOrchestrator.cs         # Apply orchestration
+│   │   └── Revit/
+│   │       ├── ErftDomainWriter.cs         # Write offset parameters
+│   │       └── ErftStorageMapper.cs        # JSON serialization
+│   └── Preview/
+│       ├── Logic/
+│       │   └── ErftPreviewSceneBuilder.cs  # Build 3D meshes
+│       └── UI/
+│           └── ErftPreview3DRenderer.cs    # HelixToolkit rendering
+├── Shell/
+│   ├── Composition/
+│   │   └── ErftServiceCollectionExtensions.cs  # DI registration
+│   ├── Revit/
+│   │   ├── ErftTargetSelectionFilter.cs    # Floor/Roof picker filter
+│   │   └── ErftSourceSelectionFilter.cs    # Column/Beam picker filter
+│   ├── Services/
+│   │   └── DialogService.cs                # (reuse pattern from SGT)
+│   └── UI/
+│       ├── ViewModels/
+│       │   └── ErftWindowViewModel.cs      # Main VM
+│       └── Views/
+│           └── ErftWindow.xaml[.cs]        # Main UI window
+├── Shared/
+│   ├── Contracts/
+│   │   ├── IErftPlanStore.cs
+│   │   ├── ITargetSurfaceAnalyzer.cs
+│   │   └── IFramingHierarchyBuilder.cs
+│   └── Geometry/
+│       └── ClosestPointService.cs          # Point-to-mesh projection
+├── Tests/
+│   ├── ClosestPointServiceTests.cs
+│   ├── FramingHierarchyBuilderTests.cs
+│   ├── AdjustmentCalculatorTests.cs
+│   ├── ErftStorageMapperTests.cs
+│   └── ErftPreviewSceneBuilderTests.cs
+├── ErftToolModule.cs                       # Tool registration + hooks
+├── ErftServiceExtensions.cs                # Bootstrap
+├── manifest.yml                            # Tool manifest
+├── DBTools.ERFT.csproj                     # Project file
+└── GlobalSuppressions.cs                   # Analyzer suppressions
+</code></pre>
+<h3 id="42-dependencies">4.2 Dependencies</h3>
+<ul>
+<li><strong>HelixToolkit.SharpDX.Core.Wpf</strong> - 3D preview rendering (already in repo)</li>
+<li><strong>CSharpFunctionalExtensions</strong> - Result&lt;T,E&gt; pattern (already in repo)</li>
+<li><strong>System.Text.Json</strong> - Serialization (already in repo)</li>
+</ul>
+<hr>
+<h2 id="5-selection--validation">5. Selection &amp; Validation</h2>
+<h3 id="51-target-selection-filter">5.1 Target Selection Filter</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// ISelectionFilter for picking floor/roof from host or linked models.
+/// &lt;/summary&gt;
+public sealed class ErftTargetSelectionFilter : ISelectionFilter
+{
+    private readonly Document _doc;
+    
+    public bool AllowElement(Element elem)
+    {
+        // Allow RevitLinkInstance (for linked targets)
+        if (elem is RevitLinkInstance) return true;
+        // Allow host Floor or Roof
+        return elem is Floor || elem is RoofBase;
+    }
+    
+    public bool AllowReference(Reference reference, XYZ position)
+    {
+        if (reference == null) return false;
+        
+        // Check if it's a linked element
+        var hostElem = _doc.GetElement(reference.ElementId);
+        if (hostElem is RevitLinkInstance link)
+        {
+            var linkDoc = link.GetLinkDocument();
+            var linked = linkDoc?.GetElement(reference.LinkedElementId);
+            return linked is Floor || linked is RoofBase;
+        }
+        
+        // Host element
+        return hostElem is Floor || hostElem is RoofBase;
+    }
+}
+</code></pre>
+<h3 id="52-source-selection-filter">5.2 Source Selection Filter</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// ISelectionFilter for picking structural columns and beams from host document.
+/// &lt;/summary&gt;
+public sealed class ErftSourceSelectionFilter : ISelectionFilter
+{
+    public bool AllowElement(Element elem)
+    {
+        if (elem is not FamilyInstance fi) return false;
+        
+        var cat = elem.Category?.BuiltInCategory;
+        return cat == BuiltInCategory.OST_StructuralColumns ||
+               cat == BuiltInCategory.OST_StructuralFraming;
+    }
+    
+    public bool AllowReference(Reference reference, XYZ position)
+    {
+        return false; // No linked sources allowed
+    }
+}
+</code></pre>
+<h3 id="53-validation-rules">5.3 Validation Rules</h3>
+<p>After source selection completes, validate:</p>
+<ol>
+<li><strong>At least one column</strong> must be selected, OR</li>
+<li><strong>At least one beam</strong> must frame directly to a column (detected via proximity)</li>
+<li>If only beams are selected with no columns, show error: &quot;Select at least one column or beams that frame to columns&quot;</li>
+</ol>
+<hr>
+<h2 id="6-geometry-analysis">6. Geometry Analysis</h2>
+<h3 id="61-target-surface-extraction">6.1 Target Surface Extraction</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Extracts triangulated mesh from Floor or RoofBase bottom face.
+/// &lt;/summary&gt;
+public sealed class FloorRoofGeometryService
+{
+    /// &lt;summary&gt;
+    /// Gets the bottom face geometry of a floor or roof, transformed to host coordinates if linked.
+    /// &lt;/summary&gt;
+    public Result&lt;TargetSurfaceGeometry, string&gt; ExtractBottomSurface(
+        Element target,
+        RevitLinkInstance? link)
+    {
+        var options = new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Medium };
+        var geomElem = target.get_Geometry(options);
+        
+        // Find bottom-facing planar faces and non-planar faces
+        // Triangulate using Revit's Tessellate() method
+        // Transform vertices if link != null: link.GetTotalTransform()
+        
+        return new TargetSurfaceGeometry
+        {
+            Vertices = vertices,
+            TriangleIndices = indices,
+            Bounds = bounds,
+            LinkTransform = link?.GetTotalTransform()
+        };
+    }
+}
+</code></pre>
+<h3 id="62-closest-point-projection">6.2 Closest Point Projection</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Projects a point to the closest point on a triangulated mesh.
+/// Used to find target elevation for each framing endpoint.
+/// &lt;/summary&gt;
+public sealed class ClosestPointService
+{
+    /// &lt;summary&gt;
+    /// Finds the closest point on the target mesh (bottom face of floor/roof)
+    /// to the given query point. Returns Z coordinate for elevation.
+    /// &lt;/summary&gt;
+    public Result&lt;double, string&gt; ProjectToSurface(
+        Vector3 queryPoint,
+        TargetSurfaceGeometry surface)
+    {
+        // For each triangle in the mesh:
+        //   1. Project query point onto triangle plane
+        //   2. Clamp to triangle if outside
+        //   3. Track closest distance
+        // Return Z of closest point
+    }
+}
+</code></pre>
+<p><strong>Algorithm Notes:</strong></p>
+<ul>
+<li>For simple single-slope surfaces (common case), this is fast</li>
+<li>For hip roofs or warped slabs, may need spatial acceleration (octree) for large meshes</li>
+<li>Initial implementation: brute-force iterate triangles; optimize later if needed</li>
+</ul>
+<hr>
+<h2 id="7-framing-hierarchy-detection">7. Framing Hierarchy Detection</h2>
+<h3 id="71-overview">7.1 Overview</h3>
+<p>The algorithm must determine:</p>
+<ol>
+<li>Which beams frame INTO columns (endpoint within tolerance of column top)</li>
+<li>Which beams frame INTO other beams (endpoint on another beam's location line)</li>
+<li>Processing order: Columns → Beams-to-Columns → Beams-to-Beams (cascading)</li>
+</ol>
+<h3 id="72-detection-algorithm">7.2 Detection Algorithm</h3>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Builds the framing connectivity graph from selected elements.
+/// &lt;/summary&gt;
+public sealed class FramingHierarchyBuilder
+{
+    private const double ConnectionToleranceFeet = 0.5 / 12.0; // 1/2&quot; tolerance
+    
+    public ErftFramingGraph BuildGraph(
+        IReadOnlyList&lt;ErftColumnItem&gt; columns,
+        IReadOnlyList&lt;ErftBeamItem&gt; beams)
+    {
+        var columnToBeams = new Dictionary&lt;int, List&lt;int&gt;&gt;();
+        var beamToBeams = new Dictionary&lt;int, List&lt;int&gt;&gt;();
+        
+        // Phase 1: Detect beam-to-column connections
+        foreach (var beam in beams)
+        {
+            foreach (var col in columns)
+            {
+                // Check if beam start or end is within tolerance of column top
+                if (IsWithinTolerance(beam.StartPoint, col.TopPoint))
+                {
+                    beam.StartConnection = BeamEndConnection.ToColumn;
+                    beam.StartConnectionElementId = col.ElementId;
+                    columnToBeams.GetOrAdd(col.ElementId).Add(beam.ElementId);
+                }
+                if (IsWithinTolerance(beam.EndPoint, col.TopPoint))
+                {
+                    beam.EndConnection = BeamEndConnection.ToColumn;
+                    beam.EndConnectionElementId = col.ElementId;
+                    columnToBeams.GetOrAdd(col.ElementId).Add(beam.ElementId);
+                }
+            }
+        }
+        
+        // Phase 2: Detect beam-to-beam connections
+        foreach (var beam in beams)
+        {
+            if (beam.StartConnection == BeamEndConnection.Free)
+            {
+                var supporting = FindSupportingBeam(beam.StartPoint, beams, beam.ElementId);
+                if (supporting != null)
+                {
+                    beam.StartConnection = BeamEndConnection.ToBeam;
+                    beam.StartConnectionElementId = supporting.ElementId;
+                    beamToBeams.GetOrAdd(supporting.ElementId).Add(beam.ElementId);
+                }
+            }
+            // Same for EndPoint...
+        }
+        
+        // Phase 3: Build topological processing order
+        var order = TopologicalSort(columns, beams, columnToBeams, beamToBeams);
+        
+        return new ErftFramingGraph { ... };
+    }
+    
+    private ErftBeamItem? FindSupportingBeam(Vector3 point, IReadOnlyList&lt;ErftBeamItem&gt; beams, int excludeId)
+    {
+        // Find beam whose location line is closest to point
+        // Return beam where point projects onto line segment within tolerance
+    }
+}
+</code></pre>
+<h3 id="73-hybrid-beams-column--beam">7.3 Hybrid Beams (Column + Beam)</h3>
+<p>Beams can have one end framing to a column and the other end framing to another beam. The algorithm handles this naturally:</p>
+<ul>
+<li>Each endpoint is classified independently</li>
+<li>Start might be <code>ToColumn</code>, End might be <code>ToBeam</code></li>
+<li>Processing order ensures columns are adjusted first, then beams-to-columns, then dependent beams</li>
+</ul>
+<hr>
+<h2 id="8-adjustment-algorithm">8. Adjustment Algorithm</h2>
+<h3 id="81-processing-order">8.1 Processing Order</h3>
+<pre><code>1. Adjust all COLUMNS:
+   - Project top point to target surface
+   - Compute delta = (target_Z - current_top_Z)
+   - Apply rounding tolerance
+   - New Top Offset = Original Top Offset + rounded_delta
+
+2. doc.Regenerate() if needed
+
+3. Adjust all BEAMS framing to COLUMNS:
+   - For endpoints connected to columns: inherit column's new top elevation
+   - For endpoints connected to target surface: project to surface
+   - Apply rounding
+   - New Start/End Offset = Original + rounded_delta
+
+4. doc.Regenerate() if needed
+
+5. Adjust remaining BEAMS (framing to other beams):
+   - Use Revit's equivalent of &quot;shift-drag snap to beam location line&quot;
+   - Project endpoint onto supporting beam's (now sloped) location line
+   - Compute elevation at intersection point
+   - Apply rounding
+</code></pre>
+<h3 id="82-rounding-logic">8.2 Rounding Logic</h3>
+<pre><code class="lang-csharp">public static class RoundingHelper
+{
+    /// &lt;summary&gt;
+    /// Rounds a delta value according to tolerance and mode.
+    /// &lt;/summary&gt;
+    public static double ApplyRounding(double deltaFeet, double toleranceFeet, RoundingMode mode)
+    {
+        if (toleranceFeet &lt;= 0) return deltaFeet;
+        
+        return mode switch
+        {
+            RoundingMode.Nearest =&gt; Math.Round(deltaFeet / toleranceFeet) * toleranceFeet,
+            RoundingMode.Up =&gt; Math.Ceiling(deltaFeet / toleranceFeet) * toleranceFeet,
+            RoundingMode.Down =&gt; Math.Floor(deltaFeet / toleranceFeet) * toleranceFeet,
+            _ =&gt; deltaFeet
+        };
+    }
+}
+</code></pre>
+<h3 id="83-beam-to-beam-snap-api-equivalent">8.3 Beam-to-Beam Snap (API Equivalent)</h3>
+<p>The manual workflow is: hold Shift, drag beam endpoint onto supporting beam's location line until it highlights, then release.</p>
+<p><strong>Revit API Equivalent:</strong></p>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Computes the elevation where a point intersects a sloped beam's location line.
+/// &lt;/summary&gt;
+public static double ComputeElevationOnBeamLocationLine(
+    Vector3 queryPoint,
+    Vector3 beamStart,
+    Vector3 beamEnd)
+{
+    // 1. Project queryPoint onto the 3D line defined by beamStart→beamEnd
+    var lineDir = (beamEnd - beamStart).Normalized();
+    var t = Vector3.Dot(queryPoint - beamStart, lineDir);
+    var closestOnLine = beamStart + lineDir * t;
+    
+    // 2. Return Z coordinate of the closest point
+    return closestOnLine.Z;
+}
+</code></pre>
+<hr>
+<h2 id="9-3d-preview-system">9. 3D Preview System</h2>
+<h3 id="91-scene-components">9.1 Scene Components</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Color (Hex)</th>
+<th>Opacity</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Target surface</td>
+<td><code>#4080C0</code></td>
+<td>0.3</td>
+<td>Semi-transparent floor/roof mesh</td>
+</tr>
+<tr>
+<td>Column (pending)</td>
+<td><code>#00CC00</code></td>
+<td>1.0</td>
+<td>Will be adjusted (green)</td>
+</tr>
+<tr>
+<td>Column (no change)</td>
+<td><code>#808080</code></td>
+<td>0.7</td>
+<td>Already correct (gray)</td>
+</tr>
+<tr>
+<td>Column (error)</td>
+<td><code>#CC0000</code></td>
+<td>1.0</td>
+<td>Cannot compute (red)</td>
+</tr>
+<tr>
+<td>Beam (pending)</td>
+<td><code>#00CC00</code></td>
+<td>1.0</td>
+<td>Will be adjusted (green)</td>
+</tr>
+<tr>
+<td>Beam (no change)</td>
+<td><code>#808080</code></td>
+<td>0.7</td>
+<td>Already correct (gray)</td>
+</tr>
+<tr>
+<td>Beam (error)</td>
+<td><code>#CC0000</code></td>
+<td>1.0</td>
+<td>Cannot compute (red)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-profile-warming">9.2 Profile Warming</h3>
+<p>Reuse SGT's pattern for extracting 2D profile loops from structural framing:</p>
+<ol>
+<li>Create temp placement of each unique type</li>
+<li>Extract end face geometry</li>
+<li>Store as <code>MemberProfileLoops</code></li>
+<li>Use for extrusion in preview</li>
+</ol>
+<h3 id="93-scene-builder">9.3 Scene Builder</h3>
+<pre><code class="lang-csharp">public sealed class ErftPreviewSceneBuilder
+{
+    public PreviewScene3D Build(
+        ErftPlan plan,
+        IReadOnlyDictionary&lt;int, MemberProfileLoops&gt; profiles)
+    {
+        var meshes = new List&lt;MeshData&gt;();
+        
+        // 1. Build target surface mesh
+        BuildTargetMesh(plan.TargetGeometry, meshes);
+        
+        // 2. Build column meshes (show NEW position after adjustment)
+        foreach (var col in plan.Columns)
+            BuildColumnMesh(col, profiles, meshes);
+        
+        // 3. Build beam meshes (show NEW position after adjustment)
+        foreach (var beam in plan.Beams)
+            BuildBeamMesh(beam, profiles, meshes);
+        
+        return new PreviewScene3D { Meshes = meshes, ... };
+    }
+}
+</code></pre>
+<hr>
+<h2 id="10-ui-components">10. UI Components</h2>
+<h3 id="101-main-window-layout">10.1 Main Window Layout</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ Extreme Roof Framing Tool                              [X]      │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │                                                             │ │
+│ │                    3D PREVIEW VIEWPORT                      │ │
+│ │                    (HelixToolkit)                           │ │
+│ │                                                             │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│ Target: [Floor 123 (Linked: Arch Model)] [Re-pick]              │
+├─────────────────────────────────────────────────────────────────┤
+│ Rounding Tolerance:  [1/4&quot; ▼]  [○ Nearest ● Up ○ Down]          │
+├─────────────────────────────────────────────────────────────────┤
+│ Summary:                                                        │
+│   Columns: 12 pending, 2 no change                              │
+│   Beams:   45 pending, 5 no change, 1 error                     │
+├─────────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Apply]                  │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="102-tolerance-presets">10.2 Tolerance Presets</h3>
+<pre><code class="lang-csharp">public static readonly TolerancePreset[] Presets = new[]
+{
+    new TolerancePreset(&quot;1/16\&quot;&quot;, 1.0 / 192.0),  // 0.0625&quot;
+    new TolerancePreset(&quot;1/8\&quot;&quot;,  1.0 / 96.0),   // 0.125&quot;
+    new TolerancePreset(&quot;1/4\&quot;&quot;,  1.0 / 48.0),   // 0.25&quot; (default)
+    new TolerancePreset(&quot;1/2\&quot;&quot;,  1.0 / 24.0),   // 0.5&quot;
+    new TolerancePreset(&quot;1\&quot;&quot;,    1.0 / 12.0),   // 1.0&quot;
+    new TolerancePreset(&quot;Custom&quot;, -1),           // Triggers custom input
+};
+</code></pre>
+<h3 id="103-re-pick-target-button">10.3 Re-pick Target Button</h3>
+<p>Clicking &quot;Re-pick&quot; closes the window temporarily, returns to pick mode, then re-opens with new target and re-computed adjustments.</p>
+<hr>
+<h2 id="11-extensiblestorage-schema">11. ExtensibleStorage Schema</h2>
+<h3 id="111-element-tagging-schema">11.1 Element Tagging Schema</h3>
+<pre><code class="lang-csharp">public static class ErftSchemaDefinition
+{
+    public const string Name = &quot;DBTools_ERFT&quot;;
+    public const string Vendor = &quot;DBTools&quot;;
+    public static readonly Guid Id = new(&quot;B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E&quot;);
+    
+    public const string FieldTag = &quot;Tag&quot;;               // &quot;ERFT&quot;
+    public const string FieldSystemId = &quot;SystemId&quot;;     // GUID linking related elements
+    public const string FieldRole = &quot;Role&quot;;             // &quot;Column&quot; or &quot;Beam&quot;
+    public const string FieldOriginalOffset = &quot;OriginalOffset&quot;;  // Pre-adjustment value
+    public const string FieldTimestamp = &quot;Timestamp&quot;;   // ISO 8601
+    public const string FieldVersion = &quot;Version&quot;;       // Schema version
+    
+    public const string SchemaVersion = &quot;1&quot;;
+}
+</code></pre>
+<h3 id="112-system-repository">11.2 System Repository</h3>
+<p>Store full plan in DataStorage element for Edit mode restoration:</p>
+<pre><code class="lang-csharp">public sealed class ErftSystemRepository
+{
+    private const string SystemSchemaName = &quot;DBTools_ERFT_System&quot;;
+    
+    public void Save(Guid systemId, ErftStoredPlan plan, CancellationToken ct);
+    public Result&lt;ErftStoredPlan, string&gt; Load(Guid systemId, CancellationToken ct);
+    public void Delete(Guid systemId, CancellationToken ct);
+}
+</code></pre>
+<hr>
+<h2 id="12-contextual-ribbon-integration">12. Contextual Ribbon Integration</h2>
+<h3 id="121-selection-changed-handler">12.1 Selection Changed Handler</h3>
+<pre><code class="lang-csharp">public sealed class ErftContextualRibbonInjector : IContextualRibbonInjector
+{
+    public Task InitializeAsync(UIControlledApplication application, CancellationToken ct)
+    {
+        application.SelectionChanged += OnSelectionChanged;
+        EnsureInjected(application);
+        return Task.CompletedTask;
+    }
+    
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // Check if selection contains elements with ERFT ES data
+        // Toggle Edit button visibility
+    }
+}
+</code></pre>
+<h3 id="122-contextual-tab-detection">12.2 Contextual Tab Detection</h3>
+<p>Look for:</p>
+<ul>
+<li>&quot;Modify | Structural Columns&quot;</li>
+<li>&quot;Modify | Structural Framing&quot;</li>
+<li>&quot;Modify | Multi-Select&quot; (when mixed selection)</li>
+</ul>
+<p>Inject &quot;Edit ERFT&quot; button when ERFT-tagged elements are selected.</p>
+<hr>
+<h2 id="13-error-handling">13. Error Handling</h2>
+<h3 id="131-spec-fail-tags">13.1 Spec Fail Tags</h3>
+<p>All errors use traceable spec tags:</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[SpecFail/Target/NoGeometry]</code></td>
+<td>Cannot extract mesh from target</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Target/NotFloorOrRoof]</code></td>
+<td>Selected element is not Floor/Roof</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Source/NoValidElements]</code></td>
+<td>No columns or valid beams selected</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Source/NoColumnOrHierarchy]</code></td>
+<td>No columns and no beams frame to columns</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Projection/NoIntersection]</code></td>
+<td>Point cannot project to target surface</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Hierarchy/CycleDetected]</code></td>
+<td>Circular beam dependencies</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Storage/SerializationError]</code></td>
+<td>JSON serialization failed</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Apply/ParameterReadOnly]</code></td>
+<td>Offset parameter is read-only</td>
+</tr>
+</tbody>
+</table>
+<h3 id="132-isafeexecutor-wrapping">13.2 ISafeExecutor Wrapping</h3>
+<p>All entrypoints wrapped:</p>
+<pre><code class="lang-csharp">public Result Execute(ExternalCommandData commandData, ...)
+{
+    return _safeExecutor.Execute(() =&gt; 
+    {
+        // Command implementation
+    });
+}
+</code></pre>
+<hr>
+<h2 id="14-test-strategy">14. Test Strategy</h2>
+<h3 id="141-test-categories-per-test-audit-skill">14.1 Test Categories (per test-audit skill)</h3>
+<p><strong>Legitimate stubs (Revit API externals):</strong></p>
+<ul>
+<li>Document, Element, FamilyInstance</li>
+<li>FilteredElementCollector</li>
+<li>Parameter get/set</li>
+<li>Transaction</li>
+</ul>
+<p><strong>Pure logic tests (no stubs):</strong></p>
+<ul>
+<li><code>ClosestPointServiceTests</code> - geometry math</li>
+<li><code>FramingHierarchyBuilderTests</code> - graph construction</li>
+<li><code>AdjustmentCalculatorTests</code> - delta/rounding math</li>
+<li><code>ErftStorageMapperTests</code> - JSON round-trip</li>
+<li><code>ErftPreviewSceneBuilderTests</code> - mesh generation</li>
+</ul>
+<h3 id="142-planned-test-cases">14.2 Planned Test Cases</h3>
+<pre><code class="lang-csharp">// ClosestPointServiceTests.cs
+[Test] public void ProjectToSurface_SingleTriangle_ReturnsCorrectZ();
+[Test] public void ProjectToSurface_PointAboveTriangle_ReturnsTrianglePlaneZ();
+[Test] public void ProjectToSurface_PointOutsideTriangle_ReturnsEdgeProjection();
+[Test] public void ProjectToSurface_MultipleFaces_ReturnsClosest();
+
+// FramingHierarchyBuilderTests.cs
+[Test] public void BuildGraph_ColumnAndBeamTouchingTop_CreatesConnection();
+[Test] public void BuildGraph_BeamToBeam_DetectsSecondaryFraming();
+[Test] public void BuildGraph_HybridBeam_ClassifiesBothEndpoints();
+[Test] public void BuildGraph_NoDependencies_ReturnsEmptyGraph();
+
+// AdjustmentCalculatorTests.cs
+[Test] public void ApplyRounding_NearestQuarterInch_RoundsCorrectly();
+[Test] public void ApplyRounding_UpMode_AlwaysRoundsUp();
+[Test] public void ComputeElevationOnBeamLine_MidpointQuery_InterpolatesZ();
+
+// ErftStorageMapperTests.cs
+[Test] public void SerializeDeserialize_RoundTrips();
+[Test] public void Deserialize_MissingField_ReturnsFailure();
+</code></pre>
+<hr>
+<h2 id="15-implementation-phases">15. Implementation Phases</h2>
+<h3 id="phase-1-foundation-estimated-2-3-days">Phase 1: Foundation (Estimated: 2-3 days)</h3>
+<p><strong>Files to create:</strong></p>
+<ol>
+<li><code>DBTools.ERFT.csproj</code> - project file</li>
+<li><code>manifest.yml</code> - tool manifest</li>
+<li><code>ErftToolModule.cs</code> - registration</li>
+<li><code>ErftServiceExtensions.cs</code> - bootstrap</li>
+<li><code>Common/Domain/*.cs</code> - all domain models</li>
+<li><code>Common/Models/ErftSchemaDefinition.cs</code></li>
+<li><code>Shared/Contracts/*.cs</code> - interfaces</li>
+<li>Icon: <code>Assets/erft_icon.png</code></li>
+</ol>
+<p><strong>Verification:</strong> Project builds, tool appears in ribbon (does nothing yet)</p>
+<h3 id="phase-2-selection--analysis-estimated-2-3-days">Phase 2: Selection &amp; Analysis (Estimated: 2-3 days)</h3>
+<p><strong>Files to create:</strong></p>
+<ol>
+<li><code>Shell/Revit/ErftTargetSelectionFilter.cs</code></li>
+<li><code>Shell/Revit/ErftSourceSelectionFilter.cs</code></li>
+<li><code>Features/Commands/ErftNewCommand.cs</code></li>
+<li><code>Features/Commands/ErftMode.cs</code></li>
+<li><code>Features/Analysis/Revit/FloorRoofGeometryService.cs</code></li>
+<li><code>Features/Analysis/Revit/ColumnQueryService.cs</code></li>
+<li><code>Features/Analysis/Revit/BeamQueryService.cs</code></li>
+<li><code>Features/Analysis/Logic/TargetSurfaceAnalyzer.cs</code></li>
+</ol>
+<p><strong>Verification:</strong> Can pick target and sources, extracts geometry</p>
+<h3 id="phase-3-hierarchy--calculation-estimated-2-3-days">Phase 3: Hierarchy &amp; Calculation (Estimated: 2-3 days)</h3>
+<p><strong>Files to create:</strong></p>
+<ol>
+<li><code>Features/Analysis/Logic/FramingHierarchyBuilder.cs</code></li>
+<li><code>Shared/Geometry/ClosestPointService.cs</code></li>
+<li><code>Features/Analysis/Logic/AdjustmentCalculator.cs</code></li>
+<li><code>Common/State/ErftPlanStore.cs</code></li>
+</ol>
+<p><strong>Tests to create:</strong></p>
+<ol>
+<li><code>Tests/ClosestPointServiceTests.cs</code></li>
+<li><code>Tests/FramingHierarchyBuilderTests.cs</code></li>
+<li><code>Tests/AdjustmentCalculatorTests.cs</code></li>
+</ol>
+<p><strong>Verification:</strong> Computes correct deltas for sample scenarios</p>
+<h3 id="phase-4-ui--preview-estimated-3-4-days">Phase 4: UI &amp; Preview (Estimated: 3-4 days)</h3>
+<p><strong>Files to create:</strong></p>
+<ol>
+<li><code>Shell/UI/Views/ErftWindow.xaml</code></li>
+<li><code>Shell/UI/Views/ErftWindow.xaml.cs</code></li>
+<li><code>Shell/UI/ViewModels/ErftWindowViewModel.cs</code></li>
+<li><code>Features/Preview/Logic/ErftPreviewSceneBuilder.cs</code></li>
+<li><code>Features/Preview/UI/ErftPreview3DRenderer.cs</code></li>
+<li><code>Features/Commands/ErftRunner.cs</code></li>
+<li><code>Shell/Composition/ErftServiceCollectionExtensions.cs</code></li>
+</ol>
+<p><strong>Verification:</strong> UI opens, 3D preview renders, tolerance controls work</p>
+<h3 id="phase-5-apply--persistence-estimated-2-3-days">Phase 5: Apply &amp; Persistence (Estimated: 2-3 days)</h3>
+<p><strong>Files to create:</strong></p>
+<ol>
+<li><code>Features/Apply/Logic/ErftOrchestrator.cs</code></li>
+<li><code>Features/Apply/Revit/ErftDomainWriter.cs</code></li>
+<li><code>Features/Apply/Revit/ErftStorageMapper.cs</code></li>
+<li><code>Common/Revit/ErftSystemRepository.cs</code></li>
+<li><code>Common/Domain/ErftStoredPlan.cs</code></li>
+</ol>
+<p><strong>Tests to create:</strong></p>
+<ol>
+<li><code>Tests/ErftStorageMapperTests.cs</code></li>
+</ol>
+<p><strong>Verification:</strong> Apply modifies elements, ES data persisted</p>
+<h3 id="phase-6-edit-mode--ribbon-estimated-1-2-days">Phase 6: Edit Mode &amp; Ribbon (Estimated: 1-2 days)</h3>
+<p><strong>Files to create:</strong></p>
+<ol>
+<li><code>Features/Commands/ErftContextualRibbonInjector.cs</code></li>
+</ol>
+<p><strong>Verification:</strong> Edit button appears, loads stored plan, re-applies</p>
+<h3 id="phase-7-polish--documentation-estimated-1-day">Phase 7: Polish &amp; Documentation (Estimated: 1 day)</h3>
+<ul>
+<li>XML doc comments for all public members</li>
+<li>Edge case handling</li>
+<li>Final test coverage review</li>
+<li>Session log</li>
+</ul>
+<p><strong>Total Estimated: 13-19 days</strong></p>
+<hr>
+<h2 id="appendix-a-icon-recommendations">Appendix A: Icon Recommendations</h2>
+<p>The icon should convey &quot;structural framing + sloped surface&quot;. Options:</p>
+<ol>
+<li><strong>Steel beam with angled line</strong> - similar to existing structural icons</li>
+<li><strong>Column with sloped roof outline</strong> - clearly shows the concept</li>
+<li><strong>Grid pattern with slope indicator</strong> - abstract but clear</li>
+</ol>
+<p>For now, use a placeholder 32x32 PNG with similar styling to existing icons.</p>
+<hr>
+<h2 id="appendix-b-xml-documentation-example">Appendix B: XML Documentation Example</h2>
+<pre><code class="lang-csharp">/// &lt;summary&gt;
+/// Computes the vertical adjustment delta for a column based on closest-point projection
+/// to the target floor/roof surface.
+/// &lt;/summary&gt;
+/// &lt;param name=&quot;column&quot;&gt;The column item containing current position data.&lt;/param&gt;
+/// &lt;param name=&quot;surface&quot;&gt;The triangulated target surface geometry.&lt;/param&gt;
+/// &lt;param name=&quot;tolerance&quot;&gt;Rounding tolerance in feet.&lt;/param&gt;
+/// &lt;param name=&quot;mode&quot;&gt;Rounding direction (nearest, up, or down).&lt;/param&gt;
+/// &lt;returns&gt;
+/// A &lt;see cref=&quot;Result{T,E}&quot;/&gt; containing the computed adjustment or an error message
+/// if projection fails.
+/// &lt;/returns&gt;
+/// &lt;exception cref=&quot;ArgumentNullException&quot;&gt;
+/// Thrown when &lt;paramref name=&quot;column&quot;/&gt; or &lt;paramref name=&quot;surface&quot;/&gt; is null.
+/// &lt;/exception&gt;
+/// &lt;remarks&gt;
+/// The algorithm projects the column's current top point vertically to find the closest
+/// point on the target surface's bottom face. The delta is then rounded according to
+/// the specified tolerance and mode.
+/// &lt;/remarks&gt;
+public Result&lt;ColumnAdjustment, string&gt; ComputeColumnAdjustment(
+    ErftColumnItem column,
+    TargetSurfaceGeometry surface,
+    double tolerance,
+    RoundingMode mode)
+</code></pre>
+<hr>
+<h2 id="appendix-c-key-decisions-summary">Appendix C: Key Decisions Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Choice</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Target source</td>
+<td>Host + Linked</td>
+<td>Maximum flexibility for coordination workflows</td>
+</tr>
+<tr>
+<td>Source scope</td>
+<td>Host only</td>
+<td>Can only modify elements in editable document</td>
+</tr>
+<tr>
+<td>Slope handling</td>
+<td>Closest point projection</td>
+<td>Handles complex geometry (hip roofs, warped slabs)</td>
+</tr>
+<tr>
+<td>Beam-to-column tracking</td>
+<td>Auto-track</td>
+<td>Reduces manual work after column adjustments</td>
+</tr>
+<tr>
+<td>Beam-to-beam connection</td>
+<td>Location line snap</td>
+<td>Matches Revit's native shift-drag behavior</td>
+</tr>
+<tr>
+<td>Hybrid beams (col+beam)</td>
+<td>Independent endpoints</td>
+<td>Natural handling in hierarchy algorithm</td>
+</tr>
+<tr>
+<td>Undo strategy</td>
+<td>Revit native</td>
+<td>Transaction group provides atomic undo</td>
+</tr>
+<tr>
+<td>Rounding UI</td>
+<td>Presets + custom</td>
+<td>Balance of convenience and flexibility</td>
+</tr>
+<tr>
+<td>Preview style</td>
+<td>Semi-transparent mesh</td>
+<td>Clear spatial context with status colors</td>
+</tr>
+<tr>
+<td>Relationship detection</td>
+<td>Auto-detect</td>
+<td>Reduces user configuration burden</td>
+</tr>
+<tr>
+<td>Multi-level</td>
+<td>Allowed</td>
+<td>Offset-only adjustments work across levels</td>
+</tr>
+<tr>
+<td>Edit mode</td>
+<td>Full re-target</td>
+<td>Maximum flexibility for iterative workflows</td>
+</tr>
+<tr>
+<td>Column adjustment</td>
+<td>Offset only</td>
+<td>Preserves level associations</td>
+</tr>
+<tr>
+<td>Modification report</td>
+<td>Silent apply</td>
+<td>Reduces friction; Revit audit available</td>
+</tr>
+</tbody>
+</table>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/kirsch33/dbtools/blob/claude/bulk-pr-merge1-Two45/csharp/wiki/developer-guide/tools/testing/erft-spec.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
