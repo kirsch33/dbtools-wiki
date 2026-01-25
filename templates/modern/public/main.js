@@ -21,12 +21,15 @@
   function hideThemeToggle() {
     // DocFX modern template uses a theme toggle button
     const toggleSelectors = [
+      '#navbar form.icons > .dropdown',
       '.bi-sun-fill',           // Light mode icon
       '.bi-moon-fill',          // Dark mode icon
       '#theme-toggle',          // Common toggle ID
       '[data-bs-theme-toggle]', // Theme toggle attribute
       'button[title*="theme"]', // Button with theme in title
       'button[title*="Theme"]',
+      'a[title*="theme"]',      // DocFX modern uses an <a> dropdown toggle
+      'a[title*="Theme"]',
       '.theme-toggle',          // Theme toggle class
       '.btn-theme'              // Theme button class
     ];
@@ -37,6 +40,9 @@
         document.querySelectorAll(selector).forEach(el => {
           // Hide the element and its parent button if applicable
           el.style.display = 'none';
+          if (el.closest('.dropdown')) {
+            el.closest('.dropdown').style.display = 'none';
+          }
           if (el.closest('button')) {
             el.closest('button').style.display = 'none';
           }
