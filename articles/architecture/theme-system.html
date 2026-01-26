@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/articles/architecture/theme-system.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/articles/architecture/theme-system.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -103,8 +103,8 @@
 |          v                         v                            v                  |
 |  +----------------+     +---------------------+     +------------------------+    |
 |  | App.Theme.xaml | --&gt; | DBTools.HandyControl| --&gt; | DbtWindowInitHelper    |    |
-|  | (Root Dict)    |     | DBTools.Fluent.Ribbon|    | DbtThemeValidator      |    |
-|  +----------------+     | DBTools.ControlzEx  |     +------------------------+    |
+|  | (Root Dict)    |     | (vendored)          |    | DbtThemeValidator      |    |
+|  +----------------+     +---------------------+     +------------------------+    |
 |          |              +---------------------+                                    |
 |          v                                                                        |
 |  +---------------------------+                                                    |
@@ -115,12 +115,11 @@
 |  | - App.DataGrid.xaml       |                                                    |
 |  | - App.Menus.xaml          |                                                    |
 |  | - App.Components.xaml     |                                                    |
-|  | - App.FluentRibbon.xaml   |                                                    |
 |  +---------------------------+                                                    |
 +-----------------------------------------------------------------------------------+
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Theme.xaml:1-21</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Theme.xaml:1-21</code></p>
 </blockquote>
 <h2 id="project-structure">Project Structure</h2>
 <p>The <code>DBTools.Themes</code> project contains all theme resources and references vendored UI libraries:</p>
@@ -138,10 +137,9 @@
     +-- App.DataGrid.xaml       # DataGrid-specific styles
     +-- App.Menus.xaml          # Menu/ContextMenu styles
     +-- App.Components.xaml     # Composite component styles
-    +-- App.FluentRibbon.xaml   # Fluent.Ribbon theme bridge
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:1-72</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/DBTools.Themes.csproj:1-72</code></p>
 </blockquote>
 <h2 id="vendored-ui-libraries">Vendored UI Libraries</h2>
 <p>DBTools uses renamed/vendored copies of third-party UI libraries to avoid assembly conflicts with other Revit add-ins (especially pyRevit):</p>
@@ -159,31 +157,21 @@
 <td>DBTools.HandyControl</td>
 <td>Base theme framework</td>
 </tr>
-<tr>
-<td>Fluent.Ribbon</td>
-<td>DBTools.Fluent.Ribbon</td>
-<td>Ribbon window/controls</td>
-</tr>
-<tr>
-<td>ControlzEx</td>
-<td>DBTools.ControlzEx</td>
-<td>Window chrome behaviors</td>
-</tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:54-71</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/DBTools.Themes.csproj:54-71</code></p>
 </blockquote>
 <h3 id="why-vendored-libraries">Why Vendored Libraries?</h3>
 <p>WPF theme assemblies cannot be ILRepack-merged or embedded as resources because they require <code>Assembly.Location</code> for <code>pack://</code> URI resolution. The vendoring process:</p>
 <ol>
 <li>Clones upstream repos to <code>vendor/</code></li>
 <li>Renames assembly names and updates pack URIs</li>
-<li>Builds renamed assemblies to <code>csharp/.artifacts/vendor/</code></li>
+<li>Builds renamed assemblies to <code>.artifacts/vendor/</code></li>
 <li>Deploys alongside <code>DBTools.dll</code></li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build-vendored-deps.sh:1-446</code></p>
+<p><strong>Source:</strong> <code>build-vendored-deps.sh:1-446</code></p>
 </blockquote>
 <h2 id="theme-loading-mechanism">Theme Loading Mechanism</h2>
 <h3 id="window-scoped-theming">Window-Scoped Theming</h3>
@@ -204,7 +192,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs:91-108</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs:91-108</code></p>
 </blockquote>
 <h3 id="theme-initialization-flow">Theme Initialization Flow</h3>
 <ol>
@@ -215,7 +203,7 @@
 <li><strong>Validation</strong>: Theme contract is validated (dictionary order, completeness)</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs:44-78</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs:44-78</code></p>
 </blockquote>
 <h3 id="theme-opt-out">Theme Opt-Out</h3>
 <p>Windows can opt out of DBTools theming via <code>IThemeOptOut</code>:</p>
@@ -225,7 +213,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtWindowBase.cs:13-21</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/DbtWindowBase.cs:13-21</code></p>
 </blockquote>
 <h2 id="resourcedictionary-structure">ResourceDictionary Structure</h2>
 <h3 id="root-theme-dictionary">Root Theme Dictionary</h3>
@@ -236,9 +224,6 @@
         &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.HandyControl;component/Themes/SkinDark.xaml&quot;/&gt;
         &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.HandyControl;component/Themes/Theme.xaml&quot;/&gt;
 
-        &lt;!-- Fluent.Ribbon for ribbon windows --&gt;
-        &lt;ResourceDictionary Source=&quot;pack://application:,,,/DBTools.Fluent.Ribbon;component/Themes/Generic.xaml&quot;/&gt;
-
         &lt;!-- DBTools Custom Themes --&gt;
         &lt;ResourceDictionary Source=&quot;App.Tokens.xaml&quot;/&gt;
         &lt;ResourceDictionary Source=&quot;App.Brushes.xaml&quot;/&gt;
@@ -247,12 +232,11 @@
         &lt;ResourceDictionary Source=&quot;App.DataGrid.xaml&quot;/&gt;
         &lt;ResourceDictionary Source=&quot;App.Menus.xaml&quot;/&gt;
         &lt;ResourceDictionary Source=&quot;App.Components.xaml&quot;/&gt;
-        &lt;ResourceDictionary Source=&quot;App.FluentRibbon.xaml&quot;/&gt;
     &lt;/ResourceDictionary.MergedDictionaries&gt;
 &lt;/ResourceDictionary&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Theme.xaml:1-21</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Theme.xaml:1-21</code></p>
 </blockquote>
 <h3 id="dictionary-order-contract">Dictionary Order Contract</h3>
 <p>The merged dictionary order is locked and validated at runtime:</p>
@@ -260,14 +244,13 @@
 {
     &quot;pack://application:,,,/DBTools.HandyControl;component/Themes/SkinDark.xaml&quot;,
     &quot;pack://application:,,,/DBTools.HandyControl;component/Themes/Theme.xaml&quot;,
-    &quot;pack://application:,,,/DBTools.Fluent.Ribbon;component/Themes/Generic.xaml&quot;,
     &quot;pack://application:,,,/DBTools.Themes;component/Themes/App.Tokens.xaml&quot;,
     &quot;pack://application:,,,/DBTools.Themes;component/Themes/App.Brushes.xaml&quot;,
     // ... additional dictionaries
 };
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Theming/DbtThemeValidator.cs:20-33</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Theming/DbtThemeValidator.cs:20-33</code></p>
 </blockquote>
 <h2 id="design-tokens">Design Tokens</h2>
 <h3 id="spacing-tokens">Spacing Tokens</h3>
@@ -282,7 +265,7 @@
 &lt;sys:Double x:Key=&quot;Spacing8.Value&quot;&gt;8&lt;/sys:Double&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:5-18</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Tokens.xaml:5-18</code></p>
 </blockquote>
 <h3 id="typography-tokens">Typography Tokens</h3>
 <pre><code class="lang-xml">&lt;sys:Double x:Key=&quot;FontSize.Caption&quot;&gt;11&lt;/sys:Double&gt;
@@ -293,7 +276,7 @@
 &lt;sys:Double x:Key=&quot;FontSize.Header&quot;&gt;20&lt;/sys:Double&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:66-72</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Tokens.xaml:66-72</code></p>
 </blockquote>
 <h3 id="corner-radius-tokens">Corner Radius Tokens</h3>
 <pre><code class="lang-xml">&lt;CornerRadius x:Key=&quot;Radius4&quot;&gt;4&lt;/CornerRadius&gt;
@@ -302,7 +285,7 @@
 &lt;CornerRadius x:Key=&quot;Radius12&quot;&gt;12&lt;/CornerRadius&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml:43-46</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Tokens.xaml:43-46</code></p>
 </blockquote>
 <h2 id="color-system">Color System</h2>
 <h3 id="brushkeys-componentresourcekeys">BrushKeys (ComponentResourceKeys)</h3>
@@ -318,7 +301,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/BrushKeys.cs:1-139</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/BrushKeys.cs:1-139</code></p>
 </blockquote>
 <h3 id="brand-colors">Brand Colors</h3>
 <p>DBTools uses a blue/gold brand palette:</p>
@@ -329,7 +312,7 @@
 &lt;SolidColorBrush x:Key=&quot;{x:Static theme:BrushKeys.SecondaryLight}&quot; Color=&quot;#FFFFD54F&quot;/&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:14-19</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Brushes.xaml:14-19</code></p>
 </blockquote>
 <h3 id="surface-colors">Surface Colors</h3>
 <p>Dark theme surfaces with subtle differentiation:</p>
@@ -339,7 +322,7 @@
 &lt;SolidColorBrush x:Key=&quot;{x:Static theme:BrushKeys.CardSurface}&quot; Color=&quot;#FF1E1E24&quot;/&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:24-30</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Brushes.xaml:24-30</code></p>
 </blockquote>
 <h3 id="text-colors-wcag-compliant">Text Colors (WCAG Compliant)</h3>
 <p>Text colors maintain minimum 4.5:1 contrast ratio for accessibility:</p>
@@ -349,7 +332,7 @@
 &lt;SolidColorBrush x:Key=&quot;{x:Static theme:BrushKeys.TextMuted}&quot; Color=&quot;#FF999999&quot;/&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:35-40</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Brushes.xaml:35-40</code></p>
 </blockquote>
 <h3 id="status-colors">Status Colors</h3>
 <p>Semantic colors for success, warning, error, and info states:</p>
@@ -359,7 +342,7 @@
 &lt;SolidColorBrush x:Key=&quot;{x:Static theme:BrushKeys.Info}&quot; Color=&quot;#FF1946B9&quot;/&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml:84-95</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Brushes.xaml:84-95</code></p>
 </blockquote>
 <h2 id="window-base-classes">Window Base Classes</h2>
 <h3 id="dbtwindowbase">DbtWindowBase</h3>
@@ -373,7 +356,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtWindowBase.cs:27-32</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/DbtWindowBase.cs:27-32</code></p>
 </blockquote>
 <p>The XAML style applies default theme properties and progress overlay:</p>
 <pre><code class="lang-xml">&lt;Style TargetType=&quot;{x:Type core:DbtWindowBase}&quot; BasedOn=&quot;{StaticResource {x:Type Window}}&quot;&gt;
@@ -395,57 +378,7 @@
 &lt;/Style&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Controls.Base.xaml:13-33</code></p>
-</blockquote>
-<h3 id="dbtribbonwindowbase">DbtRibbonWindowBase</h3>
-<p>Ribbon window for tool UIs with tab-based navigation:</p>
-<pre><code class="lang-csharp">public class DbtRibbonWindowBase : RibbonWindow, IWindowWithOwnerProvider, IThemeOptOut
-{
-    public DbtRibbonWindowBase()
-    {
-        DbtWindowInitHelper.Initialize(this, nameof(DbtRibbonWindowBase));
-    }
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtRibbonWindowBase.cs:15-19</code></p>
-</blockquote>
-<h2 id="fluentribbon-theme-bridge">Fluent.Ribbon Theme Bridge</h2>
-<p><code>App.FluentRibbon.xaml</code> maps all 196+ Fluent.Ribbon internal brush keys to DBTools theme colors:</p>
-<pre><code class="lang-xml">&lt;!-- Window Chrome --&gt;
-&lt;SolidColorBrush x:Key=&quot;Fluent.Ribbon.Brushes.RibbonWindow.Background&quot;
-    Color=&quot;{Binding Source={StaticResource {x:Static theme:BrushKeys.Paper}}, Path=Color}&quot;/&gt;
-
-&lt;!-- Tab Control --&gt;
-&lt;SolidColorBrush x:Key=&quot;Fluent.Ribbon.Brushes.RibbonTabItem.Selected.Background&quot;
-    Color=&quot;{Binding Source={StaticResource {x:Static theme:BrushKeys.SelectionGoldStrong}}, Path=Color}&quot;/&gt;
-
-&lt;!-- Buttons --&gt;
-&lt;SolidColorBrush x:Key=&quot;Fluent.Ribbon.Brushes.Button.MouseOver.Background&quot;
-    Color=&quot;{Binding Source={StaticResource {x:Static theme:BrushKeys.Hover}}, Path=Color}&quot;/&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.FluentRibbon.xaml:24-211</code></p>
-</blockquote>
-<h3 id="transitioningcontrol-hotfix">TransitioningControl Hotfix</h3>
-<p>A style override prevents animation failures during tab switching:</p>
-<pre><code class="lang-xml">&lt;Style TargetType=&quot;{x:Type fluent:TransitioningControl}&quot;&gt;
-    &lt;Setter Property=&quot;Template&quot;&gt;
-        &lt;Setter.Value&gt;
-            &lt;ControlTemplate TargetType=&quot;{x:Type fluent:TransitioningControl}&quot;&gt;
-                &lt;Border ...&gt;
-                    &lt;Grid&gt;
-                        &lt;ContentPresenter x:Name=&quot;PART_CurrentContent&quot; .../&gt;
-                        &lt;ContentPresenter x:Name=&quot;PART_PreviousContent&quot; .../&gt;
-                    &lt;/Grid&gt;
-                &lt;/Border&gt;
-            &lt;/ControlTemplate&gt;
-        &lt;/Setter.Value&gt;
-    &lt;/Setter&gt;
-&lt;/Style&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.FluentRibbon.xaml:53-97</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Controls.Base.xaml:13-33</code></p>
 </blockquote>
 <h2 id="control-styles">Control Styles</h2>
 <h3 id="standard-controls">Standard Controls</h3>
@@ -464,7 +397,7 @@
 &lt;/Style&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Controls.Base.xaml:73-92</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Controls.Base.xaml:73-92</code></p>
 </blockquote>
 <h3 id="datagrid-styles">DataGrid Styles</h3>
 <p>Custom DataGrid with accent stripe and enhanced selection:</p>
@@ -497,7 +430,7 @@
 &lt;/Style&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.DataGrid.xaml:24-101</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.DataGrid.xaml:24-101</code></p>
 </blockquote>
 <h3 id="menu-styles">Menu Styles</h3>
 <p>Full custom templates avoid Revit add-in styling conflicts:</p>
@@ -522,7 +455,7 @@
 &lt;/Style&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Menus.xaml:9-42</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Menus.xaml:9-42</code></p>
 </blockquote>
 <h2 id="component-styles">Component Styles</h2>
 <h3 id="cards">Cards</h3>
@@ -543,7 +476,7 @@
 &lt;/Style&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Components.xaml:205-225</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Components.xaml:205-225</code></p>
 </blockquote>
 <h3 id="toolbar-chips">Toolbar Chips</h3>
 <p>Toggle buttons styled as filter chips:</p>
@@ -567,7 +500,7 @@
 &lt;/Style&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/Themes/App.Components.xaml:29-91</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/Themes/App.Components.xaml:29-91</code></p>
 </blockquote>
 <h2 id="theme-validation">Theme Validation</h2>
 <h3 id="startup-validation">Startup Validation</h3>
@@ -598,7 +531,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Theming/DbtThemeValidator.cs:52-92</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Theming/DbtThemeValidator.cs:52-92</code></p>
 </blockquote>
 <h3 id="ghost-validation">Ghost Validation</h3>
 <p>Creates an invisible visual tree to force template instantiation and catch deferred failures:</p>
@@ -615,7 +548,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Theming/DbtThemeValidator.cs:229-248</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Theming/DbtThemeValidator.cs:229-248</code></p>
 </blockquote>
 <h2 id="using-the-theme">Using the Theme</h2>
 <h3 id="in-xaml">In XAML</h3>
@@ -633,7 +566,7 @@
 window.SetResourceReference(Window.ForegroundProperty, BrushKeys.Body);
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs:151-155</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs:151-155</code></p>
 </blockquote>
 <h2 id="extending-the-theme">Extending the Theme</h2>
 <h3 id="adding-new-brushes">Adding New Brushes</h3>
@@ -674,7 +607,7 @@ window.SetResourceReference(Window.ForegroundProperty, BrushKeys.Body);
 &lt;Resource Include=&quot;Themes\App.Components.xaml&quot;/&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Themes/DBTools.Themes.csproj:38-46</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Themes/DBTools.Themes.csproj:38-46</code></p>
 </blockquote>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>
@@ -692,71 +625,63 @@ window.SetResourceReference(Window.ForegroundProperty, BrushKeys.Body);
 </thead>
 <tbody>
 <tr>
-<td><code>csharp/src/DBTools.Themes/DBTools.Themes.csproj</code></td>
+<td><code>src/DBTools.Themes/DBTools.Themes.csproj</code></td>
 <td>Project configuration</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/BrushKeys.cs</code></td>
+<td><code>src/DBTools.Themes/BrushKeys.cs</code></td>
 <td>ComponentResourceKey definitions</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Theme.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Theme.xaml</code></td>
 <td>Root theme dictionary</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Tokens.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Tokens.xaml</code></td>
 <td>Design tokens</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Brushes.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Brushes.xaml</code></td>
 <td>Color definitions</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Controls.Base.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Controls.Base.xaml</code></td>
 <td>Base control styles</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.DataGrid.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.DataGrid.xaml</code></td>
 <td>DataGrid styles</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Menus.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Menus.xaml</code></td>
 <td>Menu styles</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Components.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Components.xaml</code></td>
 <td>Component styles</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.FluentRibbon.xaml</code></td>
-<td>Fluent.Ribbon bridge</td>
-</tr>
-<tr>
-<td><code>csharp/src/DBTools.Themes/Themes/App.Converters.xaml</code></td>
+<td><code>src/DBTools.Themes/Themes/App.Converters.xaml</code></td>
 <td>Value converters</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Core/UI/Theming/DbtThemeValidator.cs</code></td>
+<td><code>src/DBTools.Core/UI/Theming/DbtThemeValidator.cs</code></td>
 <td>Theme validation</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Core/UI/Windows/DbtWindowBase.cs</code></td>
+<td><code>src/DBTools.Core/UI/Windows/DbtWindowBase.cs</code></td>
 <td>Window base class</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Core/UI/Windows/DbtRibbonWindowBase.cs</code></td>
-<td>Ribbon window base</td>
-</tr>
-<tr>
-<td><code>csharp/src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs</code></td>
+<td><code>src/DBTools.Core/UI/Windows/DbtWindowInitHelper.cs</code></td>
 <td>Theme loading logic</td>
 </tr>
 <tr>
-<td><code>csharp/src/DBTools.Core/UI/Windows/ResourceDictionaryHelper.cs</code></td>
+<td><code>src/DBTools.Core/UI/Windows/ResourceDictionaryHelper.cs</code></td>
 <td>Dictionary utilities</td>
 </tr>
 <tr>
-<td><code>csharp/build-vendored-deps.sh</code></td>
+<td><code>build-vendored-deps.sh</code></td>
 <td>Vendored library build script</td>
 </tr>
 </tbody>
@@ -765,7 +690,7 @@ window.SetResourceReference(Window.ForegroundProperty, BrushKeys.Body);
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/articles/architecture/theme-system.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/articles/architecture/theme-system.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

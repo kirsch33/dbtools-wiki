@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/developer-guide/troubleshooting.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/troubleshooting.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -95,21 +95,21 @@
 <h3 id="msbuild-errors">MSBuild Errors</h3>
 <h4 id="error-dbt0001---build-must-be-run-through-buildsh">Error: <code>DBT0001</code> - Build must be run through build.sh</h4>
 <p><strong>Symptom:</strong></p>
-<pre><code>error DBT0001: Raw 'dotnet build' from CLI is not supported. Use bash csharp/build.sh instead.
+<pre><code>error DBT0001: Raw 'dotnet build' from CLI is not supported. Use bash build.sh instead.
 </code></pre>
 <p><strong>Cause:</strong> The build system enforces that all builds go through the repository's build entrypoint to ensure proper configuration, vendored dependency staging, and multi-year target handling.</p>
 <p><strong>Solution:</strong> Always use the build script:</p>
 <pre><code class="lang-bash"># Standard incremental build
-bash csharp/build.sh
+bash build.sh
 
 # Clean and rebuild
-bash csharp/build.sh --clean
+bash build.sh --clean
 
 # Build specific Revit year
-bash csharp/build.sh -y 2025 BuildAll
+bash build.sh -y 2025 BuildAll
 
 # Build only the app
-bash csharp/build.sh BuildApp
+bash build.sh BuildApp
 </code></pre>
 <hr>
 <h4 id="error-windows-dotnetexe-not-found">Error: Windows dotnet.exe not found</h4>
@@ -127,23 +127,21 @@ bash csharp/build.sh BuildApp
 <h3 id="missing-dependencies">Missing Dependencies</h3>
 <h4 id="vendored-ui-assemblies-missing">Vendored UI Assemblies Missing</h4>
 <p><strong>Symptom:</strong></p>
-<pre><code>Vendored UI assemblies missing under csharp/.artifacts/vendor; building them now...
+<pre><code>Vendored UI assemblies missing under .artifacts/vendor; building them now...
 </code></pre>
-<p>Or build failures referencing <code>DBTools.HandyControl</code>, <code>DBTools.ControlzEx</code>, or <code>DBTools.Fluent.Ribbon</code>.</p>
-<p><strong>Cause:</strong> The vendored UI libraries (HandyControl, ControlzEx, FluentRibbon) must be built with custom namespaces before the main build.</p>
+<p>Or build failures referencing <code>DBTools.HandyControl</code>.</p>
+<p><strong>Cause:</strong> The vendored UI library (HandyControl) must be built with the <code>DBTools.*</code> namespace before the main build.</p>
 <p><strong>Solution:</strong></p>
 <pre><code class="lang-bash"># Automatic (build.sh runs this if needed)
-bash csharp/build.sh
+bash build.sh
 
 # Manual rebuild of vendored deps
-bash csharp/build-vendored-deps.sh
+bash build-vendored-deps.sh
 </code></pre>
-<p><strong>Expected output location:</strong> <code>csharp/.artifacts/vendor/</code></p>
+<p><strong>Expected output location:</strong> <code>.artifacts/vendor/</code></p>
 <ul>
 <li><code>handycontrol/net48/DBTools.HandyControl.dll</code></li>
 <li><code>handycontrol/net8.0-windows/DBTools.HandyControl.dll</code></li>
-<li><code>controlzex/net48/DBTools.ControlzEx.dll</code></li>
-<li><code>fluentribbon/net48/DBTools.Fluent.Ribbon.dll</code></li>
 </ul>
 <hr>
 <h4 id="assembly-load-failures">Assembly Load Failures</h4>
@@ -153,8 +151,8 @@ bash csharp/build-vendored-deps.sh
 <p><strong>Cause:</strong> With file-linking architecture, tool assemblies (GM, TDV, SGT, VTC) are compiled into <code>DBTools.dll</code>. This error indicates the main assembly wasn't built correctly.</p>
 <p><strong>Solution:</strong></p>
 <ol>
-<li>Run a clean build: <code>bash csharp/build.sh --clean</code></li>
-<li>Verify build output exists in <code>csharp/.artifacts/bin/</code></li>
+<li>Run a clean build: <code>bash build.sh --clean</code></li>
+<li>Verify build output exists in <code>.artifacts/bin/</code></li>
 <li>Check that the Revit add-in is loading the correct version</li>
 </ol>
 <p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Tools/DbtToolAssemblyLoader.cs"><code>DbtToolAssemblyLoader.cs:10</code></a></p>
@@ -195,14 +193,13 @@ bash csharp/build-vendored-deps.sh
 <hr>
 <h4 id="theme-contract-mismatch">Theme Contract Mismatch</h4>
 <p><strong>Symptom:</strong></p>
-<pre><code>InvalidOperationException: Theme merged dictionary contract mismatch: expected 11 dictionaries but found 10 in 'App.Theme.xaml'.
+<pre><code>InvalidOperationException: Theme merged dictionary contract mismatch: expected 9 dictionaries but found 8 in 'App.Theme.xaml'.
 </code></pre>
 <p><strong>Cause:</strong> The theme root dictionary doesn't match the expected structure. This catches accidental removal or reordering of theme dictionaries.</p>
 <p><strong>Expected merged dictionaries (in order):</strong></p>
 <ol>
 <li><code>DBTools.HandyControl/Themes/SkinDark.xaml</code></li>
 <li><code>DBTools.HandyControl/Themes/Theme.xaml</code></li>
-<li><code>DBTools.Fluent.Ribbon/Themes/Generic.xaml</code></li>
 <li><code>DBTools.Themes/Themes/App.Tokens.xaml</code></li>
 <li><code>DBTools.Themes/Themes/App.Brushes.xaml</code></li>
 <li><code>DBTools.Themes/Themes/App.Converters.xaml</code></li>
@@ -210,7 +207,6 @@ bash csharp/build-vendored-deps.sh
 <li><code>DBTools.Themes/Themes/App.DataGrid.xaml</code></li>
 <li><code>DBTools.Themes/Themes/App.Menus.xaml</code></li>
 <li><code>DBTools.Themes/Themes/App.Components.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.FluentRibbon.xaml</code></li>
 </ol>
 <p><strong>Solution:</strong> Ensure <code>App.Theme.xaml</code> contains all dictionaries in the correct order.</p>
 <p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:191</code></a></p>
@@ -470,7 +466,7 @@ bash csharp/build-vendored-deps.sh
 <tr>
 <td><code>DBT0001: Raw 'dotnet build' not supported</code></td>
 <td>Build</td>
-<td>Use <code>bash csharp/build.sh</code></td>
+<td>Use <code>bash build.sh</code></td>
 </tr>
 <tr>
 <td><code>Theme dictionary merge failed</code></td>
@@ -579,7 +575,7 @@ bash csharp/build-vendored-deps.sh
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/developer-guide/troubleshooting.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/troubleshooting.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/developer-guide/architecture/build-pipeline.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/architecture/build-pipeline.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -102,29 +102,29 @@
 <li><strong>Centralized artifacts</strong> (all outputs to <code>.artifacts/</code>, no per-project bin/obj)</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build.sh:1-162</code>, <code>csharp/build/Build.cs:1-200</code></p>
+<p><strong>Source:</strong> <code>build.sh:1-162</code>, <code>build/Build.cs:1-200</code></p>
 </blockquote>
 <h2 id="quick-reference">Quick Reference</h2>
 <pre><code class="lang-bash"># Fast incremental build (default)
-bash csharp/build.sh
+bash build.sh
 
 # Clean + full rebuild
-bash csharp/build.sh --clean
+bash build.sh --clean
 
 # Build specific Revit year
-bash csharp/build.sh -y 2025 BuildAll
+bash build.sh -y 2025 BuildAll
 
 # Debug configuration
-bash csharp/build.sh --debug
+bash build.sh --debug
 
 # Build only the app (skip tests)
-bash csharp/build.sh BuildApp
+bash build.sh BuildApp
 
 # Clean outputs only
-bash csharp/build.sh Clean
+bash build.sh Clean
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build.sh:33-61</code></p>
+<p><strong>Source:</strong> <code>build.sh:33-61</code></p>
 </blockquote>
 <h2 id="architecture">Architecture</h2>
 <h3 id="build-system-stack">Build System Stack</h3>
@@ -194,7 +194,7 @@ bash csharp/build.sh Clean
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/Build.cs:17-24</code></p>
+<p><strong>Source:</strong> <code>build/Build.cs:17-24</code></p>
 </blockquote>
 <h2 id="entry-point-buildsh">Entry Point: build.sh</h2>
 <p>The build script (<code>build.sh</code>) is the <strong>required entry point</strong> for all builds. Direct <code>dotnet build</code> is blocked by MSBuild.</p>
@@ -211,7 +211,7 @@ else
 fi
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build.sh:6-15</code></p>
+<p><strong>Source:</strong> <code>build.sh:6-15</code></p>
 </blockquote>
 <h3 id="build-server-cleanup">Build Server Cleanup</h3>
 <p>The script ensures MSBuild daemon processes are terminated on exit to prevent file locks:</p>
@@ -221,7 +221,7 @@ fi
 trap cleanup_build_servers EXIT INT TERM
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build.sh:17-20</code></p>
+<p><strong>Source:</strong> <code>build.sh:17-20</code></p>
 </blockquote>
 <h3 id="vendored-dependencies">Vendored Dependencies</h3>
 <p>Before non-Clean targets, the script checks for vendored UI assemblies and builds them if missing:</p>
@@ -230,8 +230,6 @@ trap cleanup_build_servers EXIT INT TERM
   local missing=false
   for tfm in net48 net8.0-windows; do
     [[ -f &quot;$vendor_root/handycontrol/$tfm/DBTools.HandyControl.dll&quot; ]] || missing=true
-    [[ -f &quot;$vendor_root/controlzex/$tfm/DBTools.ControlzEx.dll&quot; ]] || missing=true
-    [[ -f &quot;$vendor_root/fluentribbon/$tfm/DBTools.Fluent.Ribbon.dll&quot; ]] || missing=true
   done
   if $missing; then
     echo &quot;Vendored UI assemblies missing; building them now...&quot;
@@ -240,7 +238,7 @@ trap cleanup_build_servers EXIT INT TERM
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build.sh:116-130</code></p>
+<p><strong>Source:</strong> <code>build.sh:116-130</code></p>
 </blockquote>
 <h2 id="nuke-build-system">NUKE Build System</h2>
 <h3 id="parameters">Parameters</h3>
@@ -286,7 +284,7 @@ trap cleanup_build_servers EXIT INT TERM
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/Build.cs:36-51</code></p>
+<p><strong>Source:</strong> <code>build/Build.cs:36-51</code></p>
 </blockquote>
 <h3 id="key-targets">Key Targets</h3>
 <pre><code class="lang-mermaid">flowchart LR
@@ -364,7 +362,7 @@ trap cleanup_build_servers EXIT INT TERM
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/Build.cs:165-177</code></p>
+<p><strong>Source:</strong> <code>build/Build.cs:165-177</code></p>
 </blockquote>
 <h3 id="revit-path-resolution">Revit Path Resolution</h3>
 <p>NUKE auto-detects Revit installations using <code>ricaun.Nuke</code>:</p>
@@ -380,7 +378,7 @@ foreach (var inst in installs)
 <li><code>--Revit2026Dir</code></li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/BuildTargets.cs:35-78</code></p>
+<p><strong>Source:</strong> <code>build/BuildTargets.cs:35-78</code></p>
 </blockquote>
 <h2 id="msbuild-configuration">MSBuild Configuration</h2>
 <h3 id="directorybuildprops">Directory.Build.props</h3>
@@ -399,7 +397,7 @@ foreach (var inst in installs)
 &lt;/PropertyGroup&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/Directory.Build.props:12-14</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.props:12-14</code></p>
 </blockquote>
 <h4 id="year-based-output">Year-Based Output</h4>
 <pre><code class="lang-xml">&lt;PropertyGroup Condition=&quot;'$(DesignTimeBuild)'!='true'&quot;&gt;
@@ -424,7 +422,7 @@ foreach (var inst in installs)
     └── ...
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/Directory.Build.props:105-121</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.props:105-121</code></p>
 </blockquote>
 <h4 id="code-quality-settings">Code Quality Settings</h4>
 <pre><code class="lang-xml">&lt;PropertyGroup&gt;
@@ -436,7 +434,7 @@ foreach (var inst in installs)
 &lt;/PropertyGroup&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/Directory.Build.props:142-150</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.props:142-150</code></p>
 </blockquote>
 <h3 id="directorybuildtargets">Directory.Build.targets</h3>
 <h4 id="nuke-entry-point-enforcement">NUKE Entry Point Enforcement</h4>
@@ -445,12 +443,12 @@ foreach (var inst in installs)
         BeforeTargets=&quot;CoreCompile&quot;
         Condition=&quot;'$(DesignTimeBuild)'!='true' and '$(DBT_Entry)'!='true'&quot;&gt;
   &lt;Error Code=&quot;DBT0001&quot;
-         Text=&quot;Direct builds are blocked. Use ./csharp/build.sh&quot; /&gt;
+         Text=&quot;Direct builds are blocked. Use ./build.sh&quot; /&gt;
 &lt;/Target&gt;
 </code></pre>
 <p>Only builds via <code>build.sh</code> (which sets <code>DBT_Entry=true</code>) are allowed.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/Directory.Build.targets:32-37</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.targets:32-37</code></p>
 </blockquote>
 <h4 id="wpf-designer-fixes">WPF Designer Fixes</h4>
 <p>The targets file includes several fixes for WPF/XAML designer compatibility:</p>
@@ -461,7 +459,7 @@ foreach (var inst in installs)
 <li><strong>Duplicate file removal</strong> for generated code</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/Directory.Build.targets:8-63</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.targets:8-63</code></p>
 </blockquote>
 <h2 id="multi-year-targeting">Multi-Year Targeting</h2>
 <h3 id="target-framework-matrix">Target Framework Matrix</h3>
@@ -498,7 +496,7 @@ foreach (var inst in installs)
 &lt;/PropertyGroup&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/Revit.props</code></p>
+<p><strong>Source:</strong> <code>build/Revit.props</code></p>
 </blockquote>
 <h3 id="conditional-compilation">Conditional Compilation</h3>
 <p>Projects use conditional compilation for version-specific code:</p>
@@ -516,12 +514,13 @@ var keepSeparate = new HashSet&lt;string&gt; {
     &quot;DBTools.dll&quot;,           // Primary assembly
     &quot;DBTools.Loader.dll&quot;,    // Entry point
     &quot;DBTools.HandyControl.dll&quot;,
-    &quot;DBTools.Fluent.Ribbon.dll&quot;,
-    &quot;DBTools.ControlzEx.dll&quot;,
     &quot;DBTools.Themes.dll&quot;,
+    &quot;Microsoft.Extensions.Logging.Abstractions.dll&quot;,
     // Revit API (shouldn't be in output)
     &quot;RevitAPI.dll&quot;,
     &quot;RevitAPIUI.dll&quot;,
+    &quot;AdWindows.dll&quot;,
+    &quot;UIFramework.dll&quot;,
 };
 </code></pre>
 <p><strong>Why merge?</strong></p>
@@ -537,7 +536,7 @@ var keepSeparate = new HashSet&lt;string&gt; {
 <li>Logging abstractions (shared type identity)</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/BuildMerging.cs:17-65</code></p>
+<p><strong>Source:</strong> <code>build/BuildMerging.cs:17-65</code></p>
 </blockquote>
 <h3 id="assemblyloadcontext-net8--revit-2025">AssemblyLoadContext (net8 / Revit 2025+)</h3>
 <p>For Revit 2025+ (net8), isolation is achieved via <code>AssemblyLoadContext</code>:</p>
@@ -547,7 +546,7 @@ var keepSeparate = new HashSet&lt;string&gt; {
 <li>No ILRepack needed</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/BuildMerging.cs:11-14</code></p>
+<p><strong>Source:</strong> <code>build/BuildMerging.cs:11-14</code></p>
 </blockquote>
 <h2 id="artifact-structure">Artifact Structure</h2>
 <h3 id="build-outputs">Build Outputs</h3>
@@ -574,9 +573,7 @@ var keepSeparate = new HashSet&lt;string&gt; {
 │       ├── 2025/
 │       └── 2026/
 ├── vendor/
-│   ├── handycontrol/
-│   ├── controlzex/
-│   └── fluentribbon/
+│   └── handycontrol/
 └── .staging/
     └── {BuildId}/
         ├── bundle/
@@ -624,11 +621,11 @@ var keepSeparate = new HashSet&lt;string&gt; {
 </table>
 <h3 id="verbose-logging">Verbose Logging</h3>
 <pre><code class="lang-bash"># Add --Verbose for detailed NUKE output
-bash csharp/build.sh --Verbose BuildAll
+bash build.sh --Verbose BuildAll
 </code></pre>
 <h3 id="clean-rebuild">Clean Rebuild</h3>
 <pre><code class="lang-bash"># Full clean + rebuild
-bash csharp/build.sh --clean BuildAll
+bash build.sh --clean BuildAll
 </code></pre>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>
@@ -674,7 +671,7 @@ bash csharp/build.sh --clean BuildAll
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/developer-guide/architecture/build-pipeline.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/architecture/build-pipeline.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

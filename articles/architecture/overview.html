@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/articles/architecture/overview.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/articles/architecture/overview.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -128,7 +128,7 @@
 +-------------------+
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Loader/Addin/AddinEntry.cs:12-38</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:12-38</code></p>
 </blockquote>
 <h2 id="project-organization">Project Organization</h2>
 <p>The solution follows a layered architecture with clear separation of concerns:</p>
@@ -159,7 +159,7 @@
 </tr>
 <tr>
 <td><strong>DBTools.Themes</strong></td>
-<td>WPF theme resources and styling (HandyControl, Fluent.Ribbon)</td>
+<td>WPF theme resources and styling (HandyControl)</td>
 <td>net48, net8.0-windows</td>
 </tr>
 <tr>
@@ -170,10 +170,10 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/</code> directory structure</p>
+<p><strong>Source:</strong> <code>src/</code> directory structure</p>
 </blockquote>
 <h3 id="tool-projects-file-linked-into-dbtoolsapp">Tool Projects (File-Linked into DBTools.App)</h3>
-<p>Tools are organized under <code>csharp/src/Tools/</code> and compiled into the main <code>DBTools.dll</code> assembly via MSBuild file linking:</p>
+<p>Tools are organized under <code>src/Tools/</code> and compiled into the main <code>DBTools.dll</code> assembly via MSBuild file linking:</p>
 <pre><code>Tools/
 +-- Common/
 |   +-- GM/               # Global Mapper
@@ -192,7 +192,7 @@
     +-- VTC/              # View Test Coordinator
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:62-78</code> (file linking configuration)</p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:62-78</code> (file linking configuration)</p>
 </blockquote>
 <p>Tool source files are linked (not copied) into the DBTools.App project:</p>
 <pre><code class="lang-xml">&lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
@@ -200,7 +200,7 @@
          Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:64-66</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:64-66</code></p>
 </blockquote>
 <h2 id="multi-year-revit-support">Multi-Year Revit Support</h2>
 <p>DBTools supports multiple Revit versions through dual target frameworks:</p>
@@ -226,7 +226,7 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/Revit.props:2-6</code></p>
+<p><strong>Source:</strong> <code>build/Revit.props:2-6</code></p>
 </blockquote>
 <p>The build system auto-detects installed Revit versions and builds for all available years:</p>
 <pre><code class="lang-xml">&lt;DBT_RevitLegacyTFM&gt;net48&lt;/DBT_RevitLegacyTFM&gt;
@@ -234,7 +234,7 @@
 &lt;DBT_RevitTargetFrameworks&gt;$(DBT_RevitLegacyTFM);$(DBT_RevitModernTFM)&lt;/DBT_RevitTargetFrameworks&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build/Revit.props:3-5</code></p>
+<p><strong>Source:</strong> <code>build/Revit.props:3-5</code></p>
 </blockquote>
 <h2 id="tool-discovery-and-registration">Tool Discovery and Registration</h2>
 <p>DBTools uses a YAML manifest-driven tool discovery system. Each tool declares its module, commands, and UI configuration in a <code>manifest.yml</code> file.</p>
@@ -257,7 +257,7 @@ tool:
       controlKind: PushButton
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/Tools/Common/GM/manifest.yml:1-26</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/manifest.yml:1-26</code></p>
 </blockquote>
 <h3 id="discovery-flow">Discovery Flow</h3>
 <ol>
@@ -267,7 +267,7 @@ tool:
 <li><strong>Ribbon Tool Registration</strong>: <code>RegisterRibbonToolsFromManifest()</code> parses ribbon definitions and registers commands</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtToolModuleCatalog.cs:11-64</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolModuleCatalog.cs:11-64</code></p>
 </blockquote>
 <h3 id="tool-module-base-class">Tool Module Base Class</h3>
 <p>All tools inherit from <code>DbtToolModule</code>, which provides hooks for:</p>
@@ -278,7 +278,7 @@ tool:
 <li><code>RegisterHooks()</code> - Register event handlers (e.g., DocumentOpened, ViewActivated)</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Core/Tools/DbtToolModule.cs:9-49</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolModule.cs:9-49</code></p>
 </blockquote>
 <h2 id="dependency-injection-architecture">Dependency Injection Architecture</h2>
 <p>DBTools uses Microsoft.Extensions.DependencyInjection with a two-tier service scope pattern:</p>
@@ -298,7 +298,7 @@ tool:
 <li><code>ITransactionGroupService</code> - Transaction grouping</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:68-130</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:68-130</code></p>
 </blockquote>
 <h2 id="assembly-loading-strategy">Assembly Loading Strategy</h2>
 <h3 id="loader-bootstrap">Loader Bootstrap</h3>
@@ -310,7 +310,7 @@ tool:
 <li>Reflectively creates and invokes <code>DBTools.App.AddinEntry</code></li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Loader/Addin/AddinEntry.cs:17-47</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:17-47</code></p>
 </blockquote>
 <h3 id="embedded-dependencies">Embedded Dependencies</h3>
 <p>Dependencies are embedded as resources in <code>DBTools.dll</code> to minimize deployment complexity:</p>
@@ -318,7 +318,7 @@ tool:
                   LogicalName=&quot;%(_EmbedLogicalDistinct.Identity)&quot; /&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.App/DBTools.App.csproj:267-268</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:267-268</code></p>
 </blockquote>
 <p>The resolver uses different strategies per framework:</p>
 <table>
@@ -340,46 +340,43 @@ tool:
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:14-96</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:14-96</code></p>
 </blockquote>
 <h3 id="wpf-theme-assemblies">WPF Theme Assemblies</h3>
-<p>WPF assemblies (Fluent.Ribbon, ControlzEx, HandyControl) cannot be embedded because they require <code>Assembly.Location</code> for <code>pack://</code> URI resolution. These are:</p>
-<ol>
-<li>Vendored/renamed to avoid conflicts with pyRevit (e.g., <code>DBTools.Fluent.Ribbon</code>)</li>
-<li>Deployed as files alongside <code>DBTools.dll</code></li>
-</ol>
+<p>WPF resource assemblies that use <code>pack://</code> URIs must be loaded from files because URI resolution requires <code>Assembly.Location</code>.
+In DBTools, this includes <code>DBTools.HandyControl</code> (vendored) and <code>DBTools.Themes</code>.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:134-143</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:131-234</code></p>
 </blockquote>
 <h2 id="build-system-overview">Build System Overview</h2>
 <p>The build uses NUKE (C# build automation) invoked via <code>build.sh</code>:</p>
 <pre><code class="lang-bash"># Fast incremental build (default)
-bash csharp/build.sh
+bash build.sh
 
 # Clean rebuild
-bash csharp/build.sh --clean
+bash build.sh --clean
 
 # Build specific Revit year
-bash csharp/build.sh -y 2025 BuildAll
+bash build.sh -y 2025 BuildAll
 
 # Common targets
-bash csharp/build.sh BuildAll          # Build everything
-bash csharp/build.sh BuildApp          # Build DBTools.dll only
-bash csharp/build.sh BuildSandbox      # Build UI sandbox
-bash csharp/build.sh PromoteToDist     # Stage for deployment
+bash build.sh BuildAll          # Build everything
+bash build.sh BuildApp          # Build DBTools.dll only
+bash build.sh BuildSandbox      # Build UI sandbox
+bash build.sh PromoteToDist     # Stage for deployment
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/build.sh:33-60</code></p>
+<p><strong>Source:</strong> <code>build.sh:33-60</code></p>
 </blockquote>
 <p>Key build features:</p>
 <ul>
-<li><strong>Centralized Artifacts</strong>: All outputs go to <code>csharp/.artifacts/</code> (not per-project <code>bin/obj</code>)</li>
+<li><strong>Centralized Artifacts</strong>: All outputs go to <code>.artifacts/</code> (not per-project <code>bin/obj</code>)</li>
 <li><strong>Vendored Dependencies</strong>: UI assemblies built via <code>build-vendored-deps.sh</code></li>
 <li><strong>Strict Analysis</strong>: <code>TreatWarningsAsErrors=true</code>, Roslyn analyzers enabled</li>
 <li><strong>Multi-Year</strong>: Builds for all detected Revit installations</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/Directory.Build.props:8-28</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.props:8-28</code></p>
 </blockquote>
 <p>For detailed build pipeline documentation, see <a href="build-pipeline.html">Build Pipeline</a>.</p>
 <h2 id="error-handling-philosophy">Error Handling Philosophy</h2>
@@ -391,7 +388,7 @@ bash csharp/build.sh PromoteToDist     # Stage for deployment
 <li>Centralizes error reporting</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>csharp/src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:435-436</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:435-436</code></p>
 </blockquote>
 <p><strong>Non-Negotiable Rules:</strong></p>
 <ul>
@@ -445,7 +442,7 @@ bash csharp/build.sh PromoteToDist     # Stage for deployment
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/csharp/wiki/articles/architecture/overview.md/#L1" class="edit-link">Edit this page</a>
+          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/articles/architecture/overview.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
