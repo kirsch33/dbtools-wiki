@@ -89,9 +89,9 @@
         <article data-uid="">
 <h1 id="dbtoolsloader">DBTools.Loader</h1>
 
-<!-- STATUS: draft -->
-<!-- Last Updated: 2026-01-24 -->
-<!-- Verified By: docs-run-20260124-020412 -->
+<!-- STATUS: verified -->
+<!-- Last Updated: 2026-01-26 -->
+<!-- Verified By: docs-verification-20260126 - Source anchors verified against code -->
 <p><strong>Purpose:</strong> Revit entry point assembly that bootstraps DBTools.<br>
 <strong>Output:</strong> <code>DBTools.Loader.dll</code><br>
 <strong>Target Frameworks:</strong> <code>net48</code>, <code>net8.0-windows</code></p>
@@ -208,6 +208,29 @@ public sealed class AddinEntry : IExternalApplication
 <blockquote>
 <p><strong>Source:</strong> <code>src/DBTools.Loader/Compat/LoaderCompat.cs:10-35</code></p>
 </blockquote>
+<h3 id="sharedparametersdeployer">SharedParametersDeployer</h3>
+<p>Deploys the embedded shared parameters file to <code>%APPDATA%/DBTools/</code> on first run. This file defines Revit shared parameters used by DBTools features.</p>
+<pre><code class="lang-csharp">internal static class SharedParametersDeployer
+{
+    private const string ResourceName = &quot;DBTools.sharedparameters.txt&quot;;
+    
+    public static void EnsureDeployed()
+    {
+        // Copies embedded resource to %APPDATA%/DBTools/DBTools.sharedparameters.txt
+        // Skips if file already exists
+    }
+}
+</code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/SharedParametersDeployer.cs:8-49</code></p>
+</blockquote>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Creates <code>%APPDATA%/DBTools/</code> directory if needed</li>
+<li>Skips deployment if file already exists (idempotent)</li>
+<li>Logs errors to <code>%LOCALAPPDATA%/DBTools/Logs/Loader.log</code> on failure</li>
+<li>Best-effort: failures don't prevent application startup (installer also deploys this file)</li>
+</ul>
 <hr>
 <h2 id="bootstrap-sequence">Bootstrap Sequence</h2>
 <h3 id="onstartup-flow">OnStartup Flow</h3>
@@ -494,11 +517,14 @@ if (!hasCore)
 <pre><code>src/DBTools.Loader/
 +-- DBTools.Loader.csproj
 +-- Addin/
-|   +-- AddinEntry.cs          # IExternalApplication entry point
+|   +-- AddinEntry.cs              # IExternalApplication entry point
+|   +-- SharedParametersDeployer.cs # Deploys shared parameters file to %APPDATA%
++-- Assets/
+|   +-- DBTools.sharedparameters.txt  # Embedded shared parameters definition
 +-- AssemblyResolution/
-|   +-- EmbeddedAssemblyResolver.cs  # Runtime assembly loading
+|   +-- EmbeddedAssemblyResolver.cs   # Runtime assembly loading
 +-- Compat/
-    +-- LoaderCompat.cs        # Cross-TFM utilities
+    +-- LoaderCompat.cs               # Cross-TFM utilities
 </code></pre>
 <hr>
 <h2 id="integration-with-apploader">Integration with AppLoader</h2>

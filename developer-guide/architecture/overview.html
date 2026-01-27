@@ -89,9 +89,9 @@
         <article data-uid="">
 <h1 id="architecture-overview">Architecture Overview</h1>
 
-<!-- STATUS: draft -->
-<!-- Last Updated: 2026-01-24 -->
-<!-- Verified By: docs-run-20260124-020412 -->
+<!-- STATUS: verified -->
+<!-- Last Updated: 2026-01-26 -->
+<!-- Verified By: docs-verification-20260126 - All source anchors verified against code -->
 <p>DBTools is a modular Revit add-in suite built with modern C#/.NET practices. It provides a collection of productivity tools for structural engineers working in Autodesk Revit.</p>
 <h2 id="high-level-architecture">High-Level Architecture</h2>
 <pre><code class="lang-mermaid">graph TB
@@ -159,7 +159,7 @@
 +-------------------+
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:12-38</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:17-47</code></p>
 </blockquote>
 <h2 id="project-organization">Project Organization</h2>
 <p>The solution follows a layered architecture with clear separation of concerns:</p>
@@ -220,10 +220,12 @@
 |   +-- AnalyticalSnapToLevel/
 +-- Settings/             # Settings management tool
 +-- Testing/
+    +-- ERFT/             # Elevation Reference Framing Tool
+    +-- RecordSet/        # RecordSet file management
     +-- VTC/              # View Test Coordinator
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:62-78</code> (file linking configuration)</p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:61-78</code> (file linking configuration)</p>
 </blockquote>
 <p>Tool source files are linked (not copied) into the DBTools.App project:</p>
 <pre><code class="lang-xml">&lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
@@ -277,18 +279,21 @@ order: 0
 sandboxWindows:
   - id: DBTools.GM.Main
     displayName: &quot;Global Mapper&quot;
+    group: &quot;Common&quot;
     windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.GmShellDesignTimeViewModel&quot;
 tool:
   ribbonTools:
     - internalName: DBTools.GM
       commandType: DBTools.GM.Features.GmCommand
       availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      runProfile: InlineUi
       displayText: &quot;Global Mapper&quot;
       iconBaseKey: gm
       controlKind: PushButton
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/manifest.yml:1-26</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/manifest.yml:1-27</code></p>
 </blockquote>
 <h3 id="discovery-flow">Discovery Flow</h3>
 <pre><code class="lang-mermaid">sequenceDiagram
@@ -373,7 +378,7 @@ tool:
                   LogicalName=&quot;%(_EmbedLogicalDistinct.Identity)&quot; /&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:267-268</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:265-266</code></p>
 </blockquote>
 <p>The resolver uses different strategies per framework:</p>
 <table>
@@ -401,7 +406,7 @@ tool:
 <p>WPF resource assemblies that use <code>pack://</code> URIs must be loaded from files because URI resolution requires <code>Assembly.Location</code>.
 In DBTools, this includes <code>DBTools.HandyControl</code> (vendored) and <code>DBTools.Themes</code>.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:131-234</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:260-288</code></p>
 </blockquote>
 <h2 id="build-system-overview">Build System Overview</h2>
 <p>The build uses NUKE (C# build automation) invoked via <code>build.sh</code>:</p>
@@ -421,7 +426,7 @@ bash build.sh BuildSandbox      # Build UI sandbox
 bash build.sh PromoteToDist     # Stage for deployment
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>build.sh:33-60</code></p>
+<p><strong>Source:</strong> <code>build.sh:33-71</code></p>
 </blockquote>
 <p>Key build features:</p>
 <ul>
@@ -431,7 +436,7 @@ bash build.sh PromoteToDist     # Stage for deployment
 <li><strong>Multi-Year</strong>: Builds for all detected Revit installations</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>Directory.Build.props:8-28</code></p>
+<p><strong>Source:</strong> <code>Directory.Build.props:7-28</code> (centralized artifacts), <code>Directory.Build.props:142-151</code> (strict analysis)</p>
 </blockquote>
 <p>For detailed build pipeline documentation, see <a href="build-pipeline.html">Build Pipeline</a>.</p>
 <h2 id="error-handling-philosophy">Error Handling Philosophy</h2>

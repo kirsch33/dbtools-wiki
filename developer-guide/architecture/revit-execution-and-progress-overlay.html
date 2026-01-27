@@ -93,8 +93,8 @@
 <h2 id="centralized-runner-responsibilities">Centralized runner responsibilities</h2>
 <h3 id="dbttoolcommand"><code>DbtToolCommand</code></h3>
 <ul>
-<li><strong>Owns the top-level Revit command entrypoint</strong>: <code>Execute</code> runs through <code>ISafeExecutor</code>, creates the run scope via <code>AppRuntime.CreateRunScope(...)</code>, and builds a <code>DbtToolContext</code> with the active run scope and profile before calling <code>RunAsync</code>.【F:src/DBTools.Core/Revit/Execution/DbtToolCommand.cs†L71-L130】</li>
-<li><strong>Provides convenience helpers that still route through the call gate</strong>: <code>RunInRevitAsync(...)</code> delegates to <code>context.RevitRunScope.CallGate.RunAsync(...)</code> and enforces <code>RequiresActiveView</code>. Use these helpers or call the call gate directly—never Revit API calls outside the gate.【F:src/DBTools.Core/Revit/Execution/DbtToolCommand.cs†L136-L204】</li>
+<li><strong>Owns the top-level Revit command entrypoint</strong>: <code>Execute</code> runs through <code>ISafeExecutor</code>, creates the run scope via <code>AppRuntime.CreateRunScope(...)</code>, and builds a <code>DbtToolContext</code> with the active run scope and profile before calling <code>RunAsync</code>.【F:src/DBTools.Core/Revit/Execution/DbtToolCommand.cs†L72-L128】</li>
+<li><strong>Provides convenience helpers that still route through the call gate</strong>: <code>RunInRevitAsync(...)</code> delegates to <code>context.RevitRunScope.CallGate.RunAsync(...)</code> and enforces <code>RequiresActiveView</code>. Use these helpers or call the call gate directly—never Revit API calls outside the gate.【F:src/DBTools.Core/Revit/Execution/DbtToolCommand.cs†L167-L191】</li>
 </ul>
 <h3 id="revitrunscopefactory"><code>RevitRunScopeFactory</code></h3>
 <ul>
@@ -133,16 +133,16 @@
 <h2 id="progress-overlay-usage">Progress overlay usage</h2>
 <h3 id="host-requirements">Host requirements</h3>
 <ul>
-<li><strong>Host windows must derive from <code>DbtWindowBase</code> or <code>DbtRibbonWindowBase</code></strong>. These base classes wire the initialization and ownership behaviors that the overlay system expects, and <code>DbtRibbonWindowBase</code> explicitly notes progress overlay integration as part of its contract.【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L9-L30】【F:src/DBTools.Core/UI/Windows/DbtRibbonWindowBase.cs†L9-L29】</li>
+<li><strong>Host windows must derive from <code>DbtWindowBase</code></strong>. This base class wires the initialization and ownership behaviors that the overlay system expects, including progress overlay integration.【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L23-L47】</li>
 </ul>
 <h3 id="scope-and-dispatcher-rules">Scope and dispatcher rules</h3>
 <ul>
-<li><strong>Always use <code>Scope(...)</code> for long operations</strong>. The overlay’s <code>Scope(...)</code> shows the overlay, ties it to the current async flow, and ensures cleanup on dispose.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L96-L146】</li>
-<li><strong>Show/Update/Hide are UI-dispatched</strong>. <code>ProgressOverlayService</code> marshals public calls to the WPF dispatcher via <code>TryInvokeOnUi</code>, so callers should use the overlay API and avoid touching overlay state directly from background threads.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L115】【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L164-L214】</li>
+<li><strong>Always use <code>Scope(...)</code> for long operations</strong>. The overlay's <code>Scope(...)</code> shows the overlay, ties it to the current async flow, and ensures cleanup on dispose.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L363-L371】</li>
+<li><strong>Show/Update/Hide are UI-dispatched</strong>. <code>ProgressOverlayService</code> marshals public calls to the WPF dispatcher via <code>TryInvokeOnUi</code>, so callers should use the overlay API and avoid touching overlay state directly from background threads.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L283-L361】【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L382-L393】</li>
 </ul>
 <h3 id="cancel-handling">Cancel handling</h3>
 <ul>
-<li><strong>Poll <code>CancelRequested</code> and bridge to your CTS</strong>. The overlay exposes a thread-safe <code>CancelRequested</code> property, and view models (SGT, GM) poll it to cancel longer workflows.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L78-L82】【F:src/Tools/Structural/SGT/Features/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</li>
+<li><strong>Poll <code>CancelRequested</code> and bridge to your CTS</strong>. The overlay exposes a thread-safe <code>CancelRequested</code> property, and view models (SGT, GM) poll it to cancel longer workflows.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L141】【F:src/Tools/Structural/SGT/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</li>
 </ul>
 <h2 id="dodont-examples-from-current-code">Do/Don’t examples (from current code)</h2>
 <h3 id="call-gate-usage">Call gate usage</h3>
@@ -164,7 +164,7 @@ if (_overlay.CancelRequested)
     linkedCts.Cancel();
 }
 </code></pre>
-<p>SGT’s view model creates a scope, updates it, and bridges cancel requests into the analysis CTS.【F:src/Tools/Structural/SGT/Features/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</p>
+<p>SGT’s view model creates a scope, updates it, and bridges cancel requests into the analysis CTS.【F:src/Tools/Structural/SGT/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</p>
 <p><strong>Do (GM)</strong>: use <code>Scope(...)</code> and <code>CancelRequested</code> while applying mappings.</p>
 <pre><code class="lang-csharp">using var scope = _overlay.Scope(&quot;Applying mappings...&quot;, true);
 if (_overlay.CancelRequested)
@@ -176,7 +176,7 @@ if (_overlay.CancelRequested)
 <p><strong>Don’t</strong>: manipulate overlay state directly or bypass the dispatcher. Use <code>Show/Update/Hide/Scope</code> so the overlay stays UI-thread safe.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L169】</p>
 <h2 id="common-failure-modes">Common failure modes</h2>
 <ul>
-<li><strong>Dispatcher errors or missing host</strong>: calling overlay APIs without a registered <code>DbtWindowBase</code>/<code>DbtRibbonWindowBase</code> host or bypassing the overlay API can lead to dispatcher errors or missing state. Always use <code>Scope/Show/Update/Hide</code> on a supported window host.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L214】【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L9-L30】</li>
+<li><strong>Dispatcher errors or missing host</strong>: calling overlay APIs without a registered <code>DbtWindowBase</code> host or bypassing the overlay API can lead to dispatcher errors or missing state. Always use <code>Scope/Show/Update/Hide</code> on a supported window host.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L214】【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L23-L47】</li>
 <li><strong>Revit context leaks</strong>: direct Revit API access outside <code>IRevitCallGate</code> or attempting async delegates inside the gate can lead to invalid context errors. Stick to the call gate + transaction runner, and keep delegates synchronous.【F:src/DBTools.Core/Revit/Execution/IRevitCallGate.cs†L5-L26】【F:src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L86-L108】【F:src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs†L10-L78】</li>
 </ul>
 

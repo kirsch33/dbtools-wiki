@@ -89,9 +89,9 @@
         <article data-uid="">
 <h1 id="ilrepack-and-assembly-embedding">ILRepack and Assembly Embedding</h1>
 
-<!-- STATUS: draft -->
-<!-- Last Updated: 2026-01-24 -->
-<!-- Verified By: docs-run-20260124-020412 -->
+<!-- STATUS: verified -->
+<!-- Last Updated: 2026-01-26 -->
+<!-- Verified By: docs-verification-20260126 - Source anchors verified against code -->
 <p>This document describes how DBTools merges and embeds assemblies to achieve a minimal deployment footprint while avoiding conflicts with other Revit add-ins.</p>
 <h2 id="overview">Overview</h2>
 <p>DBTools uses two complementary strategies to manage dependencies:</p>
@@ -186,7 +186,7 @@
     .Before(PromoteToDist)
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>build/BuildMerging.cs:23-28</code></p>
+<p><strong>Source:</strong> <code>build/BuildMerging.cs:23-29</code></p>
 </blockquote>
 <h3 id="what-gets-merged-everything-except-whitelist">What Gets Merged (Everything Except Whitelist)</h3>
 <p>The strategy is &quot;merge everything EXCEPT a small whitelist&quot;:</p>
@@ -214,7 +214,7 @@
 <li>Instead, ricaun assemblies are EMBEDDED as resources</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>build/BuildMerging.cs:68-70</code></p>
+<p><strong>Source:</strong> <code>build/BuildMerging.cs:67-70</code></p>
 </blockquote>
 <h3 id="internalization-with-exclusions">Internalization with Exclusions</h3>
 <p>ILRepack internalizes merged types, but some namespaces must stay public:</p>
@@ -252,7 +252,7 @@ File.WriteAllText(excludeFile, &quot;^DBTools\\.Core\\.\n^Serilog\\.\n^Microsoft
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>build/BuildMerging.cs:115-127</code></p>
+<p><strong>Source:</strong> <code>build/BuildMerging.cs:114-123</code></p>
 </blockquote>
 <h3 id="ilrepack-command">ILRepack Command</h3>
 <p>The actual merge command:</p>
@@ -276,7 +276,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
         Condition=&quot;'$(DesignTimeBuild)'!='true'&quot;&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:234-236</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:236-238</code></p>
 </blockquote>
 <h3 id="resource-naming-convention">Resource Naming Convention</h3>
 <p>Embedded assemblies use a logical name pattern:</p>
@@ -296,7 +296,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 &lt;/ItemGroup&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:262-268</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:260-267</code></p>
 </blockquote>
 <h3 id="exclusions-from-embedding">Exclusions from Embedding</h3>
 <p><strong>Revit-provided assemblies (never copy/embed):</strong></p>
@@ -379,7 +379,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:223-263</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:225-257</code></p>
 </blockquote>
 <h3 id="resolution-flow-net8">Resolution Flow (net8)</h3>
 <pre><code class="lang-csharp">private static Assembly? ResolveNet8(AssemblyLoadContext alc, Assembly mainAssembly, AssemblyName requested)
@@ -401,7 +401,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:146-189</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:142-185</code></p>
 </blockquote>
 <hr>
 <h2 id="wpf-theme-assemblies-why-they-stay-separate">WPF Theme Assemblies: Why They Stay Separate</h2>
@@ -433,7 +433,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>build/BuildMerging.cs:53-57</code></p>
+<p><strong>Source:</strong> <code>build/BuildMerging.cs:54-57</code></p>
 </blockquote>
 <h3 id="file-based-resolution-fallbacks">File-Based Resolution Fallbacks</h3>
 <p>For WPF assemblies, the resolver tries file-based loading:</p>
@@ -465,7 +465,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 #endif
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:25-28</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:31-34</code></p>
 </blockquote>
 <h3 id="configuration-assembly-preload">Configuration Assembly Preload</h3>
 <pre><code class="lang-csharp">private static void PreloadEmbeddedConfigurationAssemblies(Assembly mainAssembly)
@@ -501,7 +501,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:109-143</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:131-165</code></p>
 </blockquote>
 <h3 id="serilog-assembly-preload">Serilog Assembly Preload</h3>
 <p>Critical: Dependencies must be loaded BEFORE dependents:</p>
@@ -524,7 +524,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 };
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:150-170</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:176-192</code></p>
 </blockquote>
 <hr>
 <h2 id="forbidden-host-assemblies">Forbidden Host Assemblies</h2>
@@ -541,7 +541,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 &lt;/ItemGroup&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:169-177</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:171-179</code></p>
 </blockquote>
 <h3 id="automatic-cleanup">Automatic Cleanup</h3>
 <p>A build target removes forbidden assemblies if transitive dependencies copied them:</p>
@@ -552,7 +552,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 &lt;/Target&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:181-196</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:181-198</code></p>
 </blockquote>
 <h3 id="build-failure-on-violation">Build Failure on Violation</h3>
 <p>If any forbidden assemblies remain after cleanup, the build fails:</p>
@@ -562,7 +562,7 @@ args.Append($&quot;\&quot;{backupOriginal}\&quot; &quot;);            // Primary
 &lt;/Target&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:198-211</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:200-213</code></p>
 </blockquote>
 <hr>
 <h2 id="summary-what-goes-where">Summary: What Goes Where</h2>
