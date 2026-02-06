@@ -160,9 +160,10 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Bootstrap/TdvServiceExtensions.cs:11-33</code></p>
 </blockquote>
-<pre><code class="lang-csharp">services.AddScoped&lt;ITdvTransferService&gt;(sp =&gt; 
+<pre><code class="lang-csharp">services.AddScoped&lt;ITdvTransferService&gt;(sp =&gt;
     new TdvService(gate, tx, groups, logger));
-services.AddScoped&lt;ITdvLibraryService, TdvLibraryService&gt;();
+services.AddScoped&lt;ITdvLibraryService&gt;(sp =&gt;
+    new TdvLibraryService(settings, RevitInstanceIdentifier.RevitYear));
 services.AddScoped&lt;ITdvDocumentService, TdvDocumentService&gt;();
 </code></pre>
 <h3 id="key-interfaces">Key Interfaces</h3>
@@ -425,16 +426,55 @@ public sealed class LibraryFileEntry
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:19-352</code></p>
 </blockquote>
+<h3 id="settings-path-presentation">Settings Path Presentation</h3>
+<p>Library paths in settings are rendered with:</p>
+<ul>
+<li>Validation icon at the left of each tree row (green check / red error)</li>
+<li>Tooltip showing the full absolute path</li>
+<li>Compact display text that keeps root + filename + the final 3 folder levels</li>
+</ul>
+<p>This avoids horizontal scrolling while preserving useful location context.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibrarySettingsPackView.xaml:33-77</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:296-313</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibraryPathDisplayFormatter.cs:1-63</code></p>
+</blockquote>
 <h3 id="path-validation">Path Validation</h3>
 <p>Library paths are validated for:</p>
 <ul>
 <li>File existence</li>
 <li><code>.rvt</code> extension</li>
+<li>Revit version compatibility (file's saved version must match the current Revit session)</li>
 <li>Accessibility</li>
 </ul>
 <p>Invalid paths trigger a settings warning that disables the import/export commands.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvLibraryService.cs:100-141</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvLibraryService.cs:100-160</code></p>
+</blockquote>
+<h3 id="revit-version-validation">Revit Version Validation</h3>
+<p>Library files are checked at two points to prevent version mismatches:</p>
+<ol>
+<li><p><strong>Validation time</strong> (<code>TdvLibraryService.ValidatePath</code>): Uses <code>BasicFileInfo.Extract()</code> and <code>RevitInstanceIdentifier.ParseRevitYear()</code> to compare the file's saved Revit version against the current session. Mismatched files are marked invalid with a descriptive failure reason and excluded from the accessible library list.</p>
+</li>
+<li><p><strong>Open time</strong> (<code>TdvDocumentService.OpenLibraryAsync</code>): A belt-and-suspenders check before opening. Throws <code>InvalidOperationException</code> if the file version doesn't match, which is caught by the command's try/catch and displayed as a banner.</p>
+</li>
+</ol>
+<p>This prevents two dangerous scenarios:</p>
+<ul>
+<li><strong>Workshared files</strong>: <code>WorksharingUtils.CreateNewLocal()</code> would throw a version mismatch error at open time</li>
+<li><strong>Non-workshared files</strong>: Revit would silently upgrade the file, which is destructive</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvLibraryService.cs:135-155</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvDocumentService.cs:30-45</code></p>
+</blockquote>
+<h3 id="dialog-suppression-during-document-open">Dialog Suppression During Document Open</h3>
+<p>When opening a library document, the TDV commands wrap the <code>OpenLibraryAsync</code> call with <code>DialogSuppressionHook.SuppressAvailabilityDialogs()</code>. This suppresses cascading Revit &quot;availability command failed&quot; TaskDialogs (<code>TaskDialog_External_Tools_Command_Failure</code>) that can occur during document switching when Revit re-evaluates <code>IExternalCommandAvailability</code> checks.</p>
+<p>The suppression uses a scoped pattern mechanism: a regex pattern is pushed onto a thread-safe stack and automatically removed when the <code>using</code> scope ends.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Services/DialogSuppression/DialogSuppressionHook.cs</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvImportCommand.cs:92-101</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvExportCommand.cs:96-105</code></p>
 </blockquote>
 <h2 id="manifest-configuration">Manifest Configuration</h2>
 <p>The tool is configured via <code>manifest.yml</code>:</p>
@@ -608,6 +648,19 @@ tool:
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:13-16</code></p>
 </blockquote>
 <h2 id="command-reference">Command Reference</h2>
+<h3 id="library-selection-dialog-sizing">Library Selection Dialog Sizing</h3>
+<p>TDV export/import library selection dialogs override default alert dimensions to a compact tool-specific size:</p>
+<ul>
+<li>Width: <code>760</code></li>
+<li>Height: <code>440</code></li>
+<li>MinWidth: <code>520</code></li>
+<li>MinHeight: <code>340</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvAlertWindowOptions.cs:1-17</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvExportCommand.cs:75-84</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvImportCommand.cs:70-79</code></p>
+</blockquote>
 <h3 id="export-command-flow">Export Command Flow</h3>
 <ol>
 <li>Validate library paths are configured</li>

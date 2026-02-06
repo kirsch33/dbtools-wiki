@@ -385,6 +385,17 @@ bash build-vendored-deps.sh
 </table>
 <p><strong>Source:</strong> <a href="../../../src/Tools/Common/TDV/Contracts/TdvPerViewErrorCode.cs"><code>TdvPerViewErrorCode.cs:3</code></a></p>
 <hr>
+<h3 id="view-template-comparer-vtc">View Template Comparer (VTC)</h3>
+<h4 id="vtc-body-template-resource-not-found">VTC Body Template Resource Not Found</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>System.IO.IOException: Cannot locate resource 'ui/resources/vtcbodytemplates.xaml'.
+</code></pre>
+<p><strong>Cause:</strong> VTC body templates are loaded through a <code>pack://application</code> URI, but tool XAML is file-linked into <code>DBTools.dll</code> under <code>Tools/...</code> paths. Using <code>UI/Resources/...</code> fails to resolve the compiled BAML resource.</p>
+<p><strong>Solution:</strong> Ensure VTC template registration points to:
+<code>pack://application:,,,/{assembly};component/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml</code></p>
+<p><strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/Features/VtcCommandHandler.cs"><code>VtcCommandHandler.cs:132</code></a><br>
+<strong>Source:</strong> <a href="../../../src/DBTools.App/DBTools.App.csproj"><code>DBTools.App.csproj:69</code></a></p>
+<hr>
 <h2 id="debugging">Debugging</h2>
 <h3 id="enabling-debug-mode">Enabling Debug Mode</h3>
 <p>Debug mode provides detailed logging and surfaces the logger window on errors.</p>
@@ -410,6 +421,10 @@ bash build-vendored-deps.sh
 <pre><code>dbtools-{RevitYear}-{InstanceId}-{Timestamp}-{Nonce}.log
 </code></pre>
 <p>Example: <code>dbtools-2025-ABC123-20260124-143022345-a1b2c3d4.log</code></p>
+<p>When the logger window's <strong>Start New Log File</strong> action is used, a manual suffix is appended:</p>
+<pre><code>dbtools-{RevitYear}-{InstanceId}-{Timestamp}-{Nonce}-manual-{ManualTimestamp}.log
+</code></pre>
+<p>Example: <code>dbtools-2025-ABC123-20260206-123412845-a1b2c3d4-manual-20260206-123412pm.log</code></p>
 <p><strong>Log retention policy:</strong></p>
 <ul>
 <li>Maximum 50 files across all instances</li>
@@ -417,7 +432,7 @@ bash build-vendored-deps.sh
 <li>Maximum 100 MB total size</li>
 <li>Automatic cleanup on startup</li>
 </ul>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Constants/LoggingConstants.cs"><code>LoggingConstants.cs:119</code></a></p>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Logging/Features/LoggingConstants.cs"><code>LoggingConstants.cs:120</code></a>, <a href="../../../src/DBTools.Core/Logging/Features/DbtLoggingHost.cs"><code>DbtLoggingHost.cs:111</code></a>, <a href="../../../src/DBTools.Core/Logging/Features/DbtLoggingHost.cs"><code>DbtLoggingHost.cs:150</code></a></p>
 <hr>
 <h3 id="using-the-logger-window">Using the Logger Window</h3>
 <p>The logger window provides real-time log viewing with filtering capabilities.</p>
@@ -428,7 +443,9 @@ bash build-vendored-deps.sh
 <li><strong>Export:</strong> Save filtered logs to a file</li>
 <li><strong>Auto-scroll:</strong> Automatically scroll to new entries</li>
 <li><strong>Correlation IDs:</strong> Track related log entries across operations</li>
+<li><strong>Start New Log File:</strong> Danger-menu action that switches file logging to a new file, clears the logger UI, and posts a single confirmation entry while keeping the same instance ID/session context</li>
 </ul>
+<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Logging/Shell/LoggerWindow.xaml"><code>LoggerWindow.xaml:360</code></a>, <a href="../../../src/DBTools.Core/Logging/Shell/LoggerWindowViewModel.cs"><code>LoggerWindowViewModel.cs:561</code></a>, <a href="../../../src/DBTools.Core/Logging/Features/DbtLoggingHost.cs"><code>DbtLoggingHost.cs:156</code></a></p>
 <p><strong>Window title format:</strong></p>
 <pre><code>DB Tools Log - Revit {Year} [{InstanceId}]
 </code></pre>

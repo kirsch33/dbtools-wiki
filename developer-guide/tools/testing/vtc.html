@@ -98,7 +98,7 @@
 <p>VTC provides a comprehensive solution for managing view template settings across Revit projects. The tool extracts complete template configurations including display settings, template parameter includes, category overrides, and filter overrides, presenting them in a hierarchical diff view for easy comparison and selective merging.</p>
 <h3 id="key-capabilities">Key Capabilities</h3>
 <ul>
-<li><strong>Side-by-side comparison</strong> of two view templates with visual diff highlighting</li>
+<li><strong>Unified single-tree diff view</strong> with A/B value lanes per setting</li>
 <li><strong>Selective merging</strong> - choose individual settings from either template</li>
 <li><strong>Apply to existing</strong> - update Template A or B with selected settings</li>
 <li><strong>Create merged template</strong> - generate a new template combining selections from both sources</li>
@@ -361,8 +361,25 @@
 <p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:91-107</code></p>
 </blockquote>
 <h3 id="ui-components">UI Components</h3>
+<h4 id="alert-body-template-registration">Alert Body Template Registration</h4>
+<p>VTC registers its custom alert body templates at runtime so <code>AlertWindow</code> can resolve VTC-specific body ViewModels outside the main VTC window tree.</p>
+<p>Because tool XAML is file-linked into <code>DBTools.dll</code>, the registered resource dictionary must use the file-linked path:</p>
+<p><code>pack://application:,,,/{assembly};component/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml</code></p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Features/VtcCommandHandler.cs:132-158</code>
+<strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:69-73</code></p>
+</blockquote>
 <h4 id="hierarchical-diff-tree">Hierarchical Diff Tree</h4>
-<p>The comparison view uses a hierarchical <code>TreeView</code> with synchronized scrolling between left and right panels. The tree structure groups settings by type:</p>
+<p>The comparison view uses a <strong>single</strong> hierarchical <code>TreeView</code> where each leaf row shows:</p>
+<ul>
+<li>setting name</li>
+<li>Template A value lane</li>
+<li>A/B picker controls</li>
+<li>Template B value lane</li>
+<li>override editor entry point (category overrides)</li>
+</ul>
+<p>Category override rows expose <strong>side-specific visibility and override counts</strong> (<code>LeftVisibilityDisplay</code>, <code>RightVisibilityDisplay</code>, <code>LeftOverrideCount</code>, <code>RightOverrideCount</code>) so A/B columns always reflect the correct template values.</p>
+<p>The tree structure groups settings by type:</p>
 <pre><code>Display Settings
 +-- Detail Level
 +-- Display Style
@@ -382,7 +399,10 @@ Filter Overrides
 +-- Filter 2
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeBuilder.cs:17-43</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeBuilder.cs:17-43</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:245</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:310</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:373</code></p>
 </blockquote>
 <p>Node types in the tree:</p>
 <table>
@@ -409,6 +429,16 @@ Filter Overrides
 </table>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffNodeType.cs:6-22</code></p>
+</blockquote>
+<h4 id="sidebar-workflow">Sidebar Workflow</h4>
+<p>The right-side workspace is organized into tabs to reduce control density:</p>
+<ul>
+<li><strong>Templates</strong> - choose Template A/B and swap</li>
+<li><strong>Actions</strong> - apply selections and create merged template</li>
+<li><strong>Library</strong> - JSON import/export, text dumps, and saved templates</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:807</code></p>
 </blockquote>
 <h2 id="settings">Settings</h2>
 <p>VTC currently has no persistent user settings. All configuration is session-based through the UI.</p>

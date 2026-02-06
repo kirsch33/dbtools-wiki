@@ -494,11 +494,54 @@ SgtSmartDefaultsService.TryApplySmartDefaultsForOpeningRole(row, role, plan);
 <ol>
 <li><strong>Diff Detection</strong>: Compare stored vs current wall geometry</li>
 <li><strong>Missing Wall Handling</strong>: Options for re-link or delete</li>
-<li><strong>Geometry Mismatch</strong>: Options for scale, shift, or ignore</li>
-<li><strong>Opening Changes</strong>: Sync manual openings to real elements</li>
+<li><strong>Opening Actions</strong>: Sync/Move decisions now read current detected openings (manual <code>M:</code> openings still read editable plan rows)</li>
+<li><strong>Manual-to-Real Mapping</strong>: Force-sync maps manual openings to <code>DetectedOpenings</code>, not stored opening snapshots</li>
+<li><strong>Update Move Policy</strong>: Update runs move-first; move failures can be surfaced to UI and retried as delete/recreate</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Reconcile/SgtHostChangeReconciliationService.cs</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:398</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/WriteContext.cs:1</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/DomainWriter.Updates.cs:369</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CommandsAndBulk.cs:440</code></p>
+</blockquote>
+<h3 id="previewplacement-coordinate-parity-2026-02-06">Preview/Placement Coordinate Parity (2026-02-06)</h3>
+<p>To remove mismatch between preview and placed members (especially for linked walls and opening jambs), SGT now shares the same direction/orientation semantics across analysis, preview, and placement:</p>
+<ol>
+<li><strong>Opening T mapping now respects linked frame inversion</strong><br>
+Step 2 compares host-space wall curve direction against <code>WallGeometry.Direction</code> and flips opening <code>T0/T1</code> when the frames are reversed.</li>
+<li><strong>3D preview now uses the shared depth-plane helper</strong><br>
+Preview layer offset and wall offset now resolve with the same helper used by placement.</li>
+<li><strong>3D section basis now uses canonical orientation rules</strong><br>
+Jamb/horizontal role transforms are built from exterior normal + axis cross products with consistent sign behavior.</li>
+<li><strong>Opening role orientation now honors per-role Flip setting in placement path</strong></li>
+<li><strong>Opening-edge cutbacks now use gap-only trimming (no jamb face inset)</strong><br>
+Placement and preview segmentation both apply the same opening-edge gap value, eliminating oversized girt-to-jamb trims.</li>
+<li><strong>Preview justification axis mapping now uses analyzer metadata</strong><br>
+<code>OrientationResult.YTargetsFlange</code> now propagates into preview rendering so Y/Z justifications target the same flange/web axes as placement behavior.</li>
+<li><strong>Elevation/Section/3D now consume one shared preview semantics helper</strong><br>
+Justification deltas and orientation-map lookup are centralized and reused by all preview modes.</li>
+<li><strong>Preview profile transform ordering now matches placement math</strong><br>
+Preview now applies profile transforms as <code>rotation</code> → <code>FlipHand</code> → Y/Z justification (matching placement parameter application order), reducing jamb rotation/depth drift on linked walls.</li>
+<li><strong>Opening orientation precedence is role-first, then type-level, then girt fallback</strong><br>
+Preview now resolves <code>YTargetsFlange</code> from role-specific opening metadata first, which fixes role drift for head/sill/jamb members that share a type.</li>
+<li><strong>3D/Elevation/Section profile projection now uses one depth/secondary axis contract</strong><br>
+Projection uses <code>depth=U,secondary=V</code> for <code>Y-&gt;Flange</code> and <code>depth=V,secondary=U</code> for <code>Y-&gt;Web</code> consistently in all preview modes.</li>
+<li><strong>3D opening diagnostics now include projection mapping for all opening roles</strong><br>
+Left/Right jamb, Header, and Sill debug entries now log the resolved projection mapping and anchor geometry for faster root-cause triage.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:200</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:446</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:42</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:516</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:296</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:398</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1801</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:17</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:36</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:743</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code></p>
 </blockquote>
 <h2 id="configuration">Configuration</h2>
 <h3 id="manifest">Manifest</h3>
@@ -636,7 +679,7 @@ tool:
 <hr>
 <blockquote>
 <p><strong>Documentation Status</strong>: Complete</p>
-<p><strong>Last Updated</strong>: 2026-01-24</p>
+<p><strong>Last Updated</strong>: 2026-02-06</p>
 <p><strong>Source Review</strong>: Verified against source files in <code>src/Tools/Structural/SGT/</code></p>
 </blockquote>
 

@@ -161,8 +161,9 @@
 <ol>
 <li>Check the <strong>Apply</strong> checkbox for each mapping you want to make</li>
 <li>Click the <strong>Apply</strong> button</li>
-<li>Review the mapping report</li>
-<li>Click <strong>Commit</strong> to apply changes (or <strong>Rollback</strong> to cancel)</li>
+<li>GM opens the mapping report and runs the mappings automatically</li>
+<li>Review the report status and failed rows (if any)</li>
+<li>Click <strong>Finalize</strong> to keep changes (or <strong>Rollback</strong> to cancel)</li>
 </ol>
 <hr>
 <h2 id="the-global-mapper-window">The Global Mapper Window</h2>
@@ -307,6 +308,7 @@
 <li><strong>Object Styles</strong> - Styles used by this family</li>
 <li><strong>Materials</strong> - Materials used by this family</li>
 <li><strong>Parameters</strong> - Parameter names (for reference)</li>
+<li><strong>Usage-linked Apply badge</strong> - <code>OS</code>, <code>MAT</code>, or <code>OS+MAT</code> indicates the family Apply state is linked from Object Styles/Materials tabs</li>
 </ul>
 <p>[Screenshot: Expanded family row]</p>
 <hr>
@@ -360,6 +362,8 @@
 <ul>
 <li><strong>Families Using This Style</strong> - Select a style to see which families reference it</li>
 <li><strong>Preview pane</strong> - Shows the visual appearance of selected styles</li>
+<li>Checking <strong>Apply</strong> auto-links the corresponding families in the Families tab</li>
+<li>Unchecking <strong>Apply</strong> removes that style link; family Apply remains only if manually checked or linked by another source</li>
 </ul>
 <hr>
 <h3 id="materials-tab">Materials Tab</h3>
@@ -402,7 +406,12 @@
 <li>Select a target material from the dropdown</li>
 <li>The color preview helps you verify you're selecting the right material</li>
 <li>Check <strong>Apply</strong> and apply your changes</li>
+<li>Families affected by this material mapping are linked in Families tab (badge: <code>MAT</code> or <code>OS+MAT</code>)</li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:817</code></p>
+</blockquote>
 <p><strong>Note:</strong> Material changes affect both appearance and any associated physical/thermal properties.</p>
 <hr>
 <h3 id="shared-parameters-tab">Shared Parameters Tab</h3>
@@ -437,8 +446,13 @@
 <p>When expanded, you can cycle through instances to see different parameter values:</p>
 <ul>
 <li>Use the left/right arrows to navigate between instances</li>
-<li>Click <strong>Zoom to Instance</strong> to navigate to it in a view</li>
+<li>Click <strong>Zoom to Instance</strong> to jump to the instance even when it is not in the currently active view</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:305</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:190</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code></p>
+</blockquote>
 <hr>
 <h2 id="step-by-step-workflows">Step-by-Step Workflows</h2>
 <h3 id="workflow-1-consolidating-duplicate-families">Workflow 1: Consolidating Duplicate Families</h3>
@@ -459,7 +473,7 @@
 </li>
 <li>Click <strong>Apply</strong> in the header</li>
 <li>Review the mapping report</li>
-<li>Click <strong>Commit</strong> to apply changes</li>
+<li>Click <strong>Finalize</strong> to keep changes</li>
 </ol>
 <p><strong>Tips:</strong></p>
 <ul>
@@ -486,7 +500,7 @@
 <li>Check <strong>Apply</strong> on the family row</li>
 <li>Click <strong>Apply</strong> in the header</li>
 <li>Review the mapping report - verify instance counts</li>
-<li>Click <strong>Commit</strong> to apply</li>
+<li>Click <strong>Finalize</strong> to keep changes</li>
 </ol>
 <hr>
 <h3 id="workflow-3-adding-shared-parameters-to-families">Workflow 3: Adding Shared Parameters to Families</h3>
@@ -506,7 +520,7 @@
 </li>
 <li>Optionally, use <strong>Map From</strong> to copy values from an existing parameter</li>
 <li>Click <strong>Apply</strong> in the header</li>
-<li>Review and <strong>Commit</strong></li>
+<li>Review and <strong>Finalize</strong></li>
 </ol>
 <hr>
 <h3 id="workflow-4-standardizing-materials">Workflow 4: Standardizing Materials</h3>
@@ -524,7 +538,7 @@
 <li>Alternatively, use the <strong>Duplicates</strong> tab to find similar materials automatically</li>
 <li>Click <strong>Apply</strong> in the header</li>
 <li>Review the mapping report to see affected elements</li>
-<li>Click <strong>Commit</strong></li>
+<li>Click <strong>Finalize</strong></li>
 </ol>
 <hr>
 <h2 id="settings-and-options">Settings and Options</h2>
@@ -629,9 +643,9 @@
 <li>Use &quot;Accept All&quot; in duplicates for quick processing</li>
 </ul>
 </li>
-<li><p><strong>Preview before committing</strong></p>
+<li><p><strong>Preview before finalizing</strong></p>
 <ul>
-<li>The mapping report shows exactly what will change</li>
+<li>The mapping report shows what was attempted and what succeeded/failed</li>
 <li>Use <strong>Rollback</strong> if something looks wrong</li>
 </ul>
 </li>
@@ -691,7 +705,7 @@
 <tr>
 <td><strong>Changes didn't take effect</strong></td>
 <td>Rollback was clicked</td>
-<td>Re-apply and click Commit instead</td>
+<td>Re-apply and click Finalize instead</td>
 </tr>
 <tr>
 <td><strong>Some instances weren't replaced</strong></td>
@@ -750,8 +764,8 @@
 <p><strong>Q: Can I undo changes made by Global Mapper?</strong></p>
 <p>A: Yes, in two ways:</p>
 <ul>
-<li>Before clicking <strong>Commit</strong>, use <strong>Rollback</strong> to cancel all changes</li>
-<li>After committing, use Revit's standard <strong>Undo</strong> command</li>
+<li>Before clicking <strong>Finalize</strong>, use <strong>Rollback</strong> to cancel all changes</li>
+<li>After finalizing, use Revit's standard <strong>Undo</strong> command</li>
 </ul>
 <p><strong>Q: Will this affect linked files?</strong></p>
 <p>A: No, Global Mapper only modifies elements in the current document, not linked files.</p>
@@ -826,10 +840,10 @@
 <ul>
 <li><strong>Intelligent matching</strong> - Similarity scoring suggests the best replacements</li>
 <li><strong>Comprehensive coverage</strong> - Families, types, materials, styles, and parameters</li>
-<li><strong>Safe workflow</strong> - Review before committing, with full rollback support</li>
+<li><strong>Safe workflow</strong> - Review outcomes before finalizing, with full rollback support</li>
 <li><strong>Time savings</strong> - Replace hundreds of elements in minutes instead of hours</li>
 </ul>
-<p>Start with the Duplicates tab to find quick wins, then use the Families tab for targeted replacements. Remember to preview your changes in the mapping report before committing!</p>
+<p>Start with the Duplicates tab to find quick wins, then use the Families tab for targeted replacements. Remember to review the mapping report before finalizing.</p>
 
 </article>
 

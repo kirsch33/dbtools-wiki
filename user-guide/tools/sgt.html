@@ -410,6 +410,42 @@
 <li>Make changes as needed</li>
 <li>Click &quot;Update&quot; to apply changes, or &quot;Remove&quot; to delete everything</li>
 </ol>
+<p>During edit/update, SGT now follows this behavior:</p>
+<ul>
+<li>Reconciliation actions (Sync / Move to resolve / Convert to Manual / Delete / Skip Role) are applied from the current detected wall openings, so the UI refreshes against live host conditions before you continue editing.</li>
+<li>Update tries to move existing members in place first. If any move fails, SGT shows a warning prompt that lets you retry by deleting and recreating affected members using the same data.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:398</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CommandsAndBulk.cs:440</code></p>
+</blockquote>
+<h3 id="previewplaced-alignment-notes">Preview/Placed Alignment Notes</h3>
+<p>Recent parity fixes align preview and placement behavior for linked walls and opening framing:</p>
+<ul>
+<li>Opening extents in linked mode now map with frame-direction inversion detection so preview/placement use the same wall direction convention.</li>
+<li>3D preview now uses the same depth-plane offset helper as placement.</li>
+<li>Opening-edge trimming now applies gap-only cutbacks in both preview segmentation and final placement, removing oversized girt-to-jamb gaps.</li>
+<li>Preview now uses calibrated orientation metadata to decide whether Y or Z justification controls flange/web offset, reducing jamb orientation/depth mismatch between preview and placed elements.</li>
+<li>Preview profile transforms now run with the same operation order as placement (<code>rotation</code> then <code>Flip</code> then justification), improving jamb rotation/depth parity in linked-wall previews.</li>
+<li>Opening members now resolve orientation semantics in role-first order (role metadata first, then type fallback), improving left/right/head/sill consistency for shared types.</li>
+<li>3D opening members now honor the same Y/Z semantic axis swap (<code>Y-&gt;Web</code> vs <code>Y-&gt;Flange</code>) as 2D previews, so head/sill/jamb profile orientation is consistent across preview modes.</li>
+<li>Elevation, Section, and 3D now all use one shared profile projection contract (<code>depth/secondary</code> mapping), so orientation changes appear consistently across all preview modes.</li>
+<li>3D debug logging now includes projection mapping for left/right jamb, header, and sill previews to make WW/WS mismatch diagnosis faster.</li>
+</ul>
+<p>If preview still appears wrong after editing row settings, re-run Analyze to refresh wall/opening direction context before placing.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:200</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:516</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:296</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:398</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:17</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:36</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:743</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:282</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1520</code></p>
+</blockquote>
 <hr>
 <h2 id="settings-explained">Settings Explained</h2>
 <h3 id="offset">Offset</h3>

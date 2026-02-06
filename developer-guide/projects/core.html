@@ -421,10 +421,12 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
     string InstanceId { get; }
     int? RevitYear { get; }
     string? LogFilePath { get; }
+    string ForceNewLogFileWithAutoSuffix();
+    string ForceNewLogFile(string suffix);
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/DbtLoggingHost.cs:21-33</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:22-47</code></p>
 </blockquote>
 <h4 id="dbtlogginghost-implementation">DbtLoggingHost Implementation</h4>
 <p>Features:</p>
@@ -432,18 +434,22 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 <li><strong>Serilog integration</strong>: Uses Serilog with structured logging</li>
 <li><strong>UI sink</strong>: Feeds log entries to the Logger Window</li>
 <li><strong>File sink</strong>: Custom <code>DbtTextFileSink</code> avoids version conflicts with Serilog.Sinks.File</li>
+<li><strong>Manual in-session rollover</strong>: Logger UI can force file logging to switch to a new file path on demand</li>
 <li><strong>Thread enrichment</strong>: Adds thread ID to all log entries</li>
 <li><strong>Instance identification</strong>: Unique instance ID per Revit process</li>
 <li><strong>Log rotation</strong>: Automatic cleanup of old log files by age, count, and total size</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/DbtLoggingHost.cs:35-226</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:49-302</code>, <code>src/DBTools.Core/Logging/Features/DbtTextFileSink.cs:91-118</code></p>
 </blockquote>
 <p><strong>Log File Naming:</strong></p>
 <pre><code>dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}.log
 </code></pre>
+<p>Manual rollovers append the generated suffix before <code>.log</code>:</p>
+<pre><code class="lang-text">dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}-manual-{timestamp}.log
+</code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/DbtLoggingHost.cs:88-100</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:111-123</code>, <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:150-182</code></p>
 </blockquote>
 <h3 id="settings-system">Settings System</h3>
 <h4 id="isettingsprovider">ISettingsProvider</h4>

@@ -90,7 +90,7 @@
 <h1 id="global-mapper-specification">Global Mapper Specification</h1>
 
 <p><strong>Version:</strong> 2.0
-<strong>Last Updated:</strong> November 26, 2025</p>
+<strong>Last Updated:</strong> February 6, 2026</p>
 <hr>
 <h2 id="table-of-contents">Table of Contents</h2>
 <h3 id="part-i-foundation">Part I: Foundation</h3>
@@ -1178,12 +1178,26 @@ foreach (var chunk in items.Chunk(100))
 </ul>
 <hr>
 <h3 id="911-instance-navigation">9.11 Instance Navigation</h3>
-<p>Families tab does NOT have instance navigation.</p>
+<p>Families and Shared Parameters both support instance navigation.</p>
 <ul>
-<li>Instance cycling is SP-only feature</li>
-<li>Families tab shows quantity and &quot;Views Containing&quot; list</li>
-<li>Double-click view navigates, but no prev/next cycling within tab</li>
+<li>Families tab:
+<ul>
+<li>Expanded row <code>Types</code> panel provides prev/next instance cycling, Auto-zoom, and Zoom</li>
+<li>Cycling refreshes parameter example values in the expanded <code>Params</code> grid</li>
+<li>Zoom and Auto-zoom run with cross-view search and immediately activate/show the sampled instance</li>
 </ul>
+</li>
+<li>Shared Parameters tab:
+<ul>
+<li>Type details provide the same prev/next + zoom navigation pattern for sampled instances (cross-view search enabled)</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:305</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:384</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/SharedParametersPaneViewModel.cs:455</code></p>
+</blockquote>
 <hr>
 <h3 id="912-quantity-vs-views-containing-pane">9.12 Quantity vs Views Containing Pane</h3>
 <p><strong>Quantity Column:</strong></p>
@@ -1288,13 +1302,27 @@ foreach (var chunk in items.Chunk(100))
 <li>Select row → preview updates (swatch and style line rendering)</li>
 <li>&quot;Families Using This Object Style&quot; pane populates with family names</li>
 <li>Double-click family → navigate to view and show instance</li>
+<li>Checking Apply on the style row links Apply on affected family rows</li>
+<li>Unchecking Apply removes that link; family Apply remains only if still linked elsewhere or manually selected</li>
 </ol>
 <p><strong>Materials:</strong></p>
 <ol>
 <li>Select row → preview updates (color swatch, texture, properties)</li>
 <li>&quot;Families Using This Material&quot; list populates</li>
 <li>Double-click family → navigate to view and show instance</li>
+<li>Checking Apply on the material row links Apply on affected family rows</li>
+<li>Unchecking Apply removes that link; family Apply remains only if still linked elsewhere or manually selected</li>
 </ol>
+<p><strong>Families Tab Link Indicators:</strong></p>
+<ul>
+<li>Linked family rows display source badges: <code>OS</code>, <code>MAT</code>, or <code>OS+MAT</code></li>
+<li>Badge reflects active usage-link sources, independent from manual family Apply toggles</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:190</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:817</code></p>
+</blockquote>
 <hr>
 <h3 id="106-ds-badges">10.6 DS Badges</h3>
 <p><strong>When Shown:</strong></p>
@@ -1637,22 +1665,23 @@ foreach (var chunk in items.Chunk(100))
 </ul>
 <hr>
 <h3 id="132-review-window-mapping-report">13.2 Review Window (Mapping Report)</h3>
-<p>Before execution, the Mapping Report window displays the plan for user review.</p>
+<p>When opened, the Mapping Report window builds the plan and executes apply automatically.</p>
 <p><strong>Display Content:</strong></p>
 <ul>
 <li>Operation breakdown by category with counts</li>
-<li>Affected element counts per operation</li>
+<li>Apply outcome summary (applied/failed/skipped/affected)</li>
 <li>Normalized details showing from → to mappings</li>
 <li>Error indicators for any validation failures</li>
 </ul>
 <p><strong>User Actions:</strong></p>
 <ul>
-<li><strong>Commit:</strong> Proceeds with execution</li>
-<li><strong>Cancel:</strong> Returns to main window without changes</li>
+<li><strong>Rollback:</strong> Reverts the pending transaction group changes</li>
+<li><strong>Finalize (Keep Open):</strong> Commits and keeps GM open</li>
+<li><strong>Finalize + Close:</strong> Commits and closes GM</li>
 </ul>
 <p><strong>Implementation:</strong></p>
-<pre><code>src/Tools/Common/GM/Features/Mapping/UI/MappingReportViewModel.cs
-src/Tools/Common/GM/Shared/Planning/GmPlanningService.cs
+<pre><code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs
+src/Tools/Common/GM/Shell/Services/ReportWindowService.cs
 </code></pre>
 <hr>
 <h3 id="133-execution-order">13.3 Execution Order</h3>
@@ -1711,7 +1740,7 @@ private void ApplyRowLocks()
 </ul>
 <p><strong>Error Surfaces:</strong></p>
 <ul>
-<li>Mapping Report shows validation errors before commit</li>
+<li>Mapping Report shows validation errors before finalize</li>
 <li>Progress overlay shows execution errors with details</li>
 <li>Notification banner summarizes outcome</li>
 </ul>
@@ -2098,6 +2127,7 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <ul>
 <li>Similarity mode: threshold affects default selection</li>
 <li>Alphabetical mode: threshold ignored</li>
+<li>Auto-selected defaults below threshold must clear to <code>Do Not Map</code> (unless explicitly user-selected)</li>
 </ul>
 </li>
 <li><p><strong>Preserve User Selections:</strong></p>
@@ -2111,6 +2141,10 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 </ul>
 </li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:690</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:925</code></p>
+</blockquote>
 <hr>
 <h1 id="part-v-quality--implementation-1">Part V: Quality &amp; Implementation</h1>
 <h2 id="19-known-issues--roadmap">19. Known Issues &amp; Roadmap</h2>
