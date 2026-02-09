@@ -267,6 +267,19 @@
 <li>Purple = Left Jambs</li>
 <li>Cyan = Right Jambs</li>
 </ul>
+<p><strong>Preview editing notes:</strong></p>
+<ul>
+<li>Drag/snap edits from elevation preview handles (girt extents, opening edges, jamb/header/sill extents) now participate in the SGT window's <strong>Undo</strong>/<strong>Redo</strong> buttons.</li>
+<li>Drag/snap edits are <strong>association-locked</strong>: handles snap only to valid associations (other elements, grids, or wall edges). They do not create arbitrary free-along points.</li>
+<li>Grid markers in elevation preview now use a white bubble (white fill, black outline) with centered black label text for dark-theme readability.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:195</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:293</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:577</code></p>
+</blockquote>
 <h3 id="bottom-bar">Bottom Bar</h3>
 <table>
 <thead>
@@ -428,9 +441,25 @@
 <li>Preview now uses calibrated orientation metadata to decide whether Y or Z justification controls flange/web offset, reducing jamb orientation/depth mismatch between preview and placed elements.</li>
 <li>Preview profile transforms now run with the same operation order as placement (<code>rotation</code> then <code>Flip</code> then justification), improving jamb rotation/depth parity in linked-wall previews.</li>
 <li>Opening members now resolve orientation semantics in role-first order (role metadata first, then type fallback), improving left/right/head/sill consistency for shared types.</li>
-<li>3D opening members now honor the same Y/Z semantic axis swap (<code>Y-&gt;Web</code> vs <code>Y-&gt;Flange</code>) as 2D previews, so head/sill/jamb profile orientation is consistent across preview modes.</li>
-<li>Elevation, Section, and 3D now all use one shared profile projection contract (<code>depth/secondary</code> mapping), so orientation changes appear consistently across all preview modes.</li>
+<li>3D opening members now use the same role-based projection contract as 2D previews, so head/sill/jamb profile orientation stays consistent across preview modes.</li>
+<li>Elevation, Section, and 3D now all use one shared semantics helper: profile transforms preserve analyzer-resolved <code>yTargetsFlange</code> for all roles, while horizontal-role projection is fixed to <code>depth=U,secondary=V</code> and jamb projection remains analyzer-driven (<code>Y-&gt;Flange</code> / <code>Y-&gt;Web</code>).</li>
 <li>3D debug logging now includes projection mapping for left/right jamb, header, and sill previews to make WW/WS mismatch diagnosis faster.</li>
+<li>Horizontal members (girts/headers/sills) now use analyzer-driven transforms plus fixed projection (<code>depth=U,secondary=V</code>) to prevent WW-style preview flips and keep preview-facing aligned with placed output.</li>
+<li>Preview now corrects secondary-axis direction when transform and projection semantics differ, so WW/WS walls render girts/headers/sills with the same up/down facing as placed members.</li>
+<li>Dragging a bisected girt interior endpoint now keeps endpoint ownership on the dragged side (no opening-edge side remap), so opposite-end movement is avoided.</li>
+<li>Analyze now supports rotated linked walls with role-aware probing: horizontal members stay on canonical quarter-turn probes, while jamb probing applies azimuth compensation internally; resulting row defaults remain canonical quarter-turn values.</li>
+<li>Linked opening T mapping now follows detected frame direction swap directly, without an extra mirrored-link parity branch, to prevent mirrored+rotated opening side inversion.</li>
+<li>Analyze now also handles mirrored-link orientation gating in Step 2 by applying reflection-aware flange seating side rules, preventing mirrored runs from failing all girt types during orientation detection.</li>
+<li>Square HSS families now run through symmetric orientation seating (all non-endcap section faces), preventing false orientation rejection during Analyze.</li>
+<li>Rectangular HSS role mapping is now explicit and calibration-backed: deep/shallow face sets are captured during calibration, then horizontal roles seat deep faces to the exterior plane while jamb roles seat deep faces to opening-edge planes.</li>
+<li>Step 2 now re-fetches square-HSS non-endcap faces inside each Y/Z probe pass (after justification regenerate), preventing stale-candidate reuse that can make all Y/Z pairs evaluate identically.</li>
+<li>Angle girts now use short-leg/long-leg semantics during orientation analysis (short leg seats assigned elevation, long leg seats exterior plane), and Z-girt validation enforces exterior flange down / interior flange up ordering.</li>
+<li>Analyze now uses explicit shape/role web seating mode resolution in Step 2: open-section horizontal members use edge-contact web seating, while HSS and jamb paths retain full face-coplanar seating. This restores girt orientation viability without loosening closed-section checks.</li>
+<li>Step 2 now logs per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostics in Debug output, and face lookup deduplicates by face id before seating comparisons.</li>
+<li>Step 2 analyzer diagnostics now explicitly reject non-finite (<code>NaN</code>/<code>Infinity</code>) Y/Z candidates and report <code>candidates</code>, <code>finiteCandidates</code>, and <code>rejectedNonFinite</code> counts when no valid pair is found, improving fatal-step root-cause triage in logs.</li>
+<li>Opening-role Analyze gating now anchors Head/Sill/Jamb web seating planes to the same structural target origin as exterior seating, preventing layer-offset origin drift from causing false <code>OpeningOrientationAllFailed</code> fatals.</li>
+<li>Analyze temp probes now surface Revit blocking failures as explicit type warnings/failures (instead of silent probe success), so problematic families/types are clearly identified in preflight outcomes.</li>
+<li>Post-Analyze refresh now runs as a deterministic two-pass UI dispatch (<code>Loaded</code> then <code>Background</code>) only after successful Analyze hydration; failed/canceled runs skip that extra refresh burst.</li>
 </ul>
 <p>If preview still appears wrong after editing row settings, re-run Analyze to refresh wall/opening direction context before placing.</p>
 <blockquote>
@@ -439,12 +468,39 @@
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:296</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:398</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:17</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:583</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:885</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:292</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:309</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:36</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:743</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:282</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1520</code></p>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1520</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:95</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:561</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:400</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:523</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1035</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1406</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:832</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:902</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1384</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1426</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAdapter.cs:423</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:170</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:539</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:243</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:176</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:115</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:226</code></p>
 </blockquote>
 <hr>
 <h2 id="settings-explained">Settings Explained</h2>
@@ -585,6 +641,11 @@
 <li>Change the Rotation value (try 0, 90, 180, 270)</li>
 <li>Adjust Y-Just and Z-Just if the member position is off</li>
 </ol>
+<p><strong>Note (2026-02-07):</strong></p>
+<ul>
+<li>Preview also applies WW/WS secondary-axis parity correction in Elevation, Section, and 3D when transform/projection semantics differ for horizontal roles.</li>
+<li>If one wall direction looks correct but an orthogonal wall direction looks inverted in preview, rebuild via <code>bash build.sh BuildAll</code> to ensure current preview binaries are loaded.</li>
+</ul>
 <h3 id="cant-edit-existing-sgt-system">Can't edit existing SGT system</h3>
 <p><strong>Cause:</strong> You may have selected non-SGT members, or members from a different system.</p>
 <p><strong>Fix:</strong></p>
@@ -600,11 +661,11 @@
 <p>A: Any standard structural framing family should work, including:</p>
 <ul>
 <li>C Shapes (channels)</li>
-<li>W Shapes (wide flanges)</li>
+<li>MC Shapes (misc channels)</li>
 <li>HSS (hollow structural sections)</li>
-<li>Angles</li>
+<li>Angles (girts only)</li>
 </ul>
-<p>Z-shapes are supported for girts only (not for opening framing).</p>
+<p>Z-shapes and angles are supported for girts only (not for opening framing).</p>
 <p><strong>Q: Can I have different girt types at different elevations?</strong></p>
 <p>A: Yes! Each row is independent. You can use C10X15.3 at 0'-0&quot;, C8X11.5 at 5'-0&quot;, etc.</p>
 <p><strong>Q: What happens if I change the wall after placing girts?</strong></p>

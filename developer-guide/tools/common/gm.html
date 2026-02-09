@@ -90,9 +90,9 @@
 <h1 id="global-mapper-gm">Global Mapper (GM)</h1>
 
 <!-- STATUS: verified -->
-<!-- Last Updated: 2026-02-06 -->
-<!-- Verified By: docs-verification-20260126 - Source anchors verified against code -->
-<p><strong>Global Mapper</strong> is a comprehensive Revit type-mapping tool that enables users to detect, plan, and apply bulk element replacements across families, types, materials, line styles, object styles, and shared parameters.</p>
+<!-- Last Updated: 2026-02-09 -->
+<!-- Verified By: audit-cleanup-execution-20260209; gm-kernel-usage-hydration-20260209 -->
+<p><strong>Global Mapper</strong> is a comprehensive Revit type-mapping tool that enables users to detect, plan, review, and commit bulk element replacements across families, types, materials, line styles, object styles, and shared parameters.</p>
 <p>See also: <a href="gm-spec.html">Specification (Internal)</a></p>
 <h2 id="overview">Overview</h2>
 <p>Global Mapper provides a unified interface for:</p>
@@ -144,8 +144,32 @@
 <td>Families/SP instance cyclers zoom across views and activate/show the sampled instance</td>
 </tr>
 <tr>
+<td><strong>Plan + Commit Review Workflow</strong></td>
+<td>Main window stages mappings, then Commit Review performs one explicit commit pass</td>
+</tr>
+<tr>
 <td><strong>Usage-Linked Family Apply Badges</strong></td>
 <td>Families rows show <code>OS</code>, <code>MAT</code>, or <code>OS+MAT</code> when Apply is linked from Object Styles/Materials</td>
+</tr>
+<tr>
+<td><strong>Nested Usage-Link Indicators</strong></td>
+<td>Expanded family Object Styles/Materials rows show <code>LK</code> badges (<code>OS</code>/<code>MAT</code>) for rows actively driving linkage</td>
+</tr>
+<tr>
+<td><strong>Usage-Link Planning Guardrail</strong></td>
+<td>Usage-linked family Apply is impact-only; family-owned ops require explicit user ownership of the family row</td>
+</tr>
+<tr>
+<td><strong>Commit-Continue Refresh Pipeline</strong></td>
+<td>Commit and Continue evicts stale family cache for active category, re-scans, refreshes usage data, and restores expanded detail context</td>
+</tr>
+<tr>
+<td><strong>Dual-Segment Status Bar</strong></td>
+<td>Bottom-left status line renders <code>Global</code> + <code>Active</code> segments and updates live on tab/load/filter/mapping state changes</td>
+</tr>
+<tr>
+<td><strong>Load-Aware Empty States</strong></td>
+<td>All GM tab empty placeholders use load-vs-empty messaging with high-contrast theme brushes</td>
 </tr>
 <tr>
 <td><strong>Deep Scan</strong></td>
@@ -153,7 +177,7 @@
 </tr>
 <tr>
 <td><strong>Mapping Persistence</strong></td>
-<td>Save and restore mapping preferences per-project</td>
+<td>Save and restore mapping targets per-project; restored rows keep <code>Apply=false</code> until user action</td>
 </tr>
 <tr>
 <td><strong>Conflict Detection</strong></td>
@@ -164,8 +188,75 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:305</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/SharedParametersPaneViewModel.cs:455</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:190</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1358</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:489</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:190</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs:165</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1249</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:86</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:867</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:495</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/UsagePaneViewModel.cs:676</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:487</code></p>
+</blockquote>
+<h2 id="commit-review-lifecycle-guarantees">Commit Review Lifecycle Guarantees</h2>
+<ul>
+<li>Commit executes the normalized plan directly through <code>IMappingService.ApplyPlanAsync(...)</code>, then runs verification in the same flow.</li>
+<li>Overlay Cancel and Commit Review titlebar close both request cancellation and run graceful shutdown cleanup.</li>
+<li>Overlay cancel wiring is direct (<code>CancelButton.Click</code>) and sets <code>OverlayState.CancelRequested</code> without throwing on transient DataContext swaps.</li>
+<li>Commit cleanup waits for in-flight commit work to drain before allowing shutdown.</li>
+<li>Finalize actions emit explicit post-commit banners:
+<ul>
+<li>success banner with Applied/Failed/Skipped counts for Commit and Continue/Close</li>
+<li>failure banner prefixed with <code>Commit failed.</code></li>
+</ul>
+</li>
+<li>Failed commit attempts keep the Commit Review window open so operation errors remain visible.</li>
+<li>Plan building drops style pairs outside the active Line/Object style scopes and surfaces a warning banner instead of sending unsupported style operations to commit.</li>
+<li>Style mappings are normalized to projection <code>GraphicsStyle</code> IDs before planning/commit so category-ID and style-ID variants resolve to the same operation target.</li>
+<li>Object-style scope is explicitly constrained to Detail Items subcategories in both usage indexing and style-plan scope resolution.</li>
+<li>Usage index hydration drops out-of-universe keys so tabs never render stale style/material IDs that are not in the current preview universes.</li>
+<li>Style scope/normalization now uses a shared resolver in both plan and writer paths so accepted style mappings are classified identically during commit.</li>
+<li>Style writer resolution now acquires the active host document through <code>IRevitCallGate</code> before classifying source/target style scope, removing ambient-context dependency during commit.</li>
+<li>Scope-mismatch handling logs resolver reasons and explicit fallback acceptance details (line/object usage-backed) to make style commit failures root-cause traceable.</li>
+<li>Material mappings are validated against host-document material existence during plan build; unresolved material pairs are dropped before commit with warning feedback.</li>
+<li>Family reload phases for style/material/nesting/shared-parameter embed now execute through <code>IRevitCallGate</code> without opening a host-document transaction; <code>LoadFamily</code> is guarded to fail fast if the host document is modifiable.</li>
+<li>Shared-parameter host/embed writers now require <code>ISharedParameterAuthoringService</code> from DI, eliminating silent no-op behavior when authoring dependencies are missing.</li>
+<li>Shared-parameter plan building validates symbol-to-family ownership before emitting embed operations, rejecting stale/mismatched SP selections pre-commit.</li>
+<li>Commit and Continue runs a post-finalize refresh pipeline:
+<ul>
+<li>removes the current category families snapshot from session cache</li>
+<li>re-scans families and refreshes usage data</li>
+<li>restores expanded family row-details context so instance cyclers remain available after refresh</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:267</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:286</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:548</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml.cs:44</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Progress/Shell/ProgressOverlayControl.xaml.cs:10</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs:173</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:747</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/ReportWindowService.cs:24</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/FamiliesCategoryCacheService.cs:33</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:148</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:286</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/UsagePaneViewModel.cs:298</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Previews/StyleService.cs:83</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Usage/UsageIndexService.cs:184</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/StyleScopeResolver.cs:1</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:49</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/MaterialChangeServiceWriter.cs:353</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:502</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/MaterialChangeServiceWriter.cs:300</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/NestingChangeService.cs:290</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/SharedParameters/SharedParameterAuthoringService.cs:318</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/SharedParameterHostWriter.cs:15</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/SharedParameterEmbedWriter.cs:15</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Startup.cs:48</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:489</code></p>
 </blockquote>
 <h2 id="user-interface">User Interface</h2>
 <p>The GM window uses a Fluent Ribbon with six main tabs:</p>
@@ -181,11 +272,27 @@
 <ul>
 <li>A main DataGrid with source items and target selection dropdowns</li>
 <li>Row expansion for nested details (types within families, pairs within duplicate groups)</li>
+<li>Nested row-details target columns that mirror top-level target rendering (read-only display + edit-time combobox)</li>
+<li>Nested target default selection logic bound to global Sort Mode + Threshold</li>
+<li>Parent family target changes trigger nested target-list repopulation for expanded rows (manual/saved/externally-originated selections remain sticky)</li>
+<li>Open target dropdowns own mouse-wheel scrolling while hovered; wheel input does not fall through to the host DataGrid</li>
+<li>Dropdown open/close without a logical selection change does not mark rows as user-edited; non-manual rows remain eligible for threshold/sort auto-selection recompute</li>
+<li>Expanded family row usage tabs (Object Styles/Materials) hydrate after usage indices load and auto-refresh in-place for currently expanded/restored rows</li>
+<li>Applied-only filtering keeps externally-originated rows and usage-linked family rows visible</li>
+<li>Usage-pane &quot;Families Using This...&quot; apply indicators for Object Styles and Materials read canonical usage-link state, so indicator badges stay correct even when a referenced family is outside the current Families-tab row scope.</li>
+<li>Empty placeholders are routed through shell-level load-aware message properties (loading vs zero-result copy per tab).</li>
 <li>Visual previews where applicable (color swatches, style weights)</li>
-<li>Action buttons for applying changes</li>
+<li>Action buttons for staging mappings and opening Commit Review</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml:365-576</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:430</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs:385</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1403</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:255</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml.cs:424</code>
+<strong>Source:</strong> <code>src/DBTools.Themes/Behaviors/MouseWheelForwarder.cs:53</code>
+<strong>Source:</strong> <code>src/DBTools.Core/UI/Behaviors/ComboBoxCommitCommandBehavior.cs:16</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1035</code></p>
 </blockquote>
 <h3 id="global-header-controls">Global Header Controls</h3>
 <p>The header bar provides cross-tab controls:</p>
@@ -196,7 +303,22 @@
 <li><strong>Filters</strong>: Hide Unused, Hide Unscanned, Applied Only</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml:179-288</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:431</code></p>
+</blockquote>
+<h3 id="bottom-status-bar">Bottom Status Bar</h3>
+<ul>
+<li>Left status cell is a single-line composite string:
+<ul>
+<li><code>Global</code>: family/usage/shared-parameter readiness snapshot</li>
+<li><code>Active</code>: current tab state (loading, visible rows, and apply-selected counts where applicable)</li>
+</ul>
+</li>
+<li>Status updates on tab changes, load transitions, collection changes, and row-level mapping changes.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:867</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:922</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2756</code></p>
 </blockquote>
 <h2 id="architecture">Architecture</h2>
 <h3 id="module-structure">Module Structure</h3>
@@ -273,15 +395,15 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shared/Kernel/State/GmProjectState.cs:1-32</code></p>
 </blockquote>
-<p>The <code>GmKernelMapper</code> provides read-only projections of kernel data for UI consumption:</p>
+<p>The <code>KernelMapper</code> provides read-only projections of kernel data for UI consumption. All projections are version-aware and use a generic <code>GetOrCompute&lt;T&gt;</code> caching pattern:</p>
 <ul>
-<li><code>GetLineStyleFamilyCounts()</code> - Style usage counts</li>
-<li><code>GetDeepScanStyleRefsByFamily()</code> - DS style references</li>
-<li><code>GetDeepScanMaterialRefsByFamily()</code> - DS material references</li>
-<li><code>GetDeepScanParamNamesByFamily()</code> - DS parameter names</li>
+<li><code>GetLineStyleFamilyCounts()</code> / <code>GetObjectStyleFamilyCounts()</code> / <code>GetMaterialFamilyCounts()</code> — Usage counts per style/material</li>
+<li><code>GetObjectStylesByFamilyIndex()</code> / <code>GetMaterialsByFamilyIndex()</code> — Reverse lookup: family → styles/materials</li>
+<li><code>GetDeepScanStyleRefsByFamily()</code> / <code>GetDeepScanMaterialRefsByFamily()</code> — DS references by family</li>
+<li><code>GetDeepScanParamNamesByFamily()</code> — DS parameter names by family</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shared/Kernel/State/GmKernelMapper.cs:53-264</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Domain/KernelMapper.cs:54-221</code></p>
 </blockquote>
 <h2 id="key-classes">Key Classes</h2>
 <h3 id="entry-points">Entry Points</h3>
@@ -399,60 +521,64 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/DI/Services.cs:33-106</code></p>
 </blockquote>
-<h3 id="revit-adapters">Revit Adapters</h3>
+<h3 id="revit-adapters-change-writers">Revit Adapters (Change Writers)</h3>
+<p>All change writers implement <code>IChangeWriter</code> and are dispatched by <code>ChangeApplyEngine</code> via <code>ChangeKind</code>. Individual per-writer interfaces have been removed.</p>
 <table>
 <thead>
 <tr>
-<th>Interface</th>
 <th>Implementation</th>
+<th>ChangeKind</th>
 <th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>ITypeChangeService</code></td>
 <td><code>TypeChangeService</code></td>
+<td><code>Type</code></td>
 <td>Replace type on instances</td>
 </tr>
 <tr>
-<td><code>IStyleChangeService</code></td>
 <td><code>StyleChangeService</code></td>
-<td>Replace line style on curves</td>
+<td><code>Style</code></td>
+<td>Replace line styles on host curves and rewrite Detail Items object-style references in affected family documents; creates missing target subcategories in family docs and syncs core appearance before rewrites/reload</td>
 </tr>
 <tr>
-<td><code>IMaterialChangeService</code></td>
 <td><code>MaterialChangeServiceWriter</code></td>
-<td>Replace material parameters</td>
+<td><code>Material</code></td>
+<td>Replace host material parameters and rewrite family-document material parameters in affected families; creates/syncs missing family target materials before replacement</td>
 </tr>
 <tr>
-<td><code>IParameterChangeService</code></td>
 <td><code>ParameterChangeService</code></td>
+<td><code>Parameter</code></td>
 <td>Copy type parameters</td>
 </tr>
 <tr>
-<td><code>IHostChangeService</code></td>
 <td><code>HostChangeService</code></td>
+<td><code>Host</code></td>
 <td>Handle host/placement changes</td>
 </tr>
 <tr>
-<td><code>INestingChangeService</code></td>
 <td><code>NestingChangeService</code></td>
+<td><code>Nesting</code></td>
 <td>Replace nested families by name</td>
 </tr>
 <tr>
-<td><code>ITypeCreationService</code></td>
 <td><code>TypeCreationService</code></td>
+<td><code>TypeCreation</code></td>
 <td>Create new type symbols</td>
 </tr>
 <tr>
-<td><code>IDeepScanService</code></td>
 <td><code>DeepScanServiceAdapter</code></td>
-<td>Deep scan family documents</td>
+<td>—</td>
+<td>Deep scan family documents (not a change writer)</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/DI/Services.cs:66-86</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/IChangeWriter.cs</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/ChangeApplyEngine.cs</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/MaterialChangeServiceWriter.cs</code></p>
 </blockquote>
 <h2 id="configuration">Configuration</h2>
 <h3 id="manifest">Manifest</h3>
@@ -464,17 +590,18 @@ sandboxWindows:
   - id: DBTools.GM.Main
     displayName: &quot;Global Mapper&quot;
     group: &quot;Common&quot;
-    windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
-    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.GmShellDesignTimeViewModel&quot;
+    windowType: &quot;DBTools.GM.Shell.Views.GmShellWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.ShellDesignTimeViewModel&quot;
   - id: DBTools.GM.MappingReport
-    displayName: &quot;Global Mapper - Mapping Report&quot;
+    displayName: &quot;Global Mapper - Commit Review&quot;
     group: &quot;Common&quot;
-    windowType: &quot;DBTools.GM.Features.Mapping.UI.Views.GmMappingReportWindow&quot;
+    windowType: &quot;DBTools.GM.Shell.Views.MappingReportWindow&quot;
+    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.MappingReportDesignTimeViewModel&quot;
 tool:
   ribbonTools:
     - internalName: DBTools.GM
-      commandType: DBTools.GM.Features.GmCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
+      commandType: DBTools.GM.Shell.GmCommand
+      availabilityType: DBTools.App.Availability.DocumentAvailability
       runProfile: QueuedModeless
       displayText: &quot;Global Mapper&quot;
       iconBaseKey: gm
@@ -483,7 +610,7 @@ tool:
       order: 30
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/manifest.yml:1-27</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/manifest.yml:1-26</code></p>
 </blockquote>
 <h3 id="caching">Caching</h3>
 <p>GM uses project-scoped caching strategies:</p>

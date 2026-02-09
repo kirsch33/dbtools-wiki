@@ -267,6 +267,16 @@
 <li>Injector subscribes to <code>SelectionChanged</code> or other events internally</li>
 <li><code>ShutdownAsync</code> called during <code>DbtHookHost.Detach()</code></li>
 </ol>
+<p><strong>ExternalEvent Rule:</strong></p>
+<ul>
+<li>Create <code>ExternalEvent</code> instances only from standard Revit API execution contexts (for example, inside <code>InitializeAsync</code>/<code>RefreshAsync</code> work that runs through <code>ModelessQueuedCallGate</code>).</li>
+<li>Do not call <code>ExternalEvent.Create(...)</code> directly from Autodesk ribbon command callbacks.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:59</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:106</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:424</code></p>
+</blockquote>
 <h2 id="the-iviewactivatedtask-system">The IViewActivatedTask System</h2>
 <p>For the common pattern of &quot;do something when a view activates,&quot; DBTools provides a higher-level abstraction: <code>IViewActivatedTask</code>. The single <code>ViewActivatedHookHandler</code> dispatches to all registered tasks.</p>
 <h3 id="iviewactivatedtask-interface">IViewActivatedTask Interface</h3>
@@ -502,7 +512,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:53-82</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:59</code></p>
 </blockquote>
 <h3 id="step-2-handle-selection-changes">Step 2: Handle Selection Changes</h3>
 <pre><code class="lang-csharp">private async void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -529,7 +539,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:94-126</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:113</code></p>
 </blockquote>
 <h3 id="step-3-inject-ui-into-contextual-tabs">Step 3: Inject UI into Contextual Tabs</h3>
 <pre><code class="lang-csharp">private void EnsureInjected(UIApplication uiapp)
@@ -548,7 +558,7 @@
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:206-238</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:221</code></p>
 </blockquote>
 <h2 id="hook-execution-order">Hook Execution Order</h2>
 <h3 id="registration-order">Registration Order</h3>
@@ -802,12 +812,13 @@ public async Task ExecuteAsync(...)
 </blockquote>
 <h3 id="sgt-contextual-ribbon">SGT Contextual Ribbon</h3>
 <p>The Super Girt Tool injects an &quot;Edit&quot; button into the contextual &quot;Modify | Structural Framing&quot; tab:</p>
-<pre><code class="lang-csharp">public sealed class SgtContextualRibbonInjector : IContextualRibbonInjector
+<pre><code class="lang-csharp">public sealed class ContextualRibbonInjector : IContextualRibbonInjector
 {
     public Task InitializeAsync(UIControlledApplication application, CancellationToken ct)
     {
         return _gate.RunAsync(app =&gt;
         {
+            EnsureEditEventCreated(); // ExternalEvent.Create in API-safe context
             app.SelectionChanged += OnSelectionChanged;
             _subscribed = true;
             EnsureInjected(app);
@@ -832,7 +843,7 @@ public async Task ExecuteAsync(...)
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtContextualRibbonInjector.cs:24-238</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:27</code></p>
 </blockquote>
 <h3 id="apphookmodule-registration">AppHookModule Registration</h3>
 <p>The core hook module that wires up view-activated handling:</p>

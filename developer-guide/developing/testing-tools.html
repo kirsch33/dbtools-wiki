@@ -648,7 +648,7 @@ Assert.That(result.Groups[0].Pairs, Contains.Item(
 <h2 id="running-tests">Running Tests</h2>
 <h3 id="local-invoke-revit-testssh">Local: invoke-revit-tests.sh</h3>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1-1529</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1-1022</code></p>
 </blockquote>
 <p>The primary test runner for Revit integration tests.</p>
 <h4 id="basic-usage">Basic Usage</h4>
@@ -678,7 +678,7 @@ bash invoke-revit-tests.sh --fixture SgtUiServicesTests
 <tbody>
 <tr>
 <td><code>--smart</code></td>
-<td>Auto-detect if build changed; reuse if unchanged</td>
+<td>Auto-detect build staleness; always uses --close</td>
 </tr>
 <tr>
 <td><code>--reuse</code></td>
@@ -720,13 +720,14 @@ bash invoke-revit-tests.sh --show-stale 7
 # Show error details for specific tests
 bash invoke-revit-tests.sh --get-errors &quot;GM&quot;
 </code></pre>
-<h4 id="parallel-agent-support">Parallel Agent Support</h4>
-<p>For multiple AI agents running tests simultaneously:</p>
-<pre><code class="lang-bash"># Agent 1
-bash invoke-revit-tests.sh --smart --session agent-001 --tool GM
+<h4 id="parallel-agent-safety">Parallel Agent Safety</h4>
+<p>Multiple agents are prevented from running tests for the same Revit year simultaneously
+via automatic per-year file locks. No explicit session flags are needed:</p>
+<pre><code class="lang-bash"># Agent 1 (will lock Revit 2026 until done)
+bash invoke-revit-tests.sh --smart --tool GM
 
-# Agent 2
-bash invoke-revit-tests.sh --smart --session agent-002 --tool SGT
+# Agent 2 (will wait for lock if also targeting 2026, or run immediately if using -y 2025)
+bash invoke-revit-tests.sh --smart --tool SGT
 </code></pre>
 <h3 id="ci-dotnet-test">CI: dotnet test</h3>
 <p>For headless tests in CI pipelines:</p>
@@ -750,12 +751,16 @@ dotnet test . --filter &quot;Category!=Slow&quot;
 <p><strong>Fix:</strong> Always run Revit tests via the runner:</p>
 <pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool GM
 </code></pre>
-<h4 id="2-artifacts-are-stale-relative-to-source-snapshot">2. &quot;Artifacts are stale relative to source snapshot&quot;</h4>
-<p><strong>Cause:</strong> Source code changed since last build</p>
+<h4 id="2-source-files-appear-newer-than-build-artifacts">2. &quot;Source files appear newer than build artifacts&quot;</h4>
+<p><strong>Cause:</strong> Source code was modified since the last build (advisory warning, not a hard failure)</p>
 <p><strong>Fix:</strong> Rebuild before testing:</p>
 <pre><code class="lang-bash">bash build.sh BuildAll
 bash invoke-revit-tests.sh --smart --tool GM
 </code></pre>
+<blockquote>
+<p><strong>Note:</strong> The staleness check is advisory. The real integrity gate is per-DLL SHA256
+verification, which will produce a hard failure if artifacts are actually corrupted.</p>
+</blockquote>
 <h4 id="3-no-running-revitexe-instance-was-found">3. &quot;No running Revit.exe instance was found&quot;</h4>
 <p><strong>Cause:</strong> Using <code>--reuse</code> mode without a running Revit</p>
 <p><strong>Fix:</strong> Use <code>--smart</code> or <code>--persist</code> instead:</p>
@@ -786,16 +791,8 @@ public void TearDown()
 dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj
 </code></pre>
 <h3 id="viewing-test-logs">Viewing Test Logs</h3>
-<pre><code class="lang-bash"># Show log file path after test run
-bash invoke-revit-tests.sh --smart --tool GM --show-log
-</code></pre>
-<h3 id="session-management">Session Management</h3>
-<pre><code class="lang-bash"># List active test sessions
-bash invoke-revit-tests.sh --sessions
-
-# Clean up stale sessions
-bash invoke-revit-tests.sh --kill-orphans
-</code></pre>
+<p>The script displays the most recent log file path from <code>%APPDATA%/DBTools/Logs/</code> after
+each test run.</p>
 <hr>
 <h2 id="real-examples-from-the-codebase">Real Examples from the Codebase</h2>
 <h3 id="gm-duplicate-detection-tests">GM: Duplicate Detection Tests</h3>

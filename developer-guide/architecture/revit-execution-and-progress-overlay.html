@@ -115,7 +115,8 @@
 <ul>
 <li><strong>Always use the scope-provided services</strong> (<code>context.RevitRunScope.TransactionRunner</code> / <code>TransactionGroupService</code>) to ensure Revit API access is routed through the call gate and wrapped in proper transactions.【F:src/DBTools.Core/Revit/Execution/IRevitRunScope.cs†L12-L18】</li>
 <li><code>CallGateTransactionRunner</code> is explicitly built on top of <code>IRevitCallGate</code> and requires synchronous delegates (no async work inside the transaction). This keeps transactions and UI-thread access consistent with Revit’s rules.【F:src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs†L10-L78】</li>
-<li><code>ITransactionGroupService.RunAsync(...)</code> exists to guarantee cleanup on failures/cancellation—use it for multi-step operations that should commit/rollback as a unit.【F:src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs†L5-L15】</li>
+<li><code>ITransactionGroupService.RunAsync(...)</code> exists to guarantee cleanup on failures/cancellation—use it for multi-step operations that should commit/rollback as a unit.【F:src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs†L5-L18】</li>
+<li>For cross-document workflows, use the document-scoped overloads (<code>BeginAsync(Document, ...)</code> / <code>RunAsync(Document, ...)</code>) so transaction groups bind to the intended document and enforce cross-document nesting guards.【F:src/DBTools.Core/Revit/Transactions/CallGateTransactionGroupService.cs†L110-L280】</li>
 </ul>
 <h3 id="prohibition-revit-api-outside-irevitcallgate">Prohibition: Revit API outside <code>IRevitCallGate</code></h3>
 <ul>
@@ -134,15 +135,22 @@
 <h3 id="host-requirements">Host requirements</h3>
 <ul>
 <li><strong>Host windows must derive from <code>DbtWindowBase</code></strong>. This base class wires the initialization and ownership behaviors that the overlay system expects, including progress overlay integration.【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L23-L47】</li>
+<li>For tool-specific windows, bind overlay ownership explicitly with <code>ProgressOverlayService.For(this)</code> so state and dispatcher affinity resolve to the correct host window.【F:src/Tools/Common/TDV/UI/Views/TdvWindow.xaml.cs†L59-L74】</li>
 </ul>
 <h3 id="scope-and-dispatcher-rules">Scope and dispatcher rules</h3>
 <ul>
-<li><strong>Always use <code>Scope(...)</code> for long operations</strong>. The overlay's <code>Scope(...)</code> shows the overlay, ties it to the current async flow, and ensures cleanup on dispose.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L363-L371】</li>
-<li><strong>Show/Update/Hide are UI-dispatched</strong>. <code>ProgressOverlayService</code> marshals public calls to the WPF dispatcher via <code>TryInvokeOnUi</code>, so callers should use the overlay API and avoid touching overlay state directly from background threads.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L283-L361】【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L382-L393】</li>
+<li><strong>Always use <code>Scope(...)</code> for long operations</strong>. The overlay's <code>Scope(...)</code> shows the overlay, ties it to the current async flow, and ensures cleanup on dispose.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L363-L371】</li>
+<li><strong>Show/Update/Hide are UI-dispatched</strong>. <code>ProgressOverlayService</code> marshals public calls to the WPF dispatcher via <code>TryInvokeOnUi</code>, so callers should use the overlay API and avoid touching overlay state directly from background threads.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L126-L140】【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L328-L393】</li>
+<li><strong>Status transitions force a render pump</strong>. <code>Update(...)</code> now detects status-string changes and calls <code>RequestRender(force: true)</code> for those transitions; progress-only updates remain throttled (<code>force: false</code>). This keeps short phase changes visible under Revit dispatcher starvation without removing global throttles.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L330-L352】</li>
+<li><strong>Overlay render flushing is guarded and throttled</strong>. <code>RequestRender</code> still schedules a render callback, and uses a single-frame pump helper (<code>TryPumpSingleFrame</code>) with a depth guard and short time budget to restore incremental visual updates without unbounded re-entrancy. Under Revit-hosted dispatcher starvation, the queued callback that clears the pending-render flag can be delayed; forced renders (step transitions) bypass the pending guard, and a stuck-pending timeout allows recovery when the dispatcher is slow.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L768-L835】【F:src/DBTools.Core/UI/Windows/WpfUiThread.cs†L55-L129】</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs:777</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs:804</code></p>
+</blockquote>
 <h3 id="cancel-handling">Cancel handling</h3>
 <ul>
-<li><strong>Poll <code>CancelRequested</code> and bridge to your CTS</strong>. The overlay exposes a thread-safe <code>CancelRequested</code> property, and view models (SGT, GM) poll it to cancel longer workflows.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L141】【F:src/Tools/Structural/SGT/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</li>
+<li><strong>Poll <code>CancelRequested</code> and bridge to your CTS</strong>. The overlay exposes a thread-safe <code>CancelRequested</code> property, and view models (SGT, GM) poll it to cancel longer workflows.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L142】【F:src/Tools/Structural/SGT/Shell/UI/ViewModels/SgtWindowViewModel.AnalysisAndHydration.cs†L118-L171】</li>
 </ul>
 <h2 id="dodont-examples-from-current-code">Do/Don’t examples (from current code)</h2>
 <h3 id="call-gate-usage">Call gate usage</h3>
@@ -173,11 +181,81 @@ if (_overlay.CancelRequested)
 }
 </code></pre>
 <p>GM’s mapping report view model follows this pattern to keep UI cancel actions responsive during long operations.【F:src/Tools/Common/GM/Features/Mapping/UI/ViewModels/MappingReportViewModel.cs†L206-L242】</p>
-<p><strong>Don’t</strong>: manipulate overlay state directly or bypass the dispatcher. Use <code>Show/Update/Hide/Scope</code> so the overlay stays UI-thread safe.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L169】</p>
+<p><strong>Don’t</strong>: manipulate overlay state directly or bypass the dispatcher. Use <code>Show/Update/Hide/Scope</code> so the overlay stays UI-thread safe.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L50-L169】</p>
+<h2 id="phase-2-granular-progress-primitives">Phase 2: Granular progress primitives</h2>
+<h3 id="tuple-progress-payload">Tuple progress payload</h3>
+<p>Phase 2 migrated tool-level progress from <code>IProgress&lt;string&gt;</code> to <code>IProgress&lt;(string message, double? progress01)&gt;</code>. This allows tools to emit both a status message <strong>and</strong> a numeric 0..1 progress fraction in a single report, enabling smoother overlay bar updates.</p>
+<p><strong>Affected interfaces:</strong></p>
+<ul>
+<li><code>IMappingService.ApplyPlanAsync</code> — GM mapping engine</li>
+<li><code>IOrchestrator.PlaceAsync</code> — SGT orchestrator</li>
+<li><code>IDomainWriter.PlaceAsync / UpdateAsync</code> — SGT domain writer</li>
+</ul>
+<h3 id="monotonicprogressadapter"><code>MonotonicProgressAdapter</code></h3>
+<p>Wraps an <code>IProgress&lt;(string, double?)&gt;</code> and enforces monotonic non-decreasing progress01 values. Status-only updates (null progress01) are forwarded without affecting tracking. Create one instance per logical run.</p>
+<pre><code class="lang-csharp">var adapter = new MonotonicProgressAdapter(
+    new Progress&lt;(string message, double? progress01)&gt;(update =&gt;
+        _overlay.Update(update.message, update.progress01)));
+await _mapping.ApplyPlanAsync(plan, adapter, ct);
+</code></pre>
+<p>【F:src/DBTools.Core/Progress/Features/MonotonicProgressAdapter.cs†L1-L39】</p>
+<h3 id="weightedprogressaggregator"><code>WeightedProgressAggregator</code></h3>
+<p>Computes overall progress from weighted stages and unit counts using:</p>
+<ul>
+<li><code>P_unit = Sum(W_stage * P_stage)</code> for stages where P_stage is known</li>
+<li><code>P_total = (unitIndex / N) + (P_unit / N)</code> when inside unit i</li>
+<li>If N == 0, P_total = 1.0</li>
+</ul>
+<p>Used by TDV to map per-view stage percentages to smooth overall progress, and can be reused by any tool with staged per-unit work.</p>
+<pre><code class="lang-csharp">var weights = new double[] { 0.05, 0.05, 0.10, 0.50, 0.20, 0.10 };
+var agg = new WeightedProgressAggregator(weights, totalViews);
+agg.SetCurrentUnit(viewIndex);
+agg.UpdateStage(stageIndex, fraction);
+var overall = agg.ComputeOverall();
+</code></pre>
+<p>【F:src/DBTools.Core/Progress/Features/WeightedProgressAggregator.cs†L1-L85】</p>
+<h3 id="changecontext-helper-updates-gm"><code>ChangeContext</code> helper updates (GM)</h3>
+<p><code>ChangeContext.ReportProgress(message)</code> now accepts an optional <code>double? progress01</code> parameter. The 3-arg <code>ReportProgress(stageName, current, total)</code> overload has been renamed to <code>ReportProgressStage(stageName, current, total, progress01?)</code> for clarity.</p>
+<h3 id="per-tool-overlay-integration">Per-tool overlay integration</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Progress source</th>
+<th>Overlay mapping</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GM</strong></td>
+<td><code>ChangeApplyEngine</code> emits writer-level (writerIndex/totalActiveWriters)</td>
+<td><code>MonotonicProgressAdapter</code> in <code>MappingReportViewModel</code></td>
+</tr>
+<tr>
+<td><strong>TDV</strong></td>
+<td><code>WeightedProgressAggregator</code> with 6-stage per-view weights</td>
+<td>Aggregator computes smooth overall in VM callback</td>
+</tr>
+<tr>
+<td><strong>SGT</strong></td>
+<td><code>Orchestrator.PlaceAsync</code> emits wall-level + sub-step progress</td>
+<td><code>MonotonicProgressAdapter</code> in <code>ShellWindowViewModel</code></td>
+</tr>
+<tr>
+<td><strong>RecordSet</strong></td>
+<td><code>PlanExecutor</code> emits per-item status + int percent</td>
+<td>VM combines status and percent in overlay update</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> RecordSet intentionally uses <code>IProgress&lt;int&gt;</code> (percentage) rather than the tuple pattern. This is because RecordSet's <code>PlanExecutor</code> uses a weight-based percentage calculation internally, and the VM combines the separate status log stream with the integer percentage for overlay updates. This approach avoids additional refactoring of the executor's internal progress model while still achieving the same overlay UX.</p>
+</blockquote>
 <h2 id="common-failure-modes">Common failure modes</h2>
 <ul>
-<li><strong>Dispatcher errors or missing host</strong>: calling overlay APIs without a registered <code>DbtWindowBase</code> host or bypassing the overlay API can lead to dispatcher errors or missing state. Always use <code>Scope/Show/Update/Hide</code> on a supported window host.【F:src/DBTools.Core/UI/Progress/ProgressOverlayService.cs†L50-L214】【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L23-L47】</li>
+<li><strong>Dispatcher errors or missing host</strong>: calling overlay APIs without a registered <code>DbtWindowBase</code> host or bypassing the overlay API can lead to dispatcher errors or missing state. Always use <code>Scope/Show/Update/Hide</code> on a supported window host.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L50-L214】【F:src/DBTools.Core/UI/Windows/DbtWindowBase.cs†L23-L47】</li>
 <li><strong>Revit context leaks</strong>: direct Revit API access outside <code>IRevitCallGate</code> or attempting async delegates inside the gate can lead to invalid context errors. Stick to the call gate + transaction runner, and keep delegates synchronous.【F:src/DBTools.Core/Revit/Execution/IRevitCallGate.cs†L5-L26】【F:src/DBTools.Core/Revit/Execution/ModelessQueuedCallGate.cs†L86-L108】【F:src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs†L10-L78】</li>
+<li><strong>Re-entrant UI pumping risk during active Revit execution</strong>: progress overlay updates now use a bounded single-frame pump with depth guards; avoid introducing additional custom pump loops or unguarded dispatcher-frame usage outside this shared helper.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L768-L825】【F:src/DBTools.Core/UI/Windows/WpfUiThread.cs†L55-L129】</li>
 </ul>
 
 </article>

@@ -163,7 +163,8 @@
 <li>Read the linked wall's <code>Orientation</code> property and location curve endpoints</li>
 <li>Apply <code>RevitLinkInstance.GetTotalTransform()</code> to transform into host-document coordinate space</li>
 <li>The transformed orientation is guaranteed to be the normal vector from the target exterior plane</li>
-<li>Store the transformation in the wall's domain object</li>
+<li>Store the transformation in the wall's domain object, including determinant and mirrored (<code>determinant &lt; 0</code>) metadata</li>
+<li>Frame-swap opening T mapping must include mirrored parity so visual elevation left/right remains authoritative for jamb semantics</li>
 </ol>
 <h3 id="23-single-frame-enforcement">2.3 Single Frame Enforcement</h3>
 <p><strong>CRITICAL</strong>: The right-handed wall frame computed in §2.1 is the <strong>only</strong> transformation used throughout the entire tool. Any code that previously used a different coordinate system frame must be refactored to use this single transformation.</p>
@@ -239,6 +240,7 @@
 <li>Calibration runs <strong>once per family</strong> (not per type)</li>
 <li>Type selection: prefer &quot;middle&quot; type if multiple exist</li>
 <li>Face IDs are stable across instances of the same family</li>
+<li>Geometry traversal must prefer <code>GetInstanceGeometry()</code> and only fall back to <code>SymbolGeometry</code> when instance geometry is unavailable; traversing both in one pass is forbidden because it duplicates candidates and can mix stale/fresh probe geometry.</li>
 </ul>
 <h3 id="35-orientation-analysis-service">3.5 Orientation Analysis Service</h3>
 <p><strong>Single Source of Truth</strong> for determining placement settings per family per role.</p>
@@ -251,23 +253,75 @@
 </ul>
 </li>
 <li>Retrieve calibrated faces from Calibration Service</li>
-<li>Find correct rotation by testing web face normal against expected direction</li>
+<li>Find correct rotation by testing web face normal against expected direction
+<ul>
+<li>Horizontal roles probe canonical quarter-turns (<code>0/90/180/270</code>) directly.</li>
+<li>Vertical roles (jambs) probe one azimuth-compensated value per canonical quarter-turn (4 candidates total). The persisted default remains the canonical quarter-turn rotation.</li>
+</ul>
+</li>
 <li>Identify correct flange face by checking normal matches exterior plane normal</li>
 <li>Test Y justification options against <strong>flange gate</strong> OR <strong>web gate</strong>:
 <ul>
 <li><strong>Flange gate</strong>: BasisY distance from flange face point to target exterior plane ≈ 0</li>
-<li><strong>Web gate (horizontal)</strong>: BasisZ distance from web face point to location curve ≈ 0</li>
-<li><strong>Web gate (jambs)</strong>: BasisX distance from web face point to location curve ≈ 0</li>
+<li><strong>Web gate</strong>: Uses shape/role mode policy in analyzer:
+<ul>
+<li>Open-section horizontals (<code>Channel</code> girt/head/sill, <code>Z</code> girt, <code>Angle</code> girt): <strong>edge-contact</strong> distance (minimum face-vertex distance)</li>
+<li>Closed/tube sections (<code>HSS</code>) and jamb roles: <strong>face-coplanar</strong> distance (maximum face-vertex distance)</li>
+</ul>
+</li>
+<li><strong>Target/exterior gate (all roles)</strong>: Uses <strong>face-coplanar</strong> distance</li>
+<li><strong>Opening-role web-plane origin contract</strong>: <code>Head</code>/<code>Sill</code>/<code>Jamb</code> web seating planes are anchored to the <strong>target structural-plane origin</strong> (layer-offset/wall-offset applied), not raw wall-frame origin, so opening-role Y/Z gates evaluate in the same plane frame as target seating</li>
+<li>Calibrated face-id lookup deduplicates by persistent face id before seating selection</li>
+<li>Square-HSS symmetric candidates are re-resolved inside each Y/Z probe iteration after <code>doc.Regenerate()</code> (no pre-loop face cache reuse)</li>
 </ul>
 </li>
 <li>Test Z justification for remaining gate</li>
+<li>For vertical roles, enforce the <strong>open-side pointing</strong> contract for channels (C/MC):
+<ul>
+<li>For each passing rotation candidate, run the full Y/Z solver and then measure which side of the section is the <strong>web side</strong> along wall BasisX (using section geometry extents).</li>
+<li>Select the rotation/justification solution where the <strong>open side</strong> points away from the opening center:
+<ul>
+<li><code>JambLeft</code>: open side points toward <code>−BasisX</code></li>
+<li><code>JambRight</code>: open side points toward <code>+BasisX</code></li>
+</ul>
+</li>
+<li>If <code>CanFlipHand == true</code>, flip testing may still be evaluated, but <strong>it is not required</strong> for Structural Framing families (many return <code>CanFlipHand == false</code>). The primary disambiguator is choosing the correct canonical rotation (often <code>0</code> vs <code>180</code>).</li>
+<li>Persist <code>OrientationResult.IsFlipped</code> only when the winning solution actually requires <code>FlipHand</code>.</li>
+</ul>
+</li>
 <li>Store solved settings (rotation, Y-just, Z-just) in family domain object</li>
 </ol>
 <p><strong>Constraints:</strong></p>
 <ul>
 <li>Z-shapes: Only analyze for Girt role (hard block for opening roles)</li>
+<li>Angle-shapes: Only analyze for Girt role (hard block for opening roles)</li>
 <li>Analysis runs per-family, per-role, but only one type per family</li>
 </ul>
+<p><strong>Dual-web-face disambiguation contract (C/MC jambs):</strong></p>
+<ul>
+<li>Calibration can retain both web-side face normals for channels (<code>+X</code> and <code>-X</code> orientation bins), so rotation gate alone can pass both <code>JambLeft</code> and <code>JambRight</code> at the same rotation.</li>
+<li>Vertical role disambiguation must therefore include an <strong>open-side pointing</strong> check (not rotation-only acceptance).</li>
+<li>If <code>CanFlipHand == false</code>, the analyzer must still be able to disambiguate by choosing the canonical rotation (typically <code>0</code> vs <code>180</code>) that satisfies the open-side pointing contract.</li>
+<li>If no candidate satisfies pointing, the analyzer must return invalid for that role (explicit failure, no silent fallback).</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:340</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:405</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:548</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:893</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1787</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:544</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:9</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:88</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:356</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:832</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:240</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1046</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.Utilities.cs:125</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.OpeningPlacement.cs:235</code></p>
+</blockquote>
 <hr>
 <h2 id="part-4-role-contracts">Part 4: Role Contracts</h2>
 <h3 id="41-role-axis-alignment">4.1 Role Axis Alignment</h3>
@@ -342,20 +396,50 @@
 <li><strong>Girts/Heads</strong>: Point UP (web face normal points down)</li>
 <li><strong>Sills</strong>: Point DOWN (web face normal points up)</li>
 <li><strong>Jambs</strong>: Point AWAY from opening center (web face normal points toward opening)</li>
+<li>For open-section jambs (C/MC), pointing is resolved through flip-state role tie-break; left/right jambs should resolve opposite <code>IsFlipped</code> states when the same rotation candidate is otherwise valid.</li>
 </ul>
 <h3 id="45-special-shape-handling">4.5 Special Shape Handling</h3>
 <p><strong>Z-Shapes:</strong></p>
 <ul>
 <li>Valid only for Girt role</li>
 <li>Exterior flange down, interior side flange up</li>
+<li>Analyzer enforces flange-pair ordering: exterior seated flange must be lower and interior paired flange must be both interior and above</li>
 <li><strong>Hard block</strong> for opening roles (heads/sills/jambs)</li>
+</ul>
+<p><strong>Angle-Shapes:</strong></p>
+<ul>
+<li>Valid only for Girt role</li>
+<li><strong>Hard block</strong> for opening roles (heads/sills/jambs)</li>
+<li>Unequal-leg contract: short leg is web-like (seats assigned elevation), long leg is flange-like (seats target exterior plane)</li>
+<li>Equal-leg fallback: select web/flange by wall-up vs wall-exterior axis alignment score</li>
+<li>Orientation gates still require exterior seating + elevation seating with zero offsets</li>
+</ul>
+<p><strong>HSS Rectangles:</strong></p>
+<ul>
+<li>Calibration now captures explicit rectangular-HSS face groups for <strong>deep</strong> and <strong>shallow</strong> section dimensions</li>
+<li>Horizontal roles (Girt/Head/Sill): <code>targetSet=deep</code>, <code>webSet=shallow</code> (deep seats target exterior plane; shallow seats assigned elevation/opening top-bottom plane)</li>
+<li>Vertical roles (JambLeft/JambRight): <code>targetSet=shallow</code>, <code>webSet=deep</code> (deep seats opening-edge plane; shallow seats target exterior plane)</li>
+<li>Analyzer no longer relies on ad-hoc web/flange area-swap heuristics to decide rectangular-HSS role mapping</li>
 </ul>
 <p><strong>HSS Squares:</strong></p>
 <ul>
 <li>Width == depth degeneracy allowed</li>
-<li>Alignment accepts symmetric case</li>
+<li>Alignment accepts symmetric case and evaluates all non-endcap section faces for seating/alignment (not only calibrated web/flange bins)</li>
+<li>Symmetric non-endcap faces are re-fetched per Y/Z probe pass after justification regen, preventing stale pre-probe face reuse</li>
 <li>Seating/pointing gates still apply</li>
 </ul>
+<p><strong>Finite-Metric Gatekeeping:</strong></p>
+<ul>
+<li>Y/Z candidate and pair scoring now reject non-finite (<code>NaN</code>/<code>Infinity</code>) metric values before ranking</li>
+<li>Failure diagnostics include candidate counts (<code>candidates</code>, <code>finiteCandidates</code>, <code>rejectedNonFinite</code>) so Step 2 fatal triage shows whether failure is geometric or numeric</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:400</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:588</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:833</code></p>
+</blockquote>
 <h3 id="46-solid-geometry-placement">4.6 Solid Geometry Placement</h3>
 <p>ALL elements must have their solid geometry placed on the <strong>interior side</strong> of the target exterior wall plane.</p>
 <hr>
@@ -417,7 +501,7 @@
 <li><strong>Step 2: Orientation Analysis</strong> (0% → 100%)
 <ul>
 <li>Analyze each family for each role</li>
-<li>Z-shapes only for Girt role</li>
+<li>Z-shapes and Angle-shapes only for Girt role</li>
 </ul>
 </li>
 <li><strong>Step 3: 2D Profile Loop Extraction</strong> (0% → 100%)
@@ -498,7 +582,19 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>All three previews (Elevation, Section, 3D) derive from the same canonical, Revit-accurate element data</li>
 <li>Elevation and Section are projections of the canonical data used by 3D</li>
 <li>Previews stay synchronized with grids and UI state at all times</li>
+<li><strong>Preview/placement parity for vertical framing (jambs)</strong>:
+<ul>
+<li><code>OpeningRoleConfig.RotationDegrees</code> is stored as a <strong>wall-relative canonical rotation</strong> (typically quarter-turns).</li>
+<li>Both preview and placement must apply the same <strong>azimuth compensation</strong> to obtain the effective Revit bend-dir angle for vertical structural framing on off-axis walls.</li>
+<li>This ensures preview matches placed geometry even when the wall azimuth is not aligned to 0/90/180/270.</li>
 </ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/JambAzimuthCompensation.cs:34</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:224</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:693</code></p>
+</blockquote>
 <h3 id="72-elevation-preview">7.2 Elevation Preview</h3>
 <p><strong>Coordinate System:</strong></p>
 <ul>
@@ -640,42 +736,47 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>DPI scale factor</li>
 <li>Wall length in feet</li>
 <li>Available grids and edges</li>
-<li>AllowFreeAlong flag</li>
-<li>ShiftStep flag (fine quantization)</li>
+<li>Optional girt/wall-top/wall-bottom elevation targets (for vertical endpoint snaps)</li>
 </ul>
 <p><strong>SnapResult:</strong></p>
 <ul>
-<li>Snapped (bool): True if snapped to grid/edge</li>
-<li>Kind: &quot;Grid&quot;, &quot;Edge&quot;, or &quot;Along&quot;</li>
+<li>Snapped (bool): True when cursor is within snap threshold of the resolved valid target</li>
+<li>Kind: &quot;Grid&quot;, &quot;Edge&quot;, &quot;WallEdge&quot;, &quot;Girt&quot;, &quot;WallTop&quot;, or &quot;WallBottom&quot;</li>
 <li>Name: Grid name or opening key</li>
 <li>Side: Edge side (Left/Right)</li>
-<li>T: Snapped t-parameter</li>
+<li>T: Resolved target t-parameter (for vertical-only snaps, cursor T is preserved)</li>
 <li>DxPx: Pixel distance to snap target</li>
-<li>AlongLabel: Label for free-along mode</li>
 </ul>
 <h3 id="93-snapping-behavior">9.3 Snapping Behavior</h3>
+<p><strong>Lock Rule (non-negotiable):</strong></p>
+<ul>
+<li>Drag/snap interactions are locked to valid associations only.</li>
+<li>No free-along / arbitrary drag targets are produced by snapping.</li>
+<li>Valid snap associations are other elements, grids, or wall edges.</li>
+</ul>
 <p><strong>Priority:</strong></p>
 <ol>
 <li>Grid snapping (highest priority on ties)</li>
-<li>Edge snapping</li>
-<li>FreeAlong quantized snapping (fallback)</li>
+<li>Wall edge snapping</li>
+<li>Opening edge snapping</li>
+<li>Vertical targets when the edit mode enables elevation snapping (girts, wall top, wall bottom)</li>
 </ol>
 <p><strong>Thresholds:</strong></p>
 <ul>
 <li>Hit radius: 10px at 96 DPI baseline (DPI-scaled)</li>
-<li>Snap threshold: 12px to commit to anchor</li>
+<li>Snap threshold: 12px to mark a target as &quot;Snapped=true&quot;</li>
 <li>Epsilon for t-value comparisons: 1e-9</li>
 </ul>
-<p><strong>Quantization (FreeAlong mode):</strong></p>
-<ul>
-<li>Default step: 1/4&quot; (0.25/12 ft)</li>
-<li>Fine step (Shift held): 1/8&quot; (0.125/12 ft)</li>
-</ul>
+<p>When the cursor is outside threshold, the nearest valid target is still returned with <code>Snapped=false</code> (locked association with out-of-threshold feedback).</p>
 <p><strong>Tie-Breakers:</strong></p>
 <ul>
-<li>Prefer grids over edges</li>
+<li>Prefer grids over wall edges over opening edges</li>
 <li>Prefer smaller t on exact ties</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code></p>
+</blockquote>
 <hr>
 <h2 id="part-10-placement-system">Part 10: Placement System</h2>
 <h3 id="101-disallow-join">10.1 Disallow Join</h3>
@@ -718,6 +819,25 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>No cutbacks</li>
 <li>Hand/Face flips allowed if seating/axis outcomes remain valid</li>
 </ul>
+<h3 id="107-orientation-parameter-application-structural-framing">10.7 Orientation Parameter Application (Structural Framing)</h3>
+<ul>
+<li><strong>Order matters</strong> for vertical framing:
+<ol>
+<li>Set <code>STRUCTURAL_BEND_DIR_ANGLE</code> (rotation)</li>
+<li><code>doc.Regenerate()</code> (ensure rotation takes effect)</li>
+<li>Apply <code>flipHand()</code> if required</li>
+<li><code>doc.Regenerate()</code></li>
+<li>Set Y justification</li>
+<li><code>doc.Regenerate()</code></li>
+<li>Set Z justification</li>
+<li><code>doc.Regenerate()</code></li>
+</ol>
+</li>
+<li>Rationale: without regeneration between updates, Revit can apply justifications against stale orientation state, causing flange seating drift (often showing up as a depth-sized exterior shift).</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.Utilities.cs:125</code></p>
+</blockquote>
 <hr>
 <h2 id="part-11-metadata--storage">Part 11: Metadata &amp; Storage</h2>
 <h3 id="111-extensible-storage-schema">11.1 Extensible Storage Schema</h3>
@@ -875,25 +995,48 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <h3 id="132-step-1-calibration-0--100">13.2 Step 1: Calibration (0% → 100%)</h3>
 <ul>
 <li>Enumerate all structural framing families in document</li>
-<li>For each family:
+<li>For each family (once per run):
 <ul>
 <li>Place temporary instance</li>
 <li>Extract geometry and identify web/flange faces</li>
-<li>Store face IDs in family domain object</li>
+<li>Store face IDs in family calibration cache</li>
 <li>Delete temp instance</li>
 </ul>
 </li>
+<li>The calibration pass is cache-aware and must not re-run temp calibration for a family that is already calibrated in the current run.</li>
+<li>The default girt family guard at the end of Step 1 must check cache presence first and skip recalibration when cache is already populated.</li>
+<li>If a temp calibration fails with family-modification/stretch-forbidden errors, treat it as a symbol-level calibration failure and continue trying other symbols in the same family.</li>
+<li>Temp probes must run inside rollback-only transactions (<code>Transaction</code> or <code>SubTransaction</code>) with clear-after-rollback enabled.</li>
+<li>Transaction-mode temp probes must attach the shared silent failures preprocessor and return failure metadata (<code>blocking</code>, <code>warnings</code>, <code>lastResult</code>, <code>forbidden</code>) through <code>TempTransaction.RunWithMetadata(...)</code>.</li>
+<li>Step 1 calibration, Step 2 orientation probes, and Step 3 profile warm must consume temp-transaction metadata and convert blocking probe failures into deterministic symbol/type-level failures (forbidden and non-forbidden), not silent probe success.</li>
+<li>The temp-transaction utility must capture work exceptions and rollback exceptions independently; it must not throw from a <code>finally</code> path that can mask the original failure context.</li>
+<li>If rollback fails, raise <code>[SpecFail/TempTx/RollbackFailed]</code> and preserve both failures when both work and rollback fault.</li>
+<li>Emit temp-transaction lifecycle diagnostics for rollback probes (<code>[SGT.TempTx.Begin]</code>, <code>[SGT.TempTx.Rollback.Begin]</code>, <code>[SGT.TempTx.Rollback.End]</code>, <code>[SGT.TempTx.Failures]</code>).</li>
+<li>Forbidden temp placement failures must short-circuit immediately after temp placement/regenerate (before any face traversal/classification work).</li>
+<li>Emit a single begin/end calibration transaction diagnostic per symbol (<code>[SGT.Calibration.Tx.Begin]</code> / <code>[SGT.Calibration.Tx.End]</code>) including elapsed milliseconds, document/transaction context, and final outcome (<code>ok|forbidden|failed</code>).</li>
+<li>Post-overlay Analyze completion must use a deduped two-pass preview refresh (<code>DispatcherPriority.Loaded</code> then <code>DispatcherPriority.Background</code>) with explicit scheduling/failure logging and without watchdog/fallback enqueue behavior.</li>
 <li>Progress: <code>(completed families / total families) × 100%</code></li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:142
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:116
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:337
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279
+<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:303</p>
+</blockquote>
 <h3 id="133-step-2-orientation-analysis-0--100">13.3 Step 2: Orientation Analysis (0% → 100%)</h3>
 <ul>
 <li>For each calibrated family:
 <ul>
 <li>For each applicable role (Girt, Head, Sill, JambLeft, JambRight):
 <ul>
-<li>Skip opening roles for Z-shapes</li>
+<li>Skip opening roles for Z-shapes and Angle-shapes</li>
 <li>Place temp instance with role-appropriate direction</li>
 <li>Test rotation/justification combinations</li>
+<li>Vertical roles: use 4 probe candidates (canonical quarter-turns + azimuth compensation), then evaluate both flip states per passing rotation candidate</li>
 <li>Store solved settings</li>
 </ul>
 </li>
@@ -932,6 +1075,8 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Left/Right jambs enabled when the opening is not at the wall ends (tolerance-gated)</li>
 <li>Header enabled when the opening top is below the vertical max (tolerance-gated)</li>
 <li>Sill enabled when the opening bottom is above the base reference (tolerance-gated)</li>
+<li>Left/Right role interpretation is visual elevation-based and must remain stable for rotated and mirrored links</li>
+<li>Role configs seed <code>FlipHand</code> from analyzed <code>OrientationResult.IsFlipped</code></li>
 </ul>
 </li>
 <li>Foundation Mode: Empty (manual add only)</li>
@@ -1045,7 +1190,7 @@ TryApplySmartDefaultsForOpeningRole(row, role)
 <li>No axis-specific restrictions</li>
 </ul>
 <h3 id="172-z-shape-opening-role-relaxation">17.2 Z-Shape Opening Role Relaxation</h3>
-<p>Currently Z-shapes are hard-blocked for opening roles. If user demand exists, this could be relaxed to a warning with override capability.</p>
+<p>Currently Z-shapes and Angle-shapes are hard-blocked for opening roles. If user demand exists, this could be relaxed to a warning with override capability.</p>
 <hr>
 <h2 id="appendix-a-file-references">Appendix A: File References</h2>
 <h3 id="core-domain">Core Domain</h3>
@@ -1085,7 +1230,7 @@ TryApplySmartDefaultsForOpeningRole(row, role)
 <li>Added 4-step progress overlay specification (Part 13)</li>
 <li>Added smart family change updates (Part 14)</li>
 <li>Adopted strict single wall frame mandate</li>
-<li>Specified Z-shape hard block for opening roles</li>
+<li>Specified Z-shape and Angle-shape hard block for opening roles</li>
 <li>Added future considerations for SgtMember consolidation</li>
 </ul>
 

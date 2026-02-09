@@ -144,13 +144,16 @@
 <h3 id="21-initial-flow-new">2.1 Initial Flow (New)</h3>
 <ol>
 <li>User clicks &quot;ERFT&quot; ribbon button</li>
-<li>Status bar: &quot;Pick target floor or roof (ESC to cancel)&quot;</li>
-<li>User picks floor/roof from host or linked model</li>
-<li>Status bar: &quot;Pick columns and beams to adjust (Finish to continue)&quot;</li>
+<li>Yellow banner: &quot;Select a LINKED floor or roof target (press ESC to switch to HOST target selection).&quot;</li>
+<li>User picks linked floor/roof OR presses ESC to continue to host phase</li>
+<li>Yellow banner (host fallback): &quot;Select a HOST floor or roof target (press ESC to cancel ERFT launch).&quot;</li>
+<li>User picks host floor/roof OR presses ESC to cancel</li>
+<li>Yellow banner: &quot;Select source structural columns and beams to adjust, then click Finish.&quot;</li>
 <li>User picks multiple columns/beams, clicks Finish</li>
 <li>Validation: Must have at least 1 column OR 1 beam framing to a column</li>
 <li>Progress overlay appears: &quot;Analyzing geometry...&quot;</li>
-<li>Pre-analysis runs:
+<li>Pre-analysis runs:</li>
+</ol>
 <ul>
 <li>Extract target surface geometry (mesh + slope data)</li>
 <li>Analyze source element positions</li>
@@ -158,27 +161,42 @@
 <li>Warm profile loops for 3D preview</li>
 <li>Compute initial adjustment deltas</li>
 </ul>
-</li>
-<li>UI window opens with:
+<ol start="11">
+<li>UI window opens with:</li>
+</ol>
 <ul>
 <li>3D preview showing target surface + framing</li>
 <li>Tolerance controls (presets + custom)</li>
 <li>Round up/down toggle</li>
 <li>Element list with status indicators</li>
 </ul>
-</li>
+<ol start="12">
 <li>User adjusts tolerance as needed</li>
 <li>Preview updates in real-time</li>
 <li>User clicks &quot;Apply&quot;</li>
 <li>Transaction group commits all changes</li>
 <li>ExtensibleStorage tags applied to modified elements</li>
 </ol>
+<p>Picker-phase banners are shown with <code>BannerManager.ShowTopWarning(...)</code> and hidden in <code>finally</code> cleanup after each picker stage.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:231</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:313</code></p>
+</blockquote>
 <h3 id="22-edit-flow-via-contextual-ribbon">2.2 Edit Flow (via Contextual Ribbon)</h3>
 <ol>
 <li>User selects elements with ERFT ExtensibleStorage data</li>
 <li>Contextual &quot;Edit ERFT&quot; button appears in Modify tab</li>
 <li>User clicks button</li>
-<li>System loads stored plan from DataStorage</li>
+<li>Click handler validates edit preconditions:
+<ul>
+<li>at least one ERFT <code>SystemId</code> is available in current selection</li>
+<li>contextual <code>ExternalEvent</code> exists</li>
+<li><code>ExternalEvent.Raise()</code> returns <code>Accepted</code></li>
+</ul>
+</li>
+<li>External-event handler runs edit orchestration through <code>ISafeExecutor</code> with notifier enabled (<code>NotifyKind=Error</code>)</li>
+<li>Edit flow loads target context from DataStorage for selected <code>SystemId</code></li>
+<li>Edit flow creates <code>AppRuntime.CreateRunScope(..., RevitRunScopeProfile.InlineUi)</code> and resolves <code>ErftRunner</code> from that run scope</li>
 <li>UI opens with previous settings populated</li>
 <li>User can:
 <ul>
@@ -189,6 +207,11 @@
 </li>
 <li>Apply overwrites previous offsets (not cumulative)</li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:444</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:484</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:535</code></p>
+</blockquote>
 <hr>
 <h2 id="3-data-models">3. Data Models</h2>
 <h3 id="31-erftplan-single-source-of-truth">3.1 ErftPlan (Single Source of Truth)</h3>
@@ -812,6 +835,12 @@ public static double ComputeElevationOnBeamLocationLine(
 </code></pre>
 <h3 id="103-re-pick-target-button">10.3 Re-pick Target Button</h3>
 <p>Clicking &quot;Re-pick&quot; closes the window temporarily, returns to pick mode, then re-opens with new target and re-computed adjustments.</p>
+<h3 id="104-comparison-grid-status-columns">10.4 Comparison Grid Status Columns</h3>
+<p>Both comparison grids keep <code>Status</code> as the last column with star sizing and a minimum width. This preserves readability while consuming trailing space instead of displaying a blank trailing area.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Shell/UI/Views/ErftWindow.xaml:427</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Shell/UI/Views/ErftWindow.xaml:546</code></p>
+</blockquote>
 <hr>
 <h2 id="11-extensiblestorage-schema">11. ExtensibleStorage Schema</h2>
 <h3 id="111-element-tagging-schema">11.1 Element Tagging Schema</h3>
@@ -849,26 +878,71 @@ public static double ComputeElevationOnBeamLocationLine(
 {
     public Task InitializeAsync(UIControlledApplication application, CancellationToken ct)
     {
-        application.SelectionChanged += OnSelectionChanged;
-        EnsureInjected(application);
-        return Task.CompletedTask;
+        return _gate.RunAsync(app =&gt;
+        {
+            EnsureEditEventCreated(); // ExternalEvent.Create in API-safe context
+            if (_subscribed) return;
+            app.SelectionChanged += OnSelectionChanged;
+            _subscribed = true;
+            _logger.LogInformation(&quot;[ERFT] Contextual ribbon injector subscribed to selection changes.&quot;);
+            EnsureInjected(app);
+            EvaluateAndToggle(app);
+        }, ct);
     }
-    
-    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+
+    private async void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        // Check if selection contains elements with ERFT ES data
-        // Toggle Edit button visibility
+        await _executor.RunAsync(
+            () =&gt; RefreshFromCurrentContextAsync(CancellationToken.None),
+            _logger,
+            notifier: null,
+            opts: new SafeExecutor.SafeExecuteOptions
+            {
+                Name = &quot;ERFT Contextual Selection Hook&quot;,
+                NotifyKind = SafeExecutor.NotifyKindKind.None
+            },
+            ct: CancellationToken.None);
     }
 }
 </code></pre>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:66</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:119</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:139</code></p>
+</blockquote>
 <h3 id="122-contextual-tab-detection">12.2 Contextual Tab Detection</h3>
 <p>Look for:</p>
 <ul>
 <li>&quot;Modify | Structural Columns&quot;</li>
 <li>&quot;Modify | Structural Framing&quot;</li>
 <li>&quot;Modify | Multi-Select&quot; (when mixed selection)</li>
+<li>Multi-selection title variants containing &quot;Multi&quot; / &quot;Multi-Category&quot;</li>
 </ul>
 <p>Inject &quot;Edit ERFT&quot; button when ERFT-tagged elements are selected.</p>
+<p>Selection eligibility requires:</p>
+<ul>
+<li>Category is <code>OST_StructuralColumns</code> or <code>OST_StructuralFraming</code></li>
+<li>ERFT schema lookup succeeds</li>
+<li><code>Tag == &quot;ERFT&quot;</code></li>
+<li><code>Version == SchemaVersion</code></li>
+<li><code>SystemId</code> is present</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:207</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:272</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:320</code></p>
+</blockquote>
+<h3 id="123-edit-launch-guardrails-and-run-scope">12.3 Edit Launch Guardrails and Run Scope</h3>
+<ul>
+<li>Edit clicks are rejected with explicit banner feedback when no ERFT system IDs are available, when the <code>ExternalEvent</code> is not initialized, or when <code>ExternalEvent.Raise()</code> does not return <code>Accepted</code>.</li>
+<li>External-event execution is wrapped in <code>ISafeExecutor</code> with notifier enabled so edit failures are surfaced to the user (not silent).</li>
+<li><code>RunEditFlow(...)</code> creates a per-click <code>InlineUi</code> run scope via <code>AppRuntime.CreateRunScope(...)</code>, resolves <code>ErftRunner</code> inside that scope, and clears/disposes the scoped <code>IRevitRunScopeAccessor.Current</code> value in <code>finally</code>.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:444</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:484</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:535</code></p>
+</blockquote>
 <hr>
 <h2 id="13-error-handling">13. Error Handling</h2>
 <h3 id="131-spec-fail-tags">13.1 Spec Fail Tags</h3>

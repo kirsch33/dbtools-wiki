@@ -103,6 +103,47 @@
 <li>Adjustment calculation + rounding tolerance</li>
 <li>Apply workflow (write offsets + persist plan snapshot)</li>
 </ul>
+<h2 id="contextual-ribbon-hook">Contextual Ribbon Hook</h2>
+<p>ERFT includes a contextual ribbon injector that:</p>
+<ul>
+<li>Subscribes to Revit selection changes at initialize time</li>
+<li>Refreshes contextual UI state through the queued Revit call gate</li>
+<li>Evaluates selected structural framing/column elements for ERFT ExtensibleStorage metadata</li>
+<li>Injects and toggles <code>Edit ERFT</code> on contextual Modify tabs (columns, framing, and multi-select variants)</li>
+<li>Raises edit execution through <code>ExternalEvent</code> + <code>ISafeExecutor</code> with an active notifier</li>
+<li>Blocks invalid edit clicks (no ERFT systems selected, or <code>ExternalEvent.Raise()</code> not accepted) with explicit banner feedback</li>
+<li>Creates a per-click <code>AppRuntime</code> run scope (<code>InlineUi</code>) before resolving <code>ErftRunner</code>, then clears/disposes the scoped Revit run context in <code>finally</code></li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:66</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:119</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:139</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:207</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:272</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:320</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:444</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:484</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:535</code></p>
+</blockquote>
+<h2 id="selection-guidance-banners">Selection Guidance Banners</h2>
+<p>Before ERFT opens its window, the picker flow now shows yellow guidance banners for each selection phase:</p>
+<ul>
+<li>Linked target phase: instructs picking a linked floor/roof and using ESC to switch to host selection.</li>
+<li>Host target phase (after ESC from linked phase): instructs picking a host floor/roof and using ESC to cancel launch.</li>
+<li>Source phase: instructs selecting source structural columns/beams and finishing the multi-pick.</li>
+</ul>
+<p>These banners are shown with <code>BannerManager.ShowTopWarning(...)</code> and always cleaned up with <code>BannerManager.Hide()</code> in <code>finally</code> blocks around picker calls.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:21</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:231</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:313</code></p>
+</blockquote>
+<h2 id="ui-grid-status-column-layout">UI Grid Status Column Layout</h2>
+<p>Both ERFT comparison grids (columns and beams) use a stretch-last <code>Status</code> column with an explicit minimum width so the status field remains readable while consuming trailing space instead of showing an unused blank area.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Shell/UI/Views/ErftWindow.xaml:427</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Shell/UI/Views/ErftWindow.xaml:546</code></p>
+</blockquote>
 
 </article>
 

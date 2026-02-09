@@ -157,14 +157,48 @@
 <p>[Screenshot: Family list with source and target]</p>
 <h3 id="step-4-select-targets">Step 4: Select Targets</h3>
 <p>Click the dropdown in the <strong>Target</strong> column to see replacement options. Options are sorted by similarity - the best matches appear at the top with higher percentages.</p>
-<h3 id="step-5-apply-changes">Step 5: Apply Changes</h3>
+<h3 id="step-5-review-and-commit-changes">Step 5: Review and Commit Changes</h3>
 <ol>
 <li>Check the <strong>Apply</strong> checkbox for each mapping you want to make</li>
-<li>Click the <strong>Apply</strong> button</li>
-<li>GM opens the mapping report and runs the mappings automatically</li>
-<li>Review the report status and failed rows (if any)</li>
-<li>Click <strong>Finalize</strong> to keep changes (or <strong>Rollback</strong> to cancel)</li>
+<li>Click <strong>Review Plan</strong></li>
+<li>GM opens <strong>Commit Review</strong> and shows the plan before any model edits</li>
+<li>Review plan sections and status:
+<ul>
+<li>Bottom status bar shows <code>Rules</code> and <code>Families</code> (single-line, pinned to the window bottom)</li>
+<li>Failed Operations is summarized per mapping rule; <code>Source</code>/<code>Target</code> display names (not element IDs)</li>
+<li>Right-click report tables for <code>Copy Selected</code> / <code>Copy All</code></li>
+<li>Non-relevant sections are hidden so only applicable expanders appear</li>
+</ul>
+</li>
+<li>Click <strong>Commit and Continue</strong> or <strong>Commit and Close</strong> to execute changes</li>
+<li>Click <strong>Cancel Commit</strong> to exit without changing the model</li>
+<li>During commit, the overlay <strong>Cancel</strong> button requests cancellation immediately</li>
+<li>Closing Commit Review with the window <strong>X</strong> during commit also triggers cancellation + graceful cleanup before the window closes</li>
+<li>After commit:
+<ul>
+<li>Success shows a green summary banner (<code>Applied</code>, <code>Failed</code>, <code>Skipped</code>)</li>
+<li>Failure shows a red banner starting with <code>Commit failed.</code></li>
+<li>On failure, Commit Review stays open so you can inspect errors and retry</li>
+<li><strong>Commit and Continue</strong> refreshes mapped data in-place (families/usage) and restores expanded row-details context</li>
+</ul>
+</li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2698</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/ReportWindowService.cs:68</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:267</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:548</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml.cs:44</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:111</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Progress/Shell/ProgressOverlayControl.xaml.cs:10</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs:173</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:747</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs:165</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:96</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:77</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:770</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:1013</code></p>
+</blockquote>
 <hr>
 <h2 id="the-global-mapper-window">The Global Mapper Window</h2>
 <p>When you open Global Mapper, you'll see a window with several main areas:</p>
@@ -197,6 +231,27 @@
 </tr>
 </tbody>
 </table>
+<h3 id="bottom-status--empty-state-feedback">Bottom Status + Empty-State Feedback</h3>
+<ul>
+<li>The bottom-left status line is split into two live segments:
+<ul>
+<li><code>Global</code>: Families/Usage/Shared Parameters readiness</li>
+<li><code>Active</code>: the currently selected tab's visible state</li>
+</ul>
+</li>
+<li>GM empty states are load-aware:
+<ul>
+<li>During first load, grids show explicit <code>Loading...</code> messaging</li>
+<li>After load completes, zero-result states show contextual <code>No ...</code> messaging and guidance</li>
+</ul>
+</li>
+<li>Empty-state copy/contrast is theme-aligned for dark UI readability.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:867</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:495</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2756</code></p>
+</blockquote>
 <h3 id="main-tabs">Main Tabs</h3>
 <p>Global Mapper organizes your work into six tabs:</p>
 <ol>
@@ -305,12 +360,40 @@
 <p>Click the <strong>+</strong> button to see:</p>
 <ul>
 <li><strong>Types</strong> - Individual types within the family, with their own target mappings</li>
+<li><strong>Type creation flow</strong> - Use each type row's <strong>Create</strong> checkbox plus <strong>New Type Name</strong> field (there is no separate header-level <strong>New Type</strong> button)</li>
 <li><strong>Object Styles</strong> - Styles used by this family</li>
 <li><strong>Materials</strong> - Materials used by this family</li>
 <li><strong>Parameters</strong> - Parameter names (for reference)</li>
+<li><strong>Nested target dropdown parity</strong> - Types/Object Styles/Materials/Parameters follow the same global Sort mode + Threshold behavior as the parent Target dropdown, including colored similarity text and score suffixes in Similarity mode</li>
+<li><strong>Target dropdown wheel behavior</strong> - When a target dropdown list is open, mouse-wheel scrolling stays in that list (it does not scroll the background grid)</li>
+<li><strong>Parent target propagation</strong> - When the parent family Target changes while expanded, nested dropdowns repopulate automatically; rows you manually changed stay as-is</li>
+<li><strong>Consistent usage tab hydration</strong> - Expanded rows auto-refresh Object Styles/Materials once usage data is loaded, including rows restored from saved UI state</li>
+<li><strong>Deep-scan object-style fallback rows</strong> - If you explicitly deep scan a family, DS-discovered style refs can appear in expanded Object Styles details (so the tab is not empty when fast usage misses refs)</li>
+<li><strong>Deep-scan badge</strong> - Families use a single <code>DS</code> badge for deep-scanned rows; partial deep-scan warnings appear in the badge tooltip</li>
 <li><strong>Usage-linked Apply badge</strong> - <code>OS</code>, <code>MAT</code>, or <code>OS+MAT</code> indicates the family Apply state is linked from Object Styles/Materials tabs</li>
+<li><strong>Nested linkage badges</strong> - In expanded family row-details, Object Styles/Materials grids show <code>LK</code> badges (<code>OS</code>/<code>MAT</code>) on the exact nested rows currently driving linkage</li>
+<li><strong>Usage-link guardrail</strong> - <code>OS</code>/<code>MAT</code> linked Apply marks impact on the family row, but family-owned operations (type swaps, parameter maps, create-type) only run when that family row is explicitly user-owned</li>
+<li><strong>Instance cycler + zoom</strong> - Prev/next and zoom automatically navigate to the sampled instance even if it is in a different view</li>
 </ul>
 <p>[Screenshot: Expanded family row]</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:315</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs:385</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1403</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:323</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:976</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1032</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1249</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml.cs:424</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Previews/ViewOpsService.cs:54</code><br>
+<strong>Source:</strong> <code>src/DBTools.Themes/Behaviors/MouseWheelForwarder.cs:53</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:86</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2191</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:338</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:817</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:539</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:811</code></p>
+</blockquote>
 <hr>
 <h3 id="line-styles-tab">Line Styles Tab</h3>
 <p>Map line styles to different line styles across your project.</p>
@@ -349,12 +432,12 @@
 </ul>
 <hr>
 <h3 id="object-styles-tab">Object Styles Tab</h3>
-<p>Map object styles (subcategory graphics) to different styles.</p>
+<p>Map Detail Items object styles (subcategory graphics) to different styles.</p>
 <p>[Screenshot: Object Styles tab]</p>
 <p><strong>How it works:</strong></p>
-<p>Object styles control the appearance of model elements by subcategory. Use this tab to:</p>
+<p>Object styles in this tab are limited to Detail Items subcategories (non-line styles). Use this tab to:</p>
 <ul>
-<li>Standardize graphics settings across similar subcategories</li>
+<li>Standardize graphics settings across Detail Items subcategories</li>
 <li>Replace custom object styles with standard ones</li>
 <li>Clean up unnecessary style variations</li>
 </ul>
@@ -364,6 +447,8 @@
 <li><strong>Preview pane</strong> - Shows the visual appearance of selected styles</li>
 <li>Checking <strong>Apply</strong> auto-links the corresponding families in the Families tab</li>
 <li>Unchecking <strong>Apply</strong> removes that style link; family Apply remains only if manually checked or linked by another source</li>
+<li>Commit opens each affected family document, ensures the mapped target style exists in that family (create if missing), syncs core style appearance from the host target, rewrites source-style references, then reloads the family into the project</li>
+<li>Unsupported style mappings (outside Line Styles or Detail Items Object Styles scope) are ignored before commit and shown as warnings</li>
 </ul>
 <hr>
 <h3 id="materials-tab">Materials Tab</h3>
@@ -407,10 +492,14 @@
 <li>The color preview helps you verify you're selecting the right material</li>
 <li>Check <strong>Apply</strong> and apply your changes</li>
 <li>Families affected by this material mapping are linked in Families tab (badge: <code>MAT</code> or <code>OS+MAT</code>)</li>
+<li>Commit updates both host-document material parameters and family-document material parameters in affected families; if target material is missing in a family doc, GM creates it and syncs core properties before rewriting references, then reloads the family</li>
+<li>In &quot;Families Using This Material&quot;, the Apply indicator reflects active mapping linkage state (not just currently visible Families-tab rows), so linked families remain marked even when filtered out of the Families list</li>
 </ol>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:817</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:817</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:203</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/MaterialChangeServiceWriter.cs:209</code></p>
 </blockquote>
 <p><strong>Note:</strong> Material changes affect both appearance and any associated physical/thermal properties.</p>
 <hr>
@@ -428,7 +517,7 @@
 <li><strong>Select a parameter group</strong> from the left panel</li>
 <li><strong>Select a category</strong> from the dropdown (Walls, Doors, etc.)</li>
 <li><strong>Browse families and types</strong> in the right panel</li>
-<li><strong>Expand a type</strong> to see:
+<li><strong>Click <code>+</code> to expand a family row</strong>, then select a type to see:
 <ul>
 <li>Existing parameters and their values</li>
 <li>Available shared parameters you can add</li>
@@ -441,6 +530,7 @@
 <li><strong>Embed-in-family</strong> - Parameter added inside the family document</li>
 </ul>
 </li>
+<li>Plan validation checks that each selected type is still aligned with its owning family/category context before commit; mismatched or stale selections are rejected with explicit errors before apply</li>
 </ol>
 <p><strong>Instance Navigator:</strong></p>
 <p>When expanded, you can cycle through instances to see different parameter values:</p>
@@ -451,7 +541,11 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:305</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:190</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:489</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2309</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/SharedParametersPaneViewModel.cs:377</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/SPAuthoringModels.cs:218</code></p>
 </blockquote>
 <hr>
 <h2 id="step-by-step-workflows">Step-by-Step Workflows</h2>
@@ -471,9 +565,9 @@
 <li>Check <strong>Apply</strong> on rows you want to consolidate</li>
 </ul>
 </li>
-<li>Click <strong>Apply</strong> in the header</li>
-<li>Review the mapping report</li>
-<li>Click <strong>Finalize</strong> to keep changes</li>
+<li>Click <strong>Review Plan</strong></li>
+<li>Review <strong>Commit Review</strong></li>
+<li>Click <strong>Commit and Continue</strong> (or <strong>Commit and Close</strong>)</li>
 </ol>
 <p><strong>Tips:</strong></p>
 <ul>
@@ -498,9 +592,9 @@
 </ul>
 </li>
 <li>Check <strong>Apply</strong> on the family row</li>
-<li>Click <strong>Apply</strong> in the header</li>
-<li>Review the mapping report - verify instance counts</li>
-<li>Click <strong>Finalize</strong> to keep changes</li>
+<li>Click <strong>Review Plan</strong></li>
+<li>Review <strong>Commit Review</strong> and verify instance counts</li>
+<li>Click <strong>Commit and Continue</strong> (or <strong>Commit and Close</strong>)</li>
 </ol>
 <hr>
 <h3 id="workflow-3-adding-shared-parameters-to-families">Workflow 3: Adding Shared Parameters to Families</h3>
@@ -519,8 +613,8 @@
 </ul>
 </li>
 <li>Optionally, use <strong>Map From</strong> to copy values from an existing parameter</li>
-<li>Click <strong>Apply</strong> in the header</li>
-<li>Review and <strong>Finalize</strong></li>
+<li>Click <strong>Review Plan</strong></li>
+<li>Review and <strong>Commit</strong></li>
 </ol>
 <hr>
 <h3 id="workflow-4-standardizing-materials">Workflow 4: Standardizing Materials</h3>
@@ -536,9 +630,9 @@
 </ul>
 </li>
 <li>Alternatively, use the <strong>Duplicates</strong> tab to find similar materials automatically</li>
-<li>Click <strong>Apply</strong> in the header</li>
-<li>Review the mapping report to see affected elements</li>
-<li>Click <strong>Finalize</strong></li>
+<li>Click <strong>Review Plan</strong></li>
+<li>Review <strong>Commit Review</strong> to see affected elements</li>
+<li>Click <strong>Commit</strong></li>
 </ol>
 <hr>
 <h2 id="settings-and-options">Settings and Options</h2>
@@ -566,7 +660,15 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Note:</strong> Manual selections are never changed by threshold adjustments.</p>
+<p><strong>Note:</strong> Manual selections are never changed by threshold adjustments.
+This applies to both top-level rows and expanded-row nested dropdowns.
+Opening a dropdown and closing it without choosing a different option does not count as a manual selection.
+Rows that were not manually changed continue to auto-select the highest-scoring target above threshold.
+If no option qualifies, GM keeps a blank programmatic default (no auto-assigned target); <code>&lt;Do Not Map&gt;</code> remains an explicit user choice in the expanded Types dropdown.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:1094</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:1126</code></p>
+</blockquote>
 <h3 id="sort-mode">Sort Mode</h3>
 <table>
 <thead>
@@ -605,7 +707,7 @@
 </tr>
 <tr>
 <td><strong>Applied Only</strong></td>
-<td>Show only rows where Apply is checked</td>
+<td>Show applied rows, including externally-originated and usage-linked family rows</td>
 </tr>
 </tbody>
 </table>
@@ -643,10 +745,10 @@
 <li>Use &quot;Accept All&quot; in duplicates for quick processing</li>
 </ul>
 </li>
-<li><p><strong>Preview before finalizing</strong></p>
+<li><p><strong>Preview before committing</strong></p>
 <ul>
-<li>The mapping report shows what was attempted and what succeeded/failed</li>
-<li>Use <strong>Rollback</strong> if something looks wrong</li>
+<li><strong>Commit Review</strong> shows planned changes and post-commit outcomes</li>
+<li>Use <strong>Cancel Commit</strong> if something looks wrong</li>
 </ul>
 </li>
 <li><p><strong>Save your progress</strong></p>
@@ -664,7 +766,7 @@
 </ol>
 <h3 id="best-practices">Best Practices</h3>
 <ul>
-<li><strong>Back up first</strong> - While GM supports rollback, always save your project before bulk changes</li>
+<li><strong>Back up first</strong> - Even with Commit Review and Revit Undo, always save your project before bulk changes</li>
 <li><strong>Start small</strong> - Test with a few mappings before processing hundreds</li>
 <li><strong>Verify visually</strong> - After applying, spot-check some instances in views</li>
 <li><strong>Use filters</strong> - &quot;Applied Only&quot; filter helps review what you're about to change</li>
@@ -698,14 +800,24 @@
 <td>Click &quot;Scan Family&quot; to analyze the family</td>
 </tr>
 <tr>
-<td><strong>Apply button is disabled</strong></td>
+<td><strong>Review Plan button is disabled</strong></td>
 <td>No mappings selected</td>
-<td>Check the Apply checkbox on at least one row</td>
+<td>Check Apply/Map on at least one row</td>
 </tr>
 <tr>
 <td><strong>Changes didn't take effect</strong></td>
-<td>Rollback was clicked</td>
-<td>Re-apply and click Finalize instead</td>
+<td>Commit was canceled</td>
+<td>Reopen Commit Review and click a commit action</td>
+</tr>
+<tr>
+<td><strong>Commit appears stuck near 90%</strong></td>
+<td>A long-running Revit API call is still in progress</td>
+<td>Click Cancel once and wait for the in-flight call to return; if it does not recover, capture the latest DBTools log and report it</td>
+</tr>
+<tr>
+<td><strong>Cancel button seemed unresponsive</strong></td>
+<td>A commit step is still finishing on the Revit call queue</td>
+<td>Keep the overlay open; cancellation is queued and cleanup runs as soon as the active Revit call returns</td>
 </tr>
 <tr>
 <td><strong>Some instances weren't replaced</strong></td>
@@ -719,6 +831,10 @@
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:286</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:548</code></p>
+</blockquote>
 <h3 id="error-messages">Error Messages</h3>
 <table>
 <thead>
@@ -764,22 +880,56 @@
 <p><strong>Q: Can I undo changes made by Global Mapper?</strong></p>
 <p>A: Yes, in two ways:</p>
 <ul>
-<li>Before clicking <strong>Finalize</strong>, use <strong>Rollback</strong> to cancel all changes</li>
-<li>After finalizing, use Revit's standard <strong>Undo</strong> command</li>
+<li>Before committing, use <strong>Cancel Commit</strong> in Commit Review</li>
+<li>After committing, use Revit's standard <strong>Undo</strong> command</li>
 </ul>
 <p><strong>Q: Will this affect linked files?</strong></p>
 <p>A: No, Global Mapper only modifies elements in the current document, not linked files.</p>
 <p><strong>Q: How long does applying changes take?</strong></p>
 <p>A: It depends on the number of elements being modified. A few dozen changes are nearly instant; thousands may take several minutes. A progress overlay shows the current status.</p>
+<p><strong>Q: What happens if I close Commit Review with the X button during commit?</strong></p>
+<p>A: GM treats it like an explicit cancel request. It requests cancellation, runs cleanup, then closes the window.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml.cs:44</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:267</code></p>
+</blockquote>
+<p><strong>Q: Why can Commit Review show <code>Failed: 1</code> while multiple families failed in Failed Operations?</strong></p>
+<p>A: <code>Failed</code> in the rules summary is the number of failed mapping rules. A single mapping rule can run across many families. Use the Families status line (<code>Planned / Attempted / Failed</code>) and the Failed Operations summary row (which aggregates per-family failures) to understand fan-out.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:770</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:1013</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:489</code></p>
+</blockquote>
 <p><strong>Q: Are my mapping preferences saved?</strong></p>
-<p>A: Yes, your target selections are saved per-project. When you reopen Global Mapper, your previous selections appear (but Apply checkboxes are not automatically re-checked).</p>
+<p>A: Yes. Successful mappings and UI state are saved per-project and restored on reopen. On reopen, saved mapping targets are restored as suggestions, but <strong>Apply is left off by default</strong> so nothing is pre-enabled for commit. You can clear saved data from GM using:</p>
+<ul>
+<li><strong>Clear Saved Mappings</strong> (mapping selections)</li>
+<li><strong>Clear Saved UI State</strong> (tab/search/filter/scroll state)</li>
+<li><strong>Clear Deep Scan Cache</strong> (deep-scan data and DS badges)</li>
+<li>Clear Saved Mappings writes an empty mapping snapshot immediately, so cleared mappings do not come back from stale saved files on reopen.</li>
+<li>Saved style mappings are restored only when source and target still exist in the same style scope (Line Styles or Object Styles). Stale cross-scope style mappings are ignored.</li>
+<li>Style usage rows are normalized to canonical projection style IDs, so Object Styles family-usage counts stay tied to the real style after reopen/refresh.</li>
+<li>Usage rows are constrained to the active tab universes (Materials, Line Styles, Detail Items Object Styles) so stale/out-of-scope IDs do not appear as extra rows.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1879</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/UiStatePersistenceService.cs:86</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/UsagePaneViewModel.cs:676</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:487</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/UsagePaneViewModel.cs:298</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:148</code></p>
+</blockquote>
 <h3 id="families-questions">Families Questions</h3>
 <p><strong>Q: What happens to parameters when I replace a family?</strong></p>
 <p>A: Parameter values are preserved where possible. If the source and target have parameters with the same name and compatible types, values are transferred. Use the expanded type details to set up parameter mappings.</p>
 <p><strong>Q: Can I replace a family with one from a different category?</strong></p>
 <p>A: No, you can only replace families within the same category. This is a Revit limitation.</p>
 <p><strong>Q: What if the target family doesn't have all the types I need?</strong></p>
-<p>A: You can create new types directly in Global Mapper. In the expanded type mapping section, click <strong>New Type</strong> to create a type in the target family.</p>
+<p>A: You can create new types directly in Global Mapper. In the expanded type mapping section, enable the row-level <strong>Create</strong> checkbox and enter a value in <strong>New Type Name</strong>.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1032</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1182</code></p>
+</blockquote>
 <h3 id="materials-questions">Materials Questions</h3>
 <p><strong>Q: Will replacing a material change its appearance in renders?</strong></p>
 <p>A: Yes, the replacement material's appearance will be used everywhere the original material was applied.</p>
@@ -843,7 +993,7 @@
 <li><strong>Safe workflow</strong> - Review outcomes before finalizing, with full rollback support</li>
 <li><strong>Time savings</strong> - Replace hundreds of elements in minutes instead of hours</li>
 </ul>
-<p>Start with the Duplicates tab to find quick wins, then use the Families tab for targeted replacements. Remember to review the mapping report before finalizing.</p>
+<p>Start with the Duplicates tab to find quick wins, then use the Families tab for targeted replacements. Remember to review Commit Review before committing.</p>
 
 </article>
 

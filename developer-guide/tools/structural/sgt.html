@@ -137,6 +137,13 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtNewCommand.cs:36-39</code></p>
 </blockquote>
+<h3 id="contextual-edit-launch">Contextual Edit Launch</h3>
+<p>The contextual <code>Edit SGT Wall</code> flow pre-creates its <code>ExternalEvent</code> during API-safe injector lifecycle work (<code>InitializeAsync</code> / <code>RefreshAsync</code>) and only calls <code>Raise()</code> from the ribbon click handler. This avoids Revit invalid-context failures when ribbon callbacks run outside standard API execution.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:59</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:106</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:424</code></p>
+</blockquote>
 <h3 id="supported-wall-types">Supported Wall Types</h3>
 <ul>
 <li><strong>Linked Walls</strong>: Walls from Revit link instances (any function)</li>
@@ -176,15 +183,21 @@
 <td>Intentionally excluded for openings</td>
 </tr>
 <tr>
+<td>Angle Shapes</td>
+<td>Yes</td>
+<td><strong>No</strong></td>
+<td>Girt-only; short leg seats elevation and long leg seats exterior plane</td>
+</tr>
+<tr>
 <td>HSS (Tube)</td>
 <td>Yes</td>
 <td>Yes</td>
-<td>Hollow structural sections</td>
+<td>Square + rectangular role-aware seating/orientation mapping</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Revit/SgtFamilySymbolClassifier.cs:120-145</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilySymbolClassifier.cs:158</code></p>
 </blockquote>
 <h2 id="architecture">Architecture</h2>
 <p>SGT follows a domain-driven MVVM architecture with clear separation between UI, domain logic, and Revit API interactions.</p>
@@ -504,6 +517,49 @@ SgtSmartDefaultsService.TryApplySmartDefaultsForOpeningRole(row, role, plan);
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/DomainWriter.Updates.cs:369</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CommandsAndBulk.cs:440</code></p>
 </blockquote>
+<h3 id="elevation-drag-undoredo-coverage-2026-02-07">Elevation Drag Undo/Redo Coverage (2026-02-07)</h3>
+<p>Elevation preview drag/snap edits now record real do/undo command actions (not no-op redo stubs), and all snap edit paths share command-stack behavior:</p>
+<ol>
+<li><strong>Girt extents</strong> (left/right) now execute as command-driven <code>do/undo</code> mutations so redo re-applies snapped extents.</li>
+<li><strong>Opening edges</strong> (left/right opening geometry drags) now push undo/redo commands with full <code>T0/T1</code> restore.</li>
+<li><strong>Opening member extents</strong> (jamb/header/sill endpoint snaps) now push undo/redo commands by cloning/restoring role config state.</li>
+</ol>
+<h3 id="snap-association-lock-rule-2026-02-07">Snap Association Lock Rule (2026-02-07)</h3>
+<p>Elevation preview drag interactions are now documented and enforced as association-locked operations:</p>
+<ol>
+<li><strong>No arbitrary drag targets</strong> are produced by snapping (<code>FreeAlong</code> quantized fallback is not used in drag/snap flow).</li>
+<li><strong>Nearest valid association is always resolved</strong> (grid, wall edge, opening edge, or enabled vertical target like girt/wall top/wall bottom).</li>
+<li><strong>Threshold only affects <code>Snapped</code> UI state</strong>, not whether a valid association is returned.</li>
+<li><strong>Manual Along extents remain explicit form input behavior</strong>, not drag/snap output.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code></p>
+</blockquote>
+<h3 id="preview-horizontal-transformprojection--segment-endpoint-ownership-2026-02-07">Preview Horizontal Transform/Projection + Segment Endpoint Ownership (2026-02-07)</h3>
+<p>Two WW/WS preview parity defects were hardened:</p>
+<ol>
+<li><strong>Horizontal preview transform/projection semantics</strong> now split responsibilities to match placement-facing semantics: profile transform always preserves analyzer-resolved <code>yTargetsFlange</code> for every role, while horizontal members (<code>Girt</code>, <code>Head</code>, <code>Sill</code>) project with a role-stable view contract (<code>depth=U,secondary=V</code>). Jamb roles continue to project by resolved <code>Y-&gt;Flange</code> / <code>Y-&gt;Web</code> mapping.</li>
+<li><strong>Segment interior endpoint snapping</strong> now resolves endpoint ownership from explicit opening-edge side metadata (<code>Left</code>/<code>Right</code>) first, with endpoint-side fallback only when metadata is unavailable. This prevents WS cases where dragging one bisected endpoint updated the opposite wall-side extent.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:95</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:260</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:729</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:561</code></p>
+</blockquote>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:39</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:195</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:293</code></p>
+</blockquote>
+<h3 id="elevation-grid-marker-bubble-contrast-2026-02-07">Elevation Grid Marker Bubble Contrast (2026-02-07)</h3>
+<p>Grid markers in elevation preview now render as a white-filled circle with black stroke and centered black text to preserve readability on dark themes.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:577</code></p>
+</blockquote>
 <h3 id="previewplacement-coordinate-parity-2026-02-06">Preview/Placement Coordinate Parity (2026-02-06)</h3>
 <p>To remove mismatch between preview and placed members (especially for linked walls and opening jambs), SGT now shares the same direction/orientation semantics across analysis, preview, and placement:</p>
 <ol>
@@ -524,14 +580,47 @@ Justification deltas and orientation-map lookup are centralized and reused by al
 Preview now applies profile transforms as <code>rotation</code> → <code>FlipHand</code> → Y/Z justification (matching placement parameter application order), reducing jamb rotation/depth drift on linked walls.</li>
 <li><strong>Opening orientation precedence is role-first, then type-level, then girt fallback</strong><br>
 Preview now resolves <code>YTargetsFlange</code> from role-specific opening metadata first, which fixes role drift for head/sill/jamb members that share a type.</li>
-<li><strong>3D/Elevation/Section profile projection now uses one depth/secondary axis contract</strong><br>
-Projection uses <code>depth=U,secondary=V</code> for <code>Y-&gt;Flange</code> and <code>depth=V,secondary=U</code> for <code>Y-&gt;Web</code> consistently in all preview modes.</li>
+<li><strong>3D/Elevation/Section profile transform + projection now use one shared preview semantics helper with explicit role contracts</strong><br>
+Transform semantics are analyzer-driven for all roles (<code>yTargetsFlange</code> preserved); projection is role-aware: horizontal roles (<code>Girt</code>, <code>Head</code>, <code>Sill</code>) render as <code>depth=U,secondary=V</code>, while jamb roles keep analyzer-driven mapping (<code>Y-&gt;Flange</code> =&gt; <code>depth=U,secondary=V</code>, <code>Y-&gt;Web</code> =&gt; <code>depth=V,secondary=U</code>).</li>
 <li><strong>3D opening diagnostics now include projection mapping for all opening roles</strong><br>
 Left/Right jamb, Header, and Sill debug entries now log the resolved projection mapping and anchor geometry for faster root-cause triage.</li>
+<li><strong>Orientation analyzer probing is role-aware for rotated links</strong><br>
+Step 2 keeps canonical probes (<code>0/90/180/270</code>) for horizontal roles, and applies wall-azimuth residual compensation only for jamb roles during temporary orientation probing. Stored orientation outputs remain canonical quarter-turn values.</li>
+<li><strong>Linked opening T mapping now follows frame-swap direction only</strong><br>
+Opening T mapping now uses the wall frame swap outcome directly (<code>dirDot &lt; 0</code>) and no longer applies an additional mirrored-link XOR branch. This prevents mirrored+rotated linked walls from inverting opening side placement.</li>
+<li><strong>Step 2 orientation seating is reflection-aware for mirrored links</strong><br>
+Analyzer Y/Z seating now applies a mirrored-aware flange-side rule when evaluating structural-plane seating: non-mirrored links require positive signed side, mirrored links require negative signed side, and web seating remains side-agnostic. This prevents mirrored-link runs from rejecting all girt types during orientation analysis.</li>
+<li><strong>HSS role mapping is now explicit in Step 2</strong><br>
+Square HSS uses symmetric seating candidates (all non-endcap faces, no mirrored-side bias). Rectangular HSS now persists deep/shallow calibrated face-id sets and uses role-aware set assignment: horizontal roles seat deep faces at the exterior plane and shallow faces at the elevation/opening plane, while jamb roles invert that mapping so deep faces stay opening-edge-seated.</li>
+<li><strong>ANGLE/Z shape contracts are now hard-enforced during analysis</strong><br>
+ANGLE calibration stores short-leg and long-leg face IDs (short=web-like, long=flange-like) and girt Y/Z solving filters to those faces. Z-shape girt validation now resolves flange pairs from aligned section faces and enforces exterior flange-down + interior flange-up ordering.</li>
+<li><strong>Web seating mode is now explicit and deterministic in Step 2</strong><br>
+Analyzer resolves web-seat distance mode through a shape/role policy hook: open-section horizontals (<code>Channel</code> girt/head/sill, <code>Z</code> girt, <code>Angle</code> girt) use edge-contact web seating, while HSS profiles and jamb roles use face-coplanar web seating. This restores girt orientation pass behavior without relaxing closed-section seating gates.</li>
+<li><strong>Non-HSS mapping no longer carries inferred HSS kind</strong><br>
+Step 2 now forces <code>hssKind=Unknown</code> for non-HSS shapes before role mapping, preventing non-HSS branch contamination from type-name fallback parsing.</li>
+<li><strong>Step 2 rejects non-finite Y/Z metrics before ranking</strong><br>
+Candidate and pair evaluations now drop <code>NaN</code>/<code>Infinity</code> metrics, emit explicit rejection diagnostics, and include <code>candidates</code>, <code>finiteCandidates</code>, and <code>rejectedNonFinite</code> counts in fail-fast reasons for deterministic fatal-step triage.</li>
+<li><strong>Opening-role web seating planes now anchor to wall-frame origin</strong><br>
+Head/Sill/Jamb web seating planes are created from wall-frame origin for deterministic opening-role Y/Z seating, eliminating origin-induced role drift across rotated/mirrored linked walls.</li>
+<li><strong>Temp probe transactions now emit structured failure metadata and deterministic probe outcomes</strong><br>
+Temp probe transactions (<code>Calibration</code>, <code>Orientation Probe</code>, <code>Warm Member Profile</code>) remain rollback-only with independent work/rollback exception capture, but transaction-mode probes now capture failure-preprocessor metadata (<code>blocking</code>, <code>warnings</code>, <code>lastResult</code>, <code>forbidden</code>) through <code>RunWithMetadata(...)</code>. Step 1/2/3 consumers now convert blocking metadata into explicit symbol/type failures (forbidden vs generic temp failure), preventing silent probe success when Revit reports blocking failures only through failure processing.</li>
+<li><strong>Post-analyze preview refresh uses deterministic two-pass dispatch</strong><br>
+After successful plan hydration (<code>_planStore.Initialize</code> + <code>RefreshFromPlan</code> + <code>AnalysisComplete</code>), overlay teardown schedules one <code>Loaded</code> refresh and one <code>Background</code> safety refresh with a lightweight in-flight latch. Failed/canceled analyzes skip this refresh burst.</li>
+<li><strong>Face traversal now resolves one geometry source per pass</strong><br>
+Face traversal prefers instance geometry and falls back to symbol geometry only when instance geometry is unavailable, preventing mixed stale/fresh candidate sets from double traversal.</li>
+<li><strong>Square-HSS Y/Z probing now re-fetches candidate faces per iteration</strong><br>
+The Y/Z solver no longer reuses a pre-loop <code>hssFaces</code> snapshot. Symmetric HSS candidates are reloaded after each justification update/regenerate pass.</li>
+<li><strong>Y/Z solver diagnostics and face-selection guards are now stronger</strong><br>
+Step 2 now emits per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostics, deduplicates <code>GetFacesByIds</code> results by persistent face id, and uses <code>Acceptance.SeatingTol</code> (not <code>1e-6</code>) for signed-side filtering.</li>
 </ol>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:200</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:446</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/WallGeometryContext.cs</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/WallGeometryService.cs</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAdapter.cs:423</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:170</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:539</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:42</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:516</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:296</code><br>
@@ -541,7 +630,33 @@ Left/Right jamb, Header, and Sill debug entries now log the resolved projection 
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:36</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:743</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code></p>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:583</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1035</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1406</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:885</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:292</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:309</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:415</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:243</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:176</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:408</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:88</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:356</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:832</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:902</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1384</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1426</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:115</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:226</code></p>
 </blockquote>
 <h2 id="configuration">Configuration</h2>
 <h3 id="manifest">Manifest</h3>
@@ -676,10 +791,33 @@ tool:
 <p>Run tests via the Revit test runner:</p>
 <pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool SGT
 </code></pre>
+<h2 id="preview-rotation-parity-2026-02-07">Preview Rotation Parity (2026-02-07)</h2>
+<p>Preview profile transforms use the established section-space rotation direction used by SGT preview/inset geometry math.</p>
+<ul>
+<li>WW/WS orientation parity is now addressed in preview by secondary-axis normalization when transform/projection semantics differ.</li>
+<li>Rotation direction is unchanged from baseline behavior; parity correction is isolated to preview secondary-axis projection.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/MemberProfileInsetCalculator.cs</code></p>
+</blockquote>
+<h2 id="preview-secondary-axis-parity-2026-02-07">Preview Secondary-Axis Parity (2026-02-07)</h2>
+<p>Preview now applies a secondary-axis sign correction when transform semantics and projection semantics intentionally differ.</p>
+<ul>
+<li>Transform remains analyzer-driven for all roles (<code>yTargetsFlange</code> preserved).</li>
+<li>Horizontal projection remains role-stable (<code>depth=U, secondary=V</code>).</li>
+<li>When those two semantics differ (typical WW horizontal case), preview secondary coordinates/bounds are sign-corrected before elevation/section banding and before 3D extrusion offsets.</li>
+<li>This keeps WW and WS preview orientation parity for girts/headers/sills without changing placement behavior.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs</code></p>
+</blockquote>
 <hr>
 <blockquote>
 <p><strong>Documentation Status</strong>: Complete</p>
-<p><strong>Last Updated</strong>: 2026-02-06</p>
+<p><strong>Last Updated</strong>: 2026-02-07</p>
 <p><strong>Source Review</strong>: Verified against source files in <code>src/Tools/Structural/SGT/</code></p>
 </blockquote>
 

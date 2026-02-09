@@ -150,13 +150,17 @@
 <p>The VTC window is organized into distinct areas:</p>
 <p><strong>Comparison Workspace (Left)</strong></p>
 <ul>
-<li>Filter/search toolbar at the top</li>
-<li>Single diff tree with one row per setting</li>
-<li>Each row shows Template A value, picker controls, and Template B value</li>
-<li>Category override rows include an edit action</li>
+<li>Filter/search row at the top, with clear-search icon</li>
+<li>Bulk action row groups <strong>Pick A / Pick B / Clear / Reset / Expand / Collapse</strong></li>
+<li>Sticky column header showing Template A and Template B names</li>
+<li>Side-by-side diff tree: each row has a narrow setting name on the left and two wide value cells (A and B) filling the row</li>
+<li>Click a value cell to select that side for merging; hover reveals clickable state</li>
+<li>Container nodes (categories, sections) display as section dividers with summary badges (e.g., &quot;12 diff · 4 A-only · 2 B-only&quot;)</li>
+<li>Right-click any row for cascade selection (select A or B for all children)</li>
 </ul>
 <p><strong>Right Sidebar Tabs</strong></p>
 <ul>
+<li><strong>Inspector</strong> tab: shows full detail for the selected row — A vs B values, override counts, Use A / Use B buttons, and an Edit Overrides action for category overrides</li>
 <li><strong>Templates</strong> tab: choose Template A and Template B, then swap if needed</li>
 <li><strong>Actions</strong> tab: apply selected settings or create a merged template</li>
 <li><strong>Library</strong> tab: import/export JSON, text dump, and saved templates</li>
@@ -228,7 +232,24 @@ Lists each view filter applied to the template with:</p>
 <li>Halftone settings</li>
 </ul>
 <h3 id="selecting-settings">Selecting Settings</h3>
-<p>Click on any row to select it. Use Ctrl+click for multiple selections or Shift+click for ranges. Selected settings can be applied or merged.</p>
+<p><strong>Click-to-select</strong>: Clicking any row now sets Inspector context. Clicking Template A/B value cells also toggles merge selection for difference rows and shows an accent border (blue for A, gold for B).</p>
+<p><strong>Bulk selection</strong>: Right-click any row to access cascade selection — pick A or B for all children at once. Use the toolbar &quot;Pick A&quot; / &quot;Pick B&quot; buttons to select all visible differences, and use <strong>Reset</strong> to clear search/filter state quickly.</p>
+<p><strong>Inspector panel</strong>: Click any row to view its full detail in the Inspector tab on the right sidebar. The Inspector shows both values with full text, override counts, and provides Use A / Use B buttons plus an Edit Overrides action for category overrides.</p>
+<p><strong>Revit Links note</strong>: VTC fully supports per-link visibility overrides including ByHostView, ByLinkView, and Custom modes. You can compare and apply linked file visibility settings, linked view references, and copy overrides between links. The tool uses Revit 2024+ APIs (<code>View.GetLinkOverrides</code> / <code>View.SetLinkOverrides</code>) for full per-link control.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:454</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:606</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:30</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:962-1033</code></p>
+</blockquote>
+<p><strong>Edit Overrides preview fidelity</strong>: In the category override dialog, Surface and Cut pattern previews now render hatch geometry from Revit fill-grid data (angle, spacing, shift, origin) rather than a flat color block. Changing pattern, color, or visibility updates preview immediately.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:215</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1577</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcFillPatternPreviewFactory.cs:22</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcCategoryOverrideBodyViewModel.cs:50</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml:209</code></p>
+</blockquote>
 <hr>
 <h2 id="merge-operations">Merge Operations</h2>
 <h3 id="apply-to-a--apply-to-b">Apply to A / Apply to B</h3>
@@ -287,9 +308,8 @@ Lists each view filter applied to the template with:</p>
 <h3 id="saving-to-library">Saving to Library</h3>
 <ol>
 <li>Select a template in the comparison view</li>
-<li>Click <strong>Save to Library</strong></li>
-<li>Optionally edit the name or add notes</li>
-<li>Click <strong>Save</strong></li>
+<li>In <strong>Saved Templates</strong>, optionally enter a custom name in <strong>Name (optional)</strong></li>
+<li>Click <strong>Save A</strong> or <strong>Save B</strong></li>
 </ol>
 <p>Templates are stored on your computer and persist between Revit sessions.</p>
 <h3 id="loading-from-library">Loading from Library</h3>
@@ -307,7 +327,7 @@ Lists each view filter applied to the template with:</p>
 <h3 id="managing-library-templates">Managing Library Templates</h3>
 <ul>
 <li><strong>Rename:</strong> Right-click a library template to rename</li>
-<li><strong>Delete:</strong> Right-click and select Delete to remove from library</li>
+<li><strong>Delete:</strong> Select a saved template and click the red delete button</li>
 <li><strong>Notes:</strong> Add descriptions when saving to remember template purposes</li>
 </ul>
 <hr>

@@ -116,7 +116,25 @@
 <li><strong>Progress tracking</strong> - Per-view progress feedback during transfer operations</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvService.cs:106-291</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvService.cs:106-330</code></p>
+</blockquote>
+<h3 id="crash-hardening-2026-02-07">Crash Hardening (2026-02-07)</h3>
+<p>The TDV import/export apply path was hardened after a Revit 2026 hard-crash investigation:</p>
+<ul>
+<li><strong>Destination-bound transactions</strong> - The transfer group and per-view transactions are now started against the explicit destination <code>Document</code>, not implicitly against <code>ActiveUIDocument</code>.</li>
+<li><strong>Cross-document safety checks</strong> - TDV now validates that source/destination contexts are valid live documents and not the same document.</li>
+<li><strong>Transfer run diagnostics</strong> - Transfer start logs include run id plus source/destination title and path to improve post-crash forensics.</li>
+<li><strong>Non-activating library open</strong> - TDV now opens library files with <code>Application.OpenDocumentFile(...)</code> (no activate) so the host model stays active during transfer and cleanup.</li>
+<li><strong>Cleanup-safe close path</strong> - TDV commands now use best-effort close (<code>TryCloseAsync</code>) for library cleanup to prevent cleanup-only close failures from surfacing as command failure banners.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvService.cs:106-372</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvDocumentService.cs:186-246</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvDocumentService.cs:137-168</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvImportCommand.cs:120-130</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvExportCommand.cs:143-168</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs:5-18</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/CallGateTransactionGroupService.cs:99-280</code></p>
 </blockquote>
 <h3 id="library-management">Library Management</h3>
 <ul>
@@ -138,6 +156,20 @@
 </ol>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:145-189</code></p>
+</blockquote>
+<h3 id="view-type-resolution-rules">View Type Resolution Rules</h3>
+<p>The row <code>View Type</code> combobox is destination-scoped for the active transfer direction:</p>
+<ul>
+<li><strong>Import</strong> (<code>library -&gt; host</code>): combobox options are drafting view types from the host document.</li>
+<li><strong>Export</strong> (<code>host -&gt; library</code>): combobox options are drafting view types from the library document.</li>
+</ul>
+<p><code>Retain Original</code> always resolves to the source view's drafting type name for that row. If that type name is missing in the destination document, TDV creates it by duplicating an existing destination drafting <code>ViewFamilyType</code> and renaming the duplicate.</p>
+<p>If source type name resolution fails, TDV records a per-view <code>SourceTypeNameUnavailable</code> error and does not silently fall back.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvService.cs:47-95</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvService.cs:186-213</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:52-99</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:233-277</code></p>
 </blockquote>
 <h2 id="architecture">Architecture</h2>
 <p>TDV follows the MVVM pattern with a clean separation between UI, business logic, and Revit API operations.</p>
@@ -243,6 +275,10 @@ services.AddScoped&lt;ITdvDocumentService, TdvDocumentService&gt;();
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/UI/Views/TdvWindow.xaml:1-537</code></p>
+</blockquote>
+<p>The TDV window now binds its overlay instance to itself (<code>ProgressOverlayService.For(this)</code>), ensuring overlay ownership and dispatcher affinity are tied to the active TDV host window.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/UI/Views/TdvWindow.xaml.cs:59-74</code></p>
 </blockquote>
 <h3 id="viewmodel-tdvwindowviewmodel">ViewModel (<code>TdvWindowViewModel</code>)</h3>
 <p>Key properties and commands:</p>
@@ -610,14 +646,29 @@ tool:
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Contracts/TdvPerViewErrorCode.cs:1-12</code></p>
 </blockquote>
 <h3 id="error-reporting">Error Reporting</h3>
-<p>After transfer, errors are displayed in a detailed alert dialog with:</p>
+<p>After each transfer attempt, TDV now always surfaces result UX:</p>
 <ul>
-<li>Summary counts (added, replaced, skipped)</li>
-<li>Error details table with source info and error messages</li>
-<li>Copy to clipboard functionality</li>
+<li><strong>Top banner</strong> on the TDV window (<code>success</code>/<code>warning</code>) with selected/processed/result counts</li>
+<li><strong>Summary alert</strong> with:
+<ul>
+<li>Selected, processed, added, replaced, and error counts</li>
+<li>Optional per-view issue table when failures exist</li>
+<li>Action buttons: <strong>Accept and Transfer More</strong> and <strong>Close Tool</strong></li>
+<li>Copy-to-clipboard for per-view issue rows</li>
+</ul>
+</li>
+</ul>
+<p>TDV also records and surfaces selection accountability:</p>
+<ul>
+<li>Transfer logs now include selected view identifiers/names (bounded preview)</li>
+<li>Result payload includes <code>SelectedCount</code>, <code>ProcessedCount</code>, and <code>Cancelled</code></li>
+<li>UI warns when selected/processed counts diverge</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/TDV/UI/Views/TdvWindow.xaml.cs:111-186</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/UI/Views/TdvWindow.xaml.cs:111-231</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/UI/ViewModels/TdvWindowViewModel.cs:274-348</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Contracts/TdvApplySelectionResult.cs:5-13</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvService.cs:125-372</code></p>
 </blockquote>
 <h2 id="revit-api-operations">Revit API Operations</h2>
 <h3 id="getting-drafting-views">Getting Drafting Views</h3>
@@ -704,7 +755,7 @@ tool:
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Tests/</code></p>
 </blockquote>
 <hr>
-<p><em>Last updated: January 2026</em></p>
+<p><em>Last updated: February 2026</em></p>
 
 </article>
 

@@ -369,16 +369,21 @@
 <p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Features/VtcCommandHandler.cs:132-158</code>
 <strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:69-73</code></p>
 </blockquote>
-<h4 id="hierarchical-diff-tree">Hierarchical Diff Tree</h4>
-<p>The comparison view uses a <strong>single</strong> hierarchical <code>TreeView</code> where each leaf row shows:</p>
+<h4 id="side-by-side-diff-tree">Side-by-Side Diff Tree</h4>
+<p>The comparison view uses a <strong>single</strong> hierarchical <code>TreeView</code> with a <strong>flat cell layout</strong> designed to feel like a side-by-side diff viewer:</p>
+<p>Each <strong>leaf row</strong> (Setting node) has three zones:</p>
 <ul>
-<li>setting name</li>
-<li>Template A value lane</li>
-<li>A/B picker controls</li>
-<li>Template B value lane</li>
-<li>override editor entry point (category overrides)</li>
+<li><strong>Diff glyph</strong> (22px) — <code>≠</code>, <code>+A</code>, <code>+B</code> indicator</li>
+<li><strong>Setting name</strong> (260px gutter) — narrow label</li>
+<li><strong>Template A value cell</strong> (<code>*</code> width) — clickable flat cell for Template A</li>
+<li><strong>Column divider</strong> (1px) — thin vertical rule</li>
+<li><strong>Template B value cell</strong> (<code>*</code> width) — clickable flat cell for Template B</li>
 </ul>
-<p>Category override rows expose <strong>side-specific visibility and override counts</strong> (<code>LeftVisibilityDisplay</code>, <code>RightVisibilityDisplay</code>, <code>LeftOverrideCount</code>, <code>RightOverrideCount</code>) so A/B columns always reflect the correct template values.</p>
+<p>Row grids bind their width to the active tree viewport (<code>ScrollContentPresenter.ActualWidth</code>) with a <code>TreeView.ActualWidth</code> fallback so A/B star columns expand to the visible lane width instead of collapsing to content width.</p>
+<p><strong>Container nodes</strong> (Root, Tab, CategoryGroup) render as <strong>section dividers</strong> that span the full row width with summary badges (e.g., &quot;12 diff · 4 A-only · 2 B-only&quot;) right-aligned.</p>
+<p><strong>Click-to-select</strong>: Inspector context is now updated from both explicit row selection and value-cell actions. <code>SelectNodeForInspectorCommand</code> resolves filtered nodes to <code>OriginalNode</code> so Inspector binds to stable backing data. Selection toggling (<code>SelectLeft</code>/<code>SelectRight</code>) via <code>ToggleCellLeftCommand</code>/<code>ToggleCellRightCommand</code> remains gated by <code>IsSelectable</code> (difference rows only). Selected cells show an accent border. No separate checkboxes.</p>
+<p><strong>Inspector panel</strong>: The right sidebar includes an Inspector tab that displays the full A vs B breakdown for <code>SelectedNode</code>, with Use A/B buttons and Edit Overrides for category overrides.</p>
+<p>Category override rows expose <strong>side-specific visibility and override counts</strong> (<code>LeftVisibilityDisplay</code>, <code>RightVisibilityDisplay</code>, <code>LeftOverrideCount</code>, <code>RightOverrideCount</code>) shown as minimal inline count chips <code>(N)</code> inside the value cells.</p>
 <p>The tree structure groups settings by type:</p>
 <pre><code>Display Settings
 +-- Detail Level
@@ -400,7 +405,11 @@ Filter Overrides
 </code></pre>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeBuilder.cs:17-43</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:245</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:221</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:225</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Resources/VtcDiffStyles.xaml:141</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:510</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml.cs:52</code>
 <strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:310</code>
 <strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:373</code></p>
 </blockquote>
@@ -423,7 +432,7 @@ Filter Overrides
 </tr>
 <tr>
 <td><code>Setting</code></td>
-<td>Leaf node with actual values and selection checkboxes</td>
+<td>Leaf node with clickable A/B value cells</td>
 </tr>
 </tbody>
 </table>
@@ -439,6 +448,59 @@ Filter Overrides
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:807</code></p>
+</blockquote>
+<h4 id="override-pattern-preview-pipeline">Override Pattern Preview Pipeline</h4>
+<p>The category-override editor now renders Revit-like fill pattern previews from extracted <code>FillGrid</code> metadata, instead of a color-only swatch.</p>
+<p>Flow:</p>
+<ol>
+<li><code>GetFillPatterns()</code> loads <code>FillPatternElement</code> entries and captures <code>FillPattern.IsSolidFill</code> plus each grid's angle/offset/shift/origin.</li>
+<li><code>VtcFillPatternInfo</code> carries the grid metadata into UI ViewModels.</li>
+<li><code>VtcFillPatternPreviewFactory</code> converts fill-grid data into a tiled <code>DrawingBrush</code> hatch preview.</li>
+<li><code>VtcCategoryOverrideBodyViewModel</code> and <code>VtcFillPatternBodyViewModel</code> invalidate preview brush bindings when pattern/color/visibility changes.</li>
+<li><code>VtcBodyTemplates.xaml</code> hosts these brushes in larger preview rectangles for surface/cut sections.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:215</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1577</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcFillPatternPreviewFactory.cs:22</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcCategoryOverrideBodyViewModel.cs:50</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcFillPatternBodyViewModel.cs:15</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml:209</code></p>
+</blockquote>
+<h4 id="linked-file-visibility-support">Linked File Visibility Support</h4>
+<p>VTC uses the Revit 2024+ APIs <code>View.GetLinkOverrides()</code> and <code>View.SetLinkOverrides()</code> to fully support per-link visibility overrides:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Support Level</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Per-link visibility mode (ByHostView/ByLinkView/Custom)</td>
+<td>✅ Full</td>
+</tr>
+<tr>
+<td>Linked view reference</td>
+<td>✅ Full</td>
+</tr>
+<tr>
+<td>Copy link overrides between templates</td>
+<td>✅ Full</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>RevitLinkGraphicsSettings</code> class provides access to:</p>
+<ul>
+<li><code>LinkVisibilityType</code> - Enum with <code>ByHostView</code>, <code>ByLinkView</code>, or <code>Custom</code> modes</li>
+<li><code>LinkedViewId</code> - ElementId of the linked view when using <code>ByLinkView</code> mode</li>
+</ul>
+<p><strong>Note:</strong> Per-link category graphics overrides within <code>Custom</code> mode are only partially exposed by the Revit API. VTC extracts category information from linked documents using host view overrides as a baseline for comparison.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:962-1033</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1228-1283</code>
+<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1326-1378</code></p>
 </blockquote>
 <h2 id="settings">Settings</h2>
 <p>VTC currently has no persistent user settings. All configuration is session-based through the UI.</p>
