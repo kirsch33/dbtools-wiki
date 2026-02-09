@@ -157,6 +157,31 @@ bash build-vendored-deps.sh
 </ol>
 <p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Tools/DbtToolAssemblyLoader.cs"><code>DbtToolAssemblyLoader.cs:10</code></a></p>
 <hr>
+<h4 id="revit-test-model-backup-files-0001rvt-00001rvt">Revit Test Model Backup Files (<code>*.0001.rvt</code>, <code>*.00001.rvt</code>)</h4>
+<p><strong>Symptom:</strong></p>
+<ul>
+<li>Backup RVT files appear under <code>testing/RevitTestModels/</code> after saving test models in Revit.</li>
+</ul>
+<p><strong>Cause:</strong></p>
+<ul>
+<li>Revit always writes backup copies when saving <code>.rvt</code> models.</li>
+</ul>
+<p><strong>Current behavior (by design):</strong></p>
+<ol>
+<li>Backup-pattern RVTs under <code>testing/RevitTestModels/</code> are git-ignored.</li>
+<li>Build orchestration deletes these backup RVTs during cleanup phases.</li>
+</ol>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>You do not need to manually keep these files out of commits.</li>
+<li>Cleanup runs during <code>PreBuildCleanup</code>, <code>FinalizeRepo</code>, and <code>EnsureCleanBuildServers</code>.</li>
+</ul>
+<p><strong>Source:</strong> <code>build/Build.cs:216</code><br>
+<strong>Source:</strong> <code>build/Build.cs:438</code><br>
+<strong>Source:</strong> <code>build/Build.cs:719</code><br>
+<strong>Source:</strong> <code>build/Build.cs:748</code><br>
+<strong>Source:</strong> <code>.gitignore:95</code></p>
+<hr>
 <h2 id="runtime-issues">Runtime Issues</h2>
 <h3 id="theme-validation-failures">Theme Validation Failures</h3>
 <p>Theme validation runs at startup to catch XAML resource issues early. Failures here indicate broken theme dictionaries or missing resources.</p>
@@ -409,9 +434,16 @@ bash build-vendored-deps.sh
 <ul>
 <li>Log level changes from <code>Information</code> to <code>Debug</code></li>
 <li>Logger window becomes visible</li>
+<li>Hook execution start/completion lines for high-frequency background hooks are suppressed</li>
+<li>Diagnostic output is summarized at <code>Debug</code>, with deep probe/transaction detail moved to <code>Trace</code></li>
 <li>More detailed stack traces in logs</li>
 <li>Faster log buffer flush (120ms vs 600ms)</li>
 </ul>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:460</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtHookHost.cs:153</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/UI/ContextualRibbonInjectorBase.cs:293</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:152</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</code></p>
 <hr>
 <h3 id="log-file-locations">Log File Locations</h3>
 <p>Log files are written to the user's local app data directory:</p>

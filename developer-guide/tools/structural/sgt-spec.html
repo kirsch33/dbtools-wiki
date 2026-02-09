@@ -1011,9 +1011,10 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Step 1 calibration, Step 2 orientation probes, and Step 3 profile warm must consume temp-transaction metadata and convert blocking probe failures into deterministic symbol/type-level failures (forbidden and non-forbidden), not silent probe success.</li>
 <li>The temp-transaction utility must capture work exceptions and rollback exceptions independently; it must not throw from a <code>finally</code> path that can mask the original failure context.</li>
 <li>If rollback fails, raise <code>[SpecFail/TempTx/RollbackFailed]</code> and preserve both failures when both work and rollback fault.</li>
-<li>Emit temp-transaction lifecycle diagnostics for rollback probes (<code>[SGT.TempTx.Begin]</code>, <code>[SGT.TempTx.Rollback.Begin]</code>, <code>[SGT.TempTx.Rollback.End]</code>, <code>[SGT.TempTx.Failures]</code>).</li>
+<li>Emit temp-transaction lifecycle diagnostics for rollback probes (<code>[SGT.TempTx.Begin]</code>, <code>[SGT.TempTx.Rollback.Begin]</code>, <code>[SGT.TempTx.Rollback.End]</code>, <code>[SGT.TempTx.Failures]</code>) at <code>Trace</code> level; keep blocking failures at <code>Warning</code>/<code>Error</code>.</li>
 <li>Forbidden temp placement failures must short-circuit immediately after temp placement/regenerate (before any face traversal/classification work).</li>
 <li>Emit a single begin/end calibration transaction diagnostic per symbol (<code>[SGT.Calibration.Tx.Begin]</code> / <code>[SGT.Calibration.Tx.End]</code>) including elapsed milliseconds, document/transaction context, and final outcome (<code>ok|forbidden|failed</code>).</li>
+<li>Emit one compact calibration summary per run (<code>[SGT.PreflightSummary]</code>) with total/calibrated/failed counts.</li>
 <li>Post-overlay Analyze completion must use a deduped two-pass preview refresh (<code>DispatcherPriority.Loaded</code> then <code>DispatcherPriority.Background</code>) with explicit scheduling/failure logging and without watchdog/fallback enqueue behavior.</li>
 <li>Progress: <code>(completed families / total families) × 100%</code></li>
 </ul>
@@ -1025,7 +1026,13 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:303</p>
+<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:303
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs:151
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:310
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:384
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:234
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:828
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</p>
 </blockquote>
 <h3 id="133-step-2-orientation-analysis-0--100">13.3 Step 2: Orientation Analysis (0% → 100%)</h3>
 <ul>
@@ -1042,6 +1049,8 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 </li>
 </ul>
 </li>
+<li>Emit compact Step 2 summaries for opening detection and merge (<code>[SGT.Step2.OpeningsSummary]</code>, <code>[SGT.Step2.OpeningMergeSummary]</code>), with only sampled opening detail in Debug logs.</li>
+<li>Emit one Debug orientation summary per role (<code>[SGT.Orientation.Summary]</code>) and keep candidate/probe-level diagnostics at <code>Trace</code>.</li>
 <li>Progress: <code>(completed family-role pairs / total pairs) × 100%</code></li>
 </ul>
 <h3 id="134-step-3-2d-profile-loop-extraction-0--100">13.4 Step 3: 2D Profile Loop Extraction (0% → 100%)</h3>
@@ -1053,6 +1062,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Cache for preview rendering</li>
 </ul>
 </li>
+<li>Emit one compact Step 3 summary (<code>[SGT.PreflightSummary]</code>) with total/warmed/failed type counts; keep per-type warm success chatter at <code>Trace</code>.</li>
 <li>Progress: <code>(completed families / total families) × 100%</code></li>
 </ul>
 <h3 id="135-step-4-initial-ui-seeding-0--100">13.5 Step 4: Initial UI Seeding (0% → 100%)</h3>

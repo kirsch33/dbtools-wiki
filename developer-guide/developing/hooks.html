@@ -277,6 +277,21 @@
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:106</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:424</code></p>
 </blockquote>
+<h3 id="high-frequency-hook-logging-policy">High-Frequency Hook Logging Policy</h3>
+<p>For high-frequency event hooks (<code>SelectionChanged</code>, <code>ViewActivated</code>), suppress routine start/completion executor noise and keep diagnostics focused on state changes and failures:</p>
+<ul>
+<li>Set <code>SafeExecuteOptions.LogStart = false</code></li>
+<li>Set <code>SafeExecuteOptions.LogCompletion = false</code></li>
+<li>Set <code>SafeExecuteOptions.WorkPerformed = false</code> for no-op refresh passes</li>
+<li>Keep <code>NotifyKind = None</code> for background hook refreshes</li>
+</ul>
+<p>Use tool-level logs for meaningful state transitions (for example, contextual eligibility changed), and keep deep per-probe diagnostics at <code>Trace</code> so Debug logs stay readable during long Revit sessions.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:460</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtHookHost.cs:152</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/UI/ContextualRibbonInjectorBase.cs:293</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:152</code></p>
+</blockquote>
 <h2 id="the-iviewactivatedtask-system">The IViewActivatedTask System</h2>
 <p>For the common pattern of &quot;do something when a view activates,&quot; DBTools provides a higher-level abstraction: <code>IViewActivatedTask</code>. The single <code>ViewActivatedHookHandler</code> dispatches to all registered tasks.</p>
 <h3 id="iviewactivatedtask-interface">IViewActivatedTask Interface</h3>
@@ -529,7 +544,7 @@
             {
                 Name = &quot;My Contextual Selection Hook&quot;,
                 SuppressCompletionBanner = true,
-                NotifyKind = SafeExecutor.NotifyKindKind.None,
+                NotifyKind = SafeExecutor.NotifyKind.None,
                 WorkPerformed = false
             },
             ct: CancellationToken.None);
@@ -745,7 +760,7 @@ public async Task ExecuteAsync(...)
 {
     SuppressCompletionBanner = true,
     NoBannerOnSuccess = true,
-    NotifyKind = SafeExecutor.NotifyKindKind.Error,  // Only show errors
+    NotifyKind = SafeExecutor.NotifyKind.Error,  // Only show errors
     WorkPerformed = false  // Don't log &quot;no work&quot; for frequent events
 }
 </code></pre>

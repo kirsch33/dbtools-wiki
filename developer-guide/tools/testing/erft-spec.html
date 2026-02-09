@@ -774,6 +774,15 @@ public static double ComputeElevationOnBeamLocationLine(
 <li>Store as <code>MemberProfileLoops</code></li>
 <li>Use for extrusion in preview</li>
 </ol>
+<p>Logging contract:</p>
+<ul>
+<li>Emit one profile-warmup summary line with total/warmed/failed counts.</li>
+<li>Keep per-type warm progress logs at <code>Trace</code> (not Debug).</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/Revit/ErftMemberProfileWarmupService.cs:74</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/Revit/ErftMemberProfileWarmupService.cs:154</code></p>
+</blockquote>
 <h3 id="93-scene-builder">9.3 Scene Builder</h3>
 <pre><code class="lang-csharp">public sealed class ErftPreviewSceneBuilder
 {
@@ -899,7 +908,13 @@ public static double ComputeElevationOnBeamLocationLine(
             opts: new SafeExecutor.SafeExecuteOptions
             {
                 Name = &quot;ERFT Contextual Selection Hook&quot;,
-                NotifyKind = SafeExecutor.NotifyKindKind.None
+                LogStart = false,
+                LogCompletion = false,
+                ShowCompletionToUser = false,
+                SuppressCompletionBanner = true,
+                NoBannerOnSuccess = true,
+                NotifyKind = SafeExecutor.NotifyKind.None,
+                WorkPerformed = false
             },
             ct: CancellationToken.None);
     }
@@ -908,7 +923,17 @@ public static double ComputeElevationOnBeamLocationLine(
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:66</code><br>
 <strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:119</code><br>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:139</code></p>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:139</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:151</code></p>
+</blockquote>
+<p>Selection-refresh logging must be state-aware:</p>
+<ul>
+<li>Log contextual evaluation only when <code>(hasErftElements, systemCount, buttonCount)</code> changes.</li>
+<li>Emit &quot;schema missing&quot; debug line once until schema becomes available again.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:212</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:237</code></p>
 </blockquote>
 <h3 id="122-contextual-tab-detection">12.2 Contextual Tab Detection</h3>
 <p>Look for:</p>
