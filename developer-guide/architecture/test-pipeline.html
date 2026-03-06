@@ -90,8 +90,8 @@
 <h1 id="test-pipeline">Test Pipeline</h1>
 
 <!-- STATUS: verified -->
-<!-- Last Updated: 2026-01-26 -->
-<!-- Verified By: docs-verification-20260126 - Source anchors verified against code -->
+<!-- Last Updated: 2026-03-05 -->
+<!-- Verified By: codex-20260305 - Source anchors verified against code -->
 <p>This document describes the DBTools testing infrastructure, including test categories, execution methods, and shared test utilities.</p>
 <hr>
 <h2 id="overview">Overview</h2>
@@ -293,7 +293,7 @@ bash invoke-revit-tests.sh -f &quot;FullyQualifiedName~SomeTestName&quot;
 bash invoke-revit-tests.sh --smart --fixture GmAdapterTests
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:202-204</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:121-160</code>, <code>invoke-revit-tests.sh:649-663</code></p>
 </blockquote>
 <h3 id="command-line-options">Command-Line Options</h3>
 <h4 id="test-execution">Test Execution</h4>
@@ -339,7 +339,7 @@ bash invoke-revit-tests.sh --smart --fixture GmAdapterTests
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:85-93</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:125-152</code></p>
 </blockquote>
 <h4 id="revit-instance-modes">Revit Instance Modes</h4>
 <table>
@@ -351,31 +351,36 @@ bash invoke-revit-tests.sh --smart --fixture GmAdapterTests
 </thead>
 <tbody>
 <tr>
+<td><code>--close</code></td>
+<td>Open a fresh isolated Revit test instance and close it after tests (default)</td>
+</tr>
+<tr>
 <td><code>--reuse</code></td>
-<td>Use existing Revit; fail if none running</td>
+<td>Rejected for isolated worktree runs</td>
 </tr>
 <tr>
 <td><code>--persist</code></td>
-<td>Open new Revit and leave running after tests</td>
-</tr>
-<tr>
-<td><code>--close</code></td>
-<td>Open new Revit and close after tests (default)</td>
+<td>Rejected for isolated worktree runs</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:95-99</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:356</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:1132</code></p>
 </blockquote>
 <h4 id="smart-mode-recommended">Smart Mode (Recommended)</h4>
 <pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool GM
 </code></pre>
 <p>Smart mode checks if the build has changed since the last successful test, warns if so,
-and always uses <code>--close</code> mode to prevent leaked Revit instances. Revit is pre-launched
-minimized to avoid stealing focus from other windows (unless Revit is already running,
-in which case prelaunch is skipped to avoid session collision).</p>
+and always uses <code>--close</code> mode to prevent leaked Revit instances. For isolated launches,
+the runner now stages a stable worktree-local payload under <code>.artifacts/revit-test-host/&lt;year&gt;/payload</code>
+and temporarily rewrites the single <code>DBTools.Loader.dll</code> AppLoader entry to point at that stable path for the run.
+Because the path stays fixed across runs, Revit trust decisions are reusable and the repeated &quot;Always Load&quot;
+prompt no longer appears.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:595-617</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:153</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:190</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:1056</code></p>
 </blockquote>
 <h4 id="toolfixture-shortcuts">Tool/Fixture Shortcuts</h4>
 <table>
@@ -397,7 +402,7 @@ in which case prelaunch is skipped to avoid session collision).</p>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:90-91</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:129-131</code>, <code>invoke-revit-tests.sh:651-663</code></p>
 </blockquote>
 <h3 id="running-single-tests">Running Single Tests</h3>
 <p><strong>Recommended (via test runner):</strong></p>
@@ -412,7 +417,29 @@ bash invoke-revit-tests.sh --smart -f &quot;FullyQualifiedName~SomeTestName&quot
   -c Release --filter &quot;FullyQualifiedName~Metadata&quot;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:204</code>, <code>AGENTS.md</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:691-697</code>, <code>AGENTS.md</code></p>
+</blockquote>
+<h3 id="quiet-output-and-run-bundles">Quiet Output and Run Bundles</h3>
+<p>Test execution is quiet by default in the terminal. The runner writes the full <code>vstest</code>
+console stream to a per-run bundle on disk, then prints only the compact summary, failed
+test names, and artifact paths to the terminal.</p>
+<p>Each run creates <code>.artifacts/revit-test-runs/&lt;timestamp&gt;-&lt;year&gt;-&lt;tool-or-filter&gt;/</code> with:</p>
+<ul>
+<li><code>console.log</code> - full raw <code>vstest</code> console output</li>
+<li><code>results.trx</code> - structured test results from the TRX logger</li>
+<li><code>vstest.diag.log</code> - test platform diagnostics</li>
+<li><code>summary.json</code> - counts, exit code, duration, failed tests, and artifact paths</li>
+<li><code>failures.md</code> - aggregated failure report for bulk triage</li>
+<li><code>failed/*.md</code> - one artifact per failed test with captured failure details</li>
+</ul>
+<p>This layout is designed for bulk triage loops: run the full tool suite once, read
+<code>failures.md</code>, apply production-first fixes under the <code>test-audit</code> rule, rebuild once,
+and rerun the full suite.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:97-117</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:960-969</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:1008-1015</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:1041-1283</code></p>
 </blockquote>
 <hr>
 <h2 id="test-discovery">Test Discovery</h2>
@@ -434,11 +461,11 @@ bash invoke-revit-tests.sh --discover --da-only
 bash invoke-revit-tests.sh --discover --local-only
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:349-422</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:397-467</code></p>
 </blockquote>
 <hr>
 <h2 id="test-history">Test History</h2>
-<p>The runner tracks test execution history:</p>
+<p>The runner tracks test execution history and stores the latest bundle paths for each filter:</p>
 <pre><code class="lang-bash"># Show test run history
 bash invoke-revit-tests.sh --history
 
@@ -452,11 +479,16 @@ bash invoke-revit-tests.sh --show-failed
 bash invoke-revit-tests.sh --get-errors &quot;GM&quot;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:108-112</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:148-152</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:472-560</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:563-634</code></p>
 </blockquote>
 <p>History is stored at: <code>.artifacts/test-history.json</code></p>
+<p><code>--get-errors &quot;PATTERN&quot;</code> replays the structured <code>failures.md</code> report from the latest
+matching failed run instead of showing only a short snippet.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:58</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:58-60</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:532-551</code></p>
 </blockquote>
 <hr>
 <h2 id="parallel-agent-safety">Parallel Agent Safety</h2>
@@ -464,7 +496,7 @@ bash invoke-revit-tests.sh --get-errors &quot;GM&quot;
 via per-year file locks (<code>.artifacts/.revit-locks/revit-{YEAR}.lock</code>). No explicit session
 management is needed — the locking is automatic.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:882-896</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1144</code></p>
 </blockquote>
 <hr>
 <h2 id="testsupport-infrastructure">TestSupport Infrastructure</h2>
@@ -524,13 +556,15 @@ management is needed — the locking is automatic.</p>
 <li>Resolves test model paths from <code>dbtools.testparams.json</code></li>
 <li>Walks up from assembly location to find <code>.artifacts/dbtools.testparams.json</code></li>
 <li>Falls back to <code>%APPDATA%/DBTools/dbtools.testparams.json</code> (legacy)</li>
-<li>Written by <code>invoke-revit-tests.sh</code> to <code>.artifacts/</code> before test execution</li>
+<li><code>invoke-revit-tests.sh</code> writes the canonical file to <code>.artifacts/</code> and mirrors it to
+<code>%APPDATA%/DBTools/</code> so RevitTest temp-assembly runs can still resolve models</li>
 </ul>
 <pre><code class="lang-csharp">// Get model path
 var path = TestPathResolver.ResolveTestModelPath(&quot;2026&quot;, &quot;GM&quot;, &quot;gm_test_model.rvt&quot;);
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/TestPathResolver.cs:10-103</code></p>
+<p><strong>Source:</strong> <code>testing/TestSupport/TestPathResolver.cs:10-66</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:867-956</code></p>
 </blockquote>
 <h3 id="test-logging">Test Logging</h3>
 <p><strong>TestLoggingBridge</strong> (<code>TestLoggingBridge.cs</code>):</p>
@@ -631,22 +665,23 @@ public abstract class GmTestFixture
 &lt;/RunSettings&gt;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:828-845</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:867-937</code></p>
 </blockquote>
 <p><strong>DA Tests:</strong> <code>testing/da.runsettings</code> for APS configuration.</p>
 <blockquote>
 <p><strong>Source:</strong> <code>testing/da.runsettings:1-8</code></p>
 </blockquote>
 <h3 id="test-parameters-dbtoolstestparamsjson">Test Parameters (dbtools.testparams.json)</h3>
-<p>Written to <code>.artifacts/dbtools.testparams.json</code> (TestPathResolver walks up from test DLL
-to find this file):</p>
+<p>Written to <code>.artifacts/dbtools.testparams.json</code> and mirrored to
+<code>%APPDATA%/DBTools/dbtools.testparams.json</code> so both repo-local and temp-hosted RevitTest
+executions can resolve the same model root:</p>
 <pre><code class="lang-json">{
   &quot;ModelsDirectory&quot;: &quot;C:\\...\\csharp\\testing\\RevitTestModels&quot;,
   &quot;Year&quot;: 2026
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:847-854</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:939-956</code></p>
 </blockquote>
 <hr>
 <h2 id="build-integration">Build Integration</h2>
@@ -663,7 +698,7 @@ bash build.sh BuildTests
 <li>Fails if artifacts are stale relative to source</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:664-684</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:733-841</code></p>
 </blockquote>
 <hr>
 <h2 id="guardrails-from-agentsmd">Guardrails (from AGENTS.md)</h2>

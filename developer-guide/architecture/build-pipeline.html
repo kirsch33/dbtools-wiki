@@ -89,9 +89,9 @@
         <article data-uid="">
 <h1 id="build-pipeline">Build Pipeline</h1>
 
-<!-- STATUS: verified -->
-<!-- Last Updated: 2026-01-26 -->
-<!-- Verified By: docs-verification-20260126 - All source anchors verified against code -->
+<!-- STATUS: draft -->
+<!-- Last Updated: 2026-03-03 -->
+<!-- Updated 2026-03-05: Removed BuildRunner references after PR #319 revert -->
 <h2 id="overview">Overview</h2>
 <p>DBTools uses a sophisticated build pipeline designed for:</p>
 <ul>
@@ -102,35 +102,52 @@
 <li><strong>Centralized artifacts</strong> (all outputs to <code>.artifacts/</code>, no per-project bin/obj)</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>build.sh:1-162</code>, <code>build/Build.cs:1-200</code></p>
+<p><strong>Source:</strong> <code>build.sh:6</code>, <code>build/Build.cs:1</code></p>
 </blockquote>
 <h2 id="quick-reference">Quick Reference</h2>
-<pre><code class="lang-bash"># Fast incremental build (default)
-bash build.sh
+<pre><code class="lang-bash"># Build vendored UI deps (HandyControl -&gt; DBTools.HandyControl)
+bash build.sh vendor handycontrol
+
+# Build everything
+bash build.sh BuildAll
 
 # Clean + full rebuild
-bash build.sh --clean
+bash build.sh BuildAll --clean
 
 # Build specific Revit year
-bash build.sh -y 2025 BuildAll
+bash build.sh BuildAll -y 2025
 
 # Debug configuration
-bash build.sh --debug
+bash build.sh BuildAll --debug
 
-# Build only the app (skip tests)
-bash build.sh BuildApp
+# Build only the app (fast local iteration)
+bash build.sh BuildApp -y 2026
 
-# Clean outputs only
-bash build.sh Clean
+# Build tests
+bash build.sh BuildTests -y 2026
+
+# Help
+bash build.sh --help
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>build.sh:33-71</code></p>
+<p><strong>Source:</strong> <code>build.sh:1</code></p>
+</blockquote>
+<h2 id="ci-github-actions">CI (GitHub Actions)</h2>
+<p>CI is <strong>opt-in</strong>:</p>
+<ul>
+<li>For <code>push</code> events: include <code>[ci]</code> or <code>[build]</code> in the commit message to run build jobs.</li>
+<li>For <code>pull_request</code> events: include <code>[ci]</code> or <code>[build]</code> in the PR <strong>title or body</strong>.</li>
+<li>Use <code>[ci:test]</code> / <code>[build-test]</code> to run build + tests.</li>
+<li>Use <code>[skip ci]</code> / <code>[ci skip]</code> to force skip.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>.github/workflows/ci.yml:1</code></p>
 </blockquote>
 <h2 id="architecture">Architecture</h2>
 <h3 id="build-system-stack">Build System Stack</h3>
 <pre><code>┌─────────────────────────────────────────────────────────────┐
 │                      build.sh                                │
-│        (Bash wrapper - WSL/Git Bash compatible)             │
+│        (Thin wrapper - WSL/Git Bash compatible)             │
 ├─────────────────────────────────────────────────────────────┤
 │                  Windows dotnet.exe                          │
 │              (via wslpath/cygpath conversion)                │
@@ -153,7 +170,7 @@ bash build.sh Clean
 <tbody>
 <tr>
 <td><code>build.sh</code></td>
-<td>Entry point - WSL/Git Bash wrapper</td>
+<td>Entry point - thin wrapper invoking NUKE via Windows dotnet.exe</td>
 </tr>
 <tr>
 <td><code>build/Build.cs</code></td>
@@ -211,35 +228,12 @@ else
 fi
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>build.sh:6-15</code></p>
-</blockquote>
-<h3 id="build-server-cleanup">Build Server Cleanup</h3>
-<p>The script ensures MSBuild daemon processes are terminated on exit to prevent file locks:</p>
-<pre><code class="lang-bash">cleanup_build_servers() {
-    &quot;$WIN_DOTNET_EXE&quot; build-server shutdown 2&gt;/dev/null || true
-}
-trap cleanup_build_servers EXIT INT TERM
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>build.sh:17-20</code></p>
+<p><strong>Source:</strong> <code>build.sh:6</code></p>
 </blockquote>
 <h3 id="vendored-dependencies">Vendored Dependencies</h3>
-<p>Before non-Clean targets, the script checks for vendored UI assemblies and builds them if missing:</p>
-<pre><code class="lang-bash">ensure_vendored_deps() {
-  local vendor_root=&quot;$SCRIPT_DIR/.artifacts/vendor&quot;
-  local missing=false
-  for tfm in net48 net8.0-windows; do
-    [[ -f &quot;$vendor_root/handycontrol/$tfm/DBTools.HandyControl.dll&quot; ]] || missing=true
-  done
-  if $missing; then
-    echo &quot;Vendored UI assemblies missing; building them now...&quot;
-    bash &quot;$SCRIPT_DIR/build-vendored-deps.sh&quot;
-  fi
-}
+<p>Vendored UI assemblies (HandyControl → DBTools.HandyControl) are built via a dedicated script:</p>
+<pre><code class="lang-bash">bash build-vendored-deps.sh
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>build.sh:135-147</code></p>
-</blockquote>
 <h2 id="nuke-build-system">NUKE Build System</h2>
 <h3 id="parameters">Parameters</h3>
 <table>
@@ -585,10 +579,26 @@ var keepSeparate = new HashSet&lt;string&gt; {
 <h3 id="distribution">Distribution</h3>
 <p>After <code>PromoteToDist</code>, production payloads are in:</p>
 <pre><code>.artifacts/dist/
-├── 2024/
-├── 2025/
-└── 2026/
+└── Release/
+    ├── 2024/
+    ├── 2025/
+    └── 2026/
 </code></pre>
+<h3 id="atomic-promotion-for-file-watchers">Atomic Promotion for File Watchers</h3>
+<p><code>PromoteToDist</code> uses atomic temp+replace semantics and skips unchanged files when publishing into <code>dist/Release/&lt;year&gt;</code>.
+This prevents file watchers (including AppLoader) from seeing partial writes mid-copy and triggering reload from an incomplete payload.</p>
+<p>Promotion order is deterministic and writes <code>DBTools.dll</code> last:</p>
+<ol>
+<li><code>DBTools.Loader.dll</code></li>
+<li><code>DBTools.Themes.dll</code></li>
+<li><code>DBTools.HandyControl.dll</code></li>
+<li><code>DBTools.dll</code></li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>build/BuildConstants.cs:63-69</code>
+<strong>Source:</strong> <code>build/ArtifactManagement.cs:50-76</code>
+<strong>Source:</strong> <code>build/BuildHelpers.cs:188-295</code></p>
+</blockquote>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="common-issues">Common Issues</h3>
 <table>
@@ -609,7 +619,7 @@ var keepSeparate = new HashSet&lt;string&gt; {
 </tr>
 <tr>
 <td>&quot;Vendored UI assemblies missing&quot;</td>
-<td>Run <code>build-vendored-deps.sh</code></td>
+<td>Run <code>bash build.sh vendor handycontrol</code></td>
 </tr>
 <tr>
 <td>XAML designer errors</td>

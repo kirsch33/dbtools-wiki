@@ -648,9 +648,28 @@ Assert.That(result.Groups[0].Pairs, Contains.Item(
 <h2 id="running-tests">Running Tests</h2>
 <h3 id="local-invoke-revit-testssh">Local: invoke-revit-tests.sh</h3>
 <blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1-1022</code></p>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1-1317</code></p>
 </blockquote>
 <p>The primary test runner for Revit integration tests.</p>
+<p>By default, the runner keeps terminal output compact and writes the full diagnostic
+payload into a per-run artifact bundle under <code>.artifacts/revit-test-runs/</code>. Use the
+generated <code>failures.md</code> report for bulk triage, and apply the <code>test-audit</code> rule when
+deciding whether a failure belongs in production code, test code, or test deletion.</p>
+<h4 id="run-bundle-output">Run Bundle Output</h4>
+<p>Each run produces:</p>
+<ul>
+<li><code>console.log</code> - full raw <code>vstest</code> console output</li>
+<li><code>results.trx</code> - structured test results</li>
+<li><code>vstest.diag.log</code> - test platform diagnostics</li>
+<li><code>summary.json</code> - aggregate counts and artifact paths</li>
+<li><code>failures.md</code> - aggregated failed-test report for bulk fix planning</li>
+<li><code>failed/*.md</code> - one file per failed test with captured details</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:97-117</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:960-969</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:1041-1283</code></p>
+</blockquote>
 <h4 id="basic-usage">Basic Usage</h4>
 <pre><code class="lang-bash"># Run all tests for a tool
 bash invoke-revit-tests.sh --tool GM
@@ -678,22 +697,31 @@ bash invoke-revit-tests.sh --fixture SgtUiServicesTests
 <tbody>
 <tr>
 <td><code>--smart</code></td>
-<td>Auto-detect build staleness; always uses --close</td>
+<td>Auto-detect build staleness; always uses <code>--close</code></td>
 </tr>
 <tr>
 <td><code>--reuse</code></td>
-<td>Use existing Revit instance; fail if none running</td>
+<td>Rejected for isolated worktree runs</td>
 </tr>
 <tr>
 <td><code>--persist</code></td>
-<td>Open new Revit and leave it running after tests</td>
+<td>Rejected for isolated worktree runs</td>
 </tr>
 <tr>
 <td><code>--close</code></td>
-<td>Open new Revit and close it after tests (default)</td>
+<td>Open a fresh isolated Revit instance and close it after tests (default)</td>
 </tr>
 </tbody>
 </table>
+<p>The runner now stages a stable worktree-local payload under <code>.artifacts/revit-test-host/&lt;year&gt;/payload</code>
+and temporarily rewrites the AppLoader <code>DBTools.Loader.dll</code> entry to that stable path for the run.
+The stable target path keeps Revit trust decisions reusable, which eliminates the repeated
+&quot;Always Load&quot; prompt while preserving the existing RevitTest/AppLoader host contract.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:153</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:190</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:1056</code></p>
+</blockquote>
 <h4 id="test-discovery">Test Discovery</h4>
 <pre><code class="lang-bash"># List all available tests
 bash invoke-revit-tests.sh --discover
@@ -720,6 +748,12 @@ bash invoke-revit-tests.sh --show-stale 7
 # Show error details for specific tests
 bash invoke-revit-tests.sh --get-errors &quot;GM&quot;
 </code></pre>
+<p><code>--get-errors</code> replays the latest matching <code>failures.md</code> bundle, not just a short history
+snippet.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>invoke-revit-tests.sh:472-560</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:563-634</code></p>
+</blockquote>
 <h4 id="parallel-agent-safety">Parallel Agent Safety</h4>
 <p>Multiple agents are prevented from running tests for the same Revit year simultaneously
 via automatic per-year file locks. No explicit session flags are needed:</p>
@@ -747,10 +781,17 @@ dotnet test . --filter &quot;Category!=Slow&quot;
 <h2 id="debugging-test-failures">Debugging Test Failures</h2>
 <h3 id="common-issues">Common Issues</h3>
 <h4 id="1-missing-required-test-params-file">1. &quot;Missing required test params file&quot;</h4>
-<p><strong>Cause:</strong> Running Revit tests outside of <code>invoke-revit-tests.sh</code></p>
+<p><strong>Cause:</strong> Running Revit tests outside of <code>invoke-revit-tests.sh</code>, or the canonical
+<code>dbtools.testparams.json</code> was not published where RevitTest can find it.</p>
 <p><strong>Fix:</strong> Always run Revit tests via the runner:</p>
 <pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool GM
 </code></pre>
+<p>The runner writes <code>.artifacts/dbtools.testparams.json</code> and mirrors the same file to
+<code>%APPDATA%/DBTools/dbtools.testparams.json</code> for temp-hosted RevitTest runs.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>testing/TestSupport/TestPathResolver.cs:10-66</code>
+<strong>Source:</strong> <code>invoke-revit-tests.sh:939-956</code></p>
+</blockquote>
 <h4 id="2-source-files-appear-newer-than-build-artifacts">2. &quot;Source files appear newer than build artifacts&quot;</h4>
 <p><strong>Cause:</strong> Source code was modified since the last build (advisory warning, not a hard failure)</p>
 <p><strong>Fix:</strong> Rebuild before testing:</p>
@@ -762,8 +803,8 @@ bash invoke-revit-tests.sh --smart --tool GM
 verification, which will produce a hard failure if artifacts are actually corrupted.</p>
 </blockquote>
 <h4 id="3-no-running-revitexe-instance-was-found">3. &quot;No running Revit.exe instance was found&quot;</h4>
-<p><strong>Cause:</strong> Using <code>--reuse</code> mode without a running Revit</p>
-<p><strong>Fix:</strong> Use <code>--smart</code> or <code>--persist</code> instead:</p>
+<p><strong>Cause:</strong> <code>--reuse</code> is not supported for isolated worktree runs.</p>
+<p><strong>Fix:</strong> Use <code>--smart</code> or the default <code>--close</code> mode instead:</p>
 <pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool GM
 </code></pre>
 <h4 id="4-test-passes-in-isolation-but-fails-in-batch">4. Test passes in isolation but fails in batch</h4>

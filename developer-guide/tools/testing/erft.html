@@ -102,7 +102,11 @@
 <li>Framing hierarchy (beam-to-column / beam-to-beam dependencies)</li>
 <li>Adjustment calculation + rounding tolerance</li>
 <li>Apply workflow (write offsets + persist plan snapshot)</li>
+<li>Source filtering: concrete members are excluded when their <strong>Structural Material</strong> name matches <code>\bconcrete\b</code> (case-insensitive). The filter checks both instance-level and type-level material assignments.</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:22</code></p>
+</blockquote>
 <h2 id="contextual-ribbon-hook">Contextual Ribbon Hook</h2>
 <p>ERFT includes a contextual ribbon injector that:</p>
 <ul>
@@ -150,6 +154,42 @@
 <p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:21</code>
 <strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:231</code>
 <strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:313</code></p>
+</blockquote>
+<h2 id="audit-remediation-2026-02-11">Audit Remediation (2026-02-11)</h2>
+<ul>
+<li>Source validation enforces the spec rule: at least one selected column, or at least one selected beam that frames to a column via ERFT hierarchy logic; invalid beams-only selections are blocked with <code>[SpecFail/Selection/NoColumnConnection]</code>.</li>
+<li>Contextual edit launch hard-fails when stored reconstruction payload is missing/corrupt (<code>[SpecFail/Edit/StoredPlanMissing]</code>) and edit mode does not fall back to new-flow selection.</li>
+<li>Stored edit tolerance is strict; non-positive values fail reconstruction (<code>[SpecFail/Edit/InvalidStoredTolerance]</code>) instead of defaulting silently.</li>
+<li>Target preview now prefers analyzed bottom-surface mesh (<code>TargetSurface</code>) and only falls back to full element mesh (<code>TargetElement</code>) if the primary mesh is unavailable.</li>
+<li>Link transform payload is documented and produced as a 16-value homogeneous matrix contract.</li>
+<li>Catch paths in target extraction, column top calculation, and target-edge overlay now emit contextual logs instead of silent suppression.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:98</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionValidationRules.cs:24</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:566</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftRunner.cs:95</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/Logic/ErftPreviewSceneBuilder.cs:76</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Common/Domain/TargetSurfaceGeometry.cs:23</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Analysis/ErftTargetGeometryService.cs:123</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Analysis/ErftColumnQueryService.cs:136</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/UI/ErftPreview3DRenderer.cs:82</code></p>
+</blockquote>
+<h2 id="3d-preview-rendering-and-navigation-maintainer-notes">3D Preview Rendering and Navigation (Maintainer Notes)</h2>
+<ul>
+<li><strong>Renderer entrypoint:</strong> <code>ErftPreview3DRenderer.Render(...)</code> is the only runtime render entrypoint; it clears/rebuilds meshes and edge overlays each frame.</li>
+<li><strong>Scene builder entrypoint:</strong> <code>ErftPreviewSceneBuilder.Build(...)</code> is the authoritative 3D scene contract (<code>TargetSurface</code>/<code>TargetElement</code> + member meshes).</li>
+<li><strong>Navigation invariants:</strong> viewport navigation is canceled via a single <code>CancelViewportNavigation(...)</code> path on <code>LostMouseCapture</code>, window <code>Deactivated</code>, or missing-button move paths.</li>
+<li><strong>Shared constraints policy:</strong> wheel zoom/orbit/pan all use shared <code>HelixRevitNavigation</code> for pivoting, zoom envelopes, and post-interaction constraint clamping.</li>
+<li><strong>Dark-theme readability policy:</strong> target fill stays low opacity (<code>0.12</code>), edges are high-contrast cyan-gray, and the light rig is deterministic (3 directional + ambient).</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/UI/ErftPreview3DRenderer.cs:17</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/UI/ErftPreview3DRenderer.cs:196</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/Logic/ErftPreviewSceneBuilder.cs:21</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Shell/UI/Views/ErftWindow.Preview3D.cs:312</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Shell/UI/Views/ErftWindow.Preview3D.cs:516</code>
+<strong>Source:</strong> <code>src/Tools/Common/UI/Navigation/HelixRevitNavigation.cs:47</code></p>
 </blockquote>
 <h2 id="ui-grid-status-column-layout">UI Grid Status Column Layout</h2>
 <p>Both ERFT comparison grids (columns and beams) use a stretch-last <code>Status</code> column with an explicit minimum width so the status field remains readable while consuming trailing space instead of showing an unused blank area.</p>

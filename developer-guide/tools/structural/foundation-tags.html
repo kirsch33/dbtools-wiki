@@ -168,8 +168,10 @@
 </blockquote>
 <h3 id="view-activated-auto-update">View-Activated Auto-Update</h3>
 <p>When enabled, the tool automatically runs the Update Combined Tags operation when activating floor or ceiling plan views.</p>
+<p>If shared-parameter prerequisites are invalid during auto-update, the tool sets warning <code>core.structural.combined_tags</code>, skips execution, and shows a prerequisite banner once per document session.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs:37-49</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs</code></p>
 </blockquote>
 <p><strong>Supported View Types:</strong></p>
 <ul>
@@ -349,7 +351,7 @@
 <td><code>HasWarning</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td>Warning state (disables auto-update)</td>
+<td><strong>Session-only</strong> warning state mirrored into Settings UI (not persisted to disk). Tool enable/disable is driven by warning <code>core.structural.combined_tags</code>.</td>
 </tr>
 <tr>
 <td><code>TagFamilyPatterns</code></td>
@@ -374,26 +376,33 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:14-49</code></p>
 </blockquote>
+<h3 id="warning--remediation-flow">Warning + remediation flow</h3>
+<ul>
+<li>Active-document prerequisite checks toggle warning <code>core.structural.combined_tags</code> to disable Foundation Tags commands when required shared parameters are missing/mismatched.</li>
+<li>Settings warning cards can expose a <strong>Fix</strong> action when the owning settings pack context supports remediation (Foundation Tags uses this to run Install/Repair).</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/FoundationTagsPrerequisiteMonitorTask.cs:1</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Settings/Shell/SettingsWarningViewModel.cs:1</code></p>
+</blockquote>
 <h3 id="default-patterns">Default Patterns</h3>
 <p><strong>Tag Family Patterns (Move Combined Tags):</strong></p>
-<pre><code>^Combined Foundation Tag
-^DB Foundation Tag
+<pre><code>^DB Pier and Foundation Combined Tag(?: No Elevations)?$
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:26-30</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs</code></p>
 </blockquote>
 <p><strong>Pier Family Patterns (Update Combined Tags):</strong></p>
-<pre><code>^Foundation Pier
+<pre><code>^Foundation Pier(?: - Round)?$
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:36-39</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs</code></p>
 </blockquote>
 <p><strong>Footing Family Patterns (Update Combined Tags):</strong></p>
-<pre><code>^Footing-Rectangular$
-^Pile Cap-Rectangular$
+<pre><code>^(?:Footing|Pile Cap)-Rectangular$
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:45-49</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs</code></p>
 </blockquote>
 <h3 id="settings-ui">Settings UI</h3>
 <p>The settings pack provides a configuration panel with:</p>
@@ -440,11 +449,19 @@
 <p>Manual command runs and view-activated auto-update now perform <strong>strict, non-mutating prerequisite validation</strong>.<br>
 If required shared parameters are missing/mismatched (including GUID mismatch), the command fails immediately, activates warning <code>core.structural.combined_tags</code>, and does not attempt in-command repair.</p>
 <p>Repair remains an explicit settings action via <strong>Install/Repair Required Parameters</strong> in the Foundation Tags settings pack.</p>
+<p><strong>Repair behavior:</strong></p>
+<ul>
+<li>Install/Repair deletes <strong>all conflicting parameter definitions</strong> that share the required parameter names but do not match the required GUID (including duplicate-name collisions), then re-binds the correct shared parameter definitions from the DBTools shared parameter file.</li>
+<li>The Combined Tags updater reads/writes these prerequisite parameters by <strong>GUID</strong> (not name) to ensure deterministic behavior even in models that previously had name collisions.</li>
+</ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/UpdateCombinedFoundationTagsHandler.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/MoveCombinedFoundationTagsHandler.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs:221</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs:384</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:141</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:183</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/UpdateCombinedFoundationTagsHandler.cs:51</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/MoveCombinedFoundationTagsHandler.cs:47</code>
+<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs:64</code></p>
 </blockquote>
 <h2 id="manifest">Manifest</h2>
 <pre><code class="lang-yaml">id: DBTools.Structural.FoundationTags

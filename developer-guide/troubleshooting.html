@@ -183,6 +183,73 @@ bash build-vendored-deps.sh
 <strong>Source:</strong> <code>.gitignore:95</code></p>
 <hr>
 <h2 id="runtime-issues">Runtime Issues</h2>
+<h3 id="apploader-hot-reload-popup-assembly-already-loaded">AppLoader Hot-Reload Popup: &quot;Assembly already loaded&quot;</h3>
+<p><strong>Symptom:</strong></p>
+<ul>
+<li>Revit 2025/2026 shows a popup about an already-loaded assembly during or right after <code>BuildAll</code>.</li>
+<li>This is commonly triggered while AppLoader is watching the dist folder and files are being copied.</li>
+</ul>
+<p><strong>Likely causes:</strong></p>
+<ul>
+<li>AppLoader is watching a multi-year root (<code>.artifacts/dist/Release</code>) instead of a single-year folder.</li>
+<li>A reload is triggered while the output is being replaced (even with atomic per-file replacement, multiple file updates can still trigger reload attempts).</li>
+<li>Revit 2025+ (net8): DBTools code loaded or resolved a <code>DBTools.*</code> assembly/type outside AppLoader's collectible <code>AssemblyLoadContext</code> (e.g., process-wide <code>AppDomain</code> scans or <code>Assembly.Load(...)</code>), preventing full unload and causing AppLoader's reload to fail with &quot;already loaded&quot;.</li>
+</ul>
+<p><strong>Required setup:</strong></p>
+<ol>
+<li>Point AppLoader to one year folder only:
+<ul>
+<li><code>.artifacts/dist/Release/2025</code> or</li>
+<li><code>.artifacts/dist/Release/2026</code></li>
+</ul>
+</li>
+<li>Build only the running year while Revit is open:
+<ul>
+<li><code>bash build.sh -y 2026 BuildAll</code> (or <code>-y 2025</code>)</li>
+</ul>
+</li>
+<li>Use the repository build pipeline so dist promotion uses atomic file replacement semantics.</li>
+</ol>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Revit 2024 (<code>net48</code>) does not support unload/reload semantics (assemblies cannot be unloaded). DBTools can still be loaded via AppLoader for Revit 2024, but you must restart Revit to pick up a new build.</li>
+<li>Revit 2025+ (<code>net8</code>) is the supported hot-reload path.</li>
+</ul>
+<p><strong>Source:</strong> <code>build/Build.cs:555-599</code><br>
+<strong>Source:</strong> <code>build/ArtifactManagement.cs:50-76</code><br>
+<strong>Source:</strong> <code>build/BuildHelpers.cs:188-295</code><br>
+<strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:17</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolAssemblyLoader.cs:39</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtTypeResolver.cs:35</code><br>
+<strong>Source:</strong> <code>src/DBTools.App/Bootstrap/AppBootstrapper.cs:331</code></p>
+<h3 id="apploader-revit-2024-dbtools-doesnt-load--no-logs">AppLoader (Revit 2024): DBTools doesn't load / no logs</h3>
+<p><strong>Symptom:</strong></p>
+<ul>
+<li>AppLoader is installed and visible in Revit 2024, but DBTools never shows up (no ribbon buttons) and no DBTools logs are created.</li>
+</ul>
+<p><strong>Checklist:</strong></p>
+<ol>
+<li>Confirm AppLoader is pointing at a <strong>single-year</strong> folder (for Revit 2024: <code>.artifacts/dist/Release/2024</code>) and the application entry is enabled.</li>
+<li>Confirm AppLoader actually executed its load command in that session:
+<ul>
+<li>In the Revit journal, you should see an entry similar to <code>Execute external command ... CommandAddIn</code>.</li>
+<li>If that entry is missing, DBTools will not be loaded in that session.</li>
+</ul>
+</li>
+<li>If AppLoader did attempt to load DBTools but it still didn't start, check loader diagnostics (written only on loader exceptions):
+<ul>
+<li><code>%TEMP%\\DBTools.Loader.diag.log</code></li>
+<li><code>%APPDATA%\\DBTools\\Logs\\DBTools.Loader.diag.log</code></li>
+</ul>
+</li>
+<li>If Revit 2024 was already running during a rebuild/dist promotion: hot-reload is not supported on net48; restart Revit 2024 to pick up the new build.
+<ul>
+<li>For the dev/AppLoader loop, DBTools.Loader treats AppLoader net48 reload attempts as a no-op after a successful startup to avoid duplicate initialization errors.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:18</code><br>
+<strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:38</code></p>
 <h3 id="theme-validation-failures">Theme Validation Failures</h3>
 <p>Theme validation runs at startup to catch XAML resource issues early. Failures here indicate broken theme dictionaries or missing resources.</p>
 <h4 id="theme-dictionary-merge-failed">Theme Dictionary Merge Failed</h4>
@@ -292,11 +359,6 @@ bash build-vendored-deps.sh
 <td>Check that all referenced families exist in the project</td>
 </tr>
 <tr>
-<td><code>1002</code></td>
-<td>Failed to build nesting index</td>
-<td>Verify nested family relationships are valid</td>
-</tr>
-<tr>
 <td><code>1003</code></td>
 <td>Shared parameter deserialization failed</td>
 <td>Check shared parameter file integrity</td>
@@ -308,7 +370,7 @@ bash build-vendored-deps.sh
 </tr>
 </tbody>
 </table>
-<p><strong>Source:</strong> <a href="../../../src/Tools/Common/GM/Shared/Kernel/GmKernelExceptions.cs"><code>GmKernelExceptions.cs:6</code></a></p>
+<p><strong>Source:</strong> <a href="../../../src/Tools/Common/GM/Domain/KernelExceptions.cs"><code>KernelExceptions.cs:6</code></a></p>
 <hr>
 <h4 id="gminvalidmappingexception">GmInvalidMappingException</h4>
 <table>
@@ -420,6 +482,14 @@ bash build-vendored-deps.sh
 <code>pack://application:,,,/{assembly};component/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml</code></p>
 <p><strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/Features/VtcCommandHandler.cs"><code>VtcCommandHandler.cs:132</code></a><br>
 <strong>Source:</strong> <a href="../../../src/DBTools.App/DBTools.App.csproj"><code>DBTools.App.csproj:69</code></a></p>
+<h4 id="vtc-process-crash-read-only-binding-in-process-dialog">VTC Process Crash: Read-Only Binding in Process Dialog</h4>
+<p><strong>Symptom:</strong></p>
+<pre><code>System.Windows.Markup.XamlParseException: A TwoWay or OneWayToSource binding cannot work on the read-only property 'SelectionCount' ...
+</code></pre>
+<p><strong>Cause:</strong> Process dialog counter <code>Run.Text</code> bindings targeted read-only VM properties (<code>SelectionCount</code>, <code>PendingOverrideCount</code>) without explicit OneWay mode, allowing WPF to attempt an invalid source update path.</p>
+<p><strong>Solution:</strong> Bind read-only Process counters explicitly with <code>Mode=OneWay</code>.</p>
+<p><strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/UI/ViewModels/VtcProcessDialogBodyViewModel.cs"><code>VtcProcessDialogBodyViewModel.cs:37</code></a><br>
+<strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml"><code>VtcBodyTemplates.xaml:354</code></a></p>
 <hr>
 <h2 id="debugging">Debugging</h2>
 <h3 id="enabling-debug-mode">Enabling Debug Mode</h3>
@@ -565,6 +635,23 @@ bash build-vendored-deps.sh
 </tbody>
 </table>
 <hr>
+<h3 id="contextual-ribbon-layout-shifts-buttonspanels-move">Contextual Ribbon Layout Shifts (buttons/panels move)</h3>
+<p><strong>Symptom:</strong></p>
+<ul>
+<li>A Revit contextual modify tab layout changes unexpectedly while using DBTools (e.g., native actions appear “shifted”).</li>
+</ul>
+<p><strong>Cause:</strong></p>
+<ul>
+<li>A contextual ribbon injector can mutate Revit’s contextual tabs even when the current selection does not contain tool-owned elements (for example, injecting into “Multi-Select” tabs eagerly and/or inserting panels/buttons at index <code>0</code>).</li>
+</ul>
+<p><strong>Fix:</strong></p>
+<ul>
+<li>Inject lazily (only when the selection contains matching elements).</li>
+<li>Append panels/buttons (use <code>Add</code>) rather than forcing index-<code>0</code> insertion.</li>
+<li>Remove injected panels when the selection no longer matches.</li>
+</ul>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/UI/ContextualRibbonInjectorBase.cs:335</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:194</code></p>
 <h3 id="isafeexecutor-error-phases">ISafeExecutor Error Phases</h3>
 <p>All tool entrypoints run through <code>ISafeExecutor</code>, which logs structured execution phases:</p>
 <table>
@@ -599,12 +686,19 @@ bash build-vendored-deps.sh
 </tbody>
 </table>
 <p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Execution/SafeExecutor.cs"><code>SafeExecutor.cs:12</code></a></p>
+<h3 id="wpf-unhandled-ui-exception--apploader-popups">WPF &quot;Unhandled UI exception&quot; / AppLoader popups</h3>
+<p>If a WPF window command uses <code>ISafeExecutor.RunAsync(...)</code> and then rethrows into an <code>AsyncRelayCommand</code>, the exception can surface as a WPF Dispatcher unhandled exception (and may be shown by external loaders/hot-reload hosts).</p>
+<p><strong>Fix (WPF commands):</strong> set <code>SafeExecuteOptions.ThrowOnError = false</code> (and optionally <code>ThrowOnCancel = false</code>) so <code>ISafeExecutor</code> logs + notifies, but does not rethrow into the Dispatcher.</p>
+<p><strong>Also watch for XAML binding defaults:</strong> WPF <code>Run.Text</code> bindings can default to <strong>TwoWay</strong>. If a <code>Run.Text=&quot;{Binding SomeReadOnlyProperty}&quot;</code> binds to a get-only property, the window can fail to load with a <code>XamlParseException</code> on the Revit UI thread.</p>
+<p><strong>Fix (XAML):</strong> avoid <code>Run.Text</code> bindings for read-only properties, or explicitly set <code>Mode=OneWay</code> / bind via a <code>TextBlock.Text</code> <code>MultiBinding</code> instead.</p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:612</code><br>
+<strong>Source:</strong> <code>src/DBTools.Core/Notifications/Shell/NotificationBannerWindow.xaml:1</code></p>
 <hr>
 <h2 id="getting-help">Getting Help</h2>
 <h3 id="diagnostic-information-to-collect">Diagnostic Information to Collect</h3>
 <p>When reporting issues, gather:</p>
 <ol>
-<li><strong>Log file</strong> from <code>%LOCALAPPDATA%\DBTools\Logs\</code></li>
+<li><strong>Log file</strong> from <code>%APPDATA%\\DBTools\\Logs\\</code></li>
 <li><strong>Revit version</strong> (year and build number)</li>
 <li><strong>DBTools version</strong> (from add-in manifest)</li>
 <li><strong>Correlation ID</strong> from the error log</li>

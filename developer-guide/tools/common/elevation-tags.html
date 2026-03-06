@@ -89,11 +89,11 @@
         <article data-uid="">
 <h1 id="elevation-tags">Elevation Tags</h1>
 
-<p><strong>Elevation Tags</strong> is a Revit add-in tool that automatically aligns spot elevation tags in floor and ceiling plan views, ensuring consistent text positioning relative to leader endpoints.</p>
+<p><strong>Elevation Tags</strong> is a Revit add-in tool that automatically aligns spot elevation tags in floor, structural, and ceiling plan views, ensuring consistent text positioning relative to leader endpoints.</p>
 <h2 id="overview">Overview</h2>
 <p>Elevation Tags provides two modes of operation:</p>
 <ul>
-<li><strong>Automatic Update</strong>: Tags are aligned when activating floor/ceiling plan views</li>
+<li><strong>Automatic Update</strong>: Tags are aligned when activating floor/structural/ceiling plan views</li>
 <li><strong>Manual Update</strong>: Users can trigger alignment on-demand via the ribbon button</li>
 </ul>
 <p>The tool calculates precise text positioning based on:</p>
@@ -101,7 +101,7 @@
 <li>Tag type font metrics (size, width scale, font family)</li>
 <li>View scale factor</li>
 <li>Leader direction</li>
-<li>Configurable offsets and text position preferences</li>
+<li>Configurable leader-relative offsets</li>
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:59-91</code></p>
@@ -117,7 +117,7 @@
 <tbody>
 <tr>
 <td><strong>Auto-Update on View Activation</strong></td>
-<td>Automatically aligns elevation tags when opening floor/ceiling plan views</td>
+<td>Automatically aligns elevation tags when opening floor/structural/ceiling plan views</td>
 </tr>
 <tr>
 <td><strong>Manual Alignment Command</strong></td>
@@ -128,12 +128,16 @@
 <td>Configure which tags to align using regex patterns (up to 3 patterns), matched case-insensitively against spot/tag type family+type naming</td>
 </tr>
 <tr>
-<td><strong>Text Position Control</strong></td>
-<td>Position text above or below the tag origin</td>
+<td><strong>Detailed No-Update Diagnostics</strong></td>
+<td>Manual command distinguishes no spots, no regex matches, and already-aligned results</td>
 </tr>
 <tr>
-<td><strong>Offset Adjustments</strong></td>
-<td>Fine-tune horizontal and vertical positioning with model-unit offsets</td>
+<td><strong>Live Preview</strong></td>
+<td>Settings pack includes a compact real-time preview of the configured nudges</td>
+</tr>
+<tr>
+<td><strong>Leader-Relative Offsets</strong></td>
+<td>Fine-tune alignment with Along Leader and Perpendicular offsets instead of raw X/Y nudges</td>
 </tr>
 <tr>
 <td><strong>Warning System</strong></td>
@@ -161,11 +165,11 @@
 <ol>
 <li><strong>Auto-Update Toggle</strong> - Enable/disable automatic updates on view activation</li>
 <li><strong>Tag Name Patterns</strong> - Regex patterns to match elevation tag names (max 3)</li>
-<li><strong>Alignment Offsets</strong> - Horizontal and vertical offset values with spinner controls</li>
-<li><strong>Text Position</strong> - Radio buttons for Above/Below positioning</li>
+<li><strong>Alignment Offsets</strong> - Along Leader and Perpendicular offset values with spinner controls</li>
+<li><strong>Live Preview</strong> - Inline specimen that redraws as offsets change</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettingsPackView.xaml:43-259</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettingsPackView.xaml:1</code></p>
 </blockquote>
 <h2 id="architecture">Architecture</h2>
 <h3 id="module-structure">Module Structure</h3>
@@ -242,7 +246,7 @@
 <tr>
 <td><code>ElevationTagsViewActivatedTask</code></td>
 <td><code>Hooks/ElevationTagsViewActivatedTask.cs:20-66</code></td>
-<td>View activation hook; triggers auto-update on floor/ceiling plan views</td>
+<td>View activation hook; triggers auto-update on floor/structural/ceiling plan views</td>
 </tr>
 <tr>
 <td><code>ElevationTagsSettings</code></td>
@@ -283,9 +287,9 @@
 </li>
 <li><p><strong>Calculate New Position</strong></p>
 <ul>
-<li>Horizontal offset based on text width and leader direction</li>
-<li>Vertical offset based on text height and position setting (Above/Below)</li>
-<li>Apply user-configured offset adjustments</li>
+<li>Resolve a base placement from the current tag type/text side</li>
+<li>Derive semantic directions from that placement</li>
+<li>Apply Along Leader and Perpendicular user offsets without overriding the tag type's own above/below behavior</li>
 </ul>
 </li>
 <li><p><strong>Update Position</strong></p>
@@ -310,23 +314,26 @@
     if (view == null)
         return Task.FromResult(false);
 
-    return Task.FromResult(
-        view.ViewType == ViewType.FloorPlan || 
-        view.ViewType == ViewType.CeilingPlan);
-}
-</code></pre>
-<p>The task only runs when:</p>
-<ul>
-<li>Auto-update is enabled in settings</li>
-<li>No active warning is set</li>
-<li>The activated view is a floor plan or ceiling plan</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:40-52</code></p>
-</blockquote>
-<h2 id="settings">Settings</h2>
-<h3 id="settings-model">Settings Model</h3>
-<pre><code class="lang-csharp">public sealed class ElevationTagsSettings : IAutoUpdateSettings
+	    return Task.FromResult(
+	        view.ViewType == ViewType.FloorPlan ||
+	        view.ViewType == ViewType.EngineeringPlan ||
+	        view.ViewType == ViewType.CeilingPlan);
+	}
+	```
+
+The task only runs when:
+- Auto-update is enabled in settings
+- No active warning is set
+- The activated view is a floor plan, structural plan, or ceiling plan
+
+&gt; **Source:** `src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:40-52`
+
+## Settings
+
+### Settings Model
+
+```csharp
+public sealed class ElevationTagsSettings : IAutoUpdateSettings
 {
     /// &lt;summary&gt;Whether auto-update on view activation is enabled.&lt;/summary&gt;
     public bool AutoUpdateEnabled { get; set; } = true;
@@ -336,36 +343,26 @@
 
     /// &lt;summary&gt;
     /// Regex patterns to match tag names. Tags matching any pattern will be aligned.
-    /// Default pattern matches tags starting with &quot;DB Elevation Tag&quot;.
+    /// Default pattern matches:
+    /// - DB Elevation Tag - Concrete Label
+    /// - DB Elevation Tag - Steel Label
+    /// - DB Elevation Tag - Wall Label
     /// Maximum of 3 patterns.
     /// &lt;/summary&gt;
-    public List&lt;string&gt; TagNamePatterns { get; set; } = new() { &quot;^DB Elevation Tag&quot; };
+    public List&lt;string&gt; TagNamePatterns { get; set; } = new()
+    {
+        &quot;^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$&quot;
+    };
 
-    /// &lt;summary&gt;Horizontal offset factor applied during text positioning (model units).&lt;/summary&gt;
-    public double HorizontalOffset { get; set; }
+    /// &lt;summary&gt;Semantic offset along the leader direction.&lt;/summary&gt;
+    public double AlongLeaderOffset { get; set; }
 
-    /// &lt;summary&gt;Vertical offset factor applied during text positioning (model units).&lt;/summary&gt;
-    public double VerticalOffset { get; set; }
-
-    /// &lt;summary&gt;Position of aligned text relative to the tag origin.&lt;/summary&gt;
-    public ElevationTextPosition TextPosition { get; set; } = ElevationTextPosition.Above;
+    /// &lt;summary&gt;Semantic offset perpendicular to the leader direction.&lt;/summary&gt;
+    public double PerpendicularOffset { get; set; }
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:21-56</code></p>
-</blockquote>
-<h3 id="text-position-enum">Text Position Enum</h3>
-<pre><code class="lang-csharp">public enum ElevationTextPosition
-{
-    /// &lt;summary&gt;Text is positioned above the tag origin.&lt;/summary&gt;
-    Above = 0,
-
-    /// &lt;summary&gt;Text is positioned below the tag origin.&lt;/summary&gt;
-    Below = 1
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:9-16</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:1</code></p>
 </blockquote>
 <h3 id="default-values">Default Values</h3>
 <table>
@@ -389,23 +386,18 @@
 </tr>
 <tr>
 <td><code>TagNamePatterns</code></td>
-<td><code>[&quot;^DB Elevation Tag&quot;]</code></td>
-<td>Matches tags starting with &quot;DB Elevation Tag&quot;</td>
+<td><code>[&quot;^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$&quot;]</code></td>
+<td>Matches the three DB elevation label families</td>
 </tr>
 <tr>
-<td><code>HorizontalOffset</code></td>
+<td><code>AlongLeaderOffset</code></td>
 <td><code>0.0</code></td>
-<td>No additional horizontal offset</td>
+<td>No additional along-leader nudge</td>
 </tr>
 <tr>
-<td><code>VerticalOffset</code></td>
+<td><code>PerpendicularOffset</code></td>
 <td><code>0.0</code></td>
-<td>No additional vertical offset</td>
-</tr>
-<tr>
-<td><code>TextPosition</code></td>
-<td><code>Above</code></td>
-<td>Text positioned above the tag origin</td>
+<td>No additional perpendicular nudge</td>
 </tr>
 </tbody>
 </table>

@@ -285,8 +285,8 @@
 <li><code>JambRight</code>: open side points toward <code>+BasisX</code></li>
 </ul>
 </li>
-<li>If <code>CanFlipHand == true</code>, flip testing may still be evaluated, but <strong>it is not required</strong> for Structural Framing families (many return <code>CanFlipHand == false</code>). The primary disambiguator is choosing the correct canonical rotation (often <code>0</code> vs <code>180</code>).</li>
-<li>Persist <code>OrientationResult.IsFlipped</code> only when the winning solution actually requires <code>FlipHand</code>.</li>
+<li>If <code>CanFlipFacing == true</code>, flip testing may still be evaluated, but the analyzer must not depend on flip support. The primary disambiguator is choosing the correct canonical rotation (often <code>0</code> vs <code>180</code>).</li>
+<li>Persist <code>OrientationResult.IsFlipped</code> only when the winning solution actually requires <code>FlipFacing</code>.</li>
 </ul>
 </li>
 <li>Store solved settings (rotation, Y-just, Z-just) in family domain object</li>
@@ -301,7 +301,7 @@
 <ul>
 <li>Calibration can retain both web-side face normals for channels (<code>+X</code> and <code>-X</code> orientation bins), so rotation gate alone can pass both <code>JambLeft</code> and <code>JambRight</code> at the same rotation.</li>
 <li>Vertical role disambiguation must therefore include an <strong>open-side pointing</strong> check (not rotation-only acceptance).</li>
-<li>If <code>CanFlipHand == false</code>, the analyzer must still be able to disambiguate by choosing the canonical rotation (typically <code>0</code> vs <code>180</code>) that satisfies the open-side pointing contract.</li>
+<li>If <code>CanFlipFacing == false</code>, the analyzer must still be able to disambiguate by choosing the canonical rotation (typically <code>0</code> vs <code>180</code>) that satisfies the open-side pointing contract.</li>
 <li>If no candidate satisfies pointing, the analyzer must return invalid for that role (explicit failure, no silent fallback).</li>
 </ul>
 <blockquote>
@@ -530,7 +530,7 @@
 <li>Place/Update are disabled only when the plan would place nothing</li>
 </ul>
 <p><strong>Reveal:</strong>
-When analysis and seeding complete, overlay closes to reveal pre-populated grids and live previews.</p>
+When analysis and seeding complete, keep the overlay visible until the first Elevation preview frame has painted (so the preview is never blank), then close the overlay to reveal pre-populated grids and live previews.</p>
 <h3 id="63-edit-flow-selection-aware">6.3 Edit Flow (Selection-Aware)</h3>
 <p><strong>SelectionChanged Observer:</strong></p>
 <ul>
@@ -548,6 +548,17 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Rehydrate UI from existing SGT System</li>
 <li>Initial seeding rules do NOT apply in Edit</li>
 </ul>
+<p><strong>Edit-Time Segmentation Invariants (Hard Requirements):</strong></p>
+<ul>
+<li>If girt segments are <strong>merged</strong> (two <code>UiKey</code>s removed, one inserted), any opening-role extent targets (<code>TopExtentTarget</code> / <code>BottomExtentTarget</code>) that referenced either removed <code>UiKey</code> <strong>must be rewritten</strong> to the inserted <code>UiKey</code> so snap-to-girt semantics remain stable.</li>
+<li>If re-segmentation recomputation produces fewer than 2 segments, the segment group must <strong>collapse back</strong> to a single standalone row (no stale segmented siblings).</li>
+<li>When deduplicating near bisection points, preserve all source intersecting element keys; bypass filtering may exclude a point only when <strong>all</strong> contributing sources are bypassed.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1908</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1437</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:309</code></p>
+</blockquote>
 <h3 id="64-foundation-mode">6.4 Foundation Mode</h3>
 <p><strong>Seeding Window:</strong></p>
 <ul>
@@ -585,15 +596,16 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li><strong>Preview/placement parity for vertical framing (jambs)</strong>:
 <ul>
 <li><code>OpeningRoleConfig.RotationDegrees</code> is stored as a <strong>wall-relative canonical rotation</strong> (typically quarter-turns).</li>
-<li>Both preview and placement must apply the same <strong>azimuth compensation</strong> to obtain the effective Revit bend-dir angle for vertical structural framing on off-axis walls.</li>
-<li>This ensures preview matches placed geometry even when the wall azimuth is not aligned to 0/90/180/270.</li>
+<li>Step 2 may apply <strong>azimuth compensation</strong> only while probing temporary vertical instances on off-axis walls; the stored rotation remains canonical.</li>
+<li>Preview matches placed geometry by combining the canonical rotation with Step 3's per-rotation vertical calibration payload (section loops, exact Y/Z pair deltas, and wall-direction sign bases).</li>
+<li>Placement applies azimuth compensation only when writing the effective Revit bend-dir angle.</li>
 </ul>
 </li>
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/JambAzimuthCompensation.cs:34</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:224</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:693</code></p>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:293</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:761</code></p>
 </blockquote>
 <h3 id="72-elevation-preview">7.2 Elevation Preview</h3>
 <p><strong>Coordinate System:</strong></p>
@@ -641,6 +653,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <p><strong>Rendering:</strong></p>
 <ul>
 <li>Mesh from canonical 3D element data</li>
+<li>End caps must be tessellated from section loops using <strong>EvenOdd</strong> across all contours (concave + holes supported; no triangle-fan caps)</li>
 <li>Two directional lights + ambient</li>
 <li>Fixed 6&quot; (0.5 ft) floor plane</li>
 <li>Role palette visible</li>
@@ -651,6 +664,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <ul>
 <li>No extra gates; 3D renders exactly the snapshot data</li>
 <li>Issues are visually obvious</li>
+<li>No triangulated/infill artifacts at member ends; concave + hollow sections terminate cleanly (holes remain holes)</li>
 </ul>
 <hr>
 <h2 id="part-8-endpoint-association-system">Part 8: Endpoint Association System</h2>
@@ -734,6 +748,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Pixels per unit t</li>
 <li>Cursor position (X, Y in pixels)</li>
 <li>DPI scale factor</li>
+<li>Note: DPI scale is used for hit-testing and snap thresholds. Preview visual styling (text/lineweights) uses a fixed visual scale (DPI-agnostic).</li>
 <li>Wall length in feet</li>
 <li>Available grids and edges</li>
 <li>Optional girt/wall-top/wall-bottom elevation targets (for vertical endpoint snaps)</li>
@@ -775,7 +790,9 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code></p>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/PreviewVisualTokens.cs:1</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:1205</code></p>
 </blockquote>
 <hr>
 <h2 id="part-10-placement-system">Part 10: Placement System</h2>
@@ -802,7 +819,17 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Compute intervals by subtracting opening spans from row extent</li>
 <li>Gate by vertical intersection (row elevation vs opening height window)</li>
 <li>Apply 1/2&quot; gaps at opening edges</li>
+<li>Exception: rows may declare <code>BypassedOpeningKeys</code>; matching openings are excluded from subtraction and remain continuous</li>
+<li>Interior endpoint drag to the opposite edge of the same opening auto-adds bypass for that opening and clears opening-edge gap overrides for that opening</li>
+<li>Snapping a girt extent endpoint to a specific opening edge removes that opening from bypass for that row</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1021</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1861</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1565</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:39</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:155</code></p>
+</blockquote>
 <h3 id="105-placement-order">10.5 Placement Order</h3>
 <p><strong>Per element:</strong></p>
 <ol>
@@ -825,7 +852,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <ol>
 <li>Set <code>STRUCTURAL_BEND_DIR_ANGLE</code> (rotation)</li>
 <li><code>doc.Regenerate()</code> (ensure rotation takes effect)</li>
-<li>Apply <code>flipHand()</code> if required</li>
+<li>Apply <code>flipFacing()</code> if required</li>
 <li><code>doc.Regenerate()</code></li>
 <li>Set Y justification</li>
 <li><code>doc.Regenerate()</code></li>
@@ -1015,7 +1042,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Forbidden temp placement failures must short-circuit immediately after temp placement/regenerate (before any face traversal/classification work).</li>
 <li>Emit a single begin/end calibration transaction diagnostic per symbol (<code>[SGT.Calibration.Tx.Begin]</code> / <code>[SGT.Calibration.Tx.End]</code>) including elapsed milliseconds, document/transaction context, and final outcome (<code>ok|forbidden|failed</code>).</li>
 <li>Emit one compact calibration summary per run (<code>[SGT.PreflightSummary]</code>) with total/calibrated/failed counts.</li>
-<li>Post-overlay Analyze completion must use a deduped two-pass preview refresh (<code>DispatcherPriority.Loaded</code> then <code>DispatcherPriority.Background</code>) with explicit scheduling/failure logging and without watchdog/fallback enqueue behavior.</li>
+<li>Post-overlay Analyze completion must force Elevation mode, request a preview refresh, and keep the overlay visible until the Elevation preview has painted at least one frame (paint barrier). After overlay teardown, schedule a Background safety refresh with explicit failure logging (no watchdog/fallback enqueue behavior).</li>
 <li>Progress: <code>(completed families / total families) × 100%</code></li>
 </ul>
 <blockquote>
@@ -1026,11 +1053,13 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:303
+<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:210
+<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:228
+<strong>Source:</strong> src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:160
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs:151
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:310
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:384
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:234
+<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:481
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:828
 <strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</p>
 </blockquote>
@@ -1086,7 +1115,7 @@ When analysis and seeding complete, overlay closes to reveal pre-populated grids
 <li>Header enabled when the opening top is below the vertical max (tolerance-gated)</li>
 <li>Sill enabled when the opening bottom is above the base reference (tolerance-gated)</li>
 <li>Left/Right role interpretation is visual elevation-based and must remain stable for rotated and mirrored links</li>
-<li>Role configs seed <code>FlipHand</code> from analyzed <code>OrientationResult.IsFlipped</code></li>
+<li>Role configs seed <code>FlipFacing</code> from analyzed <code>OrientationResult.IsFlipped</code></li>
 </ul>
 </li>
 <li>Foundation Mode: Empty (manual add only)</li>

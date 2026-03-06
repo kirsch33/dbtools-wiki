@@ -164,30 +164,51 @@
 <p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightCalculator.cs:51-58</code></p>
 </blockquote>
 <h3 id="multi-parameter-support">Multi-Parameter Support</h3>
-<p>The estimator supports multiple parameter naming conventions to handle legacy family definitions:</p>
+<p>The estimator supports:</p>
+<ol>
+<li>fixed aliases for joist count/length/depth inputs, and</li>
+<li>settings-driven regex matching for load parameter names.</li>
+</ol>
+<p>Default load regex pattern:</p>
+<pre><code class="lang-regex">^(?:Panel Point Load|(?:Dead|Live) Load(?: - User Defined)?)$
+</code></pre>
+<p>This matches: <code>Panel Point Load</code>, <code>Dead Load</code>, <code>Dead Load - User Defined</code>, <code>Live Load</code>, <code>Live Load - User Defined</code>.</p>
+<p>When multiple parameters match:</p>
+<ul>
+<li>one populated <code>Point Load</code> / <code>Panel Point Load</code> / <code>Total Load</code> value is treated as authoritative</li>
+<li>otherwise, one <code>Dead Load</code> plus one <code>Live Load</code> are summed</li>
+<li>multiple populated parameters within the same classifier group are rejected as ambiguous</li>
+</ul>
+<p>Instance parameters take priority over type parameters for same-named params to avoid double-counting.</p>
+<p>Point load values are normalized to <strong>kips</strong> before calculation:</p>
+<ul>
+<li>Force-typed parameters (<code>SpecTypeId.Force</code>) are converted from internal units to <code>UnitTypeId.Kips</code></li>
+<li>Unitless numeric parameters are treated as kips</li>
+<li>Text parameters are parsed as kips and may include units like <code>10 kips</code>, <code>10000 lb</code>, or <code>45 kN</code></li>
+</ul>
 <table>
 <thead>
 <tr>
 <th>Input Group</th>
-<th>Supported Parameter Names</th>
+<th>Supported Resolution</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Number of Joists</td>
-<td><code>Number of Joists</code>, <code>SpaceNum</code>, <code>Number of Equal Spaces</code></td>
+<td>Fixed aliases: <code>Number of Joists</code>, <code>SpaceNum</code>, <code>Number of Equal Spaces</code></td>
 </tr>
 <tr>
 <td>Point Load</td>
-<td><code>Panel Point Load</code>, <code>Panel Load - User Defined</code>, <code>Panel Load</code>, <code>Point Load - User Defined</code>, <code>Point Load</code>, <code>Total Load - User Defined</code>, <code>Total Load</code>, <code>Joist Load</code></td>
+<td>Regex pattern list from <code>Tools.JoistGirderWeight.LoadParameterPatterns</code></td>
 </tr>
 <tr>
 <td>Length</td>
-<td><code>Cut Length</code>, <code>Length</code></td>
+<td>Fixed aliases: <code>Cut Length</code>, <code>Length</code></td>
 </tr>
 <tr>
 <td>Depth</td>
-<td><code>Depth</code></td>
+<td>Fixed alias: <code>Depth</code></td>
 </tr>
 <tr>
 <td>Output</td>
@@ -195,20 +216,26 @@
 </tr>
 </tbody>
 </table>
-<p>Parameters are resolved in priority order - the first match in each list wins. Both instance and type parameters are checked, with case-insensitive and normalized-name matching used to tolerate common naming variations.</p>
+<p>Parameters are resolved in priority order; instance parameters are preferred over type parameters.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderLoadParser.cs</code></p>
 </blockquote>
 <h3 id="element-filtering">Element Filtering</h3>
-<p>The tool targets structural framing elements where the family name or type name contains &quot;joist girder&quot; (case-insensitive):</p>
-<pre><code class="lang-csharp">girders = collector
-    .OfCategory(BuiltInCategory.OST_StructuralFraming)
-    .WhereElementIsNotElementType()
-    .Where(e =&gt; familyName.Contains(&quot;joist girder&quot;, StringComparison.OrdinalIgnoreCase) ||
-                typeName.Contains(&quot;joist girder&quot;, StringComparison.OrdinalIgnoreCase));
+<p>The tool targets structural framing elements using settings-driven regex family matching.</p>
+<p>Default family regex:</p>
+<pre><code class="lang-regex">^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
 </code></pre>
+<p>This matches:</p>
+<ul>
+<li><code>G Joist Girder</code></li>
+<li><code>BG Joist Girder</code></li>
+<li><code>VG Joist Girder</code></li>
+<li><code>Vulcraft Joist Girder</code></li>
+</ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs:36-48</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs</code></p>
 </blockquote>
 <h3 id="auto-update-on-view-activation">Auto-Update on View Activation</h3>
 <p>When enabled, the tool automatically updates joist girder weights whenever a view is activated. This is controlled by the <code>AutoUpdateEnabled</code> setting.</p>
@@ -283,11 +310,14 @@
 <pre><code class="lang-yaml"># tools.json or per-user settings
 Tools:
   JoistGirderWeight:
-    AutoUpdateEnabled: true  # Enable/disable auto-update on view activation
-    HasWarning: false        # Warning state flag
+    AutoUpdateEnabled: true
+    FamilyNamePattern: &quot;^(?:(?:[BV]?G)|Vulcraft) Joist Girder$&quot;
+    DeadLoadPattern: &quot;(?:^DL$|Dead\\s*Load)&quot;
+    LiveLoadPattern: &quot;(?:^LL$|Live\\s*Load)&quot;
+    TotalLoadPattern: &quot;(?:Point\\s*Load|Total\\s*Load)&quot;
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs:5-10</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs</code></p>
 </blockquote>
 <h3 id="settings-properties">Settings Properties</h3>
 <table>
@@ -307,10 +337,28 @@ Tools:
 <td>Whether to auto-update weights on view activation</td>
 </tr>
 <tr>
-<td><code>HasWarning</code></td>
-<td><code>bool</code></td>
-<td><code>false</code></td>
-<td>Warning state - when true, disables auto-update</td>
+<td><code>FamilyNamePattern</code></td>
+<td><code>string</code></td>
+<td>See above</td>
+<td>Regex pattern for joist girder family/type matching</td>
+</tr>
+<tr>
+<td><code>DeadLoadPattern</code></td>
+<td><code>string</code></td>
+<td>See above</td>
+<td>Regex pattern for dead load parameters</td>
+</tr>
+<tr>
+<td><code>LiveLoadPattern</code></td>
+<td><code>string</code></td>
+<td>See above</td>
+<td>Regex pattern for live load parameters</td>
+</tr>
+<tr>
+<td><code>TotalLoadPattern</code></td>
+<td><code>string</code></td>
+<td>See above</td>
+<td>Regex pattern for total/point load parameters</td>
 </tr>
 </tbody>
 </table>

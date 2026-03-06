@@ -141,31 +141,61 @@
 <h3 id="ribbon-button">Ribbon Button</h3>
 <p><strong>Location:</strong> DB Tools tab</p>
 <p><strong>Button Name:</strong> Update Joist Girder Weights</p>
-<p><strong>What it does:</strong> Scans your entire model for joist girder elements and calculates/updates the weight parameter for each one. A summary appears when processing is complete.</p>
+<p><strong>What it does:</strong> Scans your entire model for joist girder elements and calculates/updates the weight parameter for each one. A toast-style notification appears when processing is complete.</p>
 <hr>
 <h2 id="settings">Settings</h2>
 <h3 id="auto-update">Auto-Update</h3>
 <p>When enabled, the tool automatically recalculates joist girder weights whenever you activate a different view. This keeps weight values current without manual intervention.</p>
-<table>
-<thead>
-<tr>
-<th>Setting</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Auto-Update Enabled</td>
-<td>On</td>
-<td>Automatically update weights on view change</td>
-</tr>
-</tbody>
-</table>
 <p><strong>To change this setting:</strong> Access DB Tools settings through the ribbon. Toggle the auto-update option for Joist Girder Weight.</p>
 <blockquote>
 <p><strong>Note:</strong> If you're experiencing performance issues with large models, consider disabling auto-update and running the tool manually when needed.</p>
 </blockquote>
+<h3 id="regex-pattern-configuration">Regex Pattern Configuration</h3>
+<p>The tool uses four regex patterns to identify joist girders and classify their load parameters:</p>
+<h4 id="familytype-name-pattern">Family/Type Name Pattern</h4>
+<p>Regex pattern to match joist girder family/type names.</p>
+<p><strong>Default:</strong> <code>^(?:(?:[BV]?G)|Vulcraft) Joist Girder$</code></p>
+<p>Matches:</p>
+<ul>
+<li><code>G Joist Girder</code></li>
+<li><code>BG Joist Girder</code></li>
+<li><code>VG Joist Girder</code></li>
+<li><code>Vulcraft Joist Girder</code></li>
+</ul>
+<h4 id="dead-load-pattern">Dead Load Pattern</h4>
+<p>Regex pattern to identify dead load parameters.</p>
+<p><strong>Default:</strong> <code>(?:^DL$|Dead\s*Load)</code></p>
+<p>Matches:</p>
+<ul>
+<li><code>Dead Load</code></li>
+<li><code>DL</code></li>
+</ul>
+<h4 id="live-load-pattern">Live Load Pattern</h4>
+<p>Regex pattern to identify live load parameters.</p>
+<p><strong>Default:</strong> <code>(?:^LL$|Live\s*Load)</code></p>
+<p>Matches:</p>
+<ul>
+<li><code>Live Load</code></li>
+<li><code>LL</code></li>
+</ul>
+<h4 id="total-load-pattern">Total Load Pattern</h4>
+<p>Regex pattern to identify total/point load parameters.</p>
+<p><strong>Default:</strong> <code>(?:Point\s*Load|Total\s*Load)</code></p>
+<p>Matches:</p>
+<ul>
+<li><code>Point Load</code></li>
+<li><code>Panel Point Load</code></li>
+<li><code>Total Load</code></li>
+</ul>
+<h3 id="load-resolution-logic">Load Resolution Logic</h3>
+<p>The tool requires <strong>either</strong>:</p>
+<ol>
+<li>A single Total Load parameter (Point Load, Panel Point Load, or Total Load), <strong>OR</strong></li>
+<li>Both Dead Load and Live Load parameters (which are summed)</li>
+</ol>
+<p>Elements with ambiguous combinations (e.g., both Total and Dead/Live values present) are skipped and reported.</p>
+<h3 id="customlocalized-names">Custom/Localized Names</h3>
+<p>Teams using localized parameter names (e.g., &quot;Carga Muerta&quot; for Dead Load) can configure the regex patterns to match their naming conventions. Simply update the appropriate pattern in settings to include your custom names.</p>
 <hr>
 <h2 id="family-requirements">Family Requirements</h2>
 <p>For the tool to calculate and update weights, your joist girder families must include specific parameters. The tool recognizes several common parameter names for flexibility.</p>
@@ -184,7 +214,7 @@
 </tr>
 <tr>
 <td><strong>Point Load</strong></td>
-<td><code>Panel Point Load</code>, <code>Point Load</code>, <code>Total Load</code>, <code>Joist Load</code></td>
+<td>Identified via regex patterns configured in settings. Default patterns match <code>Dead Load</code>, <code>DL</code>, <code>Live Load</code>, <code>LL</code>, <code>Point Load</code>, <code>Panel Point Load</code>, and <code>Total Load</code>. The tool requires either a single Total/Point Load value <strong>or</strong> both Dead Load + Live Load (which are summed). Ambiguous combinations are skipped. Values are normalized to <strong>kips</strong>: numeric values are treated as kips, Force-typed parameters are converted to kips, and text values may include units like <code>10 kips</code>, <code>10000 lb</code>, or <code>45 kN</code>.</td>
 </tr>
 <tr>
 <td><strong>Length</strong></td>
@@ -212,7 +242,16 @@
 </tbody>
 </table>
 <h3 id="which-elements-are-processed">Which Elements Are Processed?</h3>
-<p>The tool targets <strong>Structural Framing</strong> elements where the family name or type name contains &quot;joist girder&quot; (case-insensitive). Elements that don't match this naming pattern are skipped.</p>
+<p>The tool targets <strong>Structural Framing</strong> elements where family/type names match configured regex patterns.</p>
+<p>Default family pattern:</p>
+<p><code>^(?:(?:[BV]?G)|Vulcraft) Joist Girder$</code></p>
+<p>This matches:</p>
+<ul>
+<li><code>G Joist Girder</code></li>
+<li><code>BG Joist Girder</code></li>
+<li><code>VG Joist Girder</code></li>
+<li><code>Vulcraft Joist Girder</code></li>
+</ul>
 <hr>
 <h2 id="workflows">Workflows</h2>
 <h3 id="workflow-1-manual-weight-update">Workflow 1: Manual Weight Update</h3>
@@ -221,7 +260,7 @@
 <li>Complete your joist girder layout and verify parameters are filled in</li>
 <li>Navigate to the <strong>DB Tools</strong> ribbon tab</li>
 <li>Click <strong>Update Joist Girder Weights</strong></li>
-<li>Review the completion message for any skipped elements</li>
+<li>Review the completion message for any skipped elements and sample skip reasons</li>
 <li>Open a joist girder schedule to verify weight values</li>
 </ol>
 <h3 id="workflow-2-automatic-updates-during-design">Workflow 2: Automatic Updates During Design</h3>
@@ -271,8 +310,8 @@
 </thead>
 <tbody>
 <tr>
-<td>Family/type name doesn't contain &quot;joist girder&quot;</td>
-<td>Rename the family or type to include &quot;joist girder&quot;</td>
+<td>Family/type name doesn't match Family Name Pattern</td>
+<td>Update Family Name Pattern in settings to match your family names</td>
 </tr>
 <tr>
 <td>Missing input parameters</td>
@@ -326,7 +365,7 @@
 </tr>
 <tr>
 <td>Point load value is per-panel vs. total</td>
-<td>Check which parameter name you're using and ensure correct value type</td>
+<td>A populated Point/Panel Point/Total Load value wins over Dead/Live inputs. Clear or correct duplicate total-style parameters if the tool reports ambiguity</td>
 </tr>
 <tr>
 <td>Depth parameter reading incorrectly</td>
@@ -362,15 +401,28 @@
 <p><strong>Q: Can I use this with nested joist girder families?</strong></p>
 <p>A: The tool reads parameters from the placed family instance. If your nested family exposes the required parameters at the instance level, it should work correctly.</p>
 <p><strong>Q: What happens if some joist girders are missing parameters?</strong></p>
-<p>A: Those elements are skipped during processing. The tool will complete and report how many elements were processed successfully. Check the completion message for details.</p>
+<p>A: Those elements are skipped during processing. Manual runs report Updated/Skipped counts and sample skipped reasons; auto-update skips silently when switching views.</p>
 <p><strong>Q: Does the tool modify anything besides the Wt parameter?</strong></p>
 <p>A: No. The tool only writes to the <code>Wt</code> parameter. All other parameters are read-only inputs to the calculation.</p>
 <p><strong>Q: Can I undo the weight updates?</strong></p>
 <p>A: Yes. Like other Revit modifications, the weight updates are part of Revit's undo history. Use Ctrl+Z or the Undo command to revert changes.</p>
 <p><strong>Q: Why would I disable auto-update?</strong></p>
 <p>A: Auto-update recalculates weights every time you switch views, which can cause brief pauses on large models. If you prefer snappier navigation, disable auto-update and run the tool manually when you need current values.</p>
+<p><strong>Q: My family has separate Dead Load and Live Load parameters. Does the tool handle that?</strong></p>
+<p>A: Yes. If both Dead Load and Live Load have values, the tool sums them to produce the total point load (e.g., 5 + 8 = 13). If only one is filled in, the element is skipped (unless a Total/Point Load value is provided instead).</p>
+<p><strong>Q: My family only has a single Panel Point Load parameter. Will it still work?</strong></p>
+<p>A: Yes. Panel Point Load is treated as a valid Total Load input.</p>
 <p><strong>Q: Does this work in workshared models?</strong></p>
 <p>A: Yes. The tool updates elements you have permission to edit. Elements owned by other users or checked out to others cannot be updated until you have edit access.</p>
+<p><strong>Q: My team uses localized or custom parameter names for Dead/Live loads (e.g., &quot;Carga Muerta&quot;, &quot;DL1&quot;). How do I configure the tool?</strong></p>
+<p>A: Update the regex pattern settings to match your parameter names:</p>
+<ol>
+<li>Open DB Tools settings</li>
+<li>Find the Joist Girder Weight settings section</li>
+<li>Update the &quot;Dead Load Pattern&quot; field to match your dead load parameter names (e.g., <code>(?:^DL1$|Carga\s*Muerta)</code>)</li>
+<li>Update the &quot;Live Load Pattern&quot; and &quot;Total Load Pattern&quot; fields similarly</li>
+</ol>
+<p>The default patterns match common English names (&quot;Dead Load&quot;, &quot;DL&quot;, &quot;Live Load&quot;, &quot;LL&quot;, &quot;Point Load&quot;, &quot;Total Load&quot;). Teams using other naming conventions should update these patterns to match their parameter names.</p>
 
 </article>
 

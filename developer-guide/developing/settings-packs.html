@@ -104,17 +104,28 @@
 <h3 id="why-use-settings-packs">Why Use Settings Packs?</h3>
 <ul>
 <li><strong>Centralized configuration</strong>: Users manage all tool settings in one place</li>
-<li><strong>Automatic persistence</strong>: Settings are saved to <code>settings.json</code> with atomic writes</li>
+<li><strong>Automatic persistence</strong>: Settings are saved to <code>settings.{YEAR}.json</code> with atomic writes</li>
 <li><strong>Change notification</strong>: <code>IOptionsMonitor&lt;T&gt;</code> provides live reload without restart</li>
 <li><strong>Feature warnings</strong>: Link settings validation to tool availability</li>
 <li><strong>Consistent UX</strong>: All tools share the same settings interface pattern</li>
 </ul>
+<h3 id="apply-timing">Apply Timing</h3>
+<p>The Settings window should describe <strong>when saved values take effect</strong>, not show a blanket restart warning.</p>
+<ul>
+<li>Ribbon visibility and similar shell-level flags can apply immediately after save.</li>
+<li>Tool settings typically apply on the next command run or next view-activation hook.</li>
+<li><code>RequiresRestart</code> should be reserved for an explicitly documented pack-specific limitation, not shown globally.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Features/DbtSettingsApplyBehavior.cs:1</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Settings/Shell/SettingsWindowViewModel.cs:1</code></p>
+</blockquote>
 <hr>
 <h2 id="architecture">Architecture</h2>
 <h3 id="the-options-pattern-in-dbtools">The Options Pattern in DBTools</h3>
 <p>DBTools uses Microsoft.Extensions.Options with a custom persistence layer:</p>
 <pre><code>┌─────────────────────┐     ┌──────────────────────┐
-│  settings.json      │────&gt;│  IConfiguration      │
+│  settings.{YEAR}.json │────&gt;│  IConfiguration      │
 │  (user data)        │     │  (read from file)    │
 └─────────────────────┘     └──────────┬───────────┘
                                        │
@@ -136,7 +147,7 @@
                                                           └──────────┬──────────┘
                                                                      │
                                                           ┌──────────▼──────────┐
-                                                          │  settings.json      │
+                                                          │  settings.{YEAR}.json │
                                                           │  (updated)          │
                                                           └─────────────────────┘
 </code></pre>
@@ -184,7 +195,7 @@
 <h3 id="schema">Schema</h3>
 <pre><code class="lang-yaml">tool:
   settings:
-    configSection: &quot;&lt;section-name&gt;&quot;  # Required: JSON key in settings.json
+    configSection: &quot;&lt;section-name&gt;&quot;  # Required: JSON key in settings.{YEAR}.json
   settingsPacks:
     - key: &quot;&lt;unique-pack-key&gt;&quot;       # Required: Globally unique identifier
       title: &quot;&lt;display-title&gt;&quot;       # Required: Shown in Settings window
@@ -316,7 +327,7 @@ public sealed class FoundationTagsSettings : IAutoUpdateSettings
 <p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:1-50</code></p>
 </blockquote>
 <h3 id="json-representation">JSON Representation</h3>
-<p>Settings are stored in <code>settings.json</code> under the <code>configSection</code> key:</p>
+<p>Settings are stored in <code>settings.{YEAR}.json</code> under the <code>configSection</code> key:</p>
 <pre><code class="lang-json">{
   &quot;Tools.FoundationTags&quot;: {
     &quot;AutoUpdateEnabled&quot;: true,
@@ -660,7 +671,7 @@ public interface IDbtSettingsPackContext
     
     public void DoWork()
     {
-        // Always reflects current settings.json values
+        // Always reflects current settings.{YEAR}.json values
         var current = _options.CurrentValue;
         
         if (current.AutoUpdateEnabled &amp;&amp; !current.HasWarning)
@@ -731,7 +742,7 @@ await AppRuntime.Settings.SaveAsync(&quot;Tools.MyTool&quot;, settings);
 </blockquote>
 <p>The <code>OptionsWriter</code> implementation ensures atomic writes:</p>
 <ol>
-<li>Write to <code>settings.json.tmp</code></li>
+<li>Write to <code>settings.{YEAR}.json.tmp</code></li>
 <li>Use <code>File.Replace()</code> for atomic swap</li>
 <li>Retry on <code>IOException</code> (file in use)</li>
 </ol>
@@ -880,21 +891,44 @@ await AppRuntime.Settings.SaveAsync(&quot;Tools.MyTool&quot;, settings);
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:19-169</code></p>
 </blockquote>
+<h3 id="startup-evaluation-validate-aware-packs">Startup Evaluation (Validate-Aware Packs)</h3>
+<p>Validate-aware settings packs are evaluated during addin startup (after ribbon composition and before the initial warning publish) so ribbon tools are disabled immediately when underlying configuration is invalid, without requiring the user to open Settings.</p>
+<p>The startup evaluator:</p>
+<ul>
+<li>Creates pack contexts without constructing WPF views</li>
+<li>Loads options from <code>ISettingsProvider</code></li>
+<li>Runs <code>ValidateAsync</code> only for <code>IDbtSettingsPackContextValidateAware</code> contexts</li>
+<li>Activates warnings on invalid results</li>
+<li>Does not activate warnings on validation exceptions (exceptions are treated as runtime errors and should surface via normal error flows/logs)</li>
+<li>Does not proactively clear warnings on startup</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.App/Addin/AddinEntry.cs:324</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Settings/Features/DbtSettingsStartupWarningEvaluator.cs:36</code></p>
+</blockquote>
 <hr>
 <h2 id="real-examples">Real Examples</h2>
-<h3 id="example-1-joistgirderweight-simple-auto-update">Example 1: JoistGirderWeight (Simple Auto-Update)</h3>
-<p><strong>Use case:</strong> Toggle auto-calculation on view activation.</p>
+<h3 id="example-1-joistgirderweight-auto-update--regex-matching">Example 1: JoistGirderWeight (Auto-Update + Regex Matching)</h3>
+<p><strong>Use case:</strong> Toggle auto-calculation and configure regex matching for family/load resolution.</p>
 <p><strong>Settings model:</strong></p>
 <pre><code class="lang-csharp">public sealed class JoistGirderWeightSettings : IAutoUpdateSettings
 {
     public bool AutoUpdateEnabled { get; set; } = true;
     public bool HasWarning { get; set; }
+    public List&lt;string&gt; FamilyNamePatterns { get; set; } = new()
+    {
+        &quot;^(?:(?:[BV]?G)|Vulcraft) Joist Girder$&quot;
+    };
+    public List&lt;string&gt; LoadParameterPatterns { get; set; } = new()
+    {
+        &quot;^(?:Panel Point Load|Panel Load - User Defined|Panel Load|Point Load - User Defined|Point Load|Total Load - User Defined|Total Load|Joist Load|BG Joist Girder)$&quot;
+    };
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs:5-10</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs</code></p>
 </blockquote>
-<p><strong>Registration:</strong> Uses <code>AutoUpdateSettingsPackContext&lt;T&gt;</code> and <code>AutoUpdateSettingsPackView</code>.</p>
+<p><strong>Registration:</strong> Uses custom <code>JoistGirderWeightSettingsPackContext</code> and <code>JoistGirderWeightSettingsPackView</code> with <code>+/-</code> regex row controls (max 3) and save-time validation.</p>
 <p><strong>Manifest:</strong></p>
 <pre><code class="lang-yaml">settingsPacks:
   - key: structural.joist_girder_weight

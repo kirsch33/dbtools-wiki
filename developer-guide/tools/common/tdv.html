@@ -420,11 +420,26 @@ services.AddScoped&lt;ITdvDocumentService, TdvDocumentService&gt;();
 <li><strong>Debounced loading</strong> - 200ms debounce prevents excessive exports</li>
 <li><strong>LRU cache</strong> - Caches up to 32 preview images</li>
 <li><strong>Pan and zoom</strong> - Interactive image manipulation via <code>ImagePanZoomBehavior</code></li>
+<li><strong>Zoom Extents</strong> - Fits + centers the preview image in the viewport</li>
+<li><strong>Best-effort cropping</strong> - Preview exports are cropped to content bounds (non-background pixels) so extents-based zoom targets the real view content</li>
 <li><strong>Dark theme background</strong> - Consistent preview appearance (RGB: 43, 44, 61)</li>
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/UI/ViewModels/TdvWindowViewModel.cs:74-81</code>
-<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:19-28</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:19-28</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/UI/Behaviors/TdvImageZoomExtentsBehavior.cs:72</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvOps.cs:350</code></p>
+</blockquote>
+<h3 id="cache-locations">Cache Locations</h3>
+<p>TDV stores transient files under <code>%APPDATA%\\DBTools\\Cache\\TDV\\</code>:</p>
+<ul>
+<li><code>LibraryLocals\\</code> - Per-operation workshared locals (deleted after the operation closes the library document)</li>
+<li><code>Preview\\</code> - Per-window preview export images</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Services/TdvCachePaths.cs:13</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvDocumentService.cs:203</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/UI/ViewModels/TdvWindowViewModel.cs:446</code></p>
 </blockquote>
 <h2 id="settings-configuration">Settings Configuration</h2>
 <h3 id="library-settings">Library Settings</h3>
@@ -439,6 +454,7 @@ public sealed class LibraryFileEntry
 {
     public string? MainPath { get; set; }
     public string? FallbackPath { get; set; }
+    public string? Alias { get; set; }
 }
 </code></pre>
 <blockquote>
@@ -449,6 +465,7 @@ public sealed class LibraryFileEntry
 <ul>
 <li><strong>Main path</strong> - Primary path to the library RVT file</li>
 <li><strong>Fallback path</strong> - Alternative path (e.g., for different network locations)</li>
+<li><strong>Alias</strong> - Optional friendly name used in the Import/Export library picker</li>
 </ul>
 <h3 id="settings-pack">Settings Pack</h3>
 <p>The <code>LibrarySettingsPackContext</code> provides the settings UI with:</p>
@@ -487,6 +504,11 @@ public sealed class LibraryFileEntry
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Revit/Services/TdvLibraryService.cs:100-160</code></p>
 </blockquote>
+<p>Library warnings are evaluated on startup, so the Import/Export ribbon tools may be disabled immediately if configured library paths are invalid.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.App/Addin/AddinEntry.cs:324</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Settings/Features/DbtSettingsStartupWarningEvaluator.cs:36</code></p>
+</blockquote>
 <h3 id="revit-version-validation">Revit Version Validation</h3>
 <p>Library files are checked at two points to prevent version mismatches:</p>
 <ol>
@@ -507,6 +529,7 @@ public sealed class LibraryFileEntry
 <h3 id="dialog-suppression-during-document-open">Dialog Suppression During Document Open</h3>
 <p>When opening a library document, the TDV commands wrap the <code>OpenLibraryAsync</code> call with <code>DialogSuppressionHook.SuppressAvailabilityDialogs()</code>. This suppresses cascading Revit &quot;availability command failed&quot; TaskDialogs (<code>TaskDialog_External_Tools_Command_Failure</code>) that can occur during document switching when Revit re-evaluates <code>IExternalCommandAvailability</code> checks.</p>
 <p>The suppression uses a scoped pattern mechanism: a regex pattern is pushed onto a thread-safe stack and automatically removed when the <code>using</code> scope ends.</p>
+<p><strong>Limitation:</strong> <code>DialogBoxShowing</code> suppression only applies to Revit-hosted dialogs (TaskDialogs and some built-in dialogs). It cannot reliably prevent other add-ins from opening their own WPF/Win32 modal windows during document open/close operations. When third-party modal dialogs block TDV flows, the practical mitigation is to disable the conflicting add-in(s) for that Revit session or expand DialogSuppression patterns for known Revit TaskDialogs.</p>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Services/DialogSuppression/DialogSuppressionHook.cs</code>
 <strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvImportCommand.cs:92-101</code>
@@ -702,8 +725,8 @@ tool:
 <h3 id="library-selection-dialog-sizing">Library Selection Dialog Sizing</h3>
 <p>TDV export/import library selection dialogs override default alert dimensions to a compact tool-specific size:</p>
 <ul>
-<li>Width: <code>760</code></li>
-<li>Height: <code>440</code></li>
+<li>Width: <code>640</code></li>
+<li>Height: <code>420</code></li>
 <li>MinWidth: <code>520</code></li>
 <li>MinHeight: <code>340</code></li>
 </ul>
@@ -712,11 +735,22 @@ tool:
 <strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvExportCommand.cs:75-84</code>
 <strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvImportCommand.cs:70-79</code></p>
 </blockquote>
+<h3 id="library-picker-display">Library Picker Display</h3>
+<p>The library picker list uses:</p>
+<ul>
+<li>Alias (when configured) for a short readable name</li>
+<li>A compact tail-of-path suffix when no alias is present (keeps the dialog narrow without losing location context)</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvImportCommand.cs:70</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Features/TdvExportCommand.cs:75</code>
+<strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibraryPathDisplayFormatter.cs:8</code></p>
+</blockquote>
 <h3 id="export-command-flow">Export Command Flow</h3>
 <ol>
 <li>Validate library paths are configured</li>
 <li>Prompt user to select a library file</li>
-<li>Create local copy of central library file</li>
+<li>If workshared, create a per-operation local copy under the TDV cache folder</li>
 <li>Open library document</li>
 <li>Show TdvWindow for view selection</li>
 <li>Execute transfer to library</li>
@@ -730,7 +764,7 @@ tool:
 <ol>
 <li>Validate library paths are configured</li>
 <li>Prompt user to select a library file</li>
-<li>Create local copy of central library file</li>
+<li>If workshared, create a per-operation local copy under the TDV cache folder</li>
 <li>Open library document</li>
 <li>Show TdvWindow for view selection</li>
 <li>Execute transfer to active document</li>
@@ -755,7 +789,7 @@ tool:
 <p><strong>Source:</strong> <code>src/Tools/Common/TDV/Tests/</code></p>
 </blockquote>
 <hr>
-<p><em>Last updated: February 2026</em></p>
+<p><em>Last updated: March 2026</em></p>
 
 </article>
 

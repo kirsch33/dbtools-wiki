@@ -149,7 +149,8 @@
 <li>Yellow banner (host fallback): &quot;Select a HOST floor or roof target (press ESC to cancel ERFT launch).&quot;</li>
 <li>User picks host floor/roof OR presses ESC to cancel</li>
 <li>Yellow banner: &quot;Select source structural columns and beams to adjust, then click Finish.&quot;</li>
-<li>User picks multiple columns/beams, clicks Finish</li>
+<li>User picks multiple columns/beams, clicks Finish
+7b. Concrete filter: exclude any selected members whose <strong>Structural Material</strong> name matches <code>\bconcrete\b</code> (case-insensitive).</li>
 <li>Validation: Must have at least 1 column OR 1 beam framing to a column</li>
 <li>Progress overlay appears: &quot;Analyzing geometry...&quot;</li>
 <li>Pre-analysis runs:</li>
@@ -173,10 +174,13 @@
 <ol start="12">
 <li>User adjusts tolerance as needed</li>
 <li>Preview updates in real-time</li>
-<li>User clicks &quot;Apply&quot;</li>
-<li>Transaction group commits all changes</li>
-<li>ExtensibleStorage tags applied to modified elements</li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:22</code>
+14. User clicks &quot;Apply&quot;
+15. Transaction group commits all changes
+16. ExtensibleStorage tags applied to modified elements</p>
+</blockquote>
 <p>Picker-phase banners are shown with <code>BannerManager.ShowTopWarning(...)</code> and hidden in <code>finally</code> cleanup after each picker stage.</p>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:231</code>
@@ -196,21 +200,22 @@
 </li>
 <li>External-event handler runs edit orchestration through <code>ISafeExecutor</code> with notifier enabled (<code>NotifyKind=Error</code>)</li>
 <li>Edit flow loads target context from DataStorage for selected <code>SystemId</code></li>
+<li>If stored context or plan payload cannot be reconstructed, edit launch fails immediately with explicit banner feedback (<code>[SpecFail/Edit/StoredPlanMissing]</code>) and does not fall back to new-flow selection</li>
 <li>Edit flow creates <code>AppRuntime.CreateRunScope(..., RevitRunScopeProfile.InlineUi)</code> and resolves <code>ErftRunner</code> from that run scope</li>
 <li>UI opens with previous settings populated</li>
-<li>User can:
+<li>User can:</li>
+</ol>
 <ul>
 <li>Re-pick target floor/roof</li>
 <li>Adjust tolerances</li>
 <li>Re-apply changes</li>
 </ul>
-</li>
+<ol start="11">
 <li>Apply overwrites previous offsets (not cumulative)</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:444</code>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:484</code>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:535</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:566</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftRunner.cs:95</code></p>
 </blockquote>
 <hr>
 <h2 id="3-data-models">3. Data Models</h2>
@@ -502,6 +507,14 @@ public sealed class ErftSourceSelectionFilter : ISelectionFilter
 <li><strong>At least one beam</strong> must frame directly to a column (detected via proximity)</li>
 <li>If only beams are selected with no columns, show error: &quot;Select at least one column or beams that frame to columns&quot;</li>
 </ol>
+<p>Implementation note:</p>
+<ul>
+<li>Beam-only validation uses ERFT framing-graph logic (<code>IErftFramingHierarchyBuilder</code>) and is evaluated on cloned beam items so runtime plan connection state is not mutated during validation.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:98</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionValidationRules.cs:24</code></p>
+</blockquote>
 <hr>
 <h2 id="6-geometry-analysis">6. Geometry Analysis</h2>
 <h3 id="61-target-surface-extraction">6.1 Target Surface Extraction</h3>
@@ -529,11 +542,17 @@ public sealed class FloorRoofGeometryService
             Vertices = vertices,
             TriangleIndices = indices,
             Bounds = bounds,
-            LinkTransform = link?.GetTotalTransform()
+            LinkTransformMatrix = linkTransformMatrix // 16-value homogeneous matrix
         };
     }
 }
 </code></pre>
+<p><code>TargetSurfaceGeometry.LinkTransformMatrix</code> uses a 16-value column-major 4x4 contract.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Common/Domain/TargetSurfaceGeometry.cs:23</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Common/Domain/TargetSurfaceGeometry.cs:52</code>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Analysis/ErftTargetGeometryService.cs:323</code></p>
+</blockquote>
 <h3 id="62-closest-point-projection">6.2 Closest Point Projection</h3>
 <pre><code class="lang-csharp">/// &lt;summary&gt;
 /// Projects a point to the closest point on a triangulated mesh.
@@ -807,6 +826,14 @@ public static double ComputeElevationOnBeamLocationLine(
     }
 }
 </code></pre>
+<p>Target preview mesh selection policy:</p>
+<ul>
+<li>Primary role: <code>TargetSurface</code> using analyzed bottom-surface mesh (<code>Vertices</code> + <code>TriangleIndices</code>)</li>
+<li>Fallback role: <code>TargetElement</code> only when primary surface mesh is unavailable</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Preview/Logic/ErftPreviewSceneBuilder.cs:76</code></p>
+</blockquote>
 <hr>
 <h2 id="10-ui-components">10. UI Components</h2>
 <h3 id="101-main-window-layout">10.1 Main Window Layout</h3>
@@ -961,12 +988,14 @@ public static double ComputeElevationOnBeamLocationLine(
 <ul>
 <li>Edit clicks are rejected with explicit banner feedback when no ERFT system IDs are available, when the <code>ExternalEvent</code> is not initialized, or when <code>ExternalEvent.Raise()</code> does not return <code>Accepted</code>.</li>
 <li>External-event execution is wrapped in <code>ISafeExecutor</code> with notifier enabled so edit failures are surfaced to the user (not silent).</li>
+<li>Edit launch hard-fails when stored context/plan data is missing (<code>[SpecFail/Edit/StoredPlanMissing]</code>); no fallback route to new-flow selection is allowed.</li>
 <li><code>RunEditFlow(...)</code> creates a per-click <code>InlineUi</code> run scope via <code>AppRuntime.CreateRunScope(...)</code>, resolves <code>ErftRunner</code> inside that scope, and clears/disposes the scoped <code>IRevitRunScopeAccessor.Current</code> value in <code>finally</code>.</li>
+<li>Stored tolerance is strict during reconstruction: non-positive values fail (<code>[SpecFail/Edit/InvalidStoredTolerance]</code>) and are not defaulted.</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:444</code><br>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:484</code><br>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:535</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:566</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftRunner.cs:95</code><br>
+<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Selection/ErftSelectionOrchestrator.cs:286</code></p>
 </blockquote>
 <hr>
 <h2 id="13-error-handling">13. Error Handling</h2>
@@ -993,8 +1022,20 @@ public static double ComputeElevationOnBeamLocationLine(
 <td>No columns or valid beams selected</td>
 </tr>
 <tr>
-<td><code>[SpecFail/Source/NoColumnOrHierarchy]</code></td>
-<td>No columns and no beams frame to columns</td>
+<td><code>[SpecFail/Selection/NoColumnConnection]</code></td>
+<td>Beams-only source selection has no beam-to-column connection</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Edit/StoredPlanMissing]</code></td>
+<td>Contextual edit storage payload missing/corrupt</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Edit/InvalidStoredTolerance]</code></td>
+<td>Stored edit tolerance is invalid (<code>&lt;= 0</code>)</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Edit/InvalidStoredRoundingMode]</code></td>
+<td>Stored edit rounding mode is invalid/unrecognized</td>
 </tr>
 <tr>
 <td><code>[SpecFail/Projection/NoIntersection]</code></td>

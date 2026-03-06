@@ -158,7 +158,7 @@
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs:151</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/PlanBuilder.Helpers.cs:565</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:310</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:234</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:481</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:828</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:431</code></p>
@@ -287,19 +287,19 @@
 </blockquote>
 <h2 id="ui-components">UI Components</h2>
 <h3 id="main-window">Main Window</h3>
-<p><strong>Class</strong>: <code>SgtWindow</code> (WPF Window)<br>
-<strong>ViewModel</strong>: <code>SgtWindowViewModel</code></p>
+<p><strong>Class</strong>: <code>ShellWindow</code> (WPF Window)<br>
+<strong>ViewModel</strong>: <code>ShellWindowViewModel</code></p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml:2</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1</code></p>
 </blockquote>
-<p>The main window is a 1600x850 modal dialog with three main regions:</p>
+<p>The main window is a 1600x950 modal dialog with three main regions:</p>
 <ol>
 <li><p><strong>Left Panel</strong>: Configuration</p>
 <ul>
 <li>Scope controls (wall offset, layer selection)</li>
-<li>Girts expander with DataGrid</li>
-<li>Openings expander with DataGrid</li>
-<li>Bulk edit flyout</li>
+<li>Girts expander with DataGrid + Segment Flyout (per-segment editing)</li>
+<li>Openings expander with DataGrid + Segment Flyout (role + per-segment editing)</li>
+<li>Bulk edit flyout (in-window overlay)</li>
 </ul>
 </li>
 <li><p><strong>Center Splitter</strong>: Resizable divider</p>
@@ -308,12 +308,12 @@
 <ul>
 <li>2D elevation view</li>
 <li>3D view (using HelixToolkit)</li>
-<li>Preview mode toggle</li>
+<li>Overlay preview mode/zoom controls</li>
 </ul>
 </li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml:243-255</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:392</code></p>
 </blockquote>
 <h3 id="girt-grid-columns">Girt Grid Columns</h3>
 <table>
@@ -352,13 +352,18 @@
 </tr>
 <tr>
 <td>Flip</td>
-<td><code>FlipHand</code></td>
-<td>Mirror orientation</td>
+<td><code>FlipFacing</code></td>
+<td>Mirror orientation (Facing flip)</td>
 </tr>
 </tbody>
 </table>
+<p>Segmented girt groups use the Segment Flyout. The chevron appears only on the group leader (<code>ShowSegmentGroupExpander</code>) and opens an in-window flyout overlay containing per-segment edit rows (Type/Rotation/Y/Z/Flip + delete). The flyout opens anchored to the chevron (clamped inside the window) and resets to a consistent default size/position on each open; when resized, extra width should go to the <strong>Type</strong> column while the rest of the row controls keep their relative alignment/gaps.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Views/SgtWindow.xaml:402-517</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:470</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1910</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1996</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/GirtRowViewModel.cs:67</code></p>
 </blockquote>
 <h3 id="opening-grid-columns">Opening Grid Columns</h3>
 <p>Each opening row supports four framing roles with independent configuration:</p>
@@ -370,6 +375,14 @@
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Kernel/Domain/OpeningRoleRules.cs</code></p>
+</blockquote>
+<p>Opening member segments are edited via the Segment Flyout (opened from the chevron in the first column). The flyout shows role-level fields and, when segmented, per-segment child nodes for that role. It uses the same anchored-open and resize semantics as the girt segment flyout.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:760</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1910</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:2048</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/SegmentFlyoutViewModel.cs:14</code></p>
 </blockquote>
 <h3 id="preview-modes">Preview Modes</h3>
 <table>
@@ -385,13 +398,18 @@
 <td>2D front elevation view with girts and openings</td>
 </tr>
 <tr>
+<td>Section</td>
+<td>2D section view of member profiles</td>
+</tr>
+<tr>
 <td>3D</td>
 <td>Interactive 3D view with wall layers and framing</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Logic/Models/PreviewMode.cs:4-9</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewMode.cs:4-9</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1051</code></p>
 </blockquote>
 <h2 id="services">Services</h2>
 <h3 id="dependency-injection">Dependency Injection</h3>
@@ -540,39 +558,101 @@ SgtSmartDefaultsService.TryApplySmartDefaultsForOpeningRole(row, role, plan);
 <p>Elevation preview drag/snap edits now record real do/undo command actions (not no-op redo stubs), and all snap edit paths share command-stack behavior:</p>
 <ol>
 <li><strong>Girt extents</strong> (left/right) now execute as command-driven <code>do/undo</code> mutations so redo re-applies snapped extents.</li>
-<li><strong>Opening edges</strong> (left/right opening geometry drags) now push undo/redo commands with full <code>T0/T1</code> restore.</li>
 <li><strong>Opening member extents</strong> (jamb/header/sill endpoint snaps) now push undo/redo commands by cloning/restoring role config state.</li>
+<li><strong>Opening geometry is non-interactive in preview</strong>: opening edges/rectangles are not draggable; preview handle edits apply only to girt and opening-member elements.</li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:130</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:681</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:395</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:977</code></p>
+</blockquote>
+<h3 id="tab-cycling-for-overlapping-handles-2026-02-15">Tab Cycling for Overlapping Handles (2026-02-15)</h3>
+<p>When multiple handles overlap in the elevation preview, Tab/Shift+Tab cycles nearby candidates, Enter confirms the highlighted handle, and Esc cancels the cycle. Candidates reset when the cursor moves beyond the cycle radius.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:980</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:354</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:138</code></p>
+</blockquote>
 <h3 id="snap-association-lock-rule-2026-02-07">Snap Association Lock Rule (2026-02-07)</h3>
 <p>Elevation preview drag interactions are now documented and enforced as association-locked operations:</p>
 <ol>
 <li><strong>No arbitrary drag targets</strong> are produced by snapping (<code>FreeAlong</code> quantized fallback is not used in drag/snap flow).</li>
 <li><strong>Nearest valid association is always resolved</strong> (grid, wall edge, opening edge, or enabled vertical target like girt/wall top/wall bottom).</li>
-<li><strong>Threshold only affects <code>Snapped</code> UI state</strong>, not whether a valid association is returned.</li>
+<li><strong>Drag commit requires an accepted snapped target</strong> (<code>Snapped=true</code> + handle-specific target compatibility). Unsnapped nearest associations are preview-only and do not commit.</li>
+<li><strong>Snap feedback is explicit during drag</strong>: all valid targets render as guide bands and the active guide/connection line is cyan when accepted and red when not accepted.</li>
 <li><strong>Manual Along extents remain explicit form input behavior</strong>, not drag/snap output.</li>
 </ol>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Snapping.cs:359</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code></p>
+</blockquote>
+<h3 id="segment-endpoint-routing--span-guard-2026-02-16">Segment Endpoint Routing + Span Guard (2026-02-16)</h3>
+<p>Segment endpoint drag routing was hardened for bisected members:</p>
+<ol>
+<li><strong>Only true outer boundaries update girt extents</strong>: first-segment left endpoint updates start extent, last-segment right endpoint updates end extent.</li>
+<li><strong>Other segment endpoints remain opening-edge gap edits</strong> using opening-side metadata, avoiding opposite-end extent movement for bisected girts.</li>
+<li><strong>Extent snaps now reject no-span outcomes</strong> before commit when opening subtraction would leave no valid segment.</li>
+<li><strong>Opening-edge snap targets are global</strong> in elevation preview (not filtered to the selected opening row), so all eligible opening edges remain reachable during drag.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1189</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:130</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Snapping.cs:18</code></p>
+</blockquote>
+<h3 id="opening-segment-context-menu--delete-lifecycle-2026-02-16">Opening Segment Context Menu + Delete Lifecycle (2026-02-16)</h3>
+<p>Opening-segment interaction routing and deletion lifecycle were hardened:</p>
+<ol>
+<li><strong>Selected-opening right-click routing now prefers segment geometry</strong> with wider member-band/radius hit testing so segmented jamb/header/sill regions resolve reliably.</li>
+<li><strong>Segment hits now open segment-only context menus</strong> (<code>Delete &lt;Role&gt; Segment N</code>) and do not include row-level <code>Delete Selected</code>, preventing accidental opening-row deletes from segment clicks.</li>
+<li><strong>Deleting the last segment now removes only that opening role first</strong>; the opening row is removed only when no roles remain on that opening.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1472</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1961</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:394</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:634</code></p>
+</blockquote>
+<h3 id="opening-bypass--auto-join-contract-2026-02-12">Opening Bypass + Auto-Join Contract (2026-02-12)</h3>
+<p>Drag/snap behavior for bisected girts now includes an explicit opening-bypass contract:</p>
+<ol>
+<li><strong>Endpoint reassociation normalizes gap state</strong>: changing a girt endpoint association forces the touched endpoint gap override to <code>0.0</code>, removes stale opening-edge map keys from the prior association, and seeds <code>0.0</code> for the new opening-edge map key when applicable.</li>
+<li><strong>Interior opposite-edge snap auto-joins across opening</strong>: when an interior segment endpoint snaps to the opposite edge of the same opening, SGT auto-joins by adding the opening key to the row bypass set and removing opening-edge gap overrides for that opening.</li>
+<li><strong>Bypass state drives preview + placement segmentation</strong>: bypassed openings are excluded from preview bisection and placement-time opening subtraction, yielding a single continuous member across that opening until the row is snapped back to that opening edge.</li>
+</ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:204</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1795</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1843</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1861</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1565</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:39</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:155</code></p>
 </blockquote>
 <h3 id="preview-horizontal-transformprojection--segment-endpoint-ownership-2026-02-07">Preview Horizontal Transform/Projection + Segment Endpoint Ownership (2026-02-07)</h3>
 <p>Two WW/WS preview parity defects were hardened:</p>
 <ol>
-<li><strong>Horizontal preview transform/projection semantics</strong> now split responsibilities to match placement-facing semantics: profile transform always preserves analyzer-resolved <code>yTargetsFlange</code> for every role, while horizontal members (<code>Girt</code>, <code>Head</code>, <code>Sill</code>) project with a role-stable view contract (<code>depth=U,secondary=V</code>). Jamb roles continue to project by resolved <code>Y-&gt;Flange</code> / <code>Y-&gt;Web</code> mapping.</li>
-<li><strong>Segment interior endpoint snapping</strong> now resolves endpoint ownership from explicit opening-edge side metadata (<code>Left</code>/<code>Right</code>) first, with endpoint-side fallback only when metadata is unavailable. This prevents WS cases where dragging one bisected endpoint updated the opposite wall-side extent.</li>
+<li><strong>Preview transform/projection semantics</strong> now use one coherent contract for all roles: profile transform is pure math (flip/rotation/justification) in member-local UV, and projection into depth/secondary respects analyzer-resolved <code>yTargetsFlange</code> for every role (no role forcing). This is required for families whose section axes are swapped (e.g., <code>C Shapes</code> resolving <code>yTargetsFlange=false</code>).</li>
+<li><strong>Segment interior endpoint snapping</strong> commits by opening-edge identity (opening key + edge side) for all accepted snaps, so mirrored/rotated cases do not move the opposite endpoint due to transient segment indexing/topology.</li>
+<li><strong>Opening-internal spans are placeable by contract</strong>: when a row anchors to opposite edges of the same opening, that opening is preserved for that row during span validation/hydration so placement does not fail with no-segment subtraction errors.</li>
+<li><strong>Opening-role secondary-axis orientation is deterministic in both elevation and 3D</strong>: preview uses the same transformed profile loops + analyzer-resolved projection mapping directly (no centroid-based post-correction path).</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:95</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:260</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:729</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:561</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:66</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:292</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:858</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:561</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:31</code></p>
 </blockquote>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:39</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:195</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:293</code></p>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:293</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:774</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:284</code></p>
 </blockquote>
 <h3 id="elevation-grid-marker-bubble-contrast-2026-02-07">Elevation Grid Marker Bubble Contrast (2026-02-07)</h3>
 <p>Grid markers in elevation preview now render as a white-filled circle with black stroke and centered black text to preserve readability on dark themes.</p>
@@ -590,21 +670,25 @@ Preview layer offset and wall offset now resolve with the same helper used by pl
 Jamb/horizontal role transforms are built from exterior normal + axis cross products with consistent sign behavior.</li>
 <li><strong>Opening role orientation now honors per-role Flip setting in placement path</strong></li>
 <li><strong>Opening-edge cutbacks now use gap-only trimming (no jamb face inset)</strong><br>
-Placement and preview segmentation both apply the same opening-edge gap value, eliminating oversized girt-to-jamb trims.</li>
+Placement and preview segmentation both apply the same opening-edge gap value, eliminating oversized girt-to-jamb trims. Geometry-aware per-side bisection gaps now compute member extents from the same calibrated profile transforms used by preview/placement parity.</li>
 <li><strong>Preview justification axis mapping now uses analyzer metadata</strong><br>
 <code>OrientationResult.YTargetsFlange</code> now propagates into preview rendering so Y/Z justifications target the same flange/web axes as placement behavior.</li>
 <li><strong>Elevation/Section/3D now consume one shared preview semantics helper</strong><br>
 Justification deltas and orientation-map lookup are centralized and reused by all preview modes.</li>
 <li><strong>Preview profile transform ordering now matches placement math</strong><br>
-Preview now applies profile transforms as <code>rotation</code> → <code>FlipHand</code> → Y/Z justification (matching placement parameter application order), reducing jamb rotation/depth drift on linked walls.</li>
-<li><strong>Opening orientation precedence is role-first, then type-level, then girt fallback</strong><br>
-Preview now resolves <code>YTargetsFlange</code> from role-specific opening metadata first, which fixes role drift for head/sill/jamb members that share a type.</li>
+Preview applies transforms as <code>FlipFacing</code> (mirror in family-local UV) → <code>rotation</code> → Y/Z justification, matching Revit's Facing reference-plane semantics and reducing jamb rotation/depth drift on linked walls.</li>
+<li><strong>Opening orientation is strict: Step 2 must populate every role used</strong>
+<code>ResolveYTargetsFlangeForOpening</code> requires exact role-specific opening orientation data. There is no type-level majority-vote fallback and no girt-orientation fallback. If Step 2 did not populate orientation for a role, the pipeline throws <code>[SpecFail/Preview/OrientationMissing]</code>.</li>
 <li><strong>3D/Elevation/Section profile transform + projection now use one shared preview semantics helper with explicit role contracts</strong><br>
-Transform semantics are analyzer-driven for all roles (<code>yTargetsFlange</code> preserved); projection is role-aware: horizontal roles (<code>Girt</code>, <code>Head</code>, <code>Sill</code>) render as <code>depth=U,secondary=V</code>, while jamb roles keep analyzer-driven mapping (<code>Y-&gt;Flange</code> =&gt; <code>depth=U,secondary=V</code>, <code>Y-&gt;Web</code> =&gt; <code>depth=V,secondary=U</code>).</li>
+Transform semantics are analyzer-driven for all roles (<code>yTargetsFlange</code> preserved) and projection respects analyzer mapping for all roles: <code>Y-&gt;Flange</code> =&gt; <code>depth=U,secondary=V</code>, <code>Y-&gt;Web</code> =&gt; <code>depth=V,secondary=U</code>.</li>
+<li><strong>Step 3 now stores exact Y/Z pair deltas per rotation for preview/gap parity</strong>
+Warmup records one 16-slot justification table per rotation/flip state instead of reconstructing mixed Y/Z choices from separable axis deltas. This keeps nested/transformed framing families aligned with Revit's true placement behavior.</li>
 <li><strong>3D opening diagnostics now include projection mapping for all opening roles</strong><br>
 Left/Right jamb, Header, and Sill debug entries now log the resolved projection mapping and anchor geometry for faster root-cause triage.</li>
 <li><strong>Orientation analyzer probing is role-aware for rotated links</strong><br>
 Step 2 keeps canonical probes (<code>0/90/180/270</code>) for horizontal roles, and applies wall-azimuth residual compensation only for jamb roles during temporary orientation probing. Stored orientation outputs remain canonical quarter-turn values.</li>
+<li><strong>Vertical preview/gap sign resolution now uses per-rotation jamb calibration</strong>
+Horizontal roles still use canonical sign calibration, but jamb preview and geometry-aware gap ordering now read the vertical basis/sign payload for the selected canonical rotation. This fixes perpendicular and off-axis wall cases without introducing preview-only azimuth compensation.</li>
 <li><strong>Linked opening T mapping now follows frame-swap direction only</strong><br>
 Opening T mapping now uses the wall frame swap outcome directly (<code>dirDot &lt; 0</code>) and no longer applies an additional mirrored-link XOR branch. This prevents mirrored+rotated linked walls from inverting opening side placement.</li>
 <li><strong>Step 2 orientation seating is reflection-aware for mirrored links</strong><br>
@@ -623,15 +707,24 @@ Candidate and pair evaluations now drop <code>NaN</code>/<code>Infinity</code> m
 Head/Sill/Jamb web seating planes are created from wall-frame origin for deterministic opening-role Y/Z seating, eliminating origin-induced role drift across rotated/mirrored linked walls.</li>
 <li><strong>Temp probe transactions now emit structured failure metadata and deterministic probe outcomes</strong><br>
 Temp probe transactions (<code>Calibration</code>, <code>Orientation Probe</code>, <code>Warm Member Profile</code>) remain rollback-only with independent work/rollback exception capture, but transaction-mode probes now capture failure-preprocessor metadata (<code>blocking</code>, <code>warnings</code>, <code>lastResult</code>, <code>forbidden</code>) through <code>RunWithMetadata(...)</code>. Step 1/2/3 consumers now convert blocking metadata into explicit symbol/type failures (forbidden vs generic temp failure), preventing silent probe success when Revit reports blocking failures only through failure processing.</li>
-<li><strong>Post-analyze preview refresh uses deterministic two-pass dispatch</strong><br>
-After successful plan hydration (<code>_planStore.Initialize</code> + <code>RefreshFromPlan</code> + <code>AnalysisComplete</code>), overlay teardown schedules one <code>Loaded</code> refresh and one <code>Background</code> safety refresh with a lightweight in-flight latch. Failed/canceled analyzes skip this refresh burst.</li>
+<li><strong>Post-analyze overlay hides only after the first Elevation frame paints</strong><br>
+After successful plan hydration (<code>_planStore.Initialize</code> + <code>RefreshFromPlan</code> + <code>AnalysisComplete</code>), SGT forces Elevation mode, requests a preview refresh, and keeps the overlay visible until the Elevation preview has painted at least one frame (paint barrier). Failed/canceled analyzes skip this path; a Background safety refresh is still scheduled once the overlay is gone.</li>
 <li><strong>Face traversal now resolves one geometry source per pass</strong><br>
 Face traversal prefers instance geometry and falls back to symbol geometry only when instance geometry is unavailable, preventing mixed stale/fresh candidate sets from double traversal.</li>
 <li><strong>Square-HSS Y/Z probing now re-fetches candidate faces per iteration</strong><br>
 The Y/Z solver no longer reuses a pre-loop <code>hssFaces</code> snapshot. Symmetric HSS candidates are reloaded after each justification update/regenerate pass.</li>
 <li><strong>Y/Z solver diagnostics and face-selection guards are now stronger</strong><br>
 Step 2 now emits per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostics, deduplicates <code>GetFacesByIds</code> results by persistent face id, and uses <code>Acceptance.SeatingTol</code> (not <code>1e-6</code>) for signed-side filtering.</li>
+<li><strong>Preview jamb side ownership now uses frame-mapped opening T values directly</strong>
+Since Step 2 already maps opening <code>T0/T1</code> by frame direction, preview no longer applies a second mirrored/frame-swap remap when selecting jamb sides. Elevation rendering, elevation handle/hit-test routing, and 3D endpoint generation bind <code>OpeningRole.LeftJamb</code> = screen-left = <code>max(T0,T1)</code> (higher T) and <code>OpeningRole.RightJamb</code> = screen-right = <code>min(T0,T1)</code> (lower T) directly.</li>
+<li><strong>Entering 3D preview (and 3D Reset View) now uses a stable exterior “home” camera for mirrored/rotated links</strong>
+The 3D presenter derives a stable exterior normal from the wall frame, then resets the camera to an exterior 3/4 view with a slight downward pitch (instead of accidentally landing on an interior-facing view due to reflection/rotation transforms).</li>
+<li><strong><code>OpeningRoleMapping</code> is the authoritative physical↔visual role boundary</strong>
+<code>Role.JambLeft</code> (physical, −BasisX) maps to <code>OpeningRole.RightJamb</code> (visual, screen-right). <code>Role.JambRight</code> (physical, +BasisX) maps to <code>OpeningRole.LeftJamb</code> (visual, screen-left). All cross-enum bridges go through <code>OpeningRoleMapping.ToOpeningRole()</code> / <code>ToPhysicalRole()</code>. No ad-hoc inline Role↔OpeningRole mappings are permitted.</li>
 </ol>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/OpeningRoleMapping.cs</code></p>
+</blockquote>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:200</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:446</code><br>
@@ -650,6 +743,11 @@ Step 2 now emits per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostic
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:743</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:804</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:421</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:874</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1600</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:389</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code><br>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:583</code><br>
@@ -664,7 +762,7 @@ Step 2 now emits per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostic
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:243</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:176</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:443</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:408</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:88</code>
@@ -674,8 +772,38 @@ Step 2 now emits per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostic
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1384</code>
 <strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1426</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:115</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:226</code></p>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:210</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:228</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Viewport3D.cs:36</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:64</code></p>
+</blockquote>
+<h3 id="3d-preview-end-cap-tessellation-2026-02-21">3D Preview End-Cap Tessellation (2026-02-21)</h3>
+<p>SGT 3D preview now tessellates member end caps from the transformed section loops using <strong>EvenOdd</strong> fill across all contours (supports concave profiles and hollow sections). Caps use dedicated vertices (not shared with the side-wall extrusion) so lighting doesn’t smooth across the cap seam.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Geometry/SectionCapTriangulator.cs:18</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:670</code></p>
+</blockquote>
+<h3 id="3d-preview-rendering--navigation-refresh-2026-03-04">3D Preview Rendering + Navigation Refresh (2026-03-04)</h3>
+<p><strong>Lighting:</strong> Deterministic four-light rig (front key, skylight, uplight, stronger ambient) keeps channel/Z concavities readable in dark theme without flattening the scene.</p>
+<p><strong>Materials:</strong> Steel diffuse colors are boosted toward white for readability, with tighter/brighter highlights (<code>Specular=0.8</code>, <code>Shininess=64</code>) and zero emissive noise; wall materials remain unboosted with zero specular.</p>
+<p><strong>Edge lines:</strong> Crease overlays stay fixed-size and non-hit-testable; wall edges use blueprint cyan-gray and steel edges use luminous white with thicker steel lines (<code>1.5</code>).</p>
+<p><strong>Wall visibility:</strong> Layered and fallback wall fills are now wireframe-first context (<code>0.02</code> unselected, <code>0.10</code> selected) so the wall no longer fogs steel geometry.</p>
+<p><strong>Navigation reliability:</strong> 3D interactions now cancel cleanly on <code>LostMouseCapture</code> / window deactivation / missing-button move paths, and click-to-inspect resolves on mouse-up (click-only, not pan-drag).</p>
+<p><strong>Zoom/constraint feel:</strong> Shared <code>HelixRevitNavigation</code> now uses a loose constraint profile and a relaxed wheel clamp envelope for close inspection without abrupt hard stops.</p>
+<p><strong>Segment highlight:</strong> 3-tier visual hierarchy remains — selected segment (gold #FEC425 emissive), sibling segments (mild 85% dim), everything else (full dim). <code>SegmentSelectionKey</code> pushed from 3D click for precise highlighting.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:66</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:176</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:208</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:24</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Navigation3D.cs:16</code>
+<strong>Source:</strong> <code>src/Tools/Common/UI/Navigation/HelixRevitNavigation.cs:19</code></p>
+</blockquote>
+<h3 id="flyout-positioning--scrim-2026-03-03">Flyout Positioning &amp; Scrim (2026-03-03)</h3>
+<p>Both segment and bulk-edit flyouts now center vertically in the window (horizontal position unchanged — right of trigger). The flyout modal scrim uses a lighter 40% opacity (#66000000) instead of the global 60% default, keeping the preview visible behind the flyout.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml</code></p>
 </blockquote>
 <h2 id="configuration">Configuration</h2>
 <h3 id="manifest">Manifest</h3>
@@ -773,10 +901,122 @@ tool:
 <td><code>DualOpeningEdgeExtent</code></td>
 <td>Between two opening edges</td>
 </tr>
+<tr>
+<td><code>MemberEdgeExtent</code></td>
+<td>Terminates at a segmented-member boundary (<code>OpeningKey:Role</code>)</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Kernel/Domain/</code> (multiple files)</p>
+</blockquote>
+<h3 id="auto-segmentation-rev2-2026-02-11">Auto-Segmentation (REV2, 2026-02-11)</h3>
+<p>REV2 Phases 1-5 are now implemented end-to-end for both horizontal girt segmentation and vertical jamb segmentation.</p>
+<ul>
+<li>Horizontal segmentation remains persisted as first-class <code>GirtRow</code> siblings using <code>SegmentGroupId</code>/<code>SegmentOrder</code>/<code>ParentUiKey</code>, with recursive re-segmentation support when extending an already segmented child.</li>
+<li>Vertical segmentation is modeled on <code>OpeningRoleConfig</code> via <code>SegmentedConfigs</code> plus <code>JambSegmentGroupId</code>/<code>JambSegmentOrder</code>; opening-role callsites iterate <code>OpeningRow.GetEffectiveConfigs(role)</code> while parent <code>TypeId</code> remains the role enable flag.</li>
+<li>Vertical auto-bisection now triggers from jamb extent snapping (<code>ApplyOpeningMemberExtentSnap</code>) using resolved girt T-ranges, with minimum-length rejection and user warning banner for invalid splits.</li>
+<li>Rendering and interaction are segment-aware for opening roles:
+<ul>
+<li>Elevation and 3D preview iterate per-segment opening-role configs (<code>LeftJamb</code>/<code>RightJamb</code>/<code>Header</code>/<code>Sill</code>).</li>
+<li>Section preview iterates segmented <code>Header</code>/<code>Sill</code> configs and continues to omit jamb profile bands by design.</li>
+<li>Elevation draws dashed boundary lines between adjacent jamb segments.</li>
+<li>Handle generation creates jamb top/bottom pairs and header/sill left/right endpoint pairs per segment; all opening-member handle drags carry <code>SegmentIndex</code> so segmented child configs are edited directly.</li>
+</ul>
+</li>
+<li>Openings-pane operations now include explicit jamb segment add/remove commands (left/right) that mutate <code>SegmentedConfigs</code> in-place with segment-order/group maintenance and minimum-length guardrails.</li>
+<li>Placement remains independent per member (no grouping at writer layer):
+<ul>
+<li>Orchestrator and writer utilities resolve/place each jamb segment as an independent opening component.</li>
+<li>DomainWriter maps placed jamb components back to segment configs by role and local-Z ordering.</li>
+</ul>
+</li>
+<li>Reconciliation was upgraded from Phase 1 defensive reset to full segment-group cleanup:
+<ul>
+<li>host diffs track <code>MemberEdgeImpactKeys</code>,</li>
+<li>opening deletion flow merges/dissolves orphaned segment groups,</li>
+<li>post-pass renumbers/dissolves inconsistent groups,</li>
+<li>orphaned jamb segment sets dissolve when referenced bisecting girts disappear.</li>
+</ul>
+</li>
+<li>Edge-case hardening includes:
+<ul>
+<li><code>MemberEdge</code> handling in grid normalization + extent T-resolution,</li>
+<li>validation warnings for invalid member-edge labels/orphaned groups,</li>
+<li>adjacent bisection-point merge within <code>2 * END_GAP</code>,</li>
+<li>explicit <code>MemberEdge</code> cutback behavior in placement gap computation.</li>
+</ul>
+</li>
+<li>Persistence now uses explicit field mapping for opening-role configs (including nested <code>SegmentedConfigs</code>, <code>JambSegmentGroupId</code>, and <code>JambSegmentOrder</code>) in <code>StorageMapper</code> serialize/deserialize helpers.</li>
+</ul>
+<h3 id="segment-merge--collapse-hardening-2026-03-03">Segment Merge + Collapse Hardening (2026-03-03)</h3>
+<p>Follow-up hardening was implemented to prevent stale references and stale segmented state during editing:</p>
+<ul>
+<li><strong>MergeGirtSegments rewrites opening extent targets</strong>: when two girt segment <code>UiKey</code>s are removed and replaced with a merged row, any <code>TopExtentTarget</code> / <code>BottomExtentTarget</code> references that pointed at either removed key are rewritten to the merged key (and Undo restores opening rows).</li>
+<li><strong>Re-segmentation collapses segment groups</strong>: if re-segmentation recomputation produces fewer than 2 child segments, the segment group is collapsed back to a standalone row, segment metadata is cleared, bypass keys + opening-edge gap overrides are merged, and opening extent targets are rewritten to the collapsed row key.</li>
+<li><strong>Bisection provenance is preserved</strong>: near-duplicate bisections coalesce by position but retain <em>all</em> source intersecting element keys so bypass filtering remains correct when multiple openings contribute to one merged point.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1908</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1268</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:309</code></p>
+</blockquote>
+<h3 id="geometry-aware-gap-fallback-surfacing-2026-03-03">Geometry-Aware Gap Fallback Surfacing (2026-03-03)</h3>
+<p>Gap computation can fall back to flat <code>END_GAP</code> when profile data is missing or a profile transform fails. This is now <strong>tagged</strong> per-bisection and surfaced to the UI once per session as a summary banner when it affects segmentation actions.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:411</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1209</code></p>
+</blockquote>
+<h3 id="gap-override-validation-hardening-2026-03-03">Gap Override Validation Hardening (2026-03-03)</h3>
+<ul>
+<li>Gap overrides reject <code>NaN</code> / <code>Infinity</code> inputs and enforce a sane maximum absolute magnitude; negative values remain allowed (extend instead of trim).</li>
+<li>Persisted override values are validated for finiteness during <code>Plan.Validate()</code> so corrupted state is caught before placement.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:2899</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:271</code></p>
+</blockquote>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/ExtentKind.cs:12</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:508</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:767</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:883</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:77</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:164</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/AutoSegmentationService.cs:16</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/AutoSegmentationService.cs:69</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:225</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:506</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:700</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:574</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:658</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:717</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:459</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:634</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:879</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:1087</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:292</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:381</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:242</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1290</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:204</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.Utilities.cs:336</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.OpeningPlacement.cs:174</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/DomainWriter.Updates.cs:467</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/EditWall/HostChangeDiffService.cs:245</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:158</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:307</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:375</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/GridManagementService.cs:189</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/GridManagementService.cs:318</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Validation/ValidationService.cs:121</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:319</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Persistence/SchemaDefinition.cs:20</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Persistence/StorageMapper.cs:108</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Persistence/StorageMapper.cs:170</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Startup.cs:59</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs</code><br>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs</code></p>
 </blockquote>
 <h2 id="integration-points">Integration Points</h2>
 <h3 id="revit-api-integration">Revit API Integration</h3>
@@ -811,22 +1051,22 @@ tool:
 <pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool SGT
 </code></pre>
 <h2 id="preview-rotation-parity-2026-02-07">Preview Rotation Parity (2026-02-07)</h2>
-<p>Preview profile transforms use the established section-space rotation direction used by SGT preview/inset geometry math.</p>
+<p>Preview profile transforms use one shared section-space transform helper for Elevation/Section/3D.</p>
 <ul>
-<li>WW/WS orientation parity is now addressed in preview by secondary-axis normalization when transform/projection semantics differ.</li>
-<li>Rotation direction is unchanged from baseline behavior; parity correction is isolated to preview secondary-axis projection.</li>
+<li><code>FlipFacing</code> mirrors in family-local UV.</li>
+<li>Cross-section rotation is applied in section space.</li>
+<li>Exact Y/Z justification-pair deltas translate along U/V (instance-local section axes).</li>
+<li>Projection into depth/secondary always respects analyzer-resolved <code>yTargetsFlange</code> (no role forcing).</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/MemberProfileInsetCalculator.cs</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code></p>
 </blockquote>
 <h2 id="preview-secondary-axis-parity-2026-02-07">Preview Secondary-Axis Parity (2026-02-07)</h2>
-<p>Preview now applies a secondary-axis sign correction when transform semantics and projection semantics intentionally differ.</p>
+<p>Preview no longer uses a separate secondary-axis sign correction path.</p>
 <ul>
-<li>Transform remains analyzer-driven for all roles (<code>yTargetsFlange</code> preserved).</li>
-<li>Horizontal projection remains role-stable (<code>depth=U, secondary=V</code>).</li>
-<li>When those two semantics differ (typical WW horizontal case), preview secondary coordinates/bounds are sign-corrected before elevation/section banding and before 3D extrusion offsets.</li>
-<li>This keeps WW and WS preview orientation parity for girts/headers/sills without changing placement behavior.</li>
+<li>Projection uses analyzer <code>yTargetsFlange</code> mapping for all roles (<code>Y-&gt;Flange</code> =&gt; <code>depth=U,secondary=V</code>; <code>Y-&gt;Web</code> =&gt; <code>depth=V,secondary=U</code>).</li>
+<li>Horizontal roles use canonical warmup signs; jamb roles use the selected per-rotation vertical calibration entry.</li>
+<li>Preview parity is obtained by the warmed baseline profile loops, exact Y/Z pair deltas, and the same pure-math transform contract used by all preview modes.</li>
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code>
@@ -836,7 +1076,7 @@ tool:
 <hr>
 <blockquote>
 <p><strong>Documentation Status</strong>: Complete</p>
-<p><strong>Last Updated</strong>: 2026-02-07</p>
+<p><strong>Last Updated</strong>: 2026-02-19</p>
 <p><strong>Source Review</strong>: Verified against source files in <code>src/Tools/Structural/SGT/</code></p>
 </blockquote>
 

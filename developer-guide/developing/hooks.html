@@ -318,7 +318,7 @@
         
         // Built-in checks
         if (!settings.AutoUpdateEnabled) return false;
-        if (settings.HasWarning) return false;
+        if (await _warnings.IsWarningActiveAsync(...)) return false;
         
         // Delegate to subclass
         return await ShouldRunInternalAsync(uiapp, args, settings, ct);
@@ -348,7 +348,7 @@
     loop For each registered task
         Handler-&gt;&gt;Task: ShouldRunAsync()
         Task-&gt;&gt;Settings: Get&lt;TSettings&gt;()
-        alt AutoUpdateEnabled &amp;&amp; !HasWarning
+        alt AutoUpdateEnabled &amp;&amp; no active warning
             Task--&gt;&gt;Handler: true
             Handler-&gt;&gt;Exec: RunAsync(task.Execute)
             Exec-&gt;&gt;Task: ExecuteAsync()
@@ -357,7 +357,7 @@
             else Failure
                 Exec-&gt;&gt;Settings: SetWarning(id, true)
             end
-        else Disabled or has warning
+        else Disabled or warning active
             Task--&gt;&gt;Handler: false (skip)
         end
     end
@@ -666,12 +666,23 @@ public class MyInjector : IContextualRibbonInjector
 registry.RegisterHook&lt;IContextualRibbonInjector, MyInjector&gt;();
 </code></pre>
 <h3 id="warning-integration">Warning Integration</h3>
-<p>Tasks can set warnings when they fail, which disables auto-update until resolved:</p>
-<pre><code class="lang-csharp">// In SafeExecutor options
-OnErrorAsync = async _ =&gt;
+<p>Feature warnings are for <strong>actionable prerequisite/configuration failures</strong> (e.g., missing shared parameters, invalid settings).
+They should <strong>not</strong> be activated for transient/runtime exceptions.</p>
+<pre><code class="lang-csharp">// Example: set warning only for actionable prerequisite failure
+var eval = MyPrereqEvaluator.Evaluate(uiapp, doc, tx, logger);
+if (eval.Kind == PrereqKind.Invalid)
 {
-    foreach (var warningId in task.WarningIdsToSetOnFailure)
-        await _warnings.SetWarningAsync(warningId, true, null, ct);
+    foreach (var warningId in WarningIdsToSetOnFailure)
+        await warnings.SetWarningAsync(warningId, true, context: null, ct);
+    return;
+}
+
+// Runtime exceptions: show a banner once + disable for this document session (do NOT set warnings)
+try { updater.Run(); }
+catch (Exception ex)
+{
+    RecordRuntimeFailure(doc);
+    ShowRuntimeFailureBannerOnce(doc, ex.GetBaseException().Message, logger);
 }
 </code></pre>
 <p>The warning IDs must be defined in the tool's settings pack and match entries in <code>manifest.yml</code>.</p>

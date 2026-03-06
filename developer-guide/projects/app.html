@@ -220,7 +220,7 @@
     public static DbtServiceRoot Build(Action&lt;IServiceCollection&gt;? configure = null)
     {
         // 1. Create logging host
-        // 2. Load configuration from settings.json
+        // 2. Load configuration from settings.{YEAR}.json
         // 3. Register core services
         // 4. Discover and register tool modules
         // 5. Start hosted services
@@ -275,6 +275,7 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/DBTools.App/Features/Ribbon/DbtRibbonComposer.cs:19-102</code></p>
 </blockquote>
+<p><strong>Control Types Supported:</strong></p>
 <table>
 <thead>
 <tr>
@@ -402,17 +403,21 @@
     
     public static void Initialize(UIControlledApplication app)
     {
-        // Create ExternalEvent handler and UIApplication.Idling subscription
+        // Create ExternalEvent handler
     }
     
     public static Task&lt;object?&gt; RunAsync(Func&lt;object, Task&lt;object?&gt;&gt; work)
     {
-        // Queue work and raise ExternalEvent
+        // Queue work and raise ExternalEvent.
+        // Raise statuses:
+        // - Accepted/Pending: work remains queued and will be processed
+        // - other: work is removed and the returned task faults
     }
 }
 </code></pre>
+<p><code>ProcessQueue</code> drains up to 50 queued items per ExternalEvent tick and re-raises the ExternalEvent when backlog remains, so throttling does not strand queued work.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Addin/TestApiHost.cs:9-123</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.App/Addin/TestApiHost.cs:11</code></p>
 </blockquote>
 <hr>
 <h2 id="onstartup-sequence">OnStartup Sequence</h2>

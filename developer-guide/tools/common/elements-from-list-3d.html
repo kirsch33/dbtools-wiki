@@ -294,7 +294,7 @@
 </tr>
 <tr>
 <td><code>CsvElementPlacer</code></td>
-<td><code>Features/CsvElementPlacer.cs:17-143</code></td>
+<td><code>Features/CsvElementPlacer.cs:18-162</code></td>
 <td>Creates family instances from coordinate records</td>
 </tr>
 <tr>
@@ -305,7 +305,7 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:17-31</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:18</code></p>
 </blockquote>
 <h2 id="csv-format">CSV Format</h2>
 <p>The CSV parser accepts files with the following format:</p>
@@ -458,11 +458,15 @@ tool:
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:23-24</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:24</code></p>
 </blockquote>
 <p>The placer first searches for an existing family symbol in the document, then loads from the installed family library path if not found.</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:113-142</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:132</code></p>
+</blockquote>
+<p>If the family file is missing from <code>%APPDATA%/DBTools/Families</code>, <code>FamilyLoader</code> attempts to self-heal by extracting an embedded copy of <code>3D-Elements-From-List.rfa</code> into that folder before calling <code>doc.LoadFamily(...)</code>.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Utilities/FamilyLoader.cs:55</code></p>
 </blockquote>
 <h3 id="filled-region-requirements">Filled Region Requirements</h3>
 <p>The Filled Regions command requires specific project resources:</p>
@@ -551,7 +555,7 @@ tool:
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:26-33</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:27</code></p>
 </blockquote>
 <h3 id="filledregioncreator">FilledRegionCreator</h3>
 <p>Creates filled regions from selected elements:</p>
@@ -652,7 +656,7 @@ dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.cs
 <li>Tool parses CSV and validates format</li>
 <li>Family is loaded if not present</li>
 <li>Elements are created at each coordinate</li>
-<li>Summary dialog shows created/failed counts</li>
+<li>Summary dialog shows created/failed counts (Warning variant when any rows fail)</li>
 </ol>
 <h3 id="creating-filled-regions">Creating Filled Regions</h3>
 <ol>
@@ -686,6 +690,10 @@ dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.cs
 <td>Skips row, continues processing</td>
 </tr>
 <tr>
+<td>One or more element creates fail</td>
+<td>Continues processing, logs a warning summary, and shows a Warning summary dialog</td>
+</tr>
+<tr>
 <td>Family not found</td>
 <td>Attempts auto-load; fails with clear message if unavailable</td>
 </tr>
@@ -704,11 +712,11 @@ dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.cs
 </tbody>
 </table>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:36-45</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/CsvElementPlacer.cs:120</code></p>
 </blockquote>
-<p>All commands display results via the alert service with appropriate variant (Info/Error).</p>
+<p>All commands display results via the alert service with appropriate variant (Info/Warning/Error).</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/ElementsFromList3DCommand.cs:49-66</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/3DElementsFromList/Features/ElementsFromList3DHandler.cs:133</code></p>
 </blockquote>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>

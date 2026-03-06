@@ -89,7 +89,7 @@
         <article data-uid="">
 <h1 id="feature-warnings">Feature Warnings</h1>
 
-<p>Feature warnings provide a mechanism to notify users of configuration issues and automatically disable affected tools until the problem is resolved. This guide covers warning definition, triggering, display, and clearing.</p>
+<p>Feature warnings provide a mechanism to notify users of configuration issues and automatically disable affected tools until the problem is resolved. Warning state is runtime/session-only and is never persisted to disk.</p>
 <hr>
 <h2 id="overview">Overview</h2>
 <p>Feature warnings serve two purposes:</p>
@@ -118,11 +118,11 @@
            |
            v
 3. VALIDATION (Settings window load / manual trigger)
-   Pack context validates settings, sets HasWarning flag
+   Pack context validates settings and computes warning state
            |
            v
 4. ACTIVATION (IDbtSettingsWarningService.SetWarningAsync)
-   Warning state persisted, ribbon buttons disabled
+   Warning state stored in-session, ribbon buttons disabled
            |
            v
 5. DISPLAY (SettingsWarningCardView)
@@ -233,26 +233,10 @@
                 pack.Key,                             // Pack key
                 warning.Title,                        // From manifest
                 warning.Message,                      // From manifest
-                // Options getter - how to read from settings
-                settings =&gt; settings.Get&lt;MyToolSettings&gt;(),
-                // Options saver - how to persist settings
-                (settings, options, ct) =&gt; settings.SaveAsync(configSection, options, ct),
-                // Options flag getter - read warning state from options
-                options =&gt; options.HasWarning,
-                // Options flag setter - write warning state to options
-                (options, active) =&gt;
-                {
-                    options.HasWarning = active;
-                    if (active) options.AutoUpdateEnabled = false;  // Disable auto-update when warning active
-                },
                 // Context flag getter - read warning state from context
                 context =&gt; context.HasWarning,
                 // Context flag setter - write warning state to context
-                (context, active) =&gt;
-                {
-                    context.HasWarning = active;
-                    if (active) context.AutoUpdateEnabled = false;
-                },
+                (context, active) =&gt; context.HasWarning = active,
                 // Tools to disable (from manifest)
                 warning.DisableTools?.ToArray() ?? Array.Empty&lt;string&gt;())
         };
@@ -304,26 +288,6 @@
 <td>Display message</td>
 </tr>
 <tr>
-<td><code>optionsGetter</code></td>
-<td><code>Func&lt;ISettingsProvider, TOptions&gt;</code></td>
-<td>How to read options from settings</td>
-</tr>
-<tr>
-<td><code>optionsSaver</code></td>
-<td><code>Func&lt;ISettingsProvider, TOptions, CancellationToken, Task&gt;</code></td>
-<td>How to save options</td>
-</tr>
-<tr>
-<td><code>optionsFlagGetter</code></td>
-<td><code>Func&lt;TOptions, bool&gt;</code></td>
-<td>Get warning flag from options</td>
-</tr>
-<tr>
-<td><code>optionsFlagSetter</code></td>
-<td><code>Action&lt;TOptions, bool&gt;</code></td>
-<td>Set warning flag on options</td>
-</tr>
-<tr>
 <td><code>contextFlagGetter</code></td>
 <td><code>Func&lt;TContext, bool&gt;</code></td>
 <td>Get warning flag from context</td>
@@ -345,7 +309,7 @@
 </blockquote>
 <hr>
 <h2 id="settings-model-requirements">Settings Model Requirements</h2>
-<p>Your settings class must include a <code>HasWarning</code> property for warning state persistence:</p>
+<p>Warning state is session-only. Settings models should persist user preferences (for example <code>AutoUpdateEnabled</code>) but should not persist warning flags.</p>
 <pre><code class="lang-csharp">using DBTools.Core.Settings.Models;
 
 namespace DBTools.MyTool.Settings;
@@ -353,16 +317,14 @@ namespace DBTools.MyTool.Settings;
 public sealed class MyToolSettings : IAutoUpdateSettings
 {
     public bool AutoUpdateEnabled { get; set; }
-    public bool HasWarning { get; set; }
     
     // Other settings...
 }
 </code></pre>
-<p>The <code>IAutoUpdateSettings</code> interface requires both properties:</p>
+<p>The <code>IAutoUpdateSettings</code> interface requires only persisted auto-update preference:</p>
 <pre><code class="lang-csharp">public interface IAutoUpdateSettings
 {
     bool AutoUpdateEnabled { get; set; }
-    bool HasWarning { get; set; }
 }
 </code></pre>
 <blockquote>
@@ -739,19 +701,26 @@ disableTools:
 </code></pre>
 <h3 id="3-auto-disable-auto-update">3. Auto-Disable Auto-Update</h3>
 <p>When setting a warning active, also disable auto-update to prevent background failures:</p>
-<pre><code class="lang-csharp">(options, active) =&gt;
+<pre><code class="lang-csharp">// Context flag setter (for auto-update packs)
+(context, active) =&gt;
 {
-    options.HasWarning = active;
-    if (active) options.AutoUpdateEnabled = false;  // Important!
+    context.HasWarning = active;
+    if (active) context.AutoUpdateEnabled = false;  // Optional: keep background hooks quiet
 }
 </code></pre>
 <h3 id="4-test-warning-scenarios">4. Test Warning Scenarios</h3>
 <p>Ensure your tool handles:</p>
 <ul>
-<li>Warning active on startup</li>
+<li>Warning active on startup (validate-aware packs are evaluated during addin startup before the initial warning publish)</li>
 <li>Warning cleared mid-session</li>
 <li>Multiple warnings in same pack</li>
+<li>Runtime exceptions in hooks (banner + session-disable; <strong>do not</strong> activate feature warnings)</li>
+<li>Validation exceptions in validate-aware packs (exceptions are runtime errors; log and <strong>do not</strong> activate feature warnings)</li>
 </ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.App/Addin/AddinEntry.cs:324</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Settings/Features/DbtSettingsStartupWarningEvaluator.cs:36</code></p>
+</blockquote>
 <hr>
 <h2 id="cross-references">Cross-References</h2>
 <ul>

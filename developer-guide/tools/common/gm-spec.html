@@ -90,7 +90,7 @@
 <h1 id="global-mapper-specification">Global Mapper Specification</h1>
 
 <p><strong>Version:</strong> 2.0
-<strong>Last Updated:</strong> February 9, 2026</p>
+<strong>Last Updated:</strong> February 15, 2026</p>
 <hr>
 <h2 id="table-of-contents">Table of Contents</h2>
 <h3 id="part-i-foundation">Part I: Foundation</h3>
@@ -259,11 +259,72 @@ src/Tools/Common/GM/Shell/UI/ViewModels/GmShellViewModel*.cs
 </code></pre>
 <p><strong>Error Surfaces</strong></p>
 <ol>
-<li><strong>Notification Banner</strong> — Single-instance manager, fade in/out, auto-close</li>
+<li><strong>Notification Banner</strong> — Stacked manager (up to 3 visible per anchor window), fade in/out, auto-close; overflow can be expanded temporarily</li>
 <li><strong>Progress Overlay Errors</strong> — Overlay shows during long ops, surfaces errors inline</li>
 <li><strong>Output Window</strong> — Live window with search, copy/clear/export, level filters, duplicate grouping</li>
 <li><strong>Error Boundary (Window-Level)</strong> — UnobservedTaskException handling, banner on background failures</li>
 </ol>
+<hr>
+<h3 id="24-rev3-reconciliation-contracts-2026-02-15">2.4 REV3 Reconciliation Contracts (2026-02-15)</h3>
+<p>The following contracts are authoritative for REV3 behavior and must remain in sync across VM, services, and XAML templates.</p>
+<p><strong>Duplicates planner + readiness contract</strong></p>
+<ul>
+<li>Duplicates planning is source-row centric (<code>DuplicateGroupRow</code>) with explicit <code>Apply</code>, <code>Keep Target</code>, and <code>PersistSelection</code>.</li>
+<li><code>Apply</code> defaults off and is session-only (never restored from persisted UI state).</li>
+<li>Keep-target options are domain/category scoped (<code>GetScopedTargetIds(...)</code>); self-target marks keeper and forces <code>Apply=false</code>.</li>
+<li>Commit-active duplicate mappings are exactly <code>row.IsReady</code>.</li>
+<li>Restored-saved advisory mappings are exactly <code>row.IsRestoredAdvisory</code> and remain visible in conflicts without blocking commit.</li>
+<li>One-time duplicate mappings (<code>Apply &amp;&amp; !PersistSelection</code>) are excluded from success-mapping persistence writes.</li>
+</ul>
+<p><strong>Conflict detection/input contract</strong></p>
+<ul>
+<li>Duplicate conflict input is built from normalized duplicate edges derived from current row state (<code>IsReady</code> + <code>IsRestoredAdvisory</code>).</li>
+<li>Blocking conflicts are commit-active only; restored-saved conflicts are advisory.</li>
+<li>Conflict UI has split semantics:
+<ul>
+<li><code>HasConflicts</code> = blocking only (used to gate <strong>Review Plan</strong>).</li>
+<li><code>HasAnyConflicts</code> = blocking + advisory (used to surface flyout and conflict details).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Category pipeline contract</strong></p>
+<ul>
+<li>Family category identity is queried per family (<code>FamilyScanner.GetFamilyCategoryIdsAsync</code>) and stored as real <code>FamilyRecord.CategoryId</code>.</li>
+<li>Duplicates family grouping reads that category ID directly.</li>
+<li>Category label resolution order is curated-first, then kernel category-name cache (<code>EnsureCategoryNamesForIdsAsync</code> fallback).</li>
+<li>Shared Parameters duplicate sub-category grouping remains parameter-type-display based (not Revit family categories).</li>
+</ul>
+<p><strong>Families parameters hydration contract (Issue 19)</strong></p>
+<ul>
+<li>Expand path is fixed to: <code>ToggleFamilyRow</code> → <code>EnsureFamilyParamNamesAsync</code> → <code>RebuildParameterMatchesForFamily</code>.</li>
+<li>Scanner discovery remains <code>FamilyScanner.GetMappableParameterNamesForFamilyAsync</code> using <code>RevitCompat.IsUserMappable</code>.</li>
+<li>Parameters tab is always rendered; when scanning is unavailable or no mappable names are detected, the tab shows a centered empty/disabled state instead of hiding.</li>
+</ul>
+<p><strong>SP duplicate authoring bridge (Issue 12)</strong></p>
+<ul>
+<li>Shared Parameter duplicate rows are actionable in Duplicates when <code>Apply=true</code> with a valid keep target.</li>
+<li>Accepted SP duplicate selections synchronize into Shared Parameters authoring rows by <code>(TypeDisplay, ToName) -&gt; FromName</code> and set <code>Apply=true</code> for the matched authoring row when no explicit user override exists.</li>
+<li>Plan building no longer uses the BindingMap feasibility gate for SP duplicate processing; SP work is emitted through Shared Parameters authoring operations (<code>BindSharedParameter</code> / <code>EmbedSharedParameter</code>).</li>
+<li>Shared parameter value copy supports compatible coercions (<code>string</code> &lt;-&gt; numeric, <code>int</code> &lt;-&gt; <code>double</code>) and fails fast on unsupported conversions.</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/DuplicatesModels.cs:59</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/DuplicatesPaneViewModel.cs:373</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/DuplicatesPaneViewModel.cs:1915</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs:157</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/CommitReviewWindowService.cs:46</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/MappingConflictService.cs:29</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/IMappingConflictService.cs:15</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingPaneViewModel.cs:44</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Domain/ProjectStateBuilder.cs:114</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Families/FamilyScanner.cs:77</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:279</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:850</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:851</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:337</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:1069</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/SharedParameters/SharedParameterAuthoringService.cs:358</code></p>
+</blockquote>
 <hr>
 <h1 id="part-ii-architecture-1">Part II: Architecture</h1>
 <h2 id="3-domain-model">3. Domain Model</h2>
@@ -316,10 +377,9 @@ public sealed class GMProjectState
 <p><strong>Parameter Inclusion Rules:</strong></p>
 <p>Parameters are filtered programmatically (no curated name lists). Include parameter if ALL of these are true:</p>
 <ul>
-<li><code>Definition</code> is InternalDefinition (not ExternalDefinition/shared)</li>
-<li><code>BuiltInParameter == INVALID</code></li>
 <li><code>Parameter.IsReadOnly == False</code></li>
-<li><code>Definition.UserModifiable == True</code></li>
+<li><code>Definition.Name</code> is not null/whitespace</li>
+<li>If <code>Definition</code> is <code>InternalDefinition</code>, then <code>BuiltInParameter == INVALID</code> (exclude Revit built-ins)</li>
 <li>De-duplicate by name across instance/type scopes</li>
 <li>Annotate scope as <code>Instance</code>, <code>Type</code>, or <code>Instance+Type</code></li>
 </ul>
@@ -456,15 +516,15 @@ public sealed class GMUsageRecord
 <h3 id="42-deep-scan-cache-global-name-keyed">4.2 Deep Scan Cache (Global, Name-Keyed)</h3>
 <p><strong>Persistence:</strong></p>
 <ul>
-<li><strong>File:</strong> <code>.deepscans</code> in GM cache directory (global, NOT document-specific)</li>
-<li><strong>Format:</strong> JSON with composite keys</li>
+<li><strong>File:</strong> <code>deep-scan-cache.json</code> in the DBTools cache directory (global, NOT document-specific)</li>
+<li><strong>Format:</strong> JSON (portable payload; no host element IDs persisted)</li>
 </ul>
 <p><strong>Composite Key:</strong></p>
 <pre><code class="lang-csharp">public sealed class DeepScanCacheKey
 {
     public string FamilyName { get; init; }
     public int TypeCount { get; init; }
-    public string ParameterSignature { get; init; }  // Hash of parameter names
+    public string ParameterSignature { get; init; }  // Hash of fast-scanned mappable parameter base-names
 }
 </code></pre>
 <p><strong>Payload:</strong></p>
@@ -472,36 +532,40 @@ public sealed class GMUsageRecord
 {
     public DeepScanCacheKey Key { get; init; }
     public IReadOnlyList&lt;string&gt; ParameterNames { get; init; }
-    public IReadOnlyList&lt;int&gt; InstanceCounts { get; init; }
-    public IReadOnlyCollection&lt;int&gt; NestedFamilyIds { get; init; }
+    public IReadOnlyList&lt;GraphicsStyleKey&gt; StyleKeys { get; init; }        // portable style identifiers
+    public IReadOnlyList&lt;string&gt; MaterialNames { get; init; }             // portable material identifiers
+    public IReadOnlyList&lt;string&gt; NestedFamilyNames { get; init; }         // portable nesting identifiers
     public DateTime CachedAt { get; init; }
 }
 </code></pre>
 <p><strong>Write Semantics:</strong></p>
 <ul>
-<li>Deep scan completion writes immediately to <code>.deepscans</code> file</li>
+<li>Deep scan completion writes immediately to <code>deep-scan-cache.json</code></li>
 <li>Enables cross-session and cross-document reuse</li>
 </ul>
-<p><strong>Rationale:</strong></p>
+<p><strong>Restore Semantics (Strict):</strong></p>
 <ul>
-<li>Name-based keys portable across documents</li>
-<li>Enables global cache (not doc-specific)</li>
-<li>Staleness detection via signature comparison (shown to user)</li>
+<li>Cache restore is all-or-nothing:
+<ul>
+<li>Cache-key mismatch → cache miss</li>
+<li>Any cached style/material/nested-family that cannot be resolved cleanly to <strong>exactly one</strong> host element ID → cache miss</li>
+</ul>
+</li>
+<li>No partial restore and no silent stale-data usage.</li>
 </ul>
 <hr>
-<h3 id="43-staleness-indicators">4.3 Staleness Indicators</h3>
-<p><strong>When Deep Scan Cache Might Be Stale:</strong></p>
+<h3 id="43-cache-miss-policy-no-staleness-badge">4.3 Cache Miss Policy (No Staleness Badge)</h3>
+<p><strong>Mismatch Scenarios (treated as cache miss):</strong></p>
 <ul>
 <li>Family renamed in external project</li>
 <li>Types added/removed (TypeCount mismatch)</li>
 <li>Parameters added/removed (ParameterSignature mismatch)</li>
+<li>Cached portable usage identifiers no longer exist or are ambiguous in the current document</li>
 </ul>
 <p><strong>UI Behavior:</strong></p>
 <ul>
-<li>Show staleness indicator badge in UI (&quot;⚠ May be outdated&quot;)</li>
-<li>Tooltip: &quot;Deep scan data may be stale. Re-scan for latest.&quot;</li>
-<li>User can trigger re-scan manually</li>
-<li>Never use stale data silently without indicator</li>
+<li>No separate staleness badge; instead, mismatches force a rescan when the user triggers deep scan.</li>
+<li>Corrupt/invalid cache entries are dropped during load, and a one-time &quot;Deep Scan Cache Notice&quot; alert is shown.</li>
 </ul>
 <hr>
 <h3 id="44-ui-state-cache-document-scoped">4.4 UI State Cache (Document-Scoped)</h3>
@@ -619,13 +683,13 @@ catch (Exception ex)
 <h3 id="52-typed-exceptions">5.2 Typed Exceptions</h3>
 <p><strong>Exception Types (standalone, no inheritance required):</strong></p>
 <p>Each exception type is a standalone sealed class with an error code for programmatic handling.
-See <code>GmKernelExceptions.cs</code> for complete implementation.</p>
+See <code>KernelExceptions.cs</code> for complete implementation.</p>
 <pre><code class="lang-csharp">namespace DBTools.GM.Kernel;
 
 // Error codes for kernel exceptions (1xxx=Build, 2xxx=Mapping, 3xxx=Invariant, 4xxx=Snapshot, 5xxx=Collection/Apply)
 public enum GmKernelErrorCode { ... }
 
-// Kernel build failures (name resolution, nesting index, etc.)
+// Kernel build failures (name resolution, shared params, etc.)
 public sealed class GmKernelBuildException : Exception
 {
     public GmKernelErrorCode Code { get; }
@@ -768,7 +832,7 @@ await _runner.RunAsync(&quot;GM Apply - Full Plan&quot;, async () =&gt;
 <h3 id="64-close-behavior">6.4 Close Behavior</h3>
 <p><strong>On Window Close:</strong></p>
 <ol>
-<li><strong>Deep scan cache:</strong> Already written mid-session (global <code>.deepscans</code> file)</li>
+<li><strong>Deep scan cache:</strong> Already written mid-session (global <code>deep-scan-cache.json</code> file)</li>
 <li><strong>UI state:</strong> Write <code>.gmstate_{documentKey}.json</code> with all UI preferences</li>
 <li><strong>Session cache:</strong> Cleared (in-memory only, not persisted)</li>
 </ol>
@@ -783,7 +847,8 @@ await _runner.RunAsync(&quot;GM Apply - Full Plan&quot;, async () =&gt;
 <p><strong>Trigger:</strong></p>
 <ul>
 <li>Runs on tab activation or manual &quot;Run Scan&quot; button</li>
-<li>Configurable similarity threshold (slider in tab header)</li>
+<li>Detection result is cached per session</li>
+<li>Threshold/sort/search rebuild visible rows from cache (no re-detection)</li>
 </ul>
 <p><strong>Categories Analyzed:</strong></p>
 <ol>
@@ -791,12 +856,12 @@ await _runner.RunAsync(&quot;GM Apply - Full Plan&quot;, async () =&gt;
 <li><strong>Line Styles</strong> — Weight, color, pattern comparison</li>
 <li><strong>Object Styles</strong> — Weight, color, pattern comparison</li>
 <li><strong>Materials</strong> — ARGB, transparency, name comparison</li>
-<li><strong>Shared Parameters</strong> — Parameter key overlap (Jaccard index)</li>
+<li><strong>Shared Parameters</strong> — Type display + normalized name equality buckets (authoring-bridge flow)</li>
 </ol>
 <p><strong>Output:</strong></p>
 <ul>
-<li>Grouped duplicate candidates with scores (0-100) and rationale text</li>
-<li>Each group has a source and multiple potential targets</li>
+<li>Source-centric rows with a single explicit keep-target selection per source</li>
+<li>Candidate details with scores (0-100) and rationale text</li>
 </ul>
 <hr>
 <h3 id="73-similarity-algorithms">7.3 Similarity Algorithms</h3>
@@ -819,7 +884,7 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 <ul>
 <li>Jaccard index for parameter key overlap</li>
 <li>Ignores Revit built-in parameters</li>
-<li>Used for Families and Shared Parameters categories</li>
+<li>Used for Families category scoring</li>
 </ul>
 <hr>
 <p><strong>Visual Property Similarity (Styles/Materials):</strong></p>
@@ -830,7 +895,15 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 </ul>
 <hr>
 <h3 id="74-ui-structure">7.4 UI Structure</h3>
-<p><strong>Main Grid (<code>DuplicateGroupRow</code>):</strong></p>
+<p><strong>Summary Header (data-upfront):</strong></p>
+<ul>
+<li>Total, accepted, unresolved counts</li>
+<li>By-kind counts (Families, Styles, Materials, Shared Parameters)</li>
+<li>Top offenders (highest suggestion density)</li>
+<li>Recommended next action text</li>
+<li>Actions: <code>Run Scan</code>, <code>Accept Visible</code></li>
+</ul>
+<p><strong>Main Grid (<code>DuplicateGroupRow</code>, source-centric):</strong></p>
 <table>
 <thead>
 <tr>
@@ -841,7 +914,7 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 <tbody>
 <tr>
 <td>Kind</td>
-<td>Category (Families, LineStyles, etc.)</td>
+<td>Category (Families, Line Styles, etc.)</td>
 </tr>
 <tr>
 <td>Source</td>
@@ -849,19 +922,27 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 </tr>
 <tr>
 <td>Suggestions</td>
-<td>Count of potential targets</td>
+<td>Count of candidate keep targets above threshold</td>
 </tr>
 <tr>
 <td>Highest Score</td>
 <td>Best match percentage</td>
 </tr>
 <tr>
+<td>Keep Target</td>
+<td>Single target to keep for this source</td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>Needs review</code>, <code>Ready</code>, <code>Accepted</code>, <code>Ignored</code>, <code>Informational</code></td>
+</tr>
+<tr>
 <td>Actions</td>
-<td>Accept All, Expand/Collapse</td>
+<td>Accept source, clear keep selection</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Row Expansion (<code>DuplicatePairRow</code>):</strong></p>
+<p><strong>Details Pane (<code>DuplicatePairRow</code>):</strong></p>
 <table>
 <thead>
 <tr>
@@ -871,24 +952,28 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 </thead>
 <tbody>
 <tr>
-<td>Apply</td>
-<td>Checkbox (enables this pair for mapping)</td>
+<td>Keep</td>
+<td>Indicator for currently selected keep target</td>
+</tr>
+<tr>
+<td>From</td>
+<td>Source display name</td>
+</tr>
+<tr>
+<td>Candidate</td>
+<td>Candidate keep target display</td>
 </tr>
 <tr>
 <td>Score</td>
 <td>Similarity percentage (0-100)</td>
 </tr>
 <tr>
-<td>Target</td>
-<td>Dropdown with target options</td>
-</tr>
-<tr>
 <td>Rationale</td>
 <td>Explanation of match reason</td>
 </tr>
 <tr>
-<td>Badges</td>
-<td>Lock (🔒) and DS indicators</td>
+<td>Actions</td>
+<td>Set candidate as keep target</td>
 </tr>
 </tbody>
 </table>
@@ -900,29 +985,32 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 <li>Shows overlay: &quot;Detecting duplicates...&quot;</li>
 <li>Populates DuplicateGroups collection</li>
 </ul>
-<p><strong>Accept:</strong></p>
+<p><strong>Set Keep Target:</strong></p>
 <ul>
-<li>Converts selected pair to mapping rule</li>
+<li>Updates single keep target on the source row</li>
+<li>Syncs candidate <code>Keep</code> indicator in details pane</li>
+</ul>
+<p><strong>Accept Source:</strong></p>
+<ul>
+<li>Accepts selected keep target for one source row</li>
 <li>Applies row locks to affected rows on other tabs</li>
-<li>Updates <code>_successMappings</code> dictionary</li>
+<li>Updates duplicate selection persistence (<code>_duplicateSelections</code>)</li>
 </ul>
-<p><strong>Ignore:</strong></p>
+<p><strong>Accept Visible:</strong></p>
 <ul>
-<li>Sets <code>Apply = false</code> on pair</li>
-<li>Records in <code>_duplicateSelections</code> for persistence</li>
+<li>Batch accept for all currently visible source rows with keep selection</li>
 </ul>
-<p><strong>Accept All in Group:</strong></p>
+<p><strong>Ignore Candidate:</strong></p>
 <ul>
-<li>Batch accept for all <code>Apply = true</code> pairs in a group</li>
-<li>Single transaction for efficiency</li>
+<li>Marks candidate ignored for that source and updates persisted duplicate selection</li>
 </ul>
 <hr>
 <h3 id="76-row-locking">7.6 Row Locking</h3>
 <p>When a duplicate mapping is accepted:</p>
 <ol>
-<li>Source row on the target tab is locked (<code>IsLocked = true</code>)</li>
-<li>Checkbox disabled with tooltip: &quot;Locked by Duplicates tab (change there)&quot;</li>
-<li>User must change or remove mapping on Duplicates tab to unlock</li>
+<li>Source row on target tabs receives <code>MappingOrigin = Duplicate</code></li>
+<li>Origin description/lock badge explains duplicate source and target</li>
+<li>User can unlock/override from the row lock interaction or by changing Duplicates selection</li>
 </ol>
 <p><strong>Lock Sources:</strong></p>
 <ul>
@@ -934,8 +1022,9 @@ bool TryGetNumericSuffixPair(string a, string b, out int aSuffix, out int bSuffi
 <h3 id="77-persistence">7.7 Persistence</h3>
 <p><strong>Resume Snapshot Includes:</strong></p>
 <pre><code class="lang-csharp">public IDictionary&lt;string, int[]&gt;? DuplicateGroupMembers { get; set; }  // key: kind:sourceId
-public double? DuplicatesScrollOffset { get; set; }
-public int? DuplicatesSimilarityThreshold { get; set; }
+public List&lt;DuplicateSelection&gt;? DuplicateSelections { get; set; }
+public List&lt;SharedParameterDuplicateSelection&gt;? SharedParameterDuplicateSelections { get; set; }
+public Dictionary&lt;string, double&gt; ScrollOffsets { get; set; } // includes &quot;Duplicates&quot;
 </code></pre>
 <p><strong>Write Policy:</strong></p>
 <ul>
@@ -944,7 +1033,7 @@ public int? DuplicatesSimilarityThreshold { get; set; }
 </ul>
 <p><strong>Restore Behavior:</strong></p>
 <ul>
-<li>Rehydrate <code>DuplicateSelections</code> and group states</li>
+<li>Rehydrate duplicate group membership, duplicate selections, and shared-parameter duplicate selections</li>
 <li>Invalid group entries dropped with warning log</li>
 <li>No silent fallbacks</li>
 </ul>
@@ -1103,15 +1192,27 @@ foreach (var chunk in items.Chunk(100))
 <p>Shows:</p>
 <ol>
 <li><strong>Types</strong> (from <code>symbol_ids</code> in kernel)</li>
-<li><strong>Object Styles</strong> (usage-first; deep-scan fallback when needed)</li>
-<li><strong>Materials</strong> (usage-first; deep-scan fallback when needed)</li>
-<li><strong>Parameter Names ONLY</strong> (not values; deep-scan-first hydration when available)</li>
+<li><strong>Object Styles</strong> (usage-first; fast hydration by walking a single placed instance)</li>
+<li><strong>Materials</strong> (usage-first; fast hydration by walking a single placed instance)</li>
+<li><strong>Parameters</strong> (name mapping rows + example-value previews; deep-scan data is used when available, but deep scan is never auto-triggered)</li>
 </ol>
 <p>Expansion flow is hybrid:</p>
 <ul>
-<li>First pass uses cached usage indices + fast parameter discovery.</li>
-<li>If expanded details for a placed family are still empty (<code>Params</code> and/or <code>Object Styles</code>/<code>Materials</code>), GM runs a single-family deep scan on demand and repopulates the row.</li>
-<li>If usage discovery yields zero object styles for the family, deep-scan object-style refs are still surfaced as fallback rows so Object Styles details do not render empty.</li>
+<li>First pass ensures cached usage indices + fast parameter discovery.</li>
+<li>If <code>quantity &gt; 0</code>, GM augments expanded-row Object Styles/Materials by <strong>walking a single placed instance</strong> (including view-owned dependents like filled regions and group members) and updating the reverse indices used by the Families tab row-details.</li>
+<li><strong>Deep scan is user-initiated only</strong> (never automatic during expansion). If deep scan data already exists, it may still be used as augmentation, but expansion does not trigger scanning.</li>
+</ul>
+<p><strong>Expanded-row tab rendering:</strong></p>
+<ul>
+<li><strong>Types</strong> and <strong>Parameters</strong> tabs are always rendered.</li>
+<li><strong>Object Styles</strong> and <strong>Materials</strong> tabs are always rendered, but disabled (muted/italic header) when their nested grids would be empty.</li>
+<li>Parameters tab supports three states:
+<ul>
+<li><strong>Scanner unavailable</strong> → disabled + message</li>
+<li><strong>No mappable names detected</strong> → empty-state message</li>
+<li><strong>Names present</strong> → grid enabled</li>
+</ul>
+</li>
 </ul>
 <p><strong>Zero-Qty Gating (quantity = 0):</strong></p>
 <p>Shows:</p>
@@ -1127,10 +1228,9 @@ foreach (var chunk in items.Chunk(100))
 <li>DS badge added to top-level row</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1840</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2191</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:338</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:817</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2328</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2828</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Usage/UsageIndexService.cs:148</code></p>
 </blockquote>
 <hr>
 <h3 id="97-nested-target-comboboxes">9.7 Nested Target Comboboxes</h3>
@@ -1152,9 +1252,41 @@ foreach (var chunk in items.Chunk(100))
 </ul>
 <p><strong>Parameters:</strong></p>
 <ul>
-<li>Options from target family's deep scan parameter names</li>
-<li><strong>First option:</strong> <code>&lt;Do Not Map&gt;</code> sentinel</li>
-<li>Deep scan required for parameter list (gated if not scanned)</li>
+<li>Options from the target family's <strong>mappable parameter names</strong> (fast scanner when available; deep scan can augment when already present).</li>
+<li>Sentinel options:
+<ul>
+<li>Blank (no mapping selected)</li>
+<li><code>&lt;Do Not Map&gt;</code> (explicitly opt out of mapping a row)</li>
+</ul>
+</li>
+<li>Parameter rows are <strong>scope-explicit</strong>:
+<ul>
+<li>Source parameter name rows are normalized into separate <code>(Instance)</code> and <code>(Type)</code> rows (no combined <code>(Instance+Type)</code> row).</li>
+<li>Instance-scope sources only offer instance-compatible targets; type-scope sources only offer type-compatible targets.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Parameter conflict kinds (blocking):</strong></p>
+<ul>
+<li><strong>ParamDuplicateTarget</strong> — More than one applied parameter row in a family maps to the same target parameter.</li>
+<li><strong>ParamTypeWriteAffectsExistingTargetInstances</strong> — Any applied <code>(Type)</code> parameter mapping requires a policy decision when the selected target type already has instances.</li>
+</ul>
+<p><strong>Type-write policy flow (for <code>(Type)</code> parameter mappings):</strong></p>
+<ul>
+<li>If the target type has <strong>no instances</strong>, type-scope parameter copies are allowed without a policy.</li>
+<li>If the target type <strong>already has instances</strong>, GM requires a per-family policy before commit:
+<ul>
+<li><code>KeepTargetValues</code> → skip type-scope writes</li>
+<li><code>OverwriteTargetValues</code> → overwrite target type values from the source</li>
+</ul>
+</li>
+<li>Policy is stored per family and persists as a saved-mapping entry (<code>kind=param-type-policy</code>).</li>
+</ul>
+<p><strong>Execution note (important):</strong></p>
+<ul>
+<li>Parameter migration operations (<code>OperationKind.MapParameter</code>) are executed <strong>during type replacements</strong>, adjacent to the <code>ReplaceType</code> work (not as a separate pre-pass).</li>
+<li>Type-scope writes execute once per type replacement pair; instance-scope writes execute per affected instance.</li>
+<li>Operation results are still recorded under the <code>Parameters</code> stage for reporting.</li>
 </ul>
 <p><strong>Lazy Loading:</strong></p>
 <ul>
@@ -1177,27 +1309,43 @@ foreach (var chunk in items.Chunk(100))
 <li>Rows manually edited by the user remain unchanged</li>
 <li>Saved mappings and externally-originated/locked selections remain unchanged</li>
 </ul>
+<p><strong>Injected/restored options (DS badge):</strong></p>
+<ul>
+<li>When a saved mapping restores a target option that is not in the current option universe, GM injects that option into the list and marks it <code>DS</code> with a tooltip (visible in the ComboBox item template).</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Domain/Conflict.cs:87</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1914</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:88</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:51</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/TypeChangeService.cs:451</code></p>
+</blockquote>
 <hr>
 <h3 id="98-parameter-pruning-rules">9.8 Parameter Pruning Rules</h3>
 <p>Include parameter if ALL of these are true:</p>
 <ol>
-<li><code>Definition</code> is <code>InternalDefinition</code> (NOT <code>ExternalDefinition</code> or shared)</li>
-<li><code>BuiltInParameter == INVALID</code></li>
 <li><code>Parameter.IsReadOnly == False</code></li>
-<li><code>Definition.UserModifiable == True</code></li>
-<li><code>Parameter.UserModifiable == True</code> (when available in current Revit API version)</li>
-<li><code>Parameter.Id.IntegerValue &gt;= 0</code></li>
+<li><code>Definition.Name</code> is not null/whitespace</li>
+<li>If <code>Definition</code> is <code>InternalDefinition</code>, then <code>BuiltInParameter == INVALID</code> (exclude Revit built-ins)</li>
 </ol>
 <p><strong>De-duplication:</strong></p>
 <ul>
-<li>De-duplicate by name across instance/type scopes</li>
-<li>Annotate scope: <code>Instance</code>, <code>Type</code>, or <code>Instance+Type</code></li>
+<li>De-duplicate by base name, but emit <strong>separate rows</strong> for each scope present:
+<ul>
+<li><code>Name (Instance)</code></li>
+<li><code>Name (Type)</code></li>
+</ul>
+</li>
 </ul>
 <p>No curated name lists (programmatic filters only).</p>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Utilities/RevitCompat.cs:54</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Families/FamilyScanner.cs:243</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Features/DeepScan/DeepScanServiceAdapter.cs:119</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Features/ParameterNameDiscoveryPolicy.cs:19</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Families/FamilyScanner.cs:252</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/DeepScan/DeepScanServiceAdapter.cs:122</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/ParameterNameHelper.cs:32</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:781</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1859</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2012</code></p>
 </blockquote>
 <hr>
 <h3 id="99-cross-tab-apply-lock">9.9 Cross-Tab Apply Lock</h3>
@@ -1382,6 +1530,7 @@ foreach (var chunk in items.Chunk(100))
 <li>Unchecking Apply removes that link; family Apply remains only if still linked elsewhere or manually selected</li>
 <li>During family apply, if target material is missing in a family document, GM creates it and syncs core material properties before rewriting source references and reloading the family</li>
 <li>&quot;Families Using This Material&quot; apply indicators are driven by canonical usage-link state (<code>OS</code>/<code>MAT</code>) and remain accurate even when a family is not currently visible in the Families tab list/filter scope</li>
+<li>Unsupported material pairs (source/target not resolvable in the host document) are dropped during plan build (warning banner) before commit</li>
 </ol>
 <p><strong>Families Tab Link Indicators:</strong></p>
 <ul>
@@ -1397,9 +1546,10 @@ foreach (var chunk in items.Chunk(100))
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:908</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MatchingModels.cs:190</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:817</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1249</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1370</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1615</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2123</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2407</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:231</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/PlanBuildingService.cs:86</code></p>
 </blockquote>
 <hr>
@@ -1432,25 +1582,35 @@ foreach (var chunk in items.Chunk(100))
 <li>Single-selection semantics (only one type expanded at a time)</li>
 </ul>
 <hr>
-<h3 id="112-group-and-category-dropdowns">11.2 Group and Category Dropdowns</h3>
+<h3 id="112-group-and-category-selectors">11.2 Group and Category Selectors</h3>
 <p><strong>Group Dropdown:</strong></p>
 <ul>
 <li>Populated from SharedParameterFile (or pre-collected snapshot)</li>
 <li><strong>Default:</strong> First group alphabetically</li>
 <li>Never blank</li>
 </ul>
-<p><strong>Category Dropdown:</strong></p>
+<p><strong>Category Selector (Tree, Level 0):</strong></p>
 <ul>
-<li>Hard-coded curated category labels (e.g., Walls, Doors, Mechanical Equipment, Windows)</li>
-<li>No dynamic expansion</li>
-<li><strong>Default:</strong> First curated category</li>
-<li>Never blank</li>
+<li>Hard-coded curated category labels (Walls, Doors, Mechanical Equipment, Windows)</li>
+<li>Always visible (even when count is 0)</li>
+<li>Label includes count like <code>Mechanical Equipment (12)</code>; 0-count categories are dimmed</li>
+<li>Category content is loaded for the currently selected category (tree children are populated for selected only)</li>
 </ul>
 <p><strong>Loading:</strong></p>
 <ul>
-<li>After selecting group and category, main grid updates</li>
-<li>Shows families/types for curated category with SP inventory</li>
+<li>First visit to the tab lazily loads SP groups and prewarms authoring snapshots for <strong>all curated categories</strong>
+<ul>
+<li>Ensures category counts are correct immediately</li>
+<li>Makes switching categories instant (cache hit)</li>
 </ul>
+</li>
+<li>After initial lazy-load completes, category/group changes rebuild authoring <strong>without</strong> invoking the progress overlay</li>
+</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:755</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/SharedParametersPaneViewModel.cs:487</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/SharedParametersPaneViewModel.cs:1672</code></p>
+</blockquote>
 <hr>
 <h3 id="113-main-grid-scoping">11.3 Main Grid Scoping</h3>
 <p><strong>Data Sources:</strong></p>
@@ -1471,12 +1631,12 @@ foreach (var chunk in items.Chunk(100))
 </ul>
 <hr>
 <h3 id="114-type-details-expansion">11.4 Type Details Expansion</h3>
-<p><strong>Header:</strong></p>
+<p><strong>Header (top row, right of SP Group dropdown):</strong></p>
 <ol>
 <li><strong>Instance Navigator:</strong> Left/right arrows (cycles instances)</li>
-<li><strong>Instance Count:</strong> &quot;Instance 3 of 27&quot;</li>
-<li><strong>Zoom to Instance Button:</strong> Navigates and highlights current instance</li>
-<li><strong>Compact Summary:</strong> Current instance name and ElementId</li>
+<li><strong>Instance Count:</strong> &quot;3/27&quot;</li>
+<li><strong>Auto-zoom:</strong> Toggle for cycling behavior</li>
+<li><strong>Zoom:</strong> Navigates and highlights current instance</li>
 </ol>
 <p><strong>Parameter Grid (below header):</strong></p>
 <p><strong>Section 1: Existing Parameters</strong></p>
@@ -1607,8 +1767,8 @@ foreach (var chunk in items.Chunk(100))
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:867</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1035</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:495</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2756</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1469</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:4619</code></p>
 </blockquote>
 <h3 id="121-sort-mode">12.1 Sort Mode</h3>
 <p><strong>Options:</strong></p>
@@ -1689,24 +1849,24 @@ foreach (var chunk in items.Chunk(100))
 <h3 id="125-clear-scans">12.5 Clear Scans</h3>
 <p><strong>Purpose:</strong></p>
 <ul>
-<li>Clears global <code>.deepscans</code> cache file</li>
+<li>Clears global <code>deep-scan-cache.json</code> cache file</li>
 <li>Forces re-scan of all families</li>
 </ul>
 <p><strong>When to Use:</strong></p>
 <ul>
 <li>User knows families have changed significantly</li>
-<li>Staleness indicator suggests outdated deep scan data</li>
+<li>Deep scan data appears outdated or incorrect</li>
 </ul>
 <p><strong>Behavior:</strong></p>
 <ul>
-<li>Deletes <code>.deepscans</code> file</li>
+<li>Deletes <code>deep-scan-cache.json</code> file</li>
 <li>DS badges removed from all rows</li>
 <li>Next deep scan rebuilds cache</li>
 <li>Clears in-memory deep-scan usage caches and refreshes usage/family/SP views immediately</li>
 <li>Shows success banner: &quot;Deep scan cache cleared.&quot;</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2001</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:3322</code></p>
 </blockquote>
 <hr>
 <h3 id="126-clear-preferences">12.6 Clear Preferences</h3>
@@ -1722,6 +1882,7 @@ foreach (var chunk in items.Chunk(100))
 <li>Resets saved Shared Parameter row selections (<code>Apply</code>, <code>Map From</code>, edited flags) during clear</li>
 <li>Persists an explicit empty saved-mappings snapshot when mappings are cleared (overwrites stale mapping files)</li>
 <li>Suppresses the next window-close saved-mappings write to prevent immediate re-persist of just-cleared mappings</li>
+<li>Saved-mappings write failures are logged and surfaced via a user-visible error banner (no silent persistence failures)</li>
 <li>Shows success banner: &quot;Cleared saved mappings for this document.&quot;</li>
 </ul>
 <p><strong>Does NOT Clear:</strong></p>
@@ -1729,12 +1890,52 @@ foreach (var chunk in items.Chunk(100))
 <li>Deep scan cache</li>
 <li>UI state (tab, search, filters)</li>
 </ul>
+<p><strong>Saved mapping kinds + keying (owner-family scoped):</strong></p>
+<p>GM persists commit-success mapping targets as <code>SavedMappingEntry</code> records. Keying is kind-specific; the following kinds are explicitly scoped by <code>OwnerFamilyId</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Meaning</th>
+<th>Key fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nested-style</code></td>
+<td>Expanded-family Object Style mapping</td>
+<td><code>(Kind, FromId=StyleId, OwnerFamilyId=FamilyId)</code></td>
+</tr>
+<tr>
+<td><code>nested-material</code></td>
+<td>Expanded-family Material mapping</td>
+<td><code>(Kind, FromId=MaterialId, OwnerFamilyId=FamilyId)</code></td>
+</tr>
+<tr>
+<td><code>param-name</code></td>
+<td>Expanded-family Parameter name mapping</td>
+<td><code>(Kind, FromId=StableStringId(SourceParamName), OwnerFamilyId=FamilyId)</code></td>
+</tr>
+<tr>
+<td><code>param-type-policy</code></td>
+<td>Expanded-family type-write policy for <code>(Type)</code> parameter migration</td>
+<td><code>(Kind, FromId=FamilyId, OwnerFamilyId=FamilyId)</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Features/SavedMappings/SavedMappingEntry.cs:31</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/SavedMappings/SavedMappingEntry.cs:38</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:391</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:486</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:781</code></p>
+</blockquote>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1879</code>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/UiStatePersistenceService.cs:57</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/UiStatePersistenceService.cs:62</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:742</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2017</code>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/UiStatePersistenceService.cs:86</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/UiStatePersistenceService.cs:90</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:2066</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/UsagePaneViewModel.cs:676</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:487</code></p>
@@ -1852,6 +2053,7 @@ foreach (var chunk in items.Chunk(100))
 <li><code>Message</code> (aggregated error classifications + per-family context)</li>
 </ul>
 </li>
+<li>Domain Summary shows per-stage succeeded/failed/skipped/affected totals and includes family/timing metrics when available.</li>
 <li>Report DataGrids use centered column headers and right-click context actions:
 <ul>
 <li><code>Copy Selected</code></li>
@@ -1863,17 +2065,25 @@ foreach (var chunk in items.Chunk(100))
 </ul>
 <p><strong>User Actions:</strong></p>
 <ul>
-<li><strong>Cancel Commit:</strong> Closes review without changing the model</li>
-<li><strong>Commit and Continue:</strong> Executes commit and keeps GM open</li>
-<li><strong>Commit and Close:</strong> Executes commit and closes GM</li>
-<li>Post-commit banner feedback:
+<li><strong>Close:</strong> Closes review without changing the model</li>
+<li><strong>Apply:</strong> Begins a staged <code>TransactionGroup</code>, executes apply + verify inside the group, and leaves the group open (pending accept/rollback).</li>
+<li>Commit Review is modal for the entire apply/accept/rollback session to keep the transaction group open safely.</li>
+<li>After apply completes, Commit Review stays open and shows results:
 <ul>
-<li>Success: green summary banner with Applied/Failed/Skipped counts</li>
-<li>Failure: red banner beginning with &quot;Commit failed.&quot;</li>
+<li><strong>Rollback:</strong> Rolls back the transaction group (discard all changes from this apply session)</li>
+<li><strong>Accept + Continue:</strong> Assimilates the transaction group, closes Commit Review, and returns to GM (runs refresh pipeline and persists applied mappings)</li>
+<li><strong>Accept + Close GM:</strong> Assimilates the transaction group, closes Commit Review, and closes the GM tool (honors close even on partial failure)</li>
 </ul>
 </li>
-<li>Commit Review stays open on failed commit so users can inspect operation errors and retry.</li>
-<li>Commit-and-Continue performs an immediate in-session refresh:
+<li><strong>Retry Apply:</strong> Shown when apply applied nothing and failures were detected. Retries using the existing plan.</li>
+<li>Post-apply banner feedback:
+<ul>
+<li>Success: green summary banner with Applied/Failed/Skipped counts</li>
+<li>Failure: banner beginning with &quot;Apply completed.&quot; (includes Failed/Skipped diagnostics) or &quot;Apply failed.&quot; when an exception occurs</li>
+</ul>
+</li>
+<li>Commit Review stays open on failed apply so users can inspect operation errors before choosing Retry/Accept/Rollback.</li>
+<li>Accept + Continue performs an immediate in-session refresh:
 <ul>
 <li>evicts current Families category snapshot</li>
 <li>re-scans families for the active category</li>
@@ -1883,49 +2093,56 @@ foreach (var chunk in items.Chunk(100))
 </li>
 </ul>
 <p><strong>Implementation:</strong></p>
-<pre><code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs
-src/Tools/Common/GM/Shell/Services/ReportWindowService.cs
+<pre><code>src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs
+src/Tools/Common/GM/Shell/Services/CommitReviewWindowService.cs
 src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs
 src/Tools/Common/GM/Shell/Services/FamiliesCategoryCacheService.cs
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/ReportWindowService.cs:24</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:69</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:73</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:96</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:246</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:257</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:448</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:770</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:1013</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:489</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/CommitReviewWindowService.cs:24</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/CommitReviewWindow.xaml:69</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/CommitReviewWindow.xaml:73</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/CommitReviewWindowService.cs:61</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs:274</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs:327</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/CommitReviewWindow.xaml.cs:60</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/CommitReviewWindow.xaml:318</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/ChangeApplyEngine.cs:69</code></p>
 </blockquote>
 <hr>
 <h3 id="133-execution-order">13.3 Execution Order</h3>
-<p>On commit, operations execute in strict order within a transaction group:</p>
+<p>On commit, operations execute in strict order through <code>ChangeApplyEngine</code>:</p>
 <ol>
-<li><strong>Parameters</strong> — Copy parameter values first (source data preserved)</li>
 <li><strong>Create Types</strong> — Duplicate source symbols using <code>NewTypeName</code> from row-level create entries</li>
 <li><strong>Host Replacements</strong> — Replace host-level elements</li>
 <li><strong>Nested Families</strong> — Swap nested family references</li>
-<li><strong>Type Replacements</strong> — Replace family instances by type</li>
-<li><strong>Style/Material Replacements</strong> — Apply host-document replacements and family-document rewrites for object style/material references, then reload affected families</li>
-<li><strong>Shared Parameters</strong> — Bind SPs and copy values</li>
+<li><strong>Type Replacements</strong> — Replace family instances by type (<strong>parameter migrations execute during each type replacement</strong>)</li>
+<li><strong>Style Replacements</strong> — Apply host-document replacements and family-document rewrites for style references, then reload affected families</li>
+<li><strong>Material Replacements</strong> — Apply host-document replacements and family-document rewrites for material references, then reload affected families</li>
+<li><strong>Shared Parameters</strong> — Bind/Embed shared parameters and copy values</li>
 </ol>
 <p><strong>Transaction Management:</strong></p>
 <ul>
-<li>Group starts immediately before apply and finalizes in the same commit flow</li>
-<li>Fail-fast: first error aborts commit</li>
-<li>Rollback on failure/cancel (atomic)</li>
+<li>Writer failures are captured per operation and the apply run continues across remaining stages (non-fail-fast)</li>
+<li>Group-owned family-document references (members inside groups) are skipped (cannot edit group members) and reported as warnings (non-fatal)</li>
+<li>Unhandled exceptions/cancellation stop the commit flow; undo entry granularity depends on the underlying writer transaction boundaries</li>
 <li>Family reload phases run outside host transactions (gate-only) because Revit rejects <code>LoadFamily</code> when the host document is modifiable.</li>
 </ul>
 <blockquote>
 <p><strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:203</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/MaterialChangeServiceWriter.cs:209</code>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:747</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs:747</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/StyleChangeService.cs:565</code>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/NestingChangeService.cs:290</code>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Features/SharedParameters/SharedParameterAuthoringService.cs:318</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/SharedParameters/SharedParameterAuthoringService.cs:318</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/MappingApplyResult.cs:169</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/MappingService.cs:382</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/ChangeApplyEngine.cs:166</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/MappingService.cs:413</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Startup.cs:57</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/TypeCreationService.cs:30</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/TypeChangeService.cs:190</code>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Features/Mapping/Writers/TypeChangeService.cs:259</code></p>
 </blockquote>
 <p><strong>Progress Overlay:</strong></p>
 <ul>
@@ -1934,11 +2151,11 @@ src/Tools/Common/GM/Shell/Services/FamiliesCategoryCacheService.cs
 <li>Cancel button sets <code>cancel_requested</code> flag</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/ReportWindowService.cs:68</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:229</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/MappingReportViewModel.cs:489</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/MappingReportWindow.xaml:111</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:2698</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/CommitReviewWindowService.cs:68</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs:229</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs:489</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/CommitReviewWindow.xaml:111</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:4595</code></p>
 </blockquote>
 <hr>
 <h3 id="134-row-locking">13.4 Row Locking</h3>
@@ -2104,13 +2321,50 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <li>Avoid rebuilding options on every pixel drag</li>
 </ul>
 <hr>
+<h3 id="147-usage-index-performance-contracts">14.7 Usage Index Performance Contracts</h3>
+<p><strong>Sampling Cap:</strong></p>
+<ul>
+<li><code>QuerySampleInstanceIdsBySymbol</code> collects at most <code>Constants.MaxUsageSamples</code> (2500) instances</li>
+<li>Model-owned instances sampled first (document-wide collector), then view-owned</li>
+<li>One instance per <code>FamilySymbol</code> — <code>SymbolGeometry</code> is shared across all instances of same type</li>
+<li>Early exit when cap reached</li>
+</ul>
+<p><strong>Geometry Extraction:</strong></p>
+<ul>
+<li>Single <code>get_Geometry()</code> call per sampled instance</li>
+<li>Options: <code>ComputeReferences = false</code>, <code>IncludeNonVisibleObjects = true</code>, <code>View = ActiveView</code></li>
+<li>No secondary &quot;model geometry&quot; pass — <code>IncludeNonVisibleObjects</code> captures all subcategory refs</li>
+</ul>
+<p><strong>Style Canonicalization:</strong></p>
+<ul>
+<li><code>BuildStyleCanonicalizationMap</code> runs ONCE per usage build (not per chunk)</li>
+<li>Simple mapping: raw GraphicsStyle/Category ID → canonical projection GraphicsStyle ID</li>
+<li>Recorder/classifier preserve raw + canonical IDs only (no broad alias fan-out)</li>
+</ul>
+<p><strong>Deep Scan Isolation:</strong></p>
+<ul>
+<li><code>BuildStyleUsageAsync</code> NEVER triggers deep scan</li>
+<li>Deep scan is manual only (Section 15.1)</li>
+<li>Families with zero placed instances have no usage data until manually scanned</li>
+</ul>
+<p><strong>Parameter Scanning:</strong></p>
+<ul>
+<li><code>FamilyScanner.QueryMappableParamNamesForFamily</code> scans ONE instance per family</li>
+<li>Parameter definitions are family-level — all instances share identical definitions</li>
+<li>Type parameters from <code>FamilySymbol</code> objects; instance parameters from single sample instance</li>
+</ul>
+<hr>
 <h1 id="part-iv-features-1">Part IV: Features</h1>
 <h2 id="15-deep-scan">15. Deep Scan</h2>
 <h3 id="151-trigger-policy">15.1 Trigger Policy</h3>
 <p><strong>Manual Only:</strong></p>
 <ul>
 <li>Never auto-triggered</li>
-<li>User clicks &quot;Scan Family&quot; button or &quot;Deep Scan&quot; from context menu/toolbar</li>
+<li>User clicks &quot;Scan Family&quot; button or &quot;Deep Scan&quot; from context menu/toolbar
+<ul>
+<li>Deep scan cache hydration is separate: GM may restore previously-scanned results from cache at startup without opening the family.</li>
+</ul>
+</li>
 </ul>
 <p><strong>Rationale:</strong></p>
 <ul>
@@ -2122,19 +2376,27 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <p><strong>Steps:</strong></p>
 <ol>
 <li>Show overlay: &quot;Preparing scan...&quot;</li>
-<li>Open family via <code>EditFamily</code> (Revit API call)</li>
-<li>Collect:
+<li>Collect host-side scan data (no family open yet):
 <ul>
-<li>Type IDs and names</li>
-<li>Parameter names (all instance/type parameters)</li>
-<li>Material IDs used in family document</li>
-<li>Object Style IDs (GraphicsStyle.Id of subcategories)</li>
-<li>Nested family IDs</li>
+<li>Parameter names (from loaded symbols + sample instances when available)</li>
+<li>Sample instance IDs + per-type instance counts (bounded)</li>
+</ul>
+</li>
+<li>Open family via <code>EditFamily</code> (Revit API call) and collect deep usage data:
+<ul>
+<li>Portable usage identifiers (cache-safe across documents):
+<ul>
+<li>Materials by name</li>
+<li>Object Styles by <code>GraphicsStyleKey</code> (category-path key)</li>
+<li>Nested families by family name</li>
+</ul>
+</li>
+<li>In-session host element IDs (where resolvable) for kernel/UI use</li>
 </ul>
 </li>
 <li>Close family document</li>
 <li>Update kernel <code>GMDeepScanState</code></li>
-<li>Write to <code>.deepscans</code> cache file (mid-session write)</li>
+<li>Write to <code>deep-scan-cache.json</code> cache file (mid-session write)</li>
 <li>Update UI: badges, details unlock, augment usage lists</li>
 </ol>
 <p><strong>Cancellation:</strong></p>
@@ -2144,10 +2406,11 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 </ul>
 <hr>
 <h3 id="153-cache-persistence">15.3 Cache Persistence</h3>
-<p><strong>File:</strong> <code>.deepscans</code> (global, NOT document-specific)</p>
+<p><strong>File:</strong> <code>deep-scan-cache.json</code> (global, NOT document-specific)</p>
 <p><strong>Key (Composite):</strong></p>
 <pre><code class="lang-json">{
   &quot;FamilyName&quot;: &quot;Wall-Basic&quot;,
+  &quot;CategoryId&quot;: -2000011,
   &quot;TypeCount&quot;: 5,
   &quot;ParameterSignature&quot;: &quot;abc123def456&quot;
 }
@@ -2155,10 +2418,9 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <p><strong>Payload:</strong></p>
 <pre><code class="lang-json">{
   &quot;ParameterNames&quot;: [&quot;Width&quot;, &quot;Height&quot;, &quot;Material&quot;, ...],
-  &quot;InstanceCounts&quot;: [10, 5, 0, ...],
-  &quot;NestedFamilyIds&quot;: [123, 456, ...],
-  &quot;MaterialRefs&quot;: [789, 101],
-  &quot;ObjectStyleRefs&quot;: [111, 222],
+  &quot;StyleKeys&quot;: [{ &quot;ParentBuiltInCategoryId&quot;: -2000011, &quot;ParentName&quot;: null, &quot;Name&quot;: &quot;Thin Lines&quot; }, ...],
+  &quot;MaterialNames&quot;: [&quot;Concrete&quot;, &quot;Steel&quot;, ...],
+  &quot;NestedFamilyNames&quot;: [&quot;Nested A&quot;, &quot;Nested B&quot;, ...],
   &quot;CachedAt&quot;: &quot;2025-11-21T10:30:00Z&quot;
 }
 </code></pre>
@@ -2172,34 +2434,24 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <li>Different documents can share deep scan data for same family</li>
 </ul>
 <hr>
-<h3 id="154-staleness-detection">15.4 Staleness Detection</h3>
-<p><strong>Indicators:</strong></p>
+<h3 id="154-cache-reuse-policy-strict-restore">15.4 Cache Reuse Policy (Strict Restore)</h3>
+<p>Deep scan cache does not display a separate staleness badge. Instead, cache reuse is conservative:</p>
 <ul>
-<li>TypeCount mismatch → &quot;⚠ Type count changed, re-scan recommended&quot;</li>
-<li>ParameterSignature mismatch → &quot;⚠ Parameters may have changed, re-scan recommended&quot;</li>
+<li>Cache key mismatch (FamilyName/CategoryId/TypeCount/ParameterSignature) → cache miss → deep scan runs when user requests it</li>
+<li>Cache restore is strict: if any cached portable identifier (style/material/nesting) is missing or ambiguous in the current document → cache miss</li>
+<li>Cache restore is attempted as a <strong>startup hydration</strong> for eligible <strong>0-instance, unscanned</strong> families. If strict restore rejects cached data, GM logs a warning and keeps the family <strong>unscanned</strong> until the user deep scans it.</li>
+<li>Clicking <strong>Scan Family</strong> always performs a <strong>fresh deep scan</strong> and overwrites any existing cache entry.</li>
 </ul>
-<p><strong>UI Display:</strong></p>
-<ul>
-<li>Staleness badge next to DS badge</li>
-<li>Tooltip with details</li>
-<li>User can re-scan to refresh</li>
-</ul>
-<p><strong>Never Use Stale Data Silently:</strong></p>
-<ul>
-<li>Always show indicator if staleness detected</li>
-<li>Never fall back to stale data without warning user</li>
-</ul>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/DeepScanOrchestrationService.cs:128</code><br>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.MappingInitAndInfrastructure.cs:1144</code></p>
+</blockquote>
 <hr>
 <h3 id="155-badge-indicators">15.5 Badge Indicators</h3>
 <p><strong>DS Icon:</strong></p>
 <ul>
 <li>Shown on top-level family row when deep scan completed</li>
 <li>Tooltip: &quot;Deep scanned on {date}&quot;</li>
-</ul>
-<p><strong>Staleness Indicator:</strong></p>
-<ul>
-<li>&quot;⚠&quot; icon if cache key mismatch detected</li>
-<li>Tooltip: &quot;Deep scan data may be outdated. Click to re-scan.&quot;</li>
 </ul>
 <hr>
 <h3 id="156-augmentation-of-usage-lists">15.6 Augmentation of Usage Lists</h3>
@@ -2247,7 +2499,7 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <li>Planning emits <code>CreateType</code> operations from live-plan <code>CreateTypes</code> entries.</li>
 </ol>
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1032</code><br>
+<p><strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:1812</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1182</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1196</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Services/LivePlanState.cs:127</code><br>
@@ -2391,7 +2643,7 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/FamiliesPaneViewModel.cs:1126</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.UsageAndFamilies.cs:388</code><br>
 <strong>Source:</strong> <code>src/Tools/Common/GM/Shell/ViewModels/ShellViewModel.CoreAndCommands.cs:1196</code><br>
-<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:976</code></p>
+<strong>Source:</strong> <code>src/Tools/Common/GM/Shell/Views/GmShellWindow.xaml:110</code></p>
 </blockquote>
 <hr>
 <h1 id="part-v-quality--implementation-1">Part V: Quality &amp; Implementation</h1>
@@ -2414,12 +2666,13 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <p><strong>HIGH PRIORITY:</strong></p>
 <p><strong>Deep Scan Global Cache</strong></p>
 <ul>
-<li>Status: Spec describes global <code>.deepscans</code> file; implementation uses document-specific snapshots only</li>
-<li>Impact: Deep scan results cannot be reused across documents</li>
-<li>Files to create:
+<li>Status: Implemented — global <code>deep-scan-cache.json</code> file with portable payload and strict restore policy</li>
+<li>Impact: Deep scan results can be reused across sessions and across documents when portable identifiers resolve cleanly</li>
+<li>Implementation files:
 <ul>
-<li><code>DBTools.GM.App/Infrastructure/Caching/DeepScanCache.cs</code></li>
-<li><code>DBTools.GM.App/Infrastructure/Caching/DeepScanCacheStrategy.cs</code></li>
+<li><code>src/Tools/Common/GM/Features/DeepScan/DeepScanCache.cs</code></li>
+<li><code>src/Tools/Common/GM/Features/Caching/DeepScanCacheStrategy.cs</code></li>
+<li><code>src/Tools/Common/GM/Shell/Services/DeepScanOrchestrationService.cs</code></li>
 </ul>
 </li>
 </ul>
@@ -2538,7 +2791,7 @@ src/Tools/Common/GM/Shell/UI/Views/GmWindow.xaml(.cs)
 <li><p><strong>Mapping Planning Correctness:</strong></p>
 <ul>
 <li>Self-maps and zero/negative IDs rejected with <code>GmInvalidMappingError</code></li>
-<li>Parameter copies precede type/style/material replacements</li>
+<li>Parameter migrations execute during type replacements (adjacent to type swaps); operation results are recorded under <code>ApplyStages.Parameters</code></li>
 </ul>
 </li>
 <li><p><strong>Placement Taxonomy:</strong></p>

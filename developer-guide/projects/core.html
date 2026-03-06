@@ -150,6 +150,7 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IRevitCallGate.cs:8-28</code></p>
 </blockquote>
+<p><strong>Execution Modes:</strong></p>
 <table>
 <thead>
 <tr>
@@ -195,6 +196,7 @@
 <blockquote>
 <p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IRevitRunScope.cs:11-20</code></p>
 </blockquote>
+<p><strong>Run Scope Profiles:</strong></p>
 <table>
 <thead>
 <tr>
@@ -279,12 +281,20 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 {
     bool IsActive { get; }
     Task BeginAsync(string name, CancellationToken ct = default);
+    Task BeginAsync(Document document, string name, CancellationToken ct = default);
     Task FinalizeAsync(bool commit, CancellationToken ct = default);
+
+    Task&lt;bool&gt; IsGroupHealthyAsync(CancellationToken ct = default);
     Task RunAsync(string name, bool commit, Func&lt;Task&gt; work, CancellationToken ct = default);
+    Task RunAsync(Document document, string name, bool commit, Func&lt;Task&gt; work, CancellationToken ct = default);
+
+    // Atomic grouping: Begin + Work + Finalize executed within a single call-gate callback.
+    // Work must complete synchronously (no async yields) or a spec failure is thrown.
+    Task RunAtomicAsync(string name, bool commit, Func&lt;CancellationToken, Task&gt; work, CancellationToken ct = default);
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs:1-14</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs:1</code></p>
 </blockquote>
 <h3 id="safe-execution">Safe Execution</h3>
 <h4 id="isafeexecutor">ISafeExecutor</h4>
@@ -594,18 +604,19 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Alerts/Services/IAlertService.cs:5-26</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Alerts/Features/IAlertService.cs:1-30</code></p>
 </blockquote>
 <h4 id="ierrornotifier">IErrorNotifier</h4>
 <p>Interface for displaying error/success banners to users.</p>
 <pre><code class="lang-csharp">public interface IErrorNotifier
 {
-    void ShowBanner(string title, string message);      // Error (red)
-    void ShowSuccessBanner(string title, string message); // Success (green)
+    void ShowBanner(string title, string message);         // Error (red)
+    void ShowWarningBanner(string title, string message);  // Warning (yellow/orange)
+    void ShowSuccessBanner(string title, string message);  // Success (green)
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/IErrorNotifier.cs:1-10</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Notifications/Features/IErrorNotifier.cs:1-18</code></p>
 </blockquote>
 <h2 id="dependencies">Dependencies</h2>
 <h3 id="nuget-packages">NuGet Packages</h3>

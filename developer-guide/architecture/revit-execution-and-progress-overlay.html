@@ -116,6 +116,7 @@
 <li><strong>Always use the scope-provided services</strong> (<code>context.RevitRunScope.TransactionRunner</code> / <code>TransactionGroupService</code>) to ensure Revit API access is routed through the call gate and wrapped in proper transactions.【F:src/DBTools.Core/Revit/Execution/IRevitRunScope.cs†L12-L18】</li>
 <li><code>CallGateTransactionRunner</code> is explicitly built on top of <code>IRevitCallGate</code> and requires synchronous delegates (no async work inside the transaction). This keeps transactions and UI-thread access consistent with Revit’s rules.【F:src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs†L10-L78】</li>
 <li><code>ITransactionGroupService.RunAsync(...)</code> exists to guarantee cleanup on failures/cancellation—use it for multi-step operations that should commit/rollback as a unit.【F:src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs†L5-L18】</li>
+<li><code>ITransactionGroupService.RunAtomicAsync(...)</code> exists to guarantee the entire group runs within a single call-gate callback (critical for modeless queued execution when you need a single Revit undo entry). Work must complete synchronously (no async yields) or a spec failure is thrown.【F:src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs†L1-L60】</li>
 <li>For cross-document workflows, use the document-scoped overloads (<code>BeginAsync(Document, ...)</code> / <code>RunAsync(Document, ...)</code>) so transaction groups bind to the intended document and enforce cross-document nesting guards.【F:src/DBTools.Core/Revit/Transactions/CallGateTransactionGroupService.cs†L110-L280】</li>
 </ul>
 <h3 id="prohibition-revit-api-outside-irevitcallgate">Prohibition: Revit API outside <code>IRevitCallGate</code></h3>
@@ -180,7 +181,7 @@ if (_overlay.CancelRequested)
     _cts.Cancel();
 }
 </code></pre>
-<p>GM’s mapping report view model follows this pattern to keep UI cancel actions responsive during long operations.【F:src/Tools/Common/GM/Features/Mapping/UI/ViewModels/MappingReportViewModel.cs†L206-L242】</p>
+<p>GM's commit review view model follows this pattern to keep UI cancel actions responsive during long operations.【F:src/Tools/Common/GM/Shell/ViewModels/CommitReviewViewModel.cs†L206-L242】</p>
 <p><strong>Don’t</strong>: manipulate overlay state directly or bypass the dispatcher. Use <code>Show/Update/Hide/Scope</code> so the overlay stays UI-thread safe.【F:src/DBTools.Core/Progress/Shell/ProgressOverlayService.cs†L50-L169】</p>
 <h2 id="phase-2-granular-progress-primitives">Phase 2: Granular progress primitives</h2>
 <h3 id="tuple-progress-payload">Tuple progress payload</h3>
@@ -229,7 +230,7 @@ var overall = agg.ComputeOverall();
 <tr>
 <td><strong>GM</strong></td>
 <td><code>ChangeApplyEngine</code> emits writer-level (writerIndex/totalActiveWriters)</td>
-<td><code>MonotonicProgressAdapter</code> in <code>MappingReportViewModel</code></td>
+<td><code>MonotonicProgressAdapter</code> in <code>CommitReviewViewModel</code></td>
 </tr>
 <tr>
 <td><strong>TDV</strong></td>
