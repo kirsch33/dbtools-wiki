@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,7 +87,7 @@
         </div>
 
         <article data-uid="">
-<h1 id="dbtools.core">DBTools.Core</h1>
+<h1 id="dbtoolscore">DBTools.Core</h1>
 
 <!-- STATUS: draft -->
 <!-- Last Updated: 2026-09-25 -->
@@ -177,7 +177,7 @@ all reference-typed results receive a runtime awaitable check after invocation
 to catch interface-erased <code>Task</code> and boxed <code>ValueTask</code> values. Custom awaiter
 structs are outside this check.</p>
 <p><code>QueuedRevitCallGate</code> and the host's <code>RevitCallGateTask</code> each require an <code>ILogger</code> from their composition owner (App passes its runtime logger to <code>AppLocalRevitTaskLifecycle.Start</code>). A missing logger is a construction error; production does not substitute a null logger for queued Revit work.</p>
-<p><code>RevitCallGateTask</code> runs every queued call that was waiting when a native Execute turn starts, in order, within a 50 ms budget after the first call; calls queued during the turn wait for the next one. A call that leaves a transaction open, or that creates a transaction group (its owner calls <code>RevitCallGateTurnBoundary.EndAfterCurrentCall()</code>), is the last call of its turn. Every raise is posted to the Revit dispatcher, also from the dispatcher thread, so the raise for leftover work runs after Execute returns. The task logs a throttled Debug <code>[CallGate/Turns]</code> summary of turn count, queue depth, Raise-to-Execute gap and Execute duration. A queued gate call costs one Revit round trip when it waits alone. A caller that needs several reads for one user action makes them in one <code>RunAsync</code> body, or starts independent calls together so one turn runs them all. See <a href="../architecture/revit-execution-and-progress-overlay.html">Revit execution</a> for the scheduler contract.</p>
+<p><code>RevitCallGateTask</code> runs every queued call that was waiting when a native Execute turn starts, in order, within a 50 ms budget after the first call; calls queued during the turn wait for the next one. A call that leaves a transaction open, or that creates a transaction group through <code>RevitTransactionGroups.Begin</code>, is the last call of its turn. The factory ends the current turn before it starts the group. Every raise is posted to the Revit dispatcher, also from the dispatcher thread, so the raise for leftover work runs after Execute returns. The task logs a throttled Debug <code>[CallGate/Turns]</code> summary of turn count, queue depth, Raise-to-Execute gap and Execute duration. A queued gate call costs one Revit round trip when it waits alone. A caller that needs several reads for one user action makes them in one <code>RunAsync</code> body, or starts independent calls together so one turn runs them all. See <a href="../architecture/revit-execution-and-progress-overlay.html">Revit execution</a> for the scheduler contract.</p>
 <!-- VERIFIED: 2026-07-30 -->
 <blockquote>
 <p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/CallGateDelegateValidator.cs:14-43</code>

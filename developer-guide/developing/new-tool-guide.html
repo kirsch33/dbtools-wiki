@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Creating New Tools in DBTools | DB Tools </title>
+      <title>Creating New Tools | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Creating New Tools in DBTools | DB Tools ">
+      <meta name="title" content="Creating New Tools | DB Tools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,420 +87,212 @@
         </div>
 
         <article data-uid="">
-<h1 id="creating-new-tools-in-dbtools">Creating New Tools in DBTools</h1>
+<h1 id="creating-new-tools">Creating New Tools</h1>
 
-<p>This guide covers the complete process of creating a new tool for the DBTools Revit add-in platform. By the end, you'll understand the tool module system, manifest configuration, command implementation, and UI patterns.</p>
-<hr>
-<h2 id="overview">Overview</h2>
-<p>DBTools uses a <strong>manifest-driven plugin architecture</strong>. Each tool:</p>
-<ol>
-<li>Lives in its own folder under <code>src/Tools/</code></li>
-<li>Declares metadata via <code>manifest.yml</code></li>
-<li>Implements a <code>ToolModule</code> subclass for DI registration</li>
-<li>Provides one or more <code>ToolCommand</code> implementations when it exposes ribbon commands</li>
-<li>May instead be a service/settings module with settings packs or hooks and no ribbon command</li>
-<li>Optionally includes WPF UI, settings, and hooks</li>
-</ol>
-<h3 id="tool-module-lifecycle">Tool Module Lifecycle</h3>
-<pre><code class="lang-mermaid">stateDiagram-v2
-    [*] --&gt; Discovered: Manifest scan at startup
-    Discovered --&gt; Instantiated: Reflection creates module
-    Instantiated --&gt; Registered: RegisterSettings()&lt;br/&gt;RegisterServices()&lt;br/&gt;RegisterHooks()
-    Registered --&gt; Active: Ribbon/settings composed
-    Active --&gt; Active: Commands or hooks executed
-    Active --&gt; [*]: OnShutdown
-    
-    note right of Discovered
-        ToolManifestLoader scans
-        embedded manifest.yml files
-    end note
-    
-    note right of Registered
-        DI container configured,
-        hooks attached
-    end note
-</code></pre>
-<p><strong>Assembly ownership:</strong> Every manifest root under <code>src/Tools/</code> owns a project that declares <code>&lt;DBT_IsToolAssembly&gt;true&lt;/DBT_IsToolAssembly&gt;</code> and ships as its own file-backed assembly beneath the product year's <code>Tools/</code> directory, including service and settings modules without ribbon buttons.</p>
-<p>Manifests name the actual owning assembly, such as <code>DBTools.TDV</code>, <code>DBTools.SGT</code>, or <code>DBTools.Settings</code>; tool IDs are not assembly aliases. App discovers every manifest centrally and resolves its declared owner from <code>&lt;product&gt;/Tools/&lt;assembly&gt;.dll</code> in the active owning context.</p>
-<hr>
+<p>A DBTools tool owns its source, manifest, resources, production assembly, and tests.
+App discovers embedded manifests, registers services, and composes ribbon controls.
+Each tool assembly ships under the product year's <code>Tools/</code> directory.
+Service and settings modules follow the same assembly contract as ribbon tools.</p>
+<p>Use this page to create the tool boundary. See <a href="modularity.html">Modularity</a> for
+runtime services, <a href="settings-packs.html">Settings Packs</a> for configuration,
+<a href="hooks.html">Hooks</a> for events, and <a href="testing-tools.html">Testing Tools</a> for validation.</p>
 <h2 id="prerequisites">Prerequisites</h2>
-<p>Before creating a new tool:</p>
-<ol>
-<li>Ensure you can build the solution: <code>bash build.sh</code></li>
-<li>Use the singular desktop target map: net10.0-windows for Revit 2026.5+ and Revit 2027</li>
-<li>Decide on a tool category: <code>Common</code>, <code>Structural</code>, <code>Testing</code>, <code>Services</code>, or new category</li>
-<li>Choose a unique tool ID (e.g., <code>DBTools.MyTool</code>)</li>
-</ol>
-<hr>
-<h2 id="step-1-directory-structure">Step 1: Directory Structure</h2>
-<p>Create your tool folder under the appropriate category:</p>
-<pre><code>src/Tools/
-  Common/           # General-purpose tools
-    GM/             # Global Mapper (complex example)
-    ElevationTags/  # Simple example
-  Structural/       # Structural engineering tools
-    SGT/            # Super Girt Tool (complex example)
-    FramingJoins/   # Simple example
-  Services/         # Cross-tool services/settings modules
-    DialogSuppression/
-    Experimental/     # In-development / not-yet-production tools
+<p>Run commands from the repository root. Desktop builds support Revit 2026.5+
+and Revit 2027. Both use <code>net10.0-windows</code>. The selected year chooses API
+references and output directories. APS Design Automation uses a separate Revit
+2026/.NET 8 contract.</p>
+<p>Check the build entrypoint before adding a tool:</p>
+<pre><code class="lang-bash">./build.sh --help
+./build.sh BuildApp -y 2026
 </code></pre>
-<h3 id="minimal-ribbon-tool-structure">Minimal Ribbon Tool Structure</h3>
-<pre><code>src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/
-  Assets/
-    my_tool.png              # 32x32 icon for ribbon (required)
-    my_tool_16.png           # 16x16 small icon (optional)
-  Features/
-    MyToolCommand.cs         # ToolCommand implementation
-  manifest.yml               # Tool metadata and ribbon config
-  &lt;ToolName&gt;ToolModule.cs    # DI registration
-  DBTools.&lt;ToolName&gt;.csproj  # Project file (for IDE/tests)
+<p>On native Windows, use the PowerShell entrypoint:</p>
+<pre><code class="lang-powershell">pwsh -NoProfile -File build.ps1 BuildApp -y 2026
 </code></pre>
-<p>Use this shape when the manifest declares <code>tool.ribbonTools</code>. The command type named by each ribbon tool must extend <code>ToolCommand</code>; the icons named by <code>iconBaseKey</code> live under <code>Assets/</code>; and the project file provides IDE navigation and command/test isolation.</p>
-<h3 id="minimal-servicesettings-module-structure">Minimal Service/Settings Module Structure</h3>
-<pre><code>src/Tools/Services/&lt;ServiceName&gt;/
-  manifest.yml                    # Tool metadata plus settings/settingsPacks or hooks
-  &lt;ServiceName&gt;ToolModule.cs      # DI, settings pack, and hook registration
-</code></pre>
-<p>Use this shape for modules that register shared services, hooks, settings, or settings packs without adding a ribbon button. These modules omit <code>tool.ribbonTools</code>, <code>ToolCommand</code> implementations, and ribbon icons. Add <code>Settings/</code>, <code>Hooks/</code>, or other source folders only when the module owns those concerns; add a <code>.csproj</code> only when the module needs independent IDE/test isolation.</p>
-<h3 id="complex-tool-structure-with-ui">Complex Tool Structure (with UI)</h3>
-<pre><code>src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/
-  Assets/
-    *.png                    # Icons
-  Features/
-    MyToolCommand.cs         # Simple tools can keep commands at the Features root
-    &lt;FeatureSlice&gt;/          # Complex tools group files by feature slice
-      MySliceService.cs
-      MySliceModels.cs
-  Shell/
-    &lt;ToolName&gt;ServiceCollectionExtensions.cs  # DI extension methods colocated with shell wiring
-    DesignTime/
-      MyWindowDesignTimeViewModel.cs
-    Services/                # Optional shell-only coordinators/factories
-    ViewModels/
-      MyWindowViewModel.cs
-    Views/
-      MyWindow.xaml
-      MyWindow.xaml.cs
-  Shared/
-    Domain/
-    Models/
-    State/                   # Optional cross-feature state
-  Revit/                     # Optional Revit-facing adapters/services
-    Services/
-  Settings/                  # Optional settings/options
-  Tests/                     # Owner test projects split by execution host
-    DBTools.&lt;ToolName&gt;.Pure.Tests.csproj
-    DBTools.&lt;ToolName&gt;.Local.Tests.csproj
-  Properties/                # Optional designer metadata/resources
-    DesignTimeResources.xaml # Optional, only if the tool needs a design-time resource dictionary
-  manifest.yml
-  &lt;ToolName&gt;ToolModule.cs
-  DBTools.&lt;ToolName&gt;.csproj
-</code></pre>
-<hr>
-<h2 id="step-2-project-file.csproj">Step 2: Project File (.csproj)</h2>
-<p>Create a project file for a tool that owns an assembly. It participates in the product-output build and also enables:</p>
+<p><code>build.sh</code> supports Linux and WSL. It refuses native Windows shells. The
+wrappers acquire the SDK pinned in <code>global.json</code> and initialize the HandyControl
+submodule when needed. <a href="testing-tools.html#build-and-validation-commands">Build and validation commands</a>
+explains the targets, defaults, logs, and source gates.</p>
+<h2 id="1-choose-the-owner-and-names">1. Choose the owner and names</h2>
+<p>Place a tool under <code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;/</code>. Categories such as <code>Common</code>,
+<code>Structural</code>, <code>Experimental</code>, and <code>Services</code> organize source. They do not enter
+CLR namespaces. A tool's namespace root is <code>DBTools.&lt;Tool&gt;</code>.</p>
+<p>Follow the repository's <code>.agents/canon/CANON.md</code> naming contract:</p>
 <ul>
-<li>IntelliSense and navigation</li>
-<li>Per-tool test projects</li>
-<li>Design-time XAML preview</li>
+<li>Mirror folders in namespaces beneath the component root.</li>
+<li>Give each C# identity its own file with the same name. Partial companions may
+use dotted suffixes, such as <code>Workflow.Validation.cs</code>.</li>
+<li>Put manifest-facing commands and modules under <code>App/Composition/</code>.</li>
+<li>Put whole-tool composition, windows, navigation, and session lifetime under <code>App/</code>.</li>
+<li>Put user capabilities under <code>Features/&lt;Concept&gt;/</code> and shared tool language under <code>Domain/</code>.</li>
+<li>Put Revit adapters beneath the nearest owning concept's <code>Revit/</code> folder.</li>
+<li>Create only populated owners. CANON bans <code>Shell</code> and <code>Shared</code> as production
+owners and treats <code>Models</code> as a generic kind bucket.</li>
 </ul>
-<p>Service/settings modules without ribbon commands may omit the project file unless they need independent IDE or test coverage boundaries.</p>
-<h3 id="minimal-project-file">Minimal Project File</h3>
+<p>For example:</p>
+<pre><code class="lang-text">src/Tools/Common/MyTool/
+├── App/
+│   ├── Composition/
+│   │   ├── MyToolCommand.cs
+│   │   └── MyToolToolModule.cs
+│   ├── DesignTime/
+│   │   └── MyToolWindowDesignTimeViewModel.cs
+│   ├── ViewModels/
+│   │   └── MyToolWindowViewModel.cs
+│   └── Views/
+│       └── MyToolWindow.xaml
+├── Assets/
+│   └── my_tool.png
+├── Features/
+│   └── Inspection/
+│       └── InspectionWorkflow.cs
+├── Settings/
+├── Tests/
+├── DBTools.MyTool.csproj
+└── manifest.yml
+</code></pre>
+<p>The optional <code>Settings/</code> and <code>Tests/</code> entries represent actual content, not
+placeholder directories. Short tool prefixes use Pascal-compressed forms such
+as <code>Gm</code>, <code>Sgt</code>, and <code>Tdv</code>. Window names pair with their runtime and design-time
+ViewModels, for example <code>GmWindow</code>, <code>GmWindowViewModel</code>, and
+<code>GmWindowDesignTimeViewModel</code>.</p>
+<h2 id="2-create-the-production-project">2. Create the production project</h2>
+<p>Every tool manifest root needs a production project with
+<code>DBT_IsToolAssembly=true</code>, including a module with no ribbon commands.
+Add production and test projects to <code>DBTools.sln</code> under the owning solution folder.</p>
+<p>This project is a starting point for the example tool's <code>DBTools.MyTool.csproj</code>:</p>
 <pre><code class="lang-xml">&lt;Project Sdk=&quot;Microsoft.NET.Sdk&quot;&gt;
   &lt;PropertyGroup&gt;
     &lt;TargetFramework&gt;$(DBT_RevitTargetFramework)&lt;/TargetFramework&gt;
     &lt;DBT_RevitHostIdentity&gt;$(DBT_DesktopRevitHostIdentity)&lt;/DBT_RevitHostIdentity&gt;
+    &lt;DBT_IsToolAssembly&gt;true&lt;/DBT_IsToolAssembly&gt;
+    &lt;RootNamespace&gt;DBTools.MyTool&lt;/RootNamespace&gt;
     &lt;LangVersion&gt;latest&lt;/LangVersion&gt;
     &lt;Nullable&gt;enable&lt;/Nullable&gt;
     &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
-    &lt;RootNamespace&gt;DBTools.MyTool&lt;/RootNamespace&gt;
-    &lt;DBT_IsToolAssembly&gt;true&lt;/DBT_IsToolAssembly&gt;
-    &lt;DBT_ContentDerivedIdentity&gt;true&lt;/DBT_ContentDerivedIdentity&gt;
   &lt;/PropertyGroup&gt;
-
-  &lt;!-- Only when the tool has a production Revit/ folder: exclude it from design-time builds --&gt;
-  &lt;ItemGroup Condition=&quot;'$(DesignTimeBuild)'=='true'&quot;&gt;
-    &lt;Compile Remove=&quot;**\Revit\**\*.cs&quot; /&gt;
-  &lt;/ItemGroup&gt;
   &lt;ItemGroup&gt;
     &lt;Compile Remove=&quot;Tests\**\*.cs&quot; /&gt;
-  &lt;/ItemGroup&gt;
-
-  &lt;PropertyGroup Condition=&quot;'$(DBT_RevitHostIdentity)'!=''&quot;&gt;
-    &lt;NoWarn&gt;$(NoWarn);CS0618;MA0038;MA0048;MA0016;MA0051;MA0098;MA0004;CA1707;CA1725;CA1068;MSB3277&lt;/NoWarn&gt;
-    &lt;Nullable&gt;enable&lt;/Nullable&gt;
-    &lt;SupportedOSPlatformVersion&gt;6.1&lt;/SupportedOSPlatformVersion&gt;
-  &lt;/PropertyGroup&gt;
-
-  &lt;ItemGroup&gt;
     &lt;ProjectReference Include=&quot;..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
-  &lt;/ItemGroup&gt;
-
-  &lt;!-- Embed icons --&gt;
-  &lt;ItemGroup&gt;
-    &lt;EmbeddedResource Include=&quot;Assets\\*.png&quot;&gt;
-      &lt;Link&gt;Resources\\Icons\\%(Filename)%(Extension)&lt;/Link&gt;
+    &lt;PackageReference Include=&quot;Microsoft.Extensions.Logging.Abstractions&quot; /&gt;
+    &lt;EmbeddedResource Include=&quot;Assets\*.png&quot;&gt;
+      &lt;Link&gt;Resources\Icons\%(Filename)%(Extension)&lt;/Link&gt;
     &lt;/EmbeddedResource&gt;
   &lt;/ItemGroup&gt;
-
-  &lt;!-- When this tool's source imports a package API, add a direct, versionless reference to the
-       smallest package that supplies it (prefer an Abstractions package when sufficient). --&gt;
-
-  &lt;!-- No Revit API references: Directory.Build.targets gives every Revit host project the
-       pinned Revit API metadata packages for its RevitYear, on every OS. --&gt;
 &lt;/Project&gt;
 </code></pre>
-<h3 id="for-tools-with-wpf-ui">For Tools with WPF UI</h3>
-<p>Add the following to your <code>.csproj</code>:</p>
+<p>The repository supplies year-specific Revit API metadata packages through
+<code>Directory.Build.targets</code>. Do not copy installed Revit DLLs into the product.
+Declare a direct, versionless package reference when source uses that package's
+API. Prefer the smallest package that supplies the API.</p>
+<p>When tests need internal production types, declare visibility in the tool
+project for the exact consuming assembly names:</p>
+<pre><code class="lang-xml">&lt;ItemGroup&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.MyTool.Pure.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;DBTools.MyTool.Local.Tests&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+<p>Content-derived assembly identity applies by default to tool assemblies through
+<code>build/MSBuild/ContentVersion.targets</code>. A non-WPF tool does not need a separate
+<code>DBT_ContentDerivedIdentity</code> opt-in.</p>
+<p>For WPF, add <code>UseWPF=true</code>, reference Presentation where used, and add
+<code>CommunityToolkit.Mvvm</code> when using its generators. Tool views are raw embedded
+XAML. Disable automatic Page compilation and give each raw resource an explicit
+logical name:</p>
 <pre><code class="lang-xml">&lt;PropertyGroup&gt;
   &lt;UseWPF&gt;true&lt;/UseWPF&gt;
+  &lt;EnableDefaultPageItems&gt;false&lt;/EnableDefaultPageItems&gt;
 &lt;/PropertyGroup&gt;
-
-&lt;!-- Additional packages for MVVM --&gt;
 &lt;ItemGroup&gt;
+  &lt;ProjectReference Include=&quot;..\..\..\DBTools.Presentation\DBTools.Presentation.csproj&quot; /&gt;
   &lt;PackageReference Include=&quot;CommunityToolkit.Mvvm&quot; /&gt;
-&lt;/ItemGroup&gt;
-
-&lt;!-- DBTools uses standard WPF windows + window-scoped theming (DBTools.Presentation + DBTools.HandyControl). --&gt;
-</code></pre>
-<p>If the tool includes <code>Properties\DesignTimeResources.xaml</code>, also add:</p>
-<pre><code class="lang-xml">&lt;ItemGroup&gt;
-  &lt;Page Update=&quot;Properties\DesignTimeResources.xaml&quot;&gt;
-    &lt;SubType&gt;Designer&lt;/SubType&gt;
-    &lt;Generator&gt;MSBuild:Compile&lt;/Generator&gt;
-    &lt;ContainsDesignTimeResources&gt;true&lt;/ContainsDesignTimeResources&gt;
-  &lt;/Page&gt;
+  &lt;EmbeddedResource Include=&quot;App\Views\MyToolWindow.xaml&quot;
+                    LogicalName=&quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot; /&gt;
 &lt;/ItemGroup&gt;
 </code></pre>
-<hr>
-<h2 id="step-3-manifest.yml-complete-schema">Step 3: manifest.yml (Complete Schema)</h2>
-<p>The manifest file declares your tool's metadata, ribbon configuration, and optional settings.</p>
-<h3 id="complete-schema-reference">Complete Schema Reference</h3>
-<pre><code class="lang-yaml"># Required: Unique tool identifier
-id: DBTools.MyTool
-
-# Required: Actual owning assembly name (without .dll)
+<p>Tools with Revit-dependent designer source can exclude <code>**\Revit\**\*.cs</code> when
+<code>DesignTimeBuild=true</code>. Keep designer-only resource dictionaries separate from
+runtime raw views. If a project compiles <code>Properties\DesignTimeResources.xaml</code>,
+its Page metadata can declare <code>SubType=Designer</code>, <code>Generator=MSBuild:Compile</code>,
+and <code>ContainsDesignTimeResources=true</code>.</p>
+<h2 id="3-declare-the-manifest">3. Declare the manifest</h2>
+<p>A ribbon module can use this manifest:</p>
+<pre><code class="lang-yaml">id: DBTools.MyTool
 assembly: DBTools.MyTool
-
-# Required: Fully-qualified type name of ToolModule subclass
-moduleType: DBTools.MyTool.MyToolToolModule
-
-# Required: Load order (lower = earlier). Use 0 unless you need ordering.
+moduleType: DBTools.MyTool.App.Composition.MyToolToolModule
 order: 0
-
-# Optional: Sandbox windows for design-time preview
-sandboxWindows:
-  - id: DBTools.MyTool.Main
-    displayName: &quot;My Tool&quot;
-    group: &quot;Common&quot;               # or &quot;Structural&quot;, &quot;Testing&quot;, &quot;Services&quot;
-    xamlResource: &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;
-    designTimeViewModelType: &quot;DBTools.MyTool.App.DesignTime.MyToolWindowDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.MyTool&quot;
-    designTimeViewModelVisibility: Public
-
-# Required: Tool configuration. A command-bearing ribbon module declares ribbonTools;
-# a service/settings module may provide only settings and settingsPacks.
+panel: Common
 tool:
-  # Optional: Settings configuration
-  settings:
-    configSection: Tools.MyTool   # Section in settings.{YEAR}.json
-
-  # Optional: Settings packs for Settings window
-  settingsPacks:
-    - key: common.my_tool
-      title: &quot;My Tool&quot;
-      warnings:
-        - id: core.my_tool.warning
-          title: &quot;My Tool Disabled&quot;
-          message: &quot;Tool is disabled due to a configuration issue.&quot;
-          disableTools:
-            - DBTools.MyToolCommand
-
-  # Required for ribbon modules; omit for service/settings modules with no ribbon button.
   ribbonTools:
-    - internalName: DBTools.MyToolCommand
-      commandType: DBTools.MyTool.Features.MyToolCommand
-      availabilityType: DBTools.MyTool.Features.MyToolCommand
+    - internalName: DBTools.MyTool
+      commandType: DBTools.MyTool.App.Composition.MyToolCommand
+      availabilityType: DBTools.MyTool.App.Composition.MyToolCommand
       runProfile: InlineUi
       displayText: &quot;My Tool&quot;
       iconBaseKey: my_tool
-      tooltip: &quot;Launch My Tool&quot;
+      tooltip: &quot;Inspect the active model&quot;
       controlKind: PushButton
       order: 50
 </code></pre>
-<h3 id="manifest-properties-reference">Manifest Properties Reference</h3>
+<p><code>assembly</code> is the actual simple assembly name without <code>.dll</code>. App embeds
+manifests centrally, but compiles no tool source, XAML, or assets. The product
+build discovers declared tool projects and stages their assemblies under
+<code>&lt;year&gt;/Tools/</code>. <code>build/MSBuild/ProductOutput.proj</code> builds and stages those owners.
+<code>ToolAssemblyResolver</code> loads the declared file in the root assembly's owning
+context. Runtime resolves modules, commands, icons, and raw views from that owner.</p>
+<h3 id="manifest-fields">Manifest fields</h3>
 <table>
 <thead>
 <tr>
-<th>Property</th>
-<th>Required</th>
-<th>Description</th>
+<th>Field</th>
+<th>Requirement and meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>id</code></td>
-<td>Yes</td>
-<td>Unique identifier (e.g., <code>DBTools.MyTool</code>)</td>
+<td>Required unique tool identifier.</td>
 </tr>
 <tr>
 <td><code>assembly</code></td>
-<td>Yes</td>
-<td>Actual assembly name without <code>.dll</code>; every tool owner uses <code>DBTools.&lt;Tool&gt;</code></td>
+<td>Required simple assembly name.</td>
 </tr>
 <tr>
 <td><code>moduleType</code></td>
-<td>No</td>
-<td>Full type name of <code>ToolModule</code> subclass when the tool has module-owned services, settings, settings packs, or hooks</td>
+<td>Optional fully qualified <code>ToolModule</code> type.</td>
 </tr>
 <tr>
 <td><code>order</code></td>
-<td>Yes</td>
-<td>Load order (0 for most tools)</td>
+<td>Required load order, lower first. Use <code>0</code> without an ordering requirement.</td>
 </tr>
 <tr>
 <td><code>panel</code></td>
-<td>Yes for moduleless ribbon tools</td>
-<td>Ribbon panel for manifests without <code>moduleType</code></td>
-</tr>
-<tr>
-<td><code>sandboxWindows</code></td>
-<td>No</td>
-<td>Design-time preview windows</td>
+<td>Required for every ribbon manifest and by settings-pack registration. Accepted values: <code>Settings</code>, <code>Common</code>, <code>Structural</code>, <code>Testing</code>, <code>Services</code>.</td>
 </tr>
 <tr>
 <td><code>tool.settings.configSection</code></td>
-<td>No</td>
-<td>settings.{YEAR}.json section for typed JSON settings</td>
+<td>Optional single JSON property name in <code>settings.&lt;year&gt;.json</code>.</td>
 </tr>
 <tr>
 <td><code>tool.settingsPacks</code></td>
-<td>No</td>
-<td>Settings window configuration</td>
+<td>Optional pack definitions with required <code>key</code> and <code>title</code>.</td>
 </tr>
 <tr>
 <td><code>tool.ribbonTools</code></td>
-<td>No</td>
-<td>Ribbon button definitions. Required only for command-bearing ribbon modules; service/settings modules may omit it.</td>
+<td>Ribbon command definitions. May be absent for a service/settings/hook module.</td>
+</tr>
+<tr>
+<td><code>sandboxWindows</code></td>
+<td>Optional raw-view previews. See <a href="sandbox-integration.html#register-a-window">Sandbox Integration</a>.</td>
 </tr>
 </tbody>
 </table>
-<p>Every manifest <code>tool</code> section must have at least one concrete responsibility: ribbon tools, settings, settings packs, or hooks registered by the module. Moduleless manifests must declare <code>panel</code> and at least one <code>tool.ribbonTools</code> entry, and cannot declare settings or settings packs. Hook-only modules may keep <code>tool.ribbonTools</code> empty, but they must register at least one hook during <code>RegisterHooks(...)</code>.</p>
-<h3 id="ribbon-tool-properties">Ribbon Tool Properties</h3>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>internalName</code></td>
-<td>Yes</td>
-<td>Unique button identifier</td>
-</tr>
-<tr>
-<td><code>commandType</code></td>
-<td>Yes</td>
-<td>Full type name of command class</td>
-</tr>
-<tr>
-<td><code>availabilityType</code></td>
-<td>No</td>
-<td>Full type name of the concrete command, which also implements <code>IExternalCommandAvailability</code></td>
-</tr>
-<tr>
-<td><code>runProfile</code></td>
-<td>No</td>
-<td><code>InlineUi</code> (default) or <code>QueuedModeless</code></td>
-</tr>
-<tr>
-<td><code>displayText</code></td>
-<td>Yes</td>
-<td>Button label (use <code>\n</code> for line breaks)</td>
-</tr>
-<tr>
-<td><code>iconBaseKey</code></td>
-<td>Yes</td>
-<td>Icon filename without extension</td>
-</tr>
-<tr>
-<td><code>tooltip</code></td>
-<td>Yes</td>
-<td>Button tooltip text</td>
-</tr>
-<tr>
-<td><code>controlKind</code></td>
-<td>Yes</td>
-<td><code>PushButton</code>, <code>SplitButtonItem</code>, <code>PulldownButtonItem</code>, <code>StackedButtonItem</code></td>
-</tr>
-<tr>
-<td><code>splitGroup</code></td>
-<td>No</td>
-<td>Group name for split/pulldown/stacked buttons</td>
-</tr>
-<tr>
-<td><code>order</code></td>
-<td>Yes</td>
-<td>Button order within panel</td>
-</tr>
-<tr>
-<td><code>groupDisplayText</code></td>
-<td>No</td>
-<td>Header text for pulldown groups</td>
-</tr>
-<tr>
-<td><code>groupTooltip</code></td>
-<td>No</td>
-<td>Tooltip for pulldown header</td>
-</tr>
-<tr>
-<td><code>groupIconBaseKey</code></td>
-<td>No</td>
-<td>Icon for pulldown header</td>
-</tr>
-</tbody>
-</table>
-<p>Entries that share a split or pulldown group form one ordered command sequence.
-The lowest-order entry is the split primary command and later entries are the
-dropdown commands. App planning and Revit construction consume that exact
-sequence; there is no second primary/dropdown list to keep synchronized.</p>
-<h3 id="example-simple-tool">Example: Simple Tool</h3>
-<pre><code class="lang-yaml">id: DBTools.Structural.FramingJoins
-assembly: DBTools.FramingJoins
-order: 0
-panel: Structural
-tool:
-  ribbonTools:
-    - internalName: DBTools.AllowJoinSelected
-      commandType: DBTools.FramingJoins.App.Composition.AllowJoinSelectedCommand
-      availabilityType: DBTools.FramingJoins.App.Composition.AllowJoinSelectedCommand
-      runProfile: InlineUi
-      displayText: &quot;Allow Join&quot;
-      iconBaseKey: allow_join
-      tooltip: &quot;Allow structural framing joins for selected elements&quot;
-      controlKind: SplitButtonItem
-      splitGroup: framing_joins
-      order: 0
-    - internalName: DBTools.DisallowJoinSelected
-      commandType: DBTools.FramingJoins.App.Composition.DisallowJoinSelectedCommand
-      availabilityType: DBTools.FramingJoins.App.Composition.DisallowJoinSelectedCommand
-      runProfile: InlineUi
-      displayText: &quot;Disallow Join&quot;
-      iconBaseKey: disallow_join
-      tooltip: &quot;Disallow structural framing joins for selected elements&quot;
-      controlKind: SplitButtonItem
-      splitGroup: framing_joins
-      order: 1
-</code></pre>
-<h3 id="example-servicesettings-module">Example: Service/Settings Module</h3>
-<pre><code class="lang-yaml">id: DBTools.Services.DialogSuppression
-assembly: DBTools
-moduleType: DBTools.Services.DialogSuppression.Infrastructure.DialogSuppressionToolModule
+<p>A module must own at least one responsibility: ribbon tools, settings, settings
+packs, or registered hooks. A moduleless manifest requires <code>panel</code> and at least
+one ribbon tool. It cannot declare settings or settings packs.</p>
+<p>For a service module, retain the project and declare its actual owner:</p>
+<pre><code class="lang-yaml">id: DBTools.DialogSuppression
+assembly: DBTools.DialogSuppression
+moduleType: DBTools.DialogSuppression.App.Composition.DialogSuppressionToolModule
 order: -1
 panel: Services
 tool:
@@ -510,583 +302,215 @@ tool:
     - key: services.dialog_suppression
       title: &quot;Dialog Suppression&quot;
 </code></pre>
-<p>This module has no <code>tool.ribbonTools</code> section, so startup registers its settings/services without adding a ribbon button. Runtime explicitly allows modules with no ribbon tools when their <code>tool:</code> section exists for settings or settings packs.</p>
-<h3 id="example-complex-tool-with-ui">Example: Complex Tool with UI</h3>
-<pre><code class="lang-yaml">id: DBTools.GM
-assembly: DBTools.GM
-moduleType: DBTools.GM.App.Composition.Revit.GmToolModule
-order: 0
-panel: Common
-sandboxWindows:
-  - id: DBTools.GM.Main
-    displayName: &quot;Global Mapper&quot;
-    group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.GM.GmWindow.xaml&quot;
-    designTimeViewModelType: &quot;DBTools.GM.App.DesignTime.GmWindowDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.GM&quot;
-    designTimeViewModelVisibility: Internal
-  - id: DBTools.GM.CommitReview
-    displayName: &quot;Global Mapper - Commit Review&quot;
-    group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.GM.GmCommitReviewWindow.xaml&quot;
-    designTimeViewModelType: &quot;DBTools.GM.Features.CommitReview.DesignTime.GmCommitReviewWindowDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.GM&quot;
-    designTimeViewModelVisibility: Internal
-tool:
-  ribbonTools:
-    - internalName: DBTools.GM
-      commandType: DBTools.GM.App.Composition.Revit.GmCommand
-      availabilityType: DBTools.GM.App.Composition.Revit.GmCommand
-      runProfile: QueuedModeless
-      displayText: &quot;Global Mapper&quot;
-      iconBaseKey: gm
-      tooltip: &quot;Open Global Mapper&quot;
-      controlKind: PushButton
-      order: 30
-</code></pre>
-<hr>
-<h2 id="step-4-toolmodule-class">Step 4: ToolModule Class</h2>
-<p>The <code>ToolModule</code> subclass is the manifest entry point. Keep it thin: validate inputs, bind settings/settings packs, and delegate feature or shell DI to <code>Shell/&lt;ToolName&gt;ServiceCollectionExtensions.cs</code>.</p>
-<p>Do not manually map manifest ribbon fields inside tool modules. App startup resolves the manifest command and optional availability types, then delegates registration construction to Core so panel mapping, execution defaults, control-kind mapping, and grouped-button metadata stay in the shared registry/ribbon contracts.</p>
-<h3 id="minimal-command-workflow-registration">Minimal Command Workflow Registration</h3>
-<p>Simple inline command tools can register their command workflow dependency on
-the command itself. Framing Joins uses this path instead of a tool module:</p>
-<pre><code class="lang-csharp">[Transaction(TransactionMode.Manual)]
-[CommandService(typeof(FramingJoinsWorkflow))]
-public sealed class AllowJoinSelectedCommand : ToolCommand
-{
-    protected override async Task RunAsync(ICommandContext context)
-    {
-        Guard.NotNull(context, nameof(context));
-
-        var workflow = context.Resolve&lt;FramingJoinsWorkflow&gt;();
-        await workflow.ExecuteAsync(...).ConfigureAwait(false);
-    }
-}
-</code></pre>
-<h3 id="with-service-registration">With Service Registration</h3>
-<pre><code class="lang-csharp">using DBTools.Core.Tools;
-using DBTools.Core.Guarding.Domain;
-using DBTools.MyTool.Shell;
-using Microsoft.Extensions.DependencyInjection;
-
-namespace DBTools.MyTool;
-
-public sealed class MyToolToolModule : ToolModule
-{
-    public override void RegisterServices(IServiceCollection services, ToolManifest manifest)
-    {
-        Guard.NotNull(services, nameof(services));
-        Guard.NotNull(manifest, nameof(manifest));
-        
-        services.AddMyTool();
-    }
-}
-</code></pre>
-<h3 id="with-hooks">With Hooks</h3>
-<pre><code class="lang-csharp">using DBTools.Core.Tools;
-using DBTools.Core.Guarding.Domain;
-using Microsoft.Extensions.DependencyInjection;
-
-namespace DBTools.SGT;
-
-public sealed class SgtToolModule : ToolModule
-{
-    public override void RegisterServices(IServiceCollection services, ToolManifest manifest)
-    {
-        Guard.NotNull(services, nameof(services));
-        Guard.NotNull(manifest, nameof(manifest));
-        
-        services.AddSgt();
-        services.AddSingleton&lt;ContextualRibbonInjector, ContextualRibbonInjector&gt;();
-    }
-
-    public override void RegisterHooks(ToolRegistry registry, ToolManifest manifest)
-    {
-        Guard.NotNull(registry, nameof(registry));
-        Guard.NotNull(manifest, nameof(manifest));
-        
-        // Register contextual ribbon lifecycle hook
-        registry.RegisterHook&lt;IHookLifecycle, ContextualRibbonInjector&gt;();
-    }
-}
-</code></pre>
-<h3 id="toolmodule-virtual-methods">ToolModule Virtual Methods</h3>
+<h3 id="ribbon-fields">Ribbon fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Requirement and meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internalName</code></td>
+<td>Required unique control identity, also used by warning definitions.</td>
+</tr>
+<tr>
+<td><code>commandType</code></td>
+<td>Required fully qualified concrete <code>ToolCommand</code> type.</td>
+</tr>
+<tr>
+<td><code>availabilityType</code></td>
+<td>Optional concrete command type implementing <code>IExternalCommandAvailability</code>.</td>
+</tr>
+<tr>
+<td><code>runProfile</code></td>
+<td><code>InlineUi</code> by default, or <code>QueuedModeless</code>.</td>
+</tr>
+<tr>
+<td><code>displayText</code></td>
+<td>Required label. YAML double-quoted strings support <code>\n</code> line breaks.</td>
+</tr>
+<tr>
+<td><code>iconBaseKey</code></td>
+<td>Required embedded icon key without extension.</td>
+</tr>
+<tr>
+<td><code>tooltip</code></td>
+<td>Required tooltip text.</td>
+</tr>
+<tr>
+<td><code>controlKind</code></td>
+<td><code>PushButton</code> by default, or <code>SplitButtonItem</code>, <code>PulldownButtonItem</code>, <code>StackedButtonItem</code>.</td>
+</tr>
+<tr>
+<td><code>splitGroup</code></td>
+<td>Required nonblank group for grouped controls. Invalid for a push button.</td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td>Required order within the panel/group.</td>
+</tr>
+<tr>
+<td><code>groupDisplayText</code></td>
+<td>Optional group header text.</td>
+</tr>
+<tr>
+<td><code>groupTooltip</code></td>
+<td>Optional group header tooltip.</td>
+</tr>
+<tr>
+<td><code>groupIconBaseKey</code></td>
+<td>Optional group header icon key.</td>
+</tr>
+</tbody>
+</table>
+<p>Optional values cannot be blank. Push buttons cannot carry grouped-control
+metadata. Entries sharing a split or pulldown group form one ordered sequence.
+The lowest-order split entry is the primary command. The remaining entries are
+its dropdown commands. App planning and Revit construction use that sequence.</p>
+<p>Use a 32×32 main icon such as <code>my_tool.png</code>. An optional 16×16 companion is
+<code>my_tool_16.png</code>. Match the base filename to <code>iconBaseKey</code>.</p>
+<h2 id="4-register-services">4. Register services</h2>
+<p><code>ToolModule</code> lives in <code>DBTools.Core.Tools.Modules.Composition</code>.
+Its registration methods receive the manifest from
+<code>DBTools.Core.Tools.Manifest</code>:</p>
 <table>
 <thead>
 <tr>
 <th>Method</th>
-<th>Purpose</th>
+<th>Contribution</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>RegisterSettings</code></td>
-<td>Register typed settings sections</td>
+<td>Typed persistence sections.</td>
 </tr>
 <tr>
 <td><code>RegisterServices</code></td>
-<td>Register services for DI container</td>
+<td>Tool services and dependency injection registrations.</td>
 </tr>
 <tr>
 <td><code>RegisterSettingsPacks</code></td>
-<td>Register settings pack definitions</td>
+<td>Settings catalog definitions and context/view factories.</td>
 </tr>
 <tr>
 <td><code>RegisterHooks</code></td>
-<td>Register event hooks (ViewActivated, ContextualRibbon, DialogBoxShowing)</td>
+<td>Hook implementation mappings in <code>ToolRegistry</code>.</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h2 id="step-5-command-implementation">Step 5: Command Implementation</h2>
-<p>Command-bearing ribbon modules implement commands with <code>ToolCommand</code> (not <code>IExternalCommand</code> directly) to get automatic error handling, logging, and run scope management. Service/settings modules with no ribbon tools skip this step.</p>
-<h3 id="basic-command-structure">Basic Command Structure</h3>
-<pre><code class="lang-csharp">using System;
-using System.Threading.Tasks;
-using Autodesk.Revit.Attributes;
-using DBTools.Core.Guarding.Domain;
-using DBTools.Core.Revit.Execution.Commands;
-using Microsoft.Extensions.Logging;
+<p>Startup calls <code>RegisterSettings</code>, <code>RegisterServices</code>, <code>RegisterSettingsPacks</code>,
+and <code>RegisterHooks</code> in that order for each module before validating and merging
+its registrations. Keep modules limited to composition. Put behavior with the
+feature that owns it.
+For example, a module can register a feature workflow:</p>
+<pre><code class="lang-csharp">using DBTools.Core.Tools.Manifest;
+using DBTools.Core.Tools.Modules.Composition;
+using DBTools.MyTool.Features.Inspection;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace DBTools.MyTool.Features;
+namespace DBTools.MyTool.App.Composition;
+
+public sealed class MyToolToolModule : ToolModule
+{
+    public override void RegisterServices(IServiceCollection services, ToolManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(manifest);
+        services.AddScoped&lt;InspectionWorkflow&gt;();
+    }
+}
+</code></pre>
+<p>A simple moduleless command may declare <code>[CommandService(typeof(Workflow))]</code> on
+the command. Framing Joins uses this pattern for <code>FramingJoinsWorkflow</code>.
+Do not reconstruct ribbon registrations in a module. App resolves concrete
+command and availability types. Core constructs their shared registrations.</p>
+<h2 id="5-implement-the-command">5. Implement the command</h2>
+<p>Use <code>ToolCommand</code> from <code>DBTools.Core.Tools.Commands</code> for ribbon commands.
+It supplies safe execution, contextual logging, command preflight, and scope
+creation/disposal. Revit constructs the command with an inert parameterless
+constructor. Resolve services inside <code>RunAsync</code>:</p>
+<pre><code class="lang-csharp">using Autodesk.Revit.Attributes;
+using DBTools.Core.Tools.Commands;
+using DBTools.Core.Tools.Commands.Context;
+using DBTools.MyTool.Features.Inspection;
+
+namespace DBTools.MyTool.App.Composition;
 
 [Transaction(TransactionMode.Manual)]
 public sealed class MyToolCommand : ToolCommand
 {
-    protected override async Task RunAsync(ICommandContext context)
+    protected override Task RunAsync(ICommandContext context)
     {
-        Guard.EnsureNotNull(context, nameof(context));
-        
-        var logger = context.Logger;
-        var doc = context.Document;
-        var uidoc = context.UIDocument;
-        
-        logger.LogDebug(&quot;[MyTool] Starting execution&quot;);
-        
-        // Your tool logic here
-        
-        await Task.CompletedTask.ConfigureAwait(false);
-    }
-    
-}
-</code></pre>
-<h3 id="with-transaction">With Transaction</h3>
-<pre><code class="lang-csharp">[Transaction(TransactionMode.Manual)]
-[CommandService(typeof(FramingJoinsWorkflow))]
-public sealed class AllowJoinSelectedCommand : ToolCommand
-{
-    protected override async Task RunAsync(ICommandContext context)
-    {
-        Guard.NotNull(context, nameof(context));
-
-        var workflow = context.Resolve&lt;FramingJoinsWorkflow&gt;();
-        await workflow.ExecuteAsync(
-            FramingJoinOperation.Allow,
-            context.UIDocument,
-            context.Document).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(context);
+        return context.Resolve&lt;InspectionWorkflow&gt;().ExecuteAsync(context.Document);
     }
 }
 </code></pre>
-<p>The workflow receives the scoped transaction runner, owner provider, and typed logger through constructor injection. The selected command profile has already created either <code>InlineRevitCallGate</code> or <code>QueuedRevitCallGate</code> for that scope, while the command passes only operation-specific inputs:</p>
-<pre><code class="lang-csharp">public FramingJoinsWorkflow(
-    ILoggerWindowHost loggerWindow,
-    ITransactionRunner transactions,
-    IWindowOwnerHandleProvider ownerHandleProvider,
-    ILogger&lt;FramingJoinsWorkflow&gt; logger)
-{
-    _loggerWindow = loggerWindow;
-    _transactions = transactions;
-    _ownerHandleProvider = ownerHandleProvider;
-    _logger = logger;
-}
-
-await _transactions.RunInDocumentAsync(doc, $&quot;DB Tools - {operationName} Join Selected&quot;, d =&gt;
-{
-    modified = ExecuteCore(operation, framingTargets, _logger);
-}).ConfigureAwait(false);
+<p>This example assumes the feature defines <code>InspectionWorkflow.ExecuteAsync(Document)</code>.
+The context exposes <code>UIApplication</code>, <code>UIDocument</code>, <code>Document</code>, <code>Logger</code>,
+<code>OwnerHandleProvider</code>, <code>ShowBanner</code>, and inherited <code>Resolve&lt;T&gt;()</code>.
+A documentless command overrides <code>RequiresActiveDocument=false</code>. Accessing its
+<code>Document</code> or <code>UIDocument</code> throws.</p>
+<p>Every <code>ToolCommand</code> implements <code>IExternalCommandAvailability</code>. Set
+<code>availabilityType</code> to the concrete command. The default predicate requires an
+open document unless <code>RequiresActiveDocument</code> is false. Override
+<code>IsCommandAvailableCore</code> for other predicates and use <code>CommandAvailability</code>
+methods such as <code>HasActiveView</code>, <code>HasSelection</code>, or
+<code>HasStructuralFramingSelection</code>.</p>
+<p>Use the scoped <code>ITransactionRunner</code> for model changes. Its callbacks are
+synchronous, even though the entrypoint returns a Task. A modeless command uses
+the queued run profile and an owned session. See <a href="modularity.html">Modularity</a>
+for call-gate, transaction, logging, and session contracts.</p>
+<h2 id="6-add-views-settings-and-hooks">6. Add views, settings, and hooks</h2>
+<p>A tool view embeds a stable element such as <code>Grid</code>. It has no <code>x:Class</code>,
+code-behind, tool CLR namespace, or event attributes. Presentation supplies the
+window shell. Core's <code>ToolWindowFactory</code> installs runtime services and registers
+its session. See <a href="modularity.html#tool-window-sessions">Tool-window sessions</a>.</p>
+<p>Use <code>ObservableObject</code>, <code>[ObservableProperty]</code>, and <code>[RelayCommand]</code> from
+CommunityToolkit.Mvvm for bindable state and commands. Match the ViewModel's
+folder and namespace. Keep design-time ViewModels independent of Revit and
+production services. <a href="sandbox-integration.html">Sandbox Integration</a> describes
+resource names, manifest declarations, visibility, and preview construction.</p>
+<p>For persisted options, define a DTO and a source-generated JSON context. Register
+one <code>SettingsSection&lt;T&gt;</code> and read it through <code>ISettingsProvider</code>. A settings
+pack adds the editor context and view. <a href="settings-packs.html">Settings Packs</a>
+contains the complete registration and persistence sequence.</p>
+<p>For view-change work, register an <code>IViewActivationTask</code> service. For owned event
+subscriptions, implement <code>IHookLifecycle</code> and register the concrete service and
+hook mapping. <a href="hooks.html">Hooks</a> describes admission, failure handling, rollback,
+and synchronous shutdown. <a href="feature-warnings.html">Feature Warnings</a> describes
+configuration failures that disable commands.</p>
+<h2 id="7-add-tests-and-validate">7. Add tests and validate</h2>
+<p>Tests live under the owning <code>Tests/</code> directory and mirror production ownership:</p>
+<pre><code class="lang-text">Tests/
+├── Features/Inspection/InspectionWorkflowTests.cs
+├── Integration/Revit/Features/Inspection/InspectionWorkflowHostedTests.cs
+├── Support/
+├── DBTools.MyTool.Pure.Tests.csproj
+└── DBTools.MyTool.Local.Tests.csproj
 </code></pre>
-<h3 id="icommandcontext-properties">ICommandContext Properties</h3>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>UIApplication</code></td>
-<td>Revit UIApplication</td>
-</tr>
-<tr>
-<td><code>UIDocument</code></td>
-<td>Active UIDocument</td>
-</tr>
-<tr>
-<td><code>Document</code></td>
-<td>Active Document</td>
-</tr>
-<tr>
-<td><code>Logger</code></td>
-<td>ILogger for the command</td>
-</tr>
-<tr>
-<td><code>Resolve&lt;T&gt;()</code></td>
-<td>Resolve service from DI</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h2 id="step-6-ui-implementation-mvvm-pattern">Step 6: UI Implementation (MVVM Pattern)</h2>
-<p>For tools with UI, follow the MVVM pattern with DBTools conventions.</p>
-<h3 id="raw-xaml-view-template">Raw XAML view template</h3>
-<pre><code class="lang-xml">&lt;Grid xmlns=&quot;http://schemas.microsoft.com/winfx/2006/xaml/presentation&quot;
-      xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot;
-      xmlns:resources=&quot;clr-namespace:DBTools.Presentation.Resources;assembly=DBTools.Presentation&quot;&gt;
-    &lt;Grid.Resources&gt;
-        &lt;ResourceDictionary&gt;
-            &lt;ResourceDictionary.MergedDictionaries&gt;
-                &lt;ResourceDictionary Source=&quot;{resources:ResourceUri Resources/Theme.xaml}&quot; /&gt;
-            &lt;/ResourceDictionary.MergedDictionaries&gt;
-        &lt;/ResourceDictionary&gt;
-    &lt;/Grid.Resources&gt;
-    &lt;!-- Stable controls bound to the runtime or design-time view model. --&gt;
-&lt;/Grid&gt;
+<p>Pure projects compile plain NUnit tests against the tool project. Local projects
+use explicit positive compile membership for <code>[RevitLocal]</code> fixtures and their
+support. A DA project claims coverage only through real APS WorkItem tests.
+Optional <code>*.Portable.Pure.Tests</code> projects exercise portable production targets
+on Linux. Keep the execution projects separate.</p>
+<p>Use focused commands during development:</p>
+<pre><code class="lang-bash">./test.sh list --tool GM --scope pure --fixture DuplicateDetectionEngineTests
+./test.sh test --tool GM --scope pure --fixture DuplicateDetectionEngineTests
+./build.sh BuildSelectedLocalTests --TestProjects DBTools.GM.Local.Tests -y 2026
 </code></pre>
-<p>Embed the file with an explicit logical name such as
-<code>DBTools.ToolViews.MyTool.MyToolWindow.xaml</code>. It declares no tool CLR namespace,
-Window root, <code>x:Class</code> or event attribute. The manifest supplies its design-time model.</p>
-<h3 id="tool-window-sessions">Tool-window sessions</h3>
-<p>Tool UI uses raw embedded XAML without <code>x:Class</code> or code-behind. Its root is a stable
-view element such as <code>Grid</code>; <code>ToolWindowHost</code> supplies the modal or modeless shell.
-Core's <code>ToolWindowFactory</code> installs the theme, owner, icon, error boundary and progress
-lifecycle before parsing, then registers the session for normal close and generation retirement.</p>
-<pre><code class="lang-csharp">using var xaml = new MemoryStream(ToolWindowXaml.ReadEmbeddedResource(
-    typeof(MyToolWindowViewModel).Assembly, &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;));
-var session = factory.Create(ToolWindowKind.Modal, xaml, viewModel,
-    new ToolWindowOptions { Title = &quot;My Tool&quot;, Width = 800, Height = 600 });
-_ = session.ShowDialog();
-</code></pre>
-<p>Use <code>ToolWindowKind.Modeless</code> and <code>session.Show()</code> for a modeless surface. Register
-payload event handlers and owned cleanup through the session. A custom shell initializer
-owns its cleanup handle and must register it with <code>session.AddCleanup</code>.</p>
-<h3 id="viewmodel-pattern">ViewModel Pattern</h3>
-<p>Use <code>CommunityToolkit.Mvvm</code> for MVVM implementation:</p>
-<pre><code class="lang-csharp">using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-
-namespace DBTools.MyTool.Shell.ViewModels;
-
-public partial class MyToolWindowViewModel : ObservableObject
-{
-    [ObservableProperty]
-    private string _searchText = string.Empty;
-    
-    [ObservableProperty]
-    private bool _isBusy;
-    
-    [RelayCommand]
-    private async Task ExecuteAsync()
-    {
-        IsBusy = true;
-        try
-        {
-            // Do work
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-}
-</code></pre>
-<h3 id="design-time-viewmodel">Design-Time ViewModel</h3>
-<p>Create a design-time ViewModel for XAML preview:</p>
-<pre><code class="lang-csharp">using System.Windows.Input;
-using DBTools.Core.UI;
-
-namespace DBTools.MyTool.Shell.DesignTime;
-
-/// &lt;summary&gt;
-/// Design-time ViewModel for XAML Designer support.
-/// DO NOT instantiate at runtime.
-/// &lt;/summary&gt;
-[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-public sealed class MyToolDesignTimeViewModel
-{
-    // Commands - use NoOpCommand for all
-    public ICommand ExecuteCommand =&gt; NoOpCommand.Instance;
-    public ICommand CloseCommand =&gt; NoOpCommand.Instance;
-    
-    // Properties with sample data
-    public string SearchText { get; set; } = &quot;Sample search&quot;;
-    public bool IsBusy =&gt; false;
-    
-    public MyToolDesignTimeViewModel()
-    {
-        // Initialize sample data for designer preview
-    }
-}
-</code></pre>
-<hr>
-<h2 id="step-7-settings-optional">Step 7: Settings (Optional)</h2>
-<h3 id="defining-settings">Defining Settings</h3>
-<p>Create a settings class:</p>
-<pre><code class="lang-csharp">namespace DBTools.MyTool.Settings;
-
-public sealed class MyToolSettings
-{
-    public bool EnableFeatureX { get; set; } = true;
-    public int Threshold { get; set; } = 50;
-}
-</code></pre>
-<h3 id="registering-settings">Registering Settings</h3>
-<p>In your <code>ToolModule</code>:</p>
-<pre><code class="lang-csharp">public override void RegisterSettings(
-    IServiceCollection services, 
-    ToolManifest manifest)
-{
-    Guard.NotNull(services, nameof(services));
-    Guard.NotNull(manifest, nameof(manifest));
-    
-    services.AddSingleton(new SettingsSection&lt;MyToolSettings&gt;(
-        manifest.GetRequiredConfigSection(), MyToolSettingsJsonContext.Default.MyToolSettings));
-}
-</code></pre>
-<h3 id="using-settings">Using Settings</h3>
-<pre><code class="lang-csharp">public sealed class MyService
-{
-    private readonly MyToolSettings _settings;
-    
-    public MyService(ISettingsProvider settings, SettingsSection&lt;MyToolSettings&gt; section)
-    {
-        _settings = settings.Get(section);
-    }
-}
-</code></pre>
-<h3 id="settings.year.json-structure">settings.{YEAR}.json Structure</h3>
-<pre><code class="lang-json">{
-  &quot;Tools.MyTool&quot;: {
-    &quot;EnableFeatureX&quot;: true,
-    &quot;Threshold&quot;: 75
-  }
-}
-</code></pre>
-<hr>
-<h2 id="step-8-hooks-optional">Step 8: Hooks (Optional)</h2>
-<h3 id="available-hook-contracts">Available Hook Contracts</h3>
-<table>
-<thead>
-<tr>
-<th>Contract</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ViewActivationHook</code></td>
-<td>Core-owned view-change dispatcher; tools plug in via <code>IViewActivationTask</code></td>
-</tr>
-<tr>
-<td><code>IHookLifecycle</code></td>
-<td>Add application lifecycle hooks, including contextual ribbon tabs</td>
-</tr>
-</tbody>
-</table>
-<h3 id="viewactivated-hook">ViewActivated Hook</h3>
-<p>For view-activated behavior, register an <code>IViewActivationTask</code>. The singleton <code>ViewActivationHook</code> is already provided by the app layer.</p>
-<pre><code class="lang-csharp">using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using DBTools.Core.Tools.Hooks.ViewActivation;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Events;
-
-namespace DBTools.MyTool.Features.Hooks;
-
-public sealed class MyViewActivatedTask : IViewActivationTask
-{
-    public string TaskId =&gt; &quot;mytool.view-activated&quot;;
-    public string DisplayName =&gt; &quot;My Tool View Activated&quot;;
-    public IReadOnlyCollection&lt;string&gt; WarningIdsToSetOnFailure =&gt; Array.Empty&lt;string&gt;();
-
-    // A non-null admission runs this attempt once; it captures the state its execution uses
-    public Task&lt;ViewActivationAdmission?&gt; AdmitAsync(UIApplication application, ViewActivatedEventArgs args, CancellationToken ct)
-    {
-        var view = args.CurrentActiveView;
-        return Task.FromResult&lt;ViewActivationAdmission?&gt;(
-            view == null ? null : new ViewActivationAdmission(executionCt =&gt; ReactAsync(view, executionCt)));
-    }
-
-    private static Task ReactAsync(View view, CancellationToken ct)
-    {
-        // React to the admitted view
-        return Task.CompletedTask;
-    }
-}
-</code></pre>
-<p>Register from your shell service collection extension:</p>
-<pre><code class="lang-csharp">public static IServiceCollection AddMyTool(this IServiceCollection services, ToolManifest manifest)
-{
-    services.AddSingleton&lt;IViewActivationTask, MyViewActivatedTask&gt;();
-    return services;
-}
-</code></pre>
-<hr>
-<h2 id="step-9-command-owned-availability">Step 9: Command-owned Availability</h2>
-<p>Every <code>ToolCommand</code> implements <code>IExternalCommandAvailability</code>; its default
-predicate requires an open document. Set <code>availabilityType</code> to the same concrete
-command as <code>commandType</code>. Commands with another requirement override
-<code>IsCommandAvailableCore</code> and call <code>CommandAvailability.HasActiveView</code>,
-<code>HasSelection</code>, or <code>HasStructuralFramingSelection</code>.</p>
-<hr>
-<h2 id="step-10-declare-assembly-ownership">Step 10: Declare Assembly Ownership</h2>
-<ol>
-<li>Set <code>&lt;DBT_IsToolAssembly&gt;true&lt;/DBT_IsToolAssembly&gt;</code> in the tool's production <code>.csproj</code> under <code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;/</code>.
-Projects without WPF also set <code>&lt;DBT_ContentDerivedIdentity&gt;true&lt;/DBT_ContentDerivedIdentity&gt;</code> to retain the existing content-version policy.</li>
-<li>Set <code>manifest.yml</code>'s <code>assembly</code> and each design-time ViewModel assembly to the actual owner, such as <code>DBTools.TDV</code>.</li>
-<li>Embed icons, policies and raw XAML in that project. Preserve their logical resource names. Remove explicit App resource entries for the migrated tool.</li>
-<li>Reference the production project from Pure tests, Local tests and real consumers. Move required <code>InternalsVisibleTo</code> declarations to the tool project.</li>
-</ol>
-<p><code>ProductOutput.proj</code> restores declared tool owners, builds their final images, and stages them beneath the selected year directory's <code>Tools/</code> folder. App manifests remain embedded centrally, while <code>ToolAssemblyResolver</code> loads each declared owner by explicit path in the active owning context. The final tree contains the four top-level product DLLs plus the fourteen tool DLLs beneath <code>Tools/</code>.</p>
-<p>App embeds tool manifests for central discovery but compiles no source, XAML, or assets from <code>src/Tools/</code>. Runtime modules, commands, icons, settings, and raw XAML resolve from the manifest-declared owner. Tool XAML must continue to use framework and stable Presentation types.</p>
-<p>Every tool declares its own assembly, resources, and test references. No tool-specific product-output, Core, or App runtime logic is required. SGT, Settings, and DialogSuppression use <code>assembly: DBTools.SGT</code>, <code>DBTools.Settings</code>, and <code>DBTools.DialogSuppression</code> respectively.</p>
-<hr>
-<h2 id="step-11-testing-setup">Step 11: Testing Setup</h2>
-<h3 id="test-project-structure">Test Project Structure</h3>
-<pre><code>src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/Tests/
-  DBTools.&lt;ToolName&gt;.Pure.Tests.csproj   # plain [Test] fixtures; no Revit host
-  DBTools.&lt;ToolName&gt;.Local.Tests.csproj  # [RevitLocal] fixtures
-  PureBehaviorTests.cs
-  RevitHostedBehaviorTests.cs
-  Support/
-</code></pre>
-<p>Do not create a consolidated unsuffixed tool test project. Owner tests follow the
-taxonomy in <a href="../architecture/test-pipeline.html">Test Pipeline</a>: <code>.Pure.Tests</code> compiles
-plain off-Revit fixtures against a plain <code>ProjectReference</code> to the tool, <code>.Local.Tests</code>
-compiles local Revit-hosted fixtures, and DA coverage requires a separate WorkItem-backed
-<code>[RevitDA]</code> project. Its WorkItem tests run like the DA Sentinel: on the operator's host as
-an HTTP client with <code>dotnet test</code>, with <code>APS_CLIENT_ID</code> and <code>APS_CLIENT_SECRET</code> set, for
-5–12 minutes of APS processing time per WorkItem (the account includes 300 free minutes a
-month). Sub-agents and the daemon never run them; see
-<a href="testing-tools.html#aps-design-automation-sentinel">APS Design Automation Sentinel</a>. A tool whose
-inward code should also run on Linux adopts the optional portable target described in
-the Test Pipeline and adds <code>DBTools.&lt;ToolName&gt;.Portable.Pure.Tests</code>.</p>
-<h3 id="running-tests">Running Tests</h3>
-<pre><code class="lang-bash"># Run a tool's pure lane through the repository wrapper
-./test.sh test --tool MYTOOL --scope pure
-
-# Run a specific fixture through the repository wrapper
-./test.sh test --tool MYTOOL --scope pure --fixture MyTestName
-</code></pre>
-<hr>
-<h2 id="common-patterns-and-best-practices">Common Patterns and Best Practices</h2>
-<h3 id="service-extension-pattern">1. Service Extension Pattern</h3>
-<p>Centralize DI registration in an extension method:</p>
-<pre><code class="lang-csharp">// Shell/MyToolServiceCollectionExtensions.cs
-namespace DBTools.MyTool.Shell;
-
-public static class MyToolServiceCollectionExtensions
-{
-    public static IServiceCollection AddMyTool(this IServiceCollection services)
-    {
-        Guard.NotNull(services, nameof(services));
-        
-        services.AddScoped&lt;IMyService, MyService&gt;();
-        services.AddScoped&lt;MyOtherService&gt;();
-        
-        return services;
-    }
-}
-</code></pre>
-<p>Then in ToolModule:</p>
-<pre><code class="lang-csharp">services.AddMyTool();
-</code></pre>
-<h3 id="error-handling">2. Error Handling</h3>
-<p>Never swallow exceptions. Use <code>ISafeExecutor</code> for top-level error handling (provided by <code>ToolCommand</code>):</p>
-<pre><code class="lang-csharp">// DON'T do this:
-try { DoWork(); } catch { } // Silent failure
-
-// DO this:
-// Exceptions propagate to ToolCommand's ISafeExecutor
-DoWork(); // Let exceptions propagate
-</code></pre>
-<h3 id="logging">3. Logging</h3>
-<p>Use the injected logger, not <code>Console.WriteLine</code>:</p>
-<pre><code class="lang-csharp">var logger = context.Logger;
-logger.LogDebug(&quot;[MyTool] Processing {Count} elements&quot;, count);
-logger.LogWarning(&quot;[MyTool] Skipped invalid element {Id}&quot;, elementId);
-logger.LogError(ex, &quot;[MyTool] Failed to process&quot;);
-</code></pre>
-<h3 id="transactions">4. Transactions</h3>
-<p>Always name transactions descriptively:</p>
-<pre><code class="lang-csharp">await tx.RunAsync(doc, &quot;DB Tools - My Tool Operation&quot;, d =&gt;
-{
-    // Modifications here
-}).ConfigureAwait(false);
-</code></pre>
-<h3 id="icon-naming">5. Icon Naming</h3>
-<ul>
-<li>Main icon: <code>my_tool.png</code> (32x32)</li>
-<li>Small icon: <code>my_tool_16.png</code> (16x16, optional)</li>
-<li>Match the <code>iconBaseKey</code> in manifest (without extension)</li>
-</ul>
-<h3 id="namespace-conventions">6. Namespace Conventions</h3>
-<p>Choose the namespace root from the live tool family instead of flattening every
-tool to the same prefix. Common and Testing tools currently use
-<code>DBTools.&lt;ToolName&gt;</code> roots such as <code>DBTools.GM</code>, <code>DBTools.TDV</code>, and
-<code>DBTools.VTC</code>; Structural tools use <code>DBTools.Structural.&lt;ToolName&gt;</code> roots such
-as <code>DBTools.Structural.FramingJoins</code>. Established tools keep their current root
-unless a deliberate source migration changes every project, manifest, and
-callsite together.</p>
-<pre><code>&lt;NamespaceRoot&gt;                    # Root namespace
-&lt;NamespaceRoot&gt;.Features           # Command entrypoints and feature-level APIs
-&lt;NamespaceRoot&gt;.Features.&lt;Slice&gt;   # Feature-slice services/models (Transfer, Library, Preview, etc.)
-&lt;NamespaceRoot&gt;.Shell              # Shell wiring and DI extensions
-&lt;NamespaceRoot&gt;.Shell.Services     # Optional shell-only coordinators/factories
-&lt;NamespaceRoot&gt;.Shell.Views        # WPF windows and controls
-&lt;NamespaceRoot&gt;.Shell.ViewModels   # Runtime ViewModels
-&lt;NamespaceRoot&gt;.Shell.DesignTime   # Design-time ViewModels
-&lt;NamespaceRoot&gt;.Shared             # Cross-feature shared types
-&lt;NamespaceRoot&gt;.Shared.Domain      # Shared domain/value objects
-&lt;NamespaceRoot&gt;.Shared.Models      # Shared DTOs/view models
-&lt;NamespaceRoot&gt;.Shared.State       # Optional cross-feature state stores
-&lt;NamespaceRoot&gt;.Revit.Services     # Optional Revit-facing adapters/services
-&lt;NamespaceRoot&gt;.Settings           # Optional settings/options
-</code></pre>
-<p>Avoid introducing retired namespace shapes in new scaffolds: <code>Bootstrap</code>, <code>Features.Commands</code>, <code>Features.Logic</code>, <code>Shell.DI</code>, and <code>Shell.UI</code>.</p>
-<hr>
-<h2 id="checklist-new-tool-completion">Checklist: New Tool Completion</h2>
-<ul class="contains-task-list">
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Created directory structure under <code>src/Tools/&lt;Category&gt;/&lt;ToolName&gt;/</code></li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Added <code>manifest.yml</code> with a unique <code>id</code> and either valid <code>ribbonTools</code>, settings/settings packs, or a hook registration contract</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Created <code>&lt;ToolName&gt;ToolModule.cs</code> extending <code>ToolModule</code></li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Implemented command(s) extending <code>ToolCommand</code> when the module declares <code>ribbonTools</code></li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Added icon(s) in <code>Assets/</code> folder when the module declares ribbon tools</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Created <code>.csproj</code> file for command-bearing modules or modules that need independent IDE/test isolation</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Added every created production or test <code>.csproj</code> to <code>DBTools.sln</code> under its owning solution folder</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Build passes: <code>bash build.sh</code></li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Tool appears in Revit ribbon when the module declares <code>ribbonTools</code></li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> Command executes successfully when the module declares <code>ribbonTools</code></li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> (Optional) Created test project</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox"> (Optional) Added UI with design-time preview</li>
-</ul>
-<!-- VERIFIED: 2026-07-12 -->
-<blockquote>
-<p><strong>Source:</strong> <code>DBTools.sln:6</code>
-<strong>Source:</strong> <code>build/Build.proj:1</code></p>
-</blockquote>
-<hr>
-<h2 id="cross-references">Cross-References</h2>
-<ul>
-<li><a href="../architecture/overview.html">Architecture Overview</a></li>
-<li><a href="../projects/core.html">Core Project</a></li>
-<li><a href="../architecture/theme-system.html">Theme System</a></li>
-<li><a href="../architecture/test-pipeline.html">Test Pipeline</a></li>
-</ul>
+<p>Replace <code>GM</code> with the new tool's directory key after its test projects exist.
+Compilation does not prove a hosted fixture passes. See the execution hosts
+and routing in <a href="testing-tools.html#execution-hosts">Testing Tools</a>.</p>
+<p>Before delivery, check the source contract and generated maps, compile the
+product and affected tests, and run the applicable behavior tests. Verify ribbon
+composition and actual command behavior in Revit when the tool adds commands.
+Verify WPF binding, themes, and owned cleanup on Windows when it adds views.
+Use <a href="testing-tools.html#build-and-validation-commands">Build and validation commands</a>
+for the complete command sequence and source/acceptance gates.</p>
 
 </article>
 

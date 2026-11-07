@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Leveraging DBTools Modularity | DB Tools </title>
+      <title>Modularity | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Leveraging DBTools Modularity | DB Tools ">
+      <meta name="title" content="Modularity | DB Tools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,705 +87,367 @@
         </div>
 
         <article data-uid="">
-<h1 id="leveraging-dbtools-modularity">Leveraging DBTools Modularity</h1>
+<h1 id="modularity">Modularity</h1>
 
-<p>DBTools is designed as a modular Revit add-in platform where tools share common infrastructure while maintaining clear boundaries. This guide explains how to use <code>DBTools.Core</code> services and <code>DBTools.Presentation</code> WPF resources without crossing the stable/collectible boundary.</p>
-<h2 id="philosophy">Philosophy</h2>
-<p>DBTools follows these modularity principles:</p>
-<ol>
-<li><strong>Shared Infrastructure, Independent Tools</strong> - Core services are centralized; tools are self-contained</li>
-<li><strong>Dependency Injection First</strong> - All services are resolved through DI, enabling testing and flexibility</li>
-<li><strong>Contract-Driven</strong> - Interfaces define contracts; implementations can vary per context</li>
-<li><strong>Error Handling at Boundaries</strong> - All entrypoints run inside <code>ISafeExecutor</code></li>
-<li><strong>Window-Scoped Theming</strong> - Each window owns its theme resources to avoid cross-add-in conflicts</li>
-<li><strong>Composition Owns Concrete UI Services</strong> - Core window initialization attaches shared contracts, while App startup supplies concrete notification features such as <code>WindowErrorNotifier</code>; UI window error boundaries and logger-window error relay sinks depend on the UI-owned <code>IWindowErrorLogSurface</code> contract rather than the full logger-window shell implementation, <code>WindowErrorBoundaryPresenter</code> owns handled-error banner/log-surface presentation outside the dispatcher boundary host, and view-activated hooks consume <code>IErrorNotifier</code> from DI instead of constructing concrete notification feature types inside Core hook gates</li>
-</ol>
-<h2 id="two-tier-di-architecture">Two-Tier DI Architecture</h2>
-<p>DBTools uses a two-tier dependency injection model:</p>
+<p>Tools use Core for execution, transactions, settings, logging, and window
+lifecycle. Presentation owns stable WPF shells, controls, resources, and themes.
+Tool assemblies own feature behavior, raw views, and ViewModels.</p>
+<p>Use constructor injection inside services. Resolve the first workflow from
+<code>ICommandContext</code> at the command boundary. <a href="new-tool-guide.html">Creating New Tools</a>
+describes assembly ownership and module registration.</p>
+<h2 id="service-lifetimes">Service lifetimes</h2>
+<p>The application service root lasts for one runtime generation. A command or
+modeless session owns a run scope for Revit-dependent services.</p>
 <table>
 <thead>
 <tr>
-<th>Tier</th>
+<th>Service</th>
 <th>Lifetime</th>
 <th>Purpose</th>
-<th>Examples</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Singleton</strong></td>
-<td>Application lifetime</td>
-<td>Infrastructure services</td>
-<td><code>ISafeExecutor</code>, <code>IAlertService</code>, <code>ISettingsProvider</code>, <code>ToolRegistry</code></td>
+<td><code>ISafeExecutor</code></td>
+<td>Singleton</td>
+<td>Error policy, logging, and notifications at entrypoints.</td>
 </tr>
 <tr>
-<td><strong>Scoped</strong></td>
-<td>Per-command lifetime</td>
-<td>Revit context services</td>
-<td><code>ITransactionRunner</code>, <code>IRevitCallGate</code>, <code>IRevitRunScope</code></td>
+<td><code>IAlertService</code></td>
+<td>Singleton</td>
+<td>Alert and selection dialogs.</td>
+</tr>
+<tr>
+<td><code>ISettingsProvider</code></td>
+<td>Singleton</td>
+<td>Fresh typed reads and atomic batch commits.</td>
+</tr>
+<tr>
+<td><code>ToolRegistry</code></td>
+<td>Application runtime</td>
+<td>Command and hook registrations.</td>
+</tr>
+<tr>
+<td><code>IRevitRunScope</code></td>
+<td>Scoped</td>
+<td>Current Revit application and document access.</td>
+</tr>
+<tr>
+<td><code>IRevitCallGate</code></td>
+<td>Scoped</td>
+<td>Synchronous API callbacks in a valid Revit context.</td>
+</tr>
+<tr>
+<td><code>ITransactionRunner</code></td>
+<td>Scoped</td>
+<td>Transactions for model changes.</td>
+</tr>
+<tr>
+<td><code>ITransactionGroupService</code></td>
+<td>Scoped</td>
+<td>Group health and commit/rollback.</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h2 id="shared-services-from-dbtools.core">Shared Services from DBTools.Core</h2>
-<h3 id="isafeexecutor">ISafeExecutor</h3>
-<p>The central error handling service. <strong>All tool entrypoints must execute within <code>ISafeExecutor</code></strong>.</p>
-<pre><code class="lang-csharp">public interface ISafeExecutor
-{
-    Task RunAsync(Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier,
-        SafeExecuteOptions opts, CancellationToken ct = default);
-    Task&lt;SafeExecutionResult&gt; RunWithoutThrowingAsync(Func&lt;Task&gt; action, ILogger logger,
-        IErrorNotifier? notifier, SafeExecuteOptions opts, CancellationToken ct = default);
-}
-</code></pre>
-<p><strong>What it provides:</strong></p>
-<ul>
-<li>Correlation IDs for log tracing</li>
-<li>Execution timing</li>
-<li>Exception logging with full stack traces and inner exceptions</li>
-<li>Cancellation admission immediately before caller work, inside the existing cancellation boundary</li>
-<li>Diagnostic formatting through the internal <code>SafeExecution/Runtime/ExceptionDiagnosticsLogger</code>; SafeExecutor retains policy, notification, and propagation decisions</li>
-<li>User notification via banners</li>
-<li>Fatal-error surfacing through the execution-owned <code>ISafeExecutionFailureSurface</code>; App composition adapts the UI-owned log surface's show action without making Logging depend on SafeExecution</li>
-<li>Banner success/error presentation and notifier-failure logging inside the retained <code>SafeExecutor</code> execution boundary</li>
-<li>Explicit failure-policy split: <code>RunAsync(...)</code> rethrows, while <code>RunWithoutThrowingAsync(...)</code> is the named opt-in path for callers that intentionally suppress propagation after logging/notifying</li>
-</ul>
-<!-- VERIFIED: 2026-08-18 -->
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/SafeExecution/Runtime/SafeExecutor.cs:59-103</code>
-<strong>Source:</strong> <code>src/DBTools.Core/SafeExecution/Runtime/ExceptionDiagnosticsLogger.cs:11-211</code></p>
-</blockquote>
-<p><strong>Usage in a command:</strong></p>
-<pre><code class="lang-csharp">// Commands automatically use ISafeExecutor via ToolCommand base class
-[Transaction(TransactionMode.Manual)]
-public sealed class GmCommand : ToolCommand
-{
-    protected override Task RunAsync(ICommandContext context)
-    {
-        Guard.NotNull(context, nameof(context));
-        var uiapp = context.UIApplication
-                    ?? throw new InvalidOperationException(&quot;[SpecFail/GM/UIAppMissing] UIApplication is required.&quot;);
-        var logger = context.Resolve&lt;ILogger&lt;GmCommand&gt;&gt;();
-        var loggerWindowManager = context.Resolve&lt;ILoggerWindowHost&gt;();
+<p>Use <code>ILogger&lt;T&gt;</code> through injection and <code>context.Logger</code> at command boundaries.
+Logging does not require a separate tool-owned lifetime.</p>
+<p>Do not capture <code>Document</code>, <code>UIDocument</code>, or a run scope in a singleton. Pass
+operation-specific document inputs or obtain verified current state from the run
+scope. Dispose the command/session scope only after its owned work and cleanup
+finish.</p>
+<h2 id="safe-execution">Safe execution</h2>
+<p><code>DBTools.Core.SafeExecution.Domain.ISafeExecutor</code> defines two boundaries:</p>
+<pre><code class="lang-csharp">Task RunAsync(
+    Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier,
+    SafeExecutionOptions opts, CancellationToken ct = default);
 
-        // Build a lightweight document fingerprint for resume staleness checks
-        string? docKey = null;
-        try
-        {
-            var doc = uiapp.ActiveUIDocument?.Document;
-            if (doc != null)
-            {
-                var path = doc.PathName;
-                var title = doc.Title;
-                docKey = !string.IsNullOrWhiteSpace(path) ? path : title;
-            }
-        }
-        catch (System.Exception ex)
-        {
-            logger.LogWarning(&quot;[GM] Failed to compute DocumentKey: {Message}&quot;, ex.Message);
-        }
-
-        // Launch GM UI
-        ShellLauncher.Launch(context, docKey);
-
-        loggerWindowManager.ShowIfDebugModeOrEnableForPendingError();
-        return Task.CompletedTask;
-    }
-
-    protected override SafeExecuteOptions CreateExecuteOptions(Autodesk.Revit.UI.ExternalCommandData commandData)
-    {
-        return new SafeExecuteOptions
-        {
-            Name = &quot;Global Mapper&quot;,
-            // Launching the GM window is not a &quot;user-completed&quot; operation; avoid a success banner on open.
-            BannerMode = SafeExecuteOptions.Mode.ErrorOnly
-        };
-    }
-}
+Task&lt;SafeExecutionResult&gt; RunWithoutThrowingAsync(
+    Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier,
+    SafeExecutionOptions opts, CancellationToken ct = default);
 </code></pre>
-<hr>
-<h3 id="itransactionrunner">ITransactionRunner</h3>
-<p>Unified API for executing Revit model modifications with automatic transaction management.</p>
-<pre><code class="lang-csharp">public interface ITransactionRunner
+<p><code>RunAsync</code> propagates failures. <code>RunWithoutThrowingAsync</code> records an explicit
+outcome for a caller that must contain failure, such as a Revit event callback.
+Both provide correlation IDs, timing, cancellation admission, exception
+logging, and configured notifications. <code>ToolCommand</code> already owns this boundary.
+Let workflow failures reach it.</p>
+<p><code>SafeExecutionOptions</code> requires an operation name:</p>
+<pre><code class="lang-csharp">var options = new SafeExecutionOptions(&quot;Inspect Model&quot;)
 {
-    Task RunInActiveDocumentAsync(string name, Action&lt;RevitTransactionContext&gt; action, CancellationToken ct = default);
-    Task&lt;T&gt; RunInActiveDocumentAsync&lt;T&gt;(string name, Func&lt;RevitTransactionContext, T&gt; action, CancellationToken ct = default);
-    Task RunInDocumentAsync(Document doc, string name, Action&lt;RevitTransactionContext&gt; action, CancellationToken ct = default);
-    Task&lt;T&gt; RunInDocumentAsync&lt;T&gt;(Document doc, string name, Func&lt;RevitTransactionContext, T&gt; action, CancellationToken ct = default);
-}
+    BannerMode = SafeExecutionOptions.Mode.ErrorOnly
+};
+await executor.RunAsync(InspectAsync, logger, notifier, options, ct);
 </code></pre>
-<!-- VERIFIED: 2026-05-15 -->
-<p><strong>Key behaviors:</strong></p>
-<ul>
-<li>Auto-selects transaction type: <code>SubTransaction</code> if <code>doc.IsModifiable</code>, otherwise new <code>Transaction</code></li>
-<li>Cross-document protection</li>
-<li>Failure handling with <code>TransactionFailurePreprocessor</code></li>
-</ul>
-<p><strong>Usage example:</strong></p>
-<pre><code class="lang-csharp">public class FoundationTypeOrganizer
-{
-    private readonly ITransactionRunner _tx;
-    
-    public FoundationTypeOrganizer(ITransactionRunner tx, Document doc, ILogger logger)
-    {
-        _tx = tx;
-        // ...
-    }
-    
-    public async Task OrganizeAsync()
-    {
-        await _tx.RunInDocumentAsync(_doc, &quot;Organize Foundation Types&quot;, tx =&gt;
-        {
-            var doc = tx.Document;
-            // Modify document - transaction is automatic
-        });
-    }
-}
-</code></pre>
-<hr>
-<h3 id="itransactiongroupservice">ITransactionGroupService</h3>
-<p>Manages transaction groups for operations requiring multiple transactions to appear as a single undo item.</p>
-<pre><code class="lang-csharp">public interface ITransactionGroupService
-{
-    bool IsActive { get; }
-    Task BeginAsync(string name, CancellationToken ct = default);
-    Task FinalizeAsync(TransactionGroupFinalization finalization, CancellationToken ct = default);
-    Task&lt;bool&gt; IsGroupHealthyAsync(CancellationToken ct = default);
-}
-</code></pre>
-<p><strong>Usage for batch operations:</strong></p>
-<pre><code class="lang-csharp">public class TdvService
-{
-    private readonly ITransactionRunner _tx;
-    private readonly ITransactionGroupService _group;
-    
-    public TdvService(IRevitCallGate gate, ITransactionRunner tx, 
-        ITransactionGroupService group, ILogger&lt;TdvService&gt; logger)
-    {
-        _tx = tx;
-        _group = group;
-        // ...
-    }
-    
-    public async Task ApplyMultipleChangesAsync()
-    {
-        var commitGroup = true;
-        await _group.BeginAsync(&quot;Batch Apply&quot;);
-        try
-        {
-            // Multiple transactions appear as one undo item
-            await _tx.RunInActiveDocumentAsync(&quot;Step 1&quot;, tx =&gt; { /* ... */ });
-            await _tx.RunInActiveDocumentAsync(&quot;Step 2&quot;, tx =&gt; { /* ... */ });
-            await _tx.RunInActiveDocumentAsync(&quot;Step 3&quot;, tx =&gt; { /* ... */ });
-        }
-        catch
-        {
-            commitGroup = false;
-            throw;
-        }
-        finally
-        {
-            await _group.FinalizeAsync(commitGroup, CancellationToken.None);
-        }
-    }
-}
-</code></pre>
-<hr>
-<h3 id="ialertservice">IAlertService</h3>
-<p>Service for showing alert dialogs with various body types.</p>
-<pre><code class="lang-csharp">public interface IAlertService
-{
-    AlertResult Show(AlertRequest request);
-    bool Confirm(string message, string title = &quot;DB Tools&quot;);
-    T? SelectSingle&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
-    IReadOnlyList&lt;T&gt; SelectMultiple&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
-}
-</code></pre>
-<p><strong>Usage examples:</strong></p>
-<pre><code class="lang-csharp">// Simple confirmation
-var alerts = context.Resolve&lt;IAlertService&gt;();
-if (alerts.Confirm(&quot;Delete 15 elements?&quot;, &quot;Confirm Delete&quot;))
-{
-    // Proceed
-}
-
-// Single selection
-var selectedLevel = alerts.SelectSingle(new AlertSelectionRequest&lt;Level&gt;(
-    levels,
-    level =&gt; level.Name,
-    &quot;Select Level&quot;,
-    &quot;Target Level&quot;)
-{
-    Message = &quot;Choose the level to place elements on&quot;
-});
-
-// Multiple selection
-var selectedTypes = alerts.SelectMultiple(new AlertSelectionRequest&lt;FamilySymbol&gt;(
-    familyTypes,
-    t =&gt; t.Name,
-    &quot;Select Types&quot;,
-    &quot;Types to Process&quot;));
-</code></pre>
-<p>Selection dialog request construction and typed result extraction live behind
-the Core-owned selection dialog policy; concrete selection-list body composition
-is a Core alert-body factory responsibility, and consumers still use the
-<code>IAlertService</code> request-object API.</p>
-<hr>
-<h3 id="ilogger">ILogger</h3>
-<p>DBTools uses Microsoft.Extensions.Logging with Serilog as the provider.</p>
-<pre><code class="lang-csharp">// Resolve from DI
-var logger = context.Resolve&lt;ILogger&lt;MyService&gt;&gt;();
-
-// Or use the context's logger
-var logger = context.Logger;
-
-// Structured logging
-logger.LogInformation(&quot;Processing {Count} elements in {Document}&quot;, 
-    elements.Count, doc.Title);
-
-logger.LogWarning(&quot;[GM] Failed to compute DocumentKey: {Message}&quot;, ex.Message);
-
-logger.LogError(ex, &quot;[{Command}] execution failed.&quot;, GetType().Name);
-</code></pre>
-<p><strong>Important:</strong> Always use structured logging with named placeholders, not string interpolation.</p>
-<hr>
-<h3 id="irevitrunscope">IRevitRunScope</h3>
-<p>Represents a single Revit run scope (command, modeless session, or test). Owns UIApplication, the call gate, document access, and disposal; scoped transaction services are resolved from <code>IAppRunScope</code> or <code>ICommandContext</code> with <code>Resolve&lt;T&gt;()</code>.</p>
-<pre><code class="lang-csharp">public interface IRevitRunScope : IDisposable
-{
-    UIApplication UIApplication { get; }
-    IRevitCallGate CallGate { get; }
-    UIDocument GetActiveUiDocument();
-    Document GetActiveDocument();
-    Document GetVerifiedActiveDocument(Document expectedDocument, string? context = null);
-}
-</code></pre>
-<p>The verification operation is current-state based: callers retain an expected
-document only as a session identity and receive the active document only after
-validity and <code>DocumentSessionKey</code> equality are established.</p>
-<p><strong>Run Scope Profiles:</strong></p>
 <table>
 <thead>
 <tr>
-<th>Profile</th>
-<th>Use Case</th>
-<th>Description</th>
+<th>Option</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LogStart</code></td>
+<td><code>true</code></td>
+<td>Log entry.</td>
+</tr>
+<tr>
+<td><code>LogCompletion</code></td>
+<td><code>true</code></td>
+<td>Log completion.</td>
+</tr>
+<tr>
+<td><code>LogFailure</code></td>
+<td><code>true</code></td>
+<td>Log a failed operation.</td>
+</tr>
+<tr>
+<td><code>BannerMode</code></td>
+<td><code>SuccessAndError</code></td>
+<td>Show success/error banners, errors only, or neither.</td>
+</tr>
+<tr>
+<td><code>FailureSurface</code></td>
+<td><code>Surface</code></td>
+<td>Surface fatal errors through the configured failure surface.</td>
+</tr>
+<tr>
+<td><code>CorrelationId</code></td>
+<td>Unspecified</td>
+<td>Supply an existing execution correlation ID.</td>
+</tr>
+</tbody>
+</table>
+<p><code>ErrorBanner(name, logStart, logCompletion)</code> selects error-only banners.
+<code>SuppressFailurePresentation(name)</code> suppresses banners, fatal presentation,
+and routine start/completion logs while retaining failure logging.
+Disable <code>LogFailure</code> only when an already-published lifecycle owner observes and
+logs that same fault. Preserve the failed Task.</p>
+<p>App composition adapts the UI-owned log surface to <code>ISafeExecutionFailureSurface</code>.
+Window error boundaries use <code>IWindowErrorLogSurface</code> and
+<code>WindowErrorPresenter</code>. Consumers depend on these contracts rather than
+constructing concrete logger or notification windows.</p>
+<p>Use structured log fields:</p>
+<pre><code class="lang-csharp">logger.LogInformation(&quot;Processing {Count} elements in {Document}&quot;, count, document.Title);
+logger.LogError(exception, &quot;Inspection failed for {Document}&quot;, document.Title);
+</code></pre>
+<p>Use <code>IAlertService</code> for user decisions and <code>IErrorNotifier</code> for banners.
+Do not replace these boundaries with <code>Console.WriteLine</code>, raw message boxes,
+empty catches, or success-shaped defaults after a failure.</p>
+<h2 id="revit-run-scopes-and-call-gates">Revit run scopes and call gates</h2>
+<p><code>IRevitRunScope</code> exposes <code>UIApplication</code>, <code>CallGate</code>, <code>GetActiveUiDocument()</code>,
+<code>GetActiveDocument()</code>, and <code>GetVerifiedActiveDocument(expectedDocument, context)</code>.
+The verification method checks validity and <code>DocumentSessionKey</code> equality
+before returning the active document. A retained document is a session identity,
+not proof that the current document still matches.</p>
+<table>
+<thead>
+<tr>
+<th>Run profile</th>
+<th>Gate</th>
+<th>Use</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>InlineUi</code></td>
-<td>Modal commands, daemon-hosted Revit automation</td>
-<td>Executes directly on Revit UI thread</td>
+<td><code>InlineRevitCallGate</code></td>
+<td>Commands already executing in a valid Revit API callback.</td>
 </tr>
 <tr>
 <td><code>QueuedModeless</code></td>
-<td>Long-running/modeless tools</td>
-<td>Uses the App-owned ExternalEvent host</td>
+<td><code>QueuedRevitCallGate</code></td>
+<td>Modeless work through the App-owned ExternalEvent host.</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h3 id="isettingsprovider">ISettingsProvider</h3>
-<p>Typed settings access with persistence. Each read combines application defaults and the current per-year file.</p>
-<pre><code class="lang-csharp">public interface ISettingsProvider
+<p>The gate accepts synchronous callbacks:</p>
+<pre><code class="lang-csharp">Task RunAsync(Action&lt;UIApplication&gt; work,
+    CancellationToken ct = default, RevitCallGateMode mode = RevitCallGateMode.Auto);
+Task&lt;T&gt; RunAsync&lt;T&gt;(Func&lt;UIApplication, T&gt; work,
+    CancellationToken ct = default, RevitCallGateMode mode = RevitCallGateMode.Auto);
+</code></pre>
+<p>Await the returned Task outside the callback. Do not pass <code>async</code> lambdas into
+the gate. Async-state-machine Actions and known Task/ValueTask result shapes
+are rejected before execution. An awaitable hidden in <code>object</code> or an interface
+is rejected after the callback runs. Side effects remain. Custom awaiters are
+outside this check.</p>
+<p>A Revit API callback's context applies to its synchronous prefix. An async
+continuation must acquire a valid gate again before using the Revit API.
+<code>InGate</code> reports execution within a gate callback. It does not make arbitrary
+background work safe.</p>
+<p>On normal host retirement, pending queued work is dropped and its Tasks remain
+pending, even if cancellation arrives later. Shutdown must not await these Tasks.
+Failed-startup cleanup cancels pending work instead. See
+<a href="../architecture/revit-execution-and-progress-overlay.html">Revit execution</a> for
+the full callback and shutdown contract.</p>
+<h2 id="transactions">Transactions</h2>
+<p><code>ITransactionRunner</code> wraps synchronous model modifications:</p>
+<pre><code class="lang-csharp">Task RunInActiveDocumentAsync(string name,
+    Action&lt;RevitTransactionContext&gt; action, CancellationToken ct = default);
+Task&lt;T&gt; RunInActiveDocumentAsync&lt;T&gt;(string name,
+    Func&lt;RevitTransactionContext, T&gt; action, CancellationToken ct = default);
+Task RunInDocumentAsync(Document doc, string name,
+    Action&lt;RevitTransactionContext&gt; action, CancellationToken ct = default);
+Task&lt;T&gt; RunInDocumentAsync&lt;T&gt;(Document doc, string name,
+    Func&lt;RevitTransactionContext, T&gt; action, CancellationToken ct = default);
+</code></pre>
+<p>Use <code>transaction.Document</code> inside the callback:</p>
+<pre><code class="lang-csharp">await transactions.RunInDocumentAsync(document, &quot;DB Tools - Set Mark&quot;, transaction =&gt;
 {
-    TSettings Get&lt;TSettings&gt;(SettingsSection&lt;TSettings&gt; section)
-        where TSettings : class, new();
-    Task CommitAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes,
-        CancellationToken ct = default);
-}
+    var element = transaction.Document.GetElement(elementId);
+    element.LookupParameter(&quot;Mark&quot;).Set(mark);
+}, ct);
 </code></pre>
-<p>Use <code>SettingsSection&lt;T&gt;.CreateWrite(value)</code> to build a typed batch. The provider commits the complete batch with one file swap, so consumers never observe a partially saved settings-window operation.</p>
-<p><strong>Usage:</strong></p>
-<pre><code class="lang-csharp">// Via ISettingsProvider (singleton)
-var settings = context.Resolve&lt;ISettingsProvider&gt;();
-var section = context.Resolve&lt;SettingsSection&lt;GmSettings&gt;&gt;();
-var gmSettings = settings.Get(section);
-
+<p>The runner selects a <code>SubTransaction</code> when the document is modifiable and a new
+<code>Transaction</code> otherwise. It enforces document context and applies
+<code>TransactionFailurePreprocessor</code>. The callback rules match the call gate:
+no async Actions or Task/ValueTask results. Give each transaction a descriptive undo name.</p>
+<h3 id="transaction-groups">Transaction groups</h3>
+<p><code>ITransactionGroupService</code> groups several transactions into one undo operation:</p>
+<pre><code class="lang-csharp">bool IsActive { get; }
+Task BeginAsync(string name, CancellationToken ct = default);
+Task FinalizeAsync(TransactionGroupFinalization finalization,
+    CancellationToken ct = default);
+Task&lt;bool&gt; IsGroupHealthyAsync(CancellationToken ct = default);
 </code></pre>
-<hr>
-<h2 id="shared-ui-from-dbtools.presentation">Shared UI from DBTools.Presentation</h2>
-<h3 id="brushkeys">BrushKeys</h3>
-<p>All theme brushes are defined using <code>ComponentResourceKey</code> for reliable cross-template resolution:</p>
-<pre><code class="lang-csharp">public static class BrushKeys
+<p>Finalize with <code>TransactionGroupFinalization.Commit</code> to assimilate the group or
+<code>Rollback</code> to discard it. The API takes an enum, not a Boolean.
+<code>IsGroupHealthyAsync</code> returns true when no group exists and false when an active
+group has lost its healthy started state.</p>
+<p>The session/workflow owner must finalize on success, failure, and cancellation.
+Keep cleanup cancellation independent of an already-cancelled operation token.
+Attempt all owned cleanup and retain both the operation and finalization errors.
+Do not use an unguarded <code>finally</code> exception that hides the operation's failure.
+Long-lived tool sessions also own the ordering of persistence, window closure,
+group finalization, and scope disposal.</p>
+<h2 id="alerts-and-selection">Alerts and selection</h2>
+<p><code>IAlertService</code> exposes request-based dialogs:</p>
+<pre><code class="lang-csharp">AlertResult Show(AlertRequest request);
+bool Confirm(string message, IWindowOwnerHandleProvider ownerHandleProvider,
+    string title = &quot;DB Tools&quot;);
+T? SelectSingle&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
+IReadOnlyList&lt;T&gt; SelectMultiple&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
+</code></pre>
+<p>Confirmation requires an owner provider. In a command:</p>
+<pre><code class="lang-csharp">var alerts = context.Resolve&lt;IAlertService&gt;();
+if (!alerts.Confirm(&quot;Delete the selected elements?&quot;, context.OwnerHandleProvider))
+    return;
+</code></pre>
+<p>Selection requests supply choices, a display function, window title, header,
+and owned window options. For example:</p>
+<pre><code class="lang-csharp">var selected = alerts.SelectSingle(new AlertSelectionRequest&lt;Level&gt;(
+    levels, level =&gt; level.Name, &quot;Select Level&quot;, &quot;Target Level&quot;,
+    new AlertWindowOptions(context.OwnerHandleProvider))
 {
-    // Brand colors
-    public static ComponentResourceKey Primary =&gt; new(typeof(BrushKeys), &quot;Brush.Primary&quot;);
-    public static ComponentResourceKey Secondary =&gt; new(typeof(BrushKeys), &quot;Brush.Secondary&quot;);
-    
-    // Surface colors
-    public static ComponentResourceKey Paper =&gt; new(typeof(BrushKeys), &quot;Brush.Paper&quot;);
-    public static ComponentResourceKey Surface =&gt; new(typeof(BrushKeys), &quot;Brush.Surface&quot;);
-    public static ComponentResourceKey CardSurface =&gt; new(typeof(BrushKeys), &quot;Brush.CardSurface&quot;);
-    
-    // Text colors (WCAG AA compliant)
-    public static ComponentResourceKey Body =&gt; new(typeof(BrushKeys), &quot;Brush.Body&quot;);
-    public static ComponentResourceKey TextSecondary =&gt; new(typeof(BrushKeys), &quot;Brush.TextSecondary&quot;);
-    public static ComponentResourceKey TextMuted =&gt; new(typeof(BrushKeys), &quot;Brush.TextMuted&quot;);
-    
-    // Status colors
-    public static ComponentResourceKey Success =&gt; new(typeof(BrushKeys), &quot;Brush.Success&quot;);
-    public static ComponentResourceKey Warning =&gt; new(typeof(BrushKeys), &quot;Brush.Warning&quot;);
-    public static ComponentResourceKey Error =&gt; new(typeof(BrushKeys), &quot;Brush.Error&quot;);
-    
-    // DataGrid specific
-    public static ComponentResourceKey DataGridRowSelected =&gt; new(typeof(BrushKeys), &quot;Brush.DataGrid.RowSelected&quot;);
-    public static ComponentResourceKey DataGridAccentStripe =&gt; new(typeof(BrushKeys), &quot;Brush.DataGrid.AccentStripe&quot;);
-    
-    // ... 130+ additional keys
-}
-</code></pre>
-<p><strong>Usage in XAML:</strong></p>
-<pre><code class="lang-xml">&lt;Window xmlns:theme=&quot;clr-namespace:DBTools.Presentation;assembly=DBTools.Presentation&quot;&gt;
-    &lt;Border Background=&quot;{DynamicResource {x:Static theme:ThemeBrushKeys.Surface}}&quot;&gt;
-        &lt;TextBlock Text=&quot;Hello&quot;
-                   Foreground=&quot;{DynamicResource {x:Static theme:ThemeBrushKeys.Body}}&quot;/&gt;
-    &lt;/Border&gt;
-&lt;/Window&gt;
-</code></pre>
-<hr>
-<h3 id="design-tokens">Design Tokens</h3>
-<p>Standard spacing, sizing, and typography values for consistent layouts:</p>
-<pre><code class="lang-xml">&lt;!-- Spacing --&gt;
-&lt;Thickness x:Key=&quot;Spacing4&quot;&gt;4&lt;/Thickness&gt;
-&lt;Thickness x:Key=&quot;Spacing8&quot;&gt;8&lt;/Thickness&gt;
-&lt;Thickness x:Key=&quot;Spacing16&quot;&gt;16&lt;/Thickness&gt;
-
-&lt;!-- Padding --&gt;
-&lt;Thickness x:Key=&quot;Pad8&quot;&gt;8&lt;/Thickness&gt;
-&lt;Thickness x:Key=&quot;Card.Padding&quot;&gt;16,12&lt;/Thickness&gt;
-
-&lt;!-- Corner radius --&gt;
-&lt;CornerRadius x:Key=&quot;Radius4&quot;&gt;4&lt;/CornerRadius&gt;
-&lt;CornerRadius x:Key=&quot;Radius8&quot;&gt;8&lt;/CornerRadius&gt;
-
-&lt;!-- Typography --&gt;
-&lt;sys:Double x:Key=&quot;FontSize.Body&quot;&gt;13&lt;/sys:Double&gt;
-&lt;sys:Double x:Key=&quot;FontSize.Title&quot;&gt;16&lt;/sys:Double&gt;
-&lt;sys:Double x:Key=&quot;FontSize.Header&quot;&gt;20&lt;/sys:Double&gt;
-</code></pre>
-<hr>
-<h3 id="tool-window-sessions">Tool-window sessions</h3>
-<p>Tool UI uses raw embedded XAML without <code>x:Class</code> or code-behind. Its root is a stable
-view element such as <code>Grid</code>; <code>ToolWindowHost</code> supplies the modal or modeless shell.
-Core's <code>ToolWindowFactory</code> installs the theme, owner, icon, error boundary and progress
-lifecycle before parsing, then registers the session for normal close and generation retirement.</p>
-<pre><code class="lang-csharp">using var xaml = new MemoryStream(ToolWindowXaml.ReadEmbeddedResource(
-    typeof(MyToolWindowViewModel).Assembly, &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;));
-var session = factory.Create(ToolWindowKind.Modal, xaml, viewModel,
-    new ToolWindowOptions { Title = &quot;My Tool&quot;, Width = 800, Height = 600 });
-_ = session.ShowDialog();
-</code></pre>
-<p>Use <code>ToolWindowKind.Modeless</code> and <code>session.Show()</code> for a modeless surface. Register
-payload event handlers and owned cleanup through the session. A custom shell initializer
-owns its cleanup handle and must register it with <code>session.AddCleanup</code>.</p>
-<h2 id="di-patterns">DI Patterns</h2>
-<h3 id="creating-a-tool-module">Creating a Tool Module</h3>
-<p>Every tool implements <code>ToolModule</code> to register its services:</p>
-<pre><code class="lang-csharp">public sealed class GmToolModule : ToolModule
-{
-    public override void RegisterServices(IServiceCollection services, ToolManifest manifest)
-    {
-        Guard.NotNull(services, nameof(services));
-        Guard.NotNull(manifest, nameof(manifest));
-        services.AddGm();  // Extension method for cleaner registration
-    }
-}
-</code></pre>
-<h3 id="toolmodule-base-class">ToolModule Base Class</h3>
-<pre><code class="lang-csharp">public abstract class ToolModule
-{
-    public virtual void RegisterSettings(IServiceCollection services, 
-        ToolManifest manifest) { }
-    
-    public virtual void RegisterServices(IServiceCollection services, 
-        ToolManifest manifest) { }
-    
-    public virtual void RegisterSettingsPacks(IServiceCollection services, 
-        ToolManifest manifest) { }
-    
-    public virtual void RegisterHooks(ToolRegistry registry, 
-        ToolManifest manifest) { }
-}
-</code></pre>
-<p>After a module registers settings, services, settings packs, and hooks into temporary startup surfaces, Core validates that the manifest owns at least one concrete responsibility: ribbon tools, settings, settings packs, or hooks. Ribbon registration construction also belongs to Core once App startup resolves the concrete Revit command and availability types.</p>
-<h3 id="service-registration-patterns">Service Registration Patterns</h3>
-<p>This abbreviated excerpt shows the current registration surface and omits repetitive scoped registrations with explicit markers.</p>
-<pre><code class="lang-csharp">public static class ServiceCollectionExtensions
-{
-    /// &lt;summary&gt;
-    /// Registers all GM services. Prefer creating a DI scope per Revit command invocation.
-    /// &lt;/summary&gt;
-    public static IServiceCollection AddGm(this IServiceCollection services)
-    {
-        Guard.NotNull(services, nameof(services));
-
-        AddMappingServices(services);
-        AddDuplicatesServices(services);
-        AddSharedParameterServices(services);
-        AddCommitReviewServices(services);
-        AddUsageServices(services);
-        AddDeepScanServices(services);
-        AddPreviewServices(services);
-        AddCachingServices(services);
-        AddShellServices(services);
-        
-        return services;
-    }
-
-    private static void AddMappingServices(IServiceCollection services)
-    {
-        services.AddScoped&lt;IApplyWriter, MappingSymbolCreationWriter&gt;();
-        // ... additional IApplyWriter registrations omitted ...
-        services.AddScoped&lt;IApplyWriter, TypeApplicationWriter&gt;();
-        // ... style, shared-parameter, and saved-mapping registrations omitted ...
-        services.AddScoped&lt;RevitMappingPlanExecutor&gt;();
-        services.AddScoped&lt;MappingPlanVerifier&gt;();
-    }
-
-    // ... AddDuplicatesServices, AddSharedParameterServices, AddUsageServices,
-    // AddDeepScanServices, AddPreviewServices, and AddCachingServices omitted ...
-
-    private static void AddCommitReviewServices(IServiceCollection services)
-    {
-        services.AddScoped&lt;CommitReviewApplyService&gt;();
-        services.AddScoped&lt;CommitReviewWindowService&gt;();
-        // ... additional commit-review services omitted ...
-    }
-
-    private static void AddShellServices(IServiceCollection services)
-    {
-        services.AddScoped&lt;IElementNameQuery, ElementNameQuery&gt;();
-        // ... catalog/filter services omitted ...
-        services.AddScoped&lt;FamilyScanner, FamilyScanner&gt;();
-        services.AddScoped&lt;ShellContext&gt;();
-    }
-}
-</code></pre>
-<h3 id="resolving-services-in-commands">Resolving Services in Commands</h3>
-<pre><code class="lang-csharp">protected override async Task RunAsync(ICommandContext context)
-{
-    Guard.NotNull(context, nameof(context));
-    var uiapp = context.UIApplication
-                ?? throw new InvalidOperationException(&quot;[SpecFail/GM/UIAppMissing] UIApplication is required.&quot;);
-    var logger = context.Resolve&lt;ILogger&lt;GmCommand&gt;&gt;();
-    var loggerWindowManager = context.Resolve&lt;ILoggerWindowHost&gt;();
-
-    // Build a lightweight document fingerprint for resume staleness checks
-    string? docKey = null;
-    try
-    {
-        var doc = uiapp.ActiveUIDocument?.Document;
-        if (doc != null)
-        {
-            var path = doc.PathName;
-            var title = doc.Title;
-            docKey = !string.IsNullOrWhiteSpace(path) ? path : title;
-        }
-    }
-    catch (System.Exception ex)
-    {
-        logger.LogWarning(&quot;[GM] Failed to compute DocumentKey: {Message}&quot;, ex.Message);
-    }
-
-    // Launch GM UI
-    ShellLauncher.Launch(context, docKey);
-
-    loggerWindowManager.ShowIfDebugModeOrEnableForPendingError();
-    await Task.CompletedTask.ConfigureAwait(false);
-}
-</code></pre>
-<hr>
-<h2 id="best-practices">Best Practices</h2>
-<h3 id="always-use-isafeexecutor-at-entrypoints">1. Always Use ISafeExecutor at Entrypoints</h3>
-<pre><code class="lang-csharp">// DO: Inherit from ToolCommand (uses ISafeExecutor internally)
-public sealed class MyCommand : ToolCommand
-{
-    protected override async Task RunAsync(ICommandContext context)
-    {
-        // ISafeExecutor wraps this automatically
-    }
-}
-
-// DON'T: Create IExternalCommand without error handling
-public class BadCommand : IExternalCommand
-{
-    public Result Execute(...) 
-    {
-        // No error handling - will crash Revit
-    }
-}
-</code></pre>
-<h3 id="prefer-scoped-services-for-revit-dependent-code">2. Prefer Scoped Services for Revit-Dependent Code</h3>
-<pre><code class="lang-csharp">// DO: Scoped registration for services that need Revit context
-services.AddScoped&lt;IElementNameQuery, ElementNameQuery&gt;();
-services.AddScoped&lt;FamilyScanner, FamilyScanner&gt;();
-
-// DON'T: Singleton for services that capture Document references
-services.AddSingleton&lt;IBadService, ServiceThatHoldsDocument&gt;();  // Memory leak!
-</code></pre>
-<h3 id="use-transaction-services-not-raw-transactions">3. Use Transaction Services, Not Raw Transactions</h3>
-<pre><code class="lang-csharp">// DO: Use ITransactionRunner
-await _tx.RunInActiveDocumentAsync(&quot;Create Wall&quot;, tx =&gt;
-{
-    Wall.Create(tx.Document, curve, levelId, false);
+    Message = &quot;Choose the target level.&quot;
 });
-
-// DON'T: Create raw Transaction objects
-using var tx = new Transaction(doc, &quot;Create Wall&quot;);
-tx.Start();
-Wall.Create(doc, curve, levelId, false);
-tx.Commit();  // Manual error handling required
 </code></pre>
-<h3 id="reference-theme-brushes-via-brushkeys">4. Reference Theme Brushes via BrushKeys</h3>
-<pre><code class="lang-xml">&lt;!-- DO: Use BrushKeys for reliable resolution --&gt;
-&lt;Border Background=&quot;{DynamicResource {x:Static theme:BrushKeys.Surface}}&quot;/&gt;
-
-&lt;!-- DON'T: Use string keys (fragile) --&gt;
-&lt;Border Background=&quot;{DynamicResource Brush.Surface}&quot;/&gt;
+<p>Core owns selection policy, body construction, and typed result extraction.
+Revit-hosted tests cannot show blocking dialogs. Test modal behavior with real
+WPF windows in Windows Pure fixtures.</p>
+<h2 id="settings">Settings</h2>
+<p>Inject <code>ISettingsProvider</code> and the typed <code>SettingsSection&lt;T&gt;</code>. Call <code>Get(section)</code>
+at the operation boundary for a fresh snapshot. Reads layer <code>appsettings.json</code>
+and the current per-year user file. Commit one or more section writes as a batch:</p>
+<pre><code class="lang-csharp">var options = settings.Get(section);
+options.AutoUpdateEnabled = true;
+await settings.CommitAsync(new[] { section.CreateWrite(options) }, ct);
 </code></pre>
-<h3 id="use-the-shared-window-lifecycle">5. Use the shared window lifecycle</h3>
-<p>Compose raw views through <code>ToolWindowFactory</code>. Use <code>session.ShowDialog()</code> or
-<code>session.Show()</code> for presentation and <code>session.AddCleanup</code> for owned state.
-Settings, Alert, Logger and banners follow this lifecycle. Payload code supplies
-view models and raw resources; Presentation owns every shell and teardown.</p>
-<hr>
-<h2 id="anti-patterns-to-avoid">Anti-Patterns to Avoid</h2>
-<h3 id="service-locator-pattern">1. Service Locator Pattern</h3>
-<pre><code class="lang-csharp">// DON'T: Use AppRuntimeAccessor.Resolve outside of command constructors
-public class BadService
-{
-    public void DoWork()
-    {
-        var alerts = AppRuntimeAccessor.Resolve&lt;IAlertService&gt;();  // Hidden dependency
-    }
-}
-
-// DO: Inject via constructor
-public class GoodService
-{
-    private readonly IAlertService _alerts;
-    
-    public GoodService(IAlertService alerts)
-    {
-        _alerts = alerts;
-    }
-}
+<p>Do not retain a settings snapshot in a singleton when subsequent operations
+need saved changes. <a href="settings-packs.html">Settings Packs</a> owns DTO restrictions,
+source-generated metadata, file locking, save timing, and post-commit errors.</p>
+<h2 id="shared-ui-resources">Shared UI resources</h2>
+<p><code>DBTools.Presentation.ThemeBrushKeys</code> exposes <code>ComponentResourceKey</code> values.
+Use dynamic resources so the window's theme supplies each brush:</p>
+<pre><code class="lang-xml">&lt;Border xmlns=&quot;http://schemas.microsoft.com/winfx/2006/xaml/presentation&quot;
+        xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot;
+        xmlns:theme=&quot;clr-namespace:DBTools.Presentation;assembly=DBTools.Presentation&quot;
+        Background=&quot;{DynamicResource {x:Static theme:ThemeBrushKeys.Surface}}&quot;&gt;
+    &lt;TextBlock Text=&quot;Inspection&quot;
+               Foreground=&quot;{DynamicResource {x:Static theme:ThemeBrushKeys.Body}}&quot; /&gt;
+&lt;/Border&gt;
 </code></pre>
-<h3 id="silent-failures">2. Silent Failures</h3>
-<pre><code class="lang-csharp">// DON'T: Swallow exceptions
-try { DoWork(); }
-catch { /* silent failure */ }
-
-// DON'T: Return defaults pretending success
-catch (Exception) { return new List&lt;Element&gt;(); }
-
-// DO: Let ISafeExecutor handle errors
-await executor.RunAsync(async () =&gt;
-{
-    DoWork();  // Exception propagates to error handling
-}, logger, notifier);
+<p>Keys cover brand, surface, text, status, and DataGrid brushes. Use the actual
+members in <code>ThemeBrushKeys.cs</code> and tokens in <code>Resources/Tokens.xaml</code>. Do not
+invent string keys or duplicate color values. Window-scoped resources avoid
+changing another add-in's theme. See the <a href="../architecture/theme-system.html">Theme System</a>.</p>
+<p>Merge the stable Presentation theme into a raw view through <code>ResourceUri</code>:</p>
+<pre><code class="lang-xml">&lt;Grid xmlns=&quot;http://schemas.microsoft.com/winfx/2006/xaml/presentation&quot;
+      xmlns:resources=&quot;clr-namespace:DBTools.Presentation.Resources;assembly=DBTools.Presentation&quot;&gt;
+    &lt;Grid.Resources&gt;
+        &lt;ResourceDictionary&gt;
+            &lt;ResourceDictionary.MergedDictionaries&gt;
+                &lt;ResourceDictionary Source=&quot;{resources:ResourceUri Resources/Theme.xaml}&quot; /&gt;
+            &lt;/ResourceDictionary.MergedDictionaries&gt;
+        &lt;/ResourceDictionary&gt;
+    &lt;/Grid.Resources&gt;
+&lt;/Grid&gt;
 </code></pre>
-<h3 id="capturing-document-references">3. Capturing Document References</h3>
-<pre><code class="lang-csharp">// DON'T: Hold Document references in singleton services
-public class BadService
-{
-    private readonly Document _doc;  // Will become stale!
-    
-    public BadService(Document doc) =&gt; _doc = doc;
-}
-
-// DO: Accept Document per-call
-public class GoodService
-{
-    public void DoWork(Document doc)
-    {
-        // Fresh reference each call
-    }
-}
-</code></pre>
-<h3 id="raw-consolemessagebox-output">4. Raw Console/MessageBox Output</h3>
-<pre><code class="lang-csharp">// DON'T: Use Console or MessageBox
-Console.WriteLine(&quot;Debug info&quot;);
-MessageBox.Show(&quot;Error occurred&quot;);
-
-// DO: Use logging and IAlertService
-_logger.LogDebug(&quot;Debug info&quot;);
-_alerts.Show(new AlertRequest(&quot;Error&quot;, new MessageBodyViewModel(&quot;Error occurred&quot;)));
-</code></pre>
-<h3 id="bypassing-theme-system">5. Bypassing Theme System</h3>
-<pre><code class="lang-csharp">// DON'T: Use hard-coded colors
-&lt;Border Background=&quot;#222228&quot;/&gt;
-
-// DO: Use theme brushes
-&lt;Border Background=&quot;{DynamicResource {x:Static theme:BrushKeys.Surface}}&quot;/&gt;
-</code></pre>
-<hr>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="../projects/core.html">DBTools.Core Project</a> - Complete Core API reference</li>
-<li><a href="../architecture/theme-system.html">Theme System</a> - Detailed theming documentation</li>
-<li><a href="../architecture/overview.html">Architecture Overview</a> - System-wide architecture</li>
-</ul>
-<hr>
-<h2 id="quick-reference-table">Quick Reference Table</h2>
+<p><code>ResourceUri</code> selects the loaded Presentation assembly's versioned resource URI.
+Keep raw views on stable resources rather than constructing payload pack URIs.</p>
+<h3 id="design-tokens">Design tokens</h3>
+<p><code>Resources/Tokens.xaml</code> defines spacing, padding, corner radius, and typography.
+Use the token with the property type it expects:</p>
 <table>
 <thead>
 <tr>
-<th>Need</th>
-<th>Service</th>
-<th>Lifetime</th>
+<th>Token</th>
+<th>Type and value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Error handling at entrypoints</td>
-<td><code>ISafeExecutor</code></td>
-<td>Singleton</td>
+<td><code>Spacing4</code>, <code>Spacing8</code>, <code>Spacing16</code></td>
+<td>Thickness values of 4, 8, and 16.</td>
 </tr>
 <tr>
-<td>Model modifications</td>
-<td><code>ITransactionRunner</code></td>
-<td>Scoped</td>
+<td><code>Spacing4.Value</code>, <code>Spacing8.Value</code>, <code>Spacing16.Value</code></td>
+<td>Double values for scalar properties.</td>
 </tr>
 <tr>
-<td>Batch undo operations</td>
-<td><code>ITransactionGroupService</code></td>
-<td>Scoped</td>
+<td><code>Pad8</code>, <code>Card.Padding</code></td>
+<td>Thickness values of 8 and <code>16,12</code>.</td>
 </tr>
 <tr>
-<td>User dialogs</td>
-<td><code>IAlertService</code></td>
-<td>Singleton</td>
+<td><code>Radius4</code>, <code>Radius8</code></td>
+<td>CornerRadius values of 4 and 8.</td>
 </tr>
 <tr>
-<td>Logging</td>
-<td><code>ILogger&lt;T&gt;</code></td>
-<td>Singleton</td>
-</tr>
-<tr>
-<td>Revit context</td>
-<td><code>IRevitRunScope</code></td>
-<td>Scoped</td>
-</tr>
-<tr>
-<td>Thread-safe API access</td>
-<td><code>IRevitCallGate</code></td>
-<td>Scoped</td>
-</tr>
-<tr>
-<td>Settings access</td>
-<td><code>ISettingsProvider</code></td>
-<td>Singleton</td>
-</tr>
-<tr>
-<td>Fresh settings reads</td>
-<td><code>ISettingsProvider</code></td>
-<td>Singleton</td>
+<td><code>FontSize.Body</code>, <code>FontSize.Title</code>, <code>FontSize.Header</code></td>
+<td>Double values of 13, 16, and 20.</td>
 </tr>
 </tbody>
 </table>
+<h2 id="tool-window-sessions">Tool-window sessions</h2>
+<p>A raw tool view uses framework or stable Presentation types. It has no Window
+root, <code>x:Class</code>, code-behind event attributes, tool CLR namespaces, payload BAML,
+or implicit templates for tool types. Bind display values explicitly.</p>
+<p>Core's <code>ToolWindowFactory</code> installs the theme, owner, icon, error boundary, and
+progress lifecycle before parsing. It registers the session for normal closure
+and runtime-generation retirement:</p>
+<pre><code class="lang-csharp">using var xaml = new MemoryStream(ToolWindowXaml.ReadEmbeddedResource(
+    typeof(MyToolWindowViewModel).Assembly,
+    &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;));
+var session = factory.Create(ToolWindowKind.Modal, xaml, viewModel,
+    new ToolWindowOptions { Title = &quot;My Tool&quot;, Width = 800, Height = 600 });
+_ = session.ShowDialog();
+</code></pre>
+<p>Use <code>ToolWindowKind.Modeless</code> and <code>session.Show()</code> for a modeless surface.
+Register payload handlers and owned cleanup through the session. A custom
+<code>initializeShell</code> callback owns the initializer it creates and must register
+its disposal through <code>session.AddCleanup</code>.</p>
+<p>Normal close dispatches payload Closed handlers before releasing owned state.
+Retirement of an open session also clears its view graph. Keep the application
+run scope alive through failure-bearing session completion. <code>Window.Close()</code>
+alone does not establish that asynchronous cleanup finished.</p>
+<p>Presentation owns shells and <code>ToolWindowCallbackScope</code>. Core and tool assemblies
+can belong to a replaceable product generation. Stable controls and resources
+must not retain a retired ViewModel, callback, or tool type. This contract also
+applies to Settings, alerts, logger windows, banners, and progress UI.</p>
+<p><a href="sandbox-integration.html">Sandbox Integration</a> covers previews and native WPF
+validation. <a href="hooks.html">Hooks</a> covers subscriptions that also need generation-safe
+shutdown.</p>
 
 </article>
 

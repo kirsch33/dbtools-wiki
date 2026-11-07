@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,666 +89,108 @@
         <article data-uid="">
 <h1 id="settings-packs">Settings Packs</h1>
 
-<p>Settings Packs are the mechanism for tools to expose user-configurable options in the DBTools Settings window. This guide covers the complete settings lifecycle: from manifest declaration to runtime access and persistence.</p>
-<hr>
-<h2 id="overview">Overview</h2>
-<h3 id="what-are-settings-packs">What Are Settings Packs?</h3>
-<p>A <strong>Settings Pack</strong> bundles together:</p>
-<ol>
-<li><strong>Settings Model</strong> - A typed class holding the configuration values</li>
-<li><strong>Settings Pack Context</strong> - A ViewModel that manages UI state and data binding</li>
-<li><strong>Settings Pack View</strong> - A WPF UserControl rendered in the Settings window</li>
-<li><strong>Warning Definitions</strong> - Optional conditions that can disable tool functionality</li>
-</ol>
-<p>Settings Packs appear as collapsible cards in the Settings window, organized by ribbon panel (Common, Structural, Testing).</p>
-<h3 id="why-use-settings-packs">Why Use Settings Packs?</h3>
-<ul>
-<li><strong>Centralized configuration</strong>: Users manage all tool settings in one place</li>
-<li><strong>Automatic persistence</strong>: Settings are saved to <code>settings.{YEAR}.json</code> with atomic writes</li>
-<li><strong>Fresh reads</strong>: <code>ISettingsProvider.Get(section)</code> loads the current layered files</li>
-<li><strong>Feature warnings</strong>: Link settings validation to tool availability</li>
-<li><strong>Consistent UX</strong>: All tools share the same settings interface pattern</li>
-</ul>
-<h3 id="apply-timing">Apply Timing</h3>
-<p>The Settings window should describe <strong>when saved values take effect</strong>, not show a blanket restart warning.</p>
-<ul>
-<li>Ribbon visibility and similar shell-level flags can apply immediately after save.</li>
-<li>Tool settings typically apply on the next command run or next view-activation hook.</li>
-<li><code>RequiresRestart</code> should be reserved for an explicitly documented pack-specific limitation, not shown globally.</li>
-</ul>
-<hr>
-<h2 id="architecture">Architecture</h2>
-<p>The Settings ribbon command resolves <code>SettingsWindowFactory</code>, which loads the
-embedded raw <code>DBTools.Presentation.Settings.Views.SettingsWindow.xaml</code> view
-through <code>ToolWindowFactory</code> and receives a registered modal
-<code>IToolWindowSession</code>. It calls <code>session.ShowDialog()</code>, so owner handling,
-reflection scope, normal-close cleanup, and generation-retirement teardown are
-owned by the same session lifecycle as other tool windows. The session change
-does not change pack loading, Save, Reset All, validation, warning, cancel, or
-success-banner behavior.</p>
-<h3 id="typed-json-settings-in-dbtools">Typed JSON settings in DBTools</h3>
-<p>DBTools reads typed settings with source-generated <code>System.Text.Json</code> metadata and
-commits changes through a custom persistence layer:</p>
-<pre><code>┌─────────────────────┐     ┌──────────────────────┐
-│  settings.{YEAR}.json │────&gt;│ SettingsSectionReader│
-│  (user data)        │     │  (typed JSON read)   │
-└─────────────────────┘     └──────────┬───────────┘
-                                       │
-                            ┌──────────▼───────────┐
-                            │  ISettingsProvider  │
-                            │  (typed read/write)  │
-                            └──────────┬───────────┘
-                                       │
-         ┌─────────────────────────────┼─────────────────────────────┐
-         │                             │                             │
-┌────────▼────────┐         ┌──────────▼──────────┐       ┌──────────▼──────────┐
-│ Tool Command    │         │ ViewActivatedTask   │       │ Settings Window     │
-│ (read current)  │         │ (check auto-update) │       │ (edit &amp; save)       │
-└─────────────────┘         └─────────────────────┘       └──────────┬──────────┘
-                                                                     │
-                                                          ┌──────────▼──────────┐
-                                                          │ SettingsSectionWriter│
-                                                          │ (one atomic batch)  │
-                                                          └──────────┬──────────┘
-                                                                     │
-                                                          ┌──────────▼──────────┐
-                                                          │  settings.{YEAR}.json │
-                                                          │  (updated)          │
-                                                          └─────────────────────┘
-</code></pre>
-<h3 id="key-interfaces">Key Interfaces</h3>
-<table>
-<thead>
-<tr>
-<th>Interface</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>SettingsSection&lt;T&gt;</code></td>
-<td>Typed persistence identity for one named JSON settings section</td>
-</tr>
-<tr>
-<td><code>ISettingsProvider</code></td>
-<td>Read typed sections and atomically commit one or more <code>SettingsSectionWrite</code> values</td>
-</tr>
-<tr>
-<td><code>SettingsSectionReader</code></td>
-<td>Merges app defaults and per-year overrides using generated JSON metadata</td>
-</tr>
-<tr>
-<td><code>ISettingsPackDefinition</code></td>
-<td>Heterogeneous catalog metadata plus creation of one context-bound runtime per row</td>
-</tr>
-<tr>
-<td><code>ISettingsPackRuntime</code></td>
-<td>Owns the exact pack context, typed section, bound warnings, lazy view, and current/default write staging</td>
-</tr>
-<tr>
-<td><code>ISettingsPackContext&lt;T&gt;</code></td>
-<td>ViewModel interface for settings UI</td>
-</tr>
-<tr>
-<td><code>ISettingsWarningDefinition</code></td>
-<td>Warning linked to settings validation</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h2 id="defining-settings-in-manifest.yml">Defining Settings in manifest.yml</h2>
-<p>Settings packs are declared in the tool's <code>manifest.yml</code> under <code>tool.settingsPacks</code>:</p>
-<h3 id="schema">Schema</h3>
-<pre><code class="lang-yaml">tool:
-  settings:
-    configSection: &quot;&lt;section-name&gt;&quot;  # Required: JSON key in settings.{YEAR}.json
-  settingsPacks:
-    - key: &quot;&lt;unique-pack-key&gt;&quot;       # Required: Globally unique identifier
-      title: &quot;&lt;display-title&gt;&quot;       # Required: Shown in Settings window
-      warnings:                      # Optional: Associated warnings
-        - id: &quot;&lt;warning-id&gt;&quot;         # Required: Unique warning identifier
-          title: &quot;&lt;warning-title&gt;&quot;   # Required: Warning card title
-          message: &quot;&lt;warning-msg&gt;&quot;   # Required: Explanation shown to user
-          disableTools:              # Optional: Tools disabled when warning active
-            - &quot;&lt;tool-internal-name&gt;&quot;
-            - &quot;&lt;another-tool&gt;&quot;
-</code></pre>
-<h3 id="complete-example-foundationtags">Complete Example: FoundationTags</h3>
-<pre><code class="lang-yaml">id: DBTools.Structural.FoundationTags
-assembly: DBTools
-moduleType: DBTools.Structural.FoundationTags.FoundationTagsToolModule
-order: 0
-tool:
-  settings:
-    configSection: Tools.FoundationTags
-  settingsPacks:
-    - key: structural.foundation_tags
-      title: &quot;Combined Foundation Tags&quot;
-      warnings:
-        - id: core.structural.combined_tags
-          title: &quot;Combined Foundation Tags Disabled&quot;
-          message: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;
-          disableTools:
-            - DBTools.UpdateCombinedFoundationTags
-            - DBTools.MoveCombinedFoundationTags
-            - DBTools.OrganizeFoundationTypes
-  ribbonTools:
-    # ... ribbon tool definitions
-</code></pre>
-<h3 id="key-naming-conventions">Key Naming Conventions</h3>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Convention</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>configSection</code></td>
-<td><code>{Category}.{ToolName}</code></td>
-<td><code>Tools.FoundationTags</code></td>
-</tr>
-<tr>
-<td><code>key</code></td>
-<td><code>{category}.{feature}</code></td>
-<td><code>structural.foundation_tags</code></td>
-</tr>
-<tr>
-<td><code>warnings[].id</code></td>
-<td><code>core.{category}.{feature}</code></td>
-<td><code>core.structural.combined_tags</code></td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h2 id="settings-model-classes">Settings Model Classes</h2>
-<h3 id="basic-settings-model">Basic Settings Model</h3>
-<p>A settings model is a POCO class with public properties:</p>
-<pre><code class="lang-csharp">namespace DBTools.Structural.JoistGirderWeight.Settings;
-
-public sealed class JoistGirderWeightSettings : IAutoUpdateSettings
-{
-    public bool AutoUpdateEnabled { get; set; } = true;
-    public bool HasWarning { get; set; }
-}
-</code></pre>
-<h3 id="settings-dto-type-contract">Settings DTO Type Contract</h3>
-<p>Settings DTO graphs must end in built-in leaf types: booleans, strings, or doubles. Nullable
-values, collections, dictionaries, and nested DTOs are supported when all their
-keys, elements, and properties follow the same rule. Add-in enums and types or
-properties with a custom <code>TypeConverter</code> or <code>JsonConverter</code> are not allowed.</p>
-<p>Reads use <code>SettingsSectionReader</code> with each section's generated JSON metadata.
-It layers application defaults with per-year overrides, matches section and
-property names case-insensitively, and preserves the established scalar
-conversions. Only a missing file or missing parent directory is absent
-configuration; any other fault, such as a directory at the file path, propagates.
-Writes use the source-generated <code>JsonTypeInfo&lt;T&gt;</code> carried by
-<code>SettingsSection&lt;T&gt;</code>. Reads and commits share one JSON syntax (comments and
-trailing commas allowed) and case-insensitive section identity: a commit replaces
-a case-variant section in place, rejects case-variant duplicates in one batch,
-and does not keep comments.</p>
-<p>Section names are single JSON property names. They must be nonempty and cannot
-contain <code>:</code>; nested configuration paths are not supported.</p>
-<p>For properties with initialized defaults, use settable properties so absent keys
-retain their defaults. Cover these defaults and file compatibility through the
-real reader. Pure and Local test executables disable reflection-based JSON
-serialization through their runtime configuration.</p>
-<h3 id="iautoupdatesettings-interface">IAutoUpdateSettings Interface</h3>
-<p>For tools with auto-update on view activation, implement <code>IAutoUpdateSettings</code>:</p>
-<pre><code class="lang-csharp">namespace DBTools.Core.Settings.Domain;
-
-public interface IAutoUpdateSettings
-{
-    bool AutoUpdateEnabled { get; set; }
-    bool HasWarning { get; set; }
-}
-</code></pre>
-<h3 id="complex-settings-model">Complex Settings Model</h3>
-<p>Settings can include collections, nested objects, and custom defaults:</p>
-<pre><code class="lang-csharp">namespace DBTools.Structural.FoundationTags.Settings;
-
-public sealed class FoundationTagsSettings : IAutoUpdateSettings
-{
-    public bool AutoUpdateEnabled { get; set; } = true;
-    public bool HasWarning { get; set; }
-    
-    /// &lt;summary&gt;
-    /// Regex patterns to match tag family names.
-    /// &lt;/summary&gt;
-    public List&lt;string&gt; TagFamilyPatterns { get; set; } = new()
-    {
-        &quot;^Combined Foundation Tag&quot;,
-        &quot;^DB Foundation Tag&quot;
-    };
-    
-    /// &lt;summary&gt;
-    /// Regex patterns to match pier family names.
-    /// &lt;/summary&gt;
-    public List&lt;string&gt; PierFamilyPatterns { get; set; } = new()
-    {
-        &quot;^Foundation Pier&quot;
-    };
-    
-    /// &lt;summary&gt;
-    /// Regex patterns to match footing family names.
-    /// &lt;/summary&gt;
-    public List&lt;string&gt; FootingFamilyPatterns { get; set; } = new()
-    {
-        &quot;^Footing-Rectangular$&quot;,
-        &quot;^Pile Cap-Rectangular$&quot;
-    };
-}
-</code></pre>
-<h3 id="json-representation">JSON Representation</h3>
-<p>Settings are stored in <code>settings.{YEAR}.json</code> under the <code>configSection</code> key:</p>
+<p>A settings pack supplies a tool's editor in the DBTools Settings window. It
+binds a typed settings section, an editor context, a WPF view, and optional
+warnings. Packs appear as cards grouped by their registered ribbon panel.</p>
+<p><code>ISettingsProvider</code> reads current settings and commits section batches.
+<code>SettingsWindowViewModel</code> owns Save and Reset through
+<code>SettingsPersistenceWorkflow</code>. Pack contexts edit state and validate it. They
+do not save independently.</p>
+<h2 id="files-and-typed-sections">Files and typed sections</h2>
+<p>The default user file is <code>%APPDATA%/DBTools/settings.&lt;year&gt;.json</code>.
+<code>AppPaths.SettingsFile</code> requires an initialized Revit year. The process can
+relocate its base directory through the <code>DBTools.AppPaths.BaseDir</code> AppContext
+value.</p>
+<p><code>SettingsSectionReader</code> reads <code>appsettings.json</code> from its base directory,
+then overlays the user file. An absolute user path is used directly. A relative
+one resolves against the base directory. The reader validates files at
+construction and reads both layers again on every <code>Get</code>. It retains no file
+watchers or open handles.</p>
+<p>A section is one JSON property, such as <code>Tools.FoundationTags</code>. Its name must
+be nonblank and cannot contain <code>:</code>. It is not a nested configuration path.
+Section and property lookup is case-insensitive.</p>
 <pre><code class="lang-json">{
-  &quot;Tools.FoundationTags&quot;: {
+  &quot;Tools.MyTool&quot;: {
     &quot;AutoUpdateEnabled&quot;: true,
-    &quot;HasWarning&quot;: false,
-    &quot;TagFamilyPatterns&quot;: [
-      &quot;^Combined Foundation Tag&quot;,
-      &quot;^DB Foundation Tag&quot;
-    ],
-    &quot;PierFamilyPatterns&quot;: [
-      &quot;^Foundation Pier&quot;
-    ],
-    &quot;FootingFamilyPatterns&quot;: [
-      &quot;^Footing-Rectangular$&quot;,
-      &quot;^Pile Cap-Rectangular$&quot;
-    ]
+    &quot;FamilyPattern&quot;: &quot;^Example$&quot;
   }
 }
 </code></pre>
-<hr>
-<h2 id="registering-settings">Registering Settings</h2>
-<p>Settings registration happens in two phases within your <code>ToolModule</code>:</p>
-<h3 id="phase-1-registersettings">Phase 1: RegisterSettings()</h3>
-<p>Register the typed section used by the tool and its settings pack:</p>
-<pre><code class="lang-csharp">public override void RegisterSettings(
-    IServiceCollection services, 
-    ToolManifest manifest)
-{
-    Guard.NotNull(services, nameof(services));
-    Guard.NotNull(manifest, nameof(manifest));
-    
-    var settingsSection = new SettingsSection&lt;FoundationTagsSettings&gt;(
-        manifest.GetRequiredConfigSection(),
-        FoundationTagsSettingsJsonContext.Default.FoundationTagsSettings);
-    services.AddSingleton(settingsSection);
-}
-</code></pre>
-<p>This registration:</p>
-<ol>
-<li>Reads the <code>configSection</code> from manifest (<code>Tools.FoundationTags</code>)</li>
-<li>Publishes one typed <code>SettingsSection&lt;FoundationTagsSettings&gt;</code> identity</li>
-<li>Lets consumers read the current layered files through <code>ISettingsProvider.Get(settingsSection)</code></li>
-</ol>
-<h3 id="phase-2-registersettingspacks">Phase 2: RegisterSettingsPacks()</h3>
-<p>Register the full settings pack definition with UI factory:</p>
-<pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, ToolManifest manifest)
-{
-    Guard.NotNull(services, nameof(services));
-    Guard.NotNull(manifest, nameof(manifest));
-    
-    var settingsSection = new SettingsSection&lt;FoundationTagsSettings&gt;(
-        manifest.GetRequiredConfigSection(),
-        FoundationTagsSettingsJsonContext.Default.FoundationTagsSettings);
-    var pack = manifest.GetSingleSettingsPack();
-    var warning = pack.GetSingleWarning(manifest.Id);
-    var panel = manifest.GetRequiredPanel();
-    
-    services.AddDbtSettingsPackDefinition&lt;FoundationTagsSettings, SettingsPackContext&gt;(
-        new SettingsPackRegistration&lt;FoundationTagsSettings, SettingsPackContext&gt;
-        {
-            SettingsSection = settingsSection,
-            PackKey = pack.Key,
-            PackTitle = pack.Title,
-            RibbonPanel = panel,
-            ApplyBehavior = SettingsPackApplyBehavior.NextToolRun,
-            ContextFactory = (sp, input) =&gt; new SettingsPackContext(
-                sp.GetRequiredService&lt;ISettingsWarningService&gt;(),
-                input.RequireWarningId(),
-                input.HostContext,
-                sp.GetRequiredService&lt;IErrorNotifier&gt;(),
-                sp.GetRequiredService&lt;ILogger&lt;SettingsPackContext&gt;&gt;()),
-            ViewFactory = context =&gt;
-                new FoundationTagsSettingsPackView { DataContext = context },
-            Warning = new SettingsPackWarningRegistration&lt;SettingsPackContext&gt;
-            {
-                Id = warning.Id,
-                Title = warning.Title,
-                Message = warning.Message,
-                ToolInternalNamesToDisable = warning.DisableTools,
-                FlagGetter = context =&gt; context.HasWarning,
-                FlagSetter = (context, active) =&gt;
-                {
-                    context.HasWarning = active;
-                    if (active)
-                        context.AutoUpdateEnabled = false;
-                }
-            }
-        });
-}
-</code></pre>
-<p>Every mandatory registration value and delegate is a C# <code>required</code> member. The
-pack definition captures the typed section, so its load and staged-write operations
-cannot silently choose different names. Warning id/title/message and flag
-delegates are likewise required whenever a warning is configured.
-<code>AddDbtSettingsPackDefinition</code> also performs runtime non-empty/null validation at
-the DI boundary; compile-time requiredness does not replace that admission check.</p>
-<!-- VERIFIED: 2026-09-06 -->
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Composition/SettingsPackServiceCollectionExtensions.cs</code></p>
-</blockquote>
-<h3 id="tool-owned-contexts-at-runtime">Tool-Owned Contexts at Runtime</h3>
-<p>Every production settings pack registers a tool-owned context type. Joist Girder Weight constructs <code>JoistGirderWeightSettingsPackContext</code> in its module's <code>ContextFactory</code>; Elevation Tags builds <code>ElevationTagsSettingsPackContext</code> through <code>ElevationTagsSettingsPackContextFactory</code>. When a settings context needs Revit host state, Core passes <code>SettingsPackHostContext</code> to <code>ISettingsPackDefinition.CreateRuntime(...)</code>; packs without host needs receive <code>SettingsPackHostContext.Empty</code>. The host value can be created only through <code>Empty</code> or <code>FromApplication(...)</code>, and contexts extract a typed host through <code>TryGetApplication&lt;TApplication&gt;()</code>. The definition immediately binds the resulting typed context, view factory, typed persistence section, and warning operations into one <code>ISettingsPackRuntime</code>; callers never pass an erased context back to a definition or warning. Elevation Tags reads the host only to populate preview type snapshots and still uses an empty list when no active document exists. Foundation Tags reads the same value for prerequisite actions and reports the action-unavailable status when no active Revit document exists. Contexts that carry the standard auto-update toggle derive from the Core production base <code>SettingsPackAutoUpdateContext&lt;TOptions&gt;</code> (see <a href="#production-base-dbtsettingspackcontextbase">Production Base</a> below). The Core <code>AutoUpdateViewModel&lt;TSettings&gt;</code> under <code>Settings/DesignTime</code> is an internal design-time sample for the settings window designer composition, not production infrastructure.</p>
-<hr>
-<h2 id="settings-pack-context">Settings Pack Context</h2>
-<p>The context is the ViewModel for your settings UI. It must implement <code>ISettingsPackContext&lt;T&gt;</code>.</p>
-<h3 id="required-interface-methods">Required Interface Methods</h3>
-<pre><code class="lang-csharp">public interface ISettingsPackContext&lt;TOptions&gt; : ISettingsPackContext
-{
-    void Load(TOptions options);       // Load settings into bindable properties
-    TOptions BuildOptionsSnapshot();   // Create settings object from current state
-}
+<p>Register generated <code>System.Text.Json</code> metadata with the section as
+<code>JsonTypeInfo&lt;T&gt;</code>. The same metadata reads options and serializes writes:</p>
+<pre><code class="lang-csharp">using System.Text.Json.Serialization;
+using DBTools.Core.Settings.Domain;
 
-public interface ISettingsPackContext
+namespace DBTools.MyTool.Settings;
+
+public sealed class MyToolSettings : IAutoUpdateSettings
 {
-    Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct = default);
+    public bool AutoUpdateEnabled { get; set; } = true;
+    public string FamilyPattern { get; set; } = &quot;^Example$&quot;;
 }
 </code></pre>
-<h3 id="optional-context-interfaces">Optional Context Interfaces</h3>
+<p>Place its JSON context in a separate matching file:</p>
+<pre><code class="lang-csharp">using System.Text.Json.Serialization;
+
+namespace DBTools.MyTool.Settings;
+
+[JsonSerializable(typeof(MyToolSettings))]
+internal partial class MyToolSettingsJsonContext : JsonSerializerContext
+{
+}
+</code></pre>
+<p><code>IAutoUpdateSettings</code> requires only <code>AutoUpdateEnabled</code>. <code>HasWarning</code> belongs
+to editor/session state and must not be added as a persisted warning flag.</p>
+<p>Keep DTO graphs independent of Revit and UI state. The allowed leaf types are
+<code>bool</code>, <code>string</code>, and <code>double</code>. Nullable values, collections, dictionaries, and
+nested DTOs must resolve to those leaf types. Add-in enums and custom
+TypeConverter/JsonConverter implementations are not supported settings types.
+Use settable properties with initialized defaults so missing keys retain those defaults.
+Pure and Local executables disable reflection-based JSON serialization.</p>
+<h3 id="read-semantics-and-failures">Read semantics and failures</h3>
+<p>The reader recursively overlays objects and merges arrays by index. A shorter
+override array retains the default array's remaining elements. A later scalar
+or null does not replace an earlier object or array. A different container kind
+replaces the earlier container. Test layered collections explicitly.</p>
+<p>Normalization preserves scalar conversions for strings, Booleans, and doubles.
+String nulls become empty strings. Boolean and double values parse from scalar
+text. Doubles use invariant culture. Invalid values fail the section read.
+Missing sections return a new settings instance.</p>
+<p>Only a missing file or parent directory means absent configuration. Invalid
+JSON, a non-object root, access faults, and a directory at a file path remain
+errors. Comments and trailing commas are accepted. Commits preserve unrelated
+sections but do not retain comments.</p>
+<h2 id="manifest-declaration">Manifest declaration</h2>
+<p>Declare the persistence key and pack metadata in <code>manifest.yml</code>:</p>
+<pre><code class="lang-yaml">id: DBTools.MyTool
+assembly: DBTools.MyTool
+moduleType: DBTools.MyTool.App.Composition.MyToolToolModule
+order: 0
+panel: Common
+tool:
+  settings:
+    configSection: Tools.MyTool
+  settingsPacks:
+    - key: common.my_tool
+      title: &quot;My Tool&quot;
+      warnings:
+        - id: core.my_tool.configuration
+          title: &quot;My Tool Configuration Invalid&quot;
+          message: &quot;Correct the family pattern and save settings.&quot;
+          disableTools:
+            - DBTools.MyTool
+</code></pre>
+<p><code>configSection</code> names the JSON property. Pack <code>key</code> and warning <code>id</code> are unique
+catalog identities. They do not have to equal that property. Existing keys use
+forms such as <code>structural.foundation_tags</code> and <code>core.structural.combined_tags</code>.
+Each warning requires <code>id</code>, <code>title</code>, and <code>message</code>. <code>disableTools</code> is optional.
+See <a href="feature-warnings.html">Feature Warnings</a> for activation and command blocking.</p>
+<p>The module's <code>panel</code> supplies the pack's group through <code>GetRequiredPanel()</code>:</p>
 <table>
 <thead>
 <tr>
-<th>Interface</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ISettingsStateContext</code></td>
-<td>Fire <code>StateChanged</code> event when properties change</td>
-</tr>
-<tr>
-<td><code>IPendingChangesContext</code></td>
-<td>Track <code>HasPendingChanges</code> for save button state</td>
-</tr>
-<tr>
-<td><code>IOwnerAwareContext</code></td>
-<td>Receive parent window for file dialogs</td>
-</tr>
-<tr>
-<td><code>ISettingsPackSaveState&lt;TOptions&gt;</code></td>
-<td>Establish the persisted baseline with <code>MarkSaved(committedOptions)</code> without overwriting newer edits</td>
-</tr>
-<tr>
-<td><code>ISettingsWarningContext</code></td>
-<td>Trigger warning evaluation via <code>WarningId</code></td>
-</tr>
-<tr>
-<td><code>ISettingsPackSaveValidation</code></td>
-<td>Block settings save when <code>ValidateAsync</code> returns invalid</td>
-</tr>
-</tbody>
-</table>
-<p>Use <code>ISettingsPackSaveValidation</code> for settings where invalid values should never be persisted (for example, invalid regex patterns that would be ignored at runtime).</p>
-<p>After the file commit, the runtime passes each pack its exact committed options snapshot.
-The context updates its baseline before post-commit warning validation or ribbon application.
-Those later failures must not make persisted values appear unsaved.
-Edits made while the commit was pending remain dirty against the committed snapshot.
-If applying committed flags or warning state fails, the workflow reports the committed
-operation and phase while keeping the persisted values as the saved state; the settings
-window remains open.</p>
-<h3 id="production-base-settingspackautoupdatecontext">Production Base: SettingsPackAutoUpdateContext</h3>
-<p>Auto-update settings pack contexts derive from the Core production base, which owns the shared mechanics: header text (<code>Title</code>, <code>Description</code>, <code>ToggleToolTip</code>), the <code>AutoUpdateEnabled</code>/<code>HasWarning</code> toggle state with <code>ToggleEnabled</code>, <code>ClearWarningCommand</code>, <code>WarningId</code> (validate-aware), <code>BlockSaveOnInvalid</code> (always <code>true</code>), pending-change tracking against a saved baseline (<code>HasPendingChanges</code>), <code>StateChanged</code> notification, and the validation envelope.</p>
-<pre><code class="lang-csharp">public abstract partial class SettingsPackAutoUpdateContext&lt;TOptions&gt; : ObservableObject,
-    ISettingsPackContext&lt;TOptions&gt;,
-    ISettingsStateContext,
-    IPendingChangesContext,
-    ISettingsWarningContext,
-    ISettingsPackSaveState&lt;TOptions&gt;,
-    ISettingsPackSaveValidation
-    where TOptions : class, IAutoUpdateSettings, new()
-{
-    protected SettingsPackAutoUpdateContext(string warningId, string title, string description, string toggleToolTip);
-
-    // Derived contexts own everything shaped by their settings type:
-    protected abstract void LoadCore(TOptions options);          // bindable state + SetBaseline(...)
-    protected abstract void CollectValidationErrors(List&lt;string&gt; errors);
-    protected abstract bool SettingsEqual(TOptions left, TOptions right);
-    public abstract TOptions BuildOptionsSnapshot();
-}
-</code></pre>
-<p><code>Load</code> applies the auto-update toggle, clears the warning flag, delegates to <code>LoadCore</code>, and raises the final state change. <code>MarkSaved</code> resets the baseline from the current snapshot only after a successful settings commit. <code>ValidateAsync</code> collects errors from <code>CollectValidationErrors</code> and converts them into a <code>SettingsValidationResult</code>.</p>
-<p>Current consumers: <code>ElevationTagsSettingsPackContext</code> and <code>JoistGirderWeightSettingsPackContext</code>. <code>FoundationTagsSettingsPackContext</code> intentionally implements the context interfaces directly — it owns prerequisite runtime state, warning-fix provider behavior, and shared-parameter refresh/install/repair actions that do not fit the base's shape.</p>
-<h3 id="regex-pattern-lists">Regex Pattern Lists</h3>
-<p>Settings packs that expose editable regex rows use the Core shell
-<code>RegexPatternListContext</code>. It owns the bindable <code>RegexPatternEntry</code> collection,
-add/remove commands, maximum-row guard, default seeding when a loaded list is
-empty, blank-value omission from snapshots, and <code>StateChanged</code> notifications.
-Tool contexts keep their own binding-facing property names so XAML remains
-tool-specific while the repeated list mechanics stay in Core.</p>
-<p>Current consumers are <code>ElevationTagsPatternContext</code> and the Foundation Tags
-settings-pack pattern partial. Foundation Tags still owns prerequisite runtime
-state, warning-fix behavior, and shared-parameter refresh/install/repair actions;
-only the regex-list mechanics moved to the shared context.</p>
-<h3 id="custom-context-example">Custom Context Example</h3>
-<p>For tools requiring additional UI beyond the toggle, create a custom context:</p>
-<pre><code class="lang-csharp">public sealed partial class FoundationTagsSettingsPackContext : ObservableObject,
-    ISettingsPackContext&lt;FoundationTagsSettings&gt;,
-    ISettingsStateContext,
-    IPendingChangesContext
-{
-    private const int MaxPatterns = 3;
-    private FoundationTagsSettings _baseline = new();
-    private readonly RegexPatternListContext _tagFamilyPatterns =
-        new(MaxPatterns, FoundationTagsSettings.DefaultTagFamilyPatterns[0]);
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ToggleEnabled))]
-    private bool _autoUpdateEnabled = true;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ToggleEnabled))]
-    private bool _hasWarning;
-
-    public FoundationTagsSettingsPackContext()
-    {
-        _tagFamilyPatterns.StateChanged += OnTagFamilyPatternsStateChanged;
-        RequiredParametersStatusMessage = &quot;Click Refresh to check required shared parameters for the active Revit document.&quot;;
-    }
-
-    public ObservableCollection&lt;RegexPatternEntry&gt; TagFamilyPatterns =&gt; _tagFamilyPatterns.Patterns;
-    public IRelayCommand AddTagPatternCommand =&gt; _tagFamilyPatterns.AddPatternCommand;
-    public IRelayCommand&lt;RegexPatternEntry?&gt; RemoveTagPatternCommand =&gt; _tagFamilyPatterns.RemovePatternCommand;
-
-    public void Load(FoundationTagsSettings options)
-    {
-        AutoUpdateEnabled = options.AutoUpdateEnabled;
-        _tagFamilyPatterns.Load(options.TagFamilyPatterns);
-        // ... load other collections
-        _baseline = CloneOptions(options);
-        NotifyStateChanged();
-    }
-
-    public FoundationTagsSettings BuildOptionsSnapshot()
-    {
-        return new FoundationTagsSettings
-        {
-            AutoUpdateEnabled = AutoUpdateEnabled,
-            TagFamilyPatterns = _tagFamilyPatterns.BuildSnapshot(),
-            // ... etc
-        };
-    }
-
-    public Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct = default)
-    {
-        var errors = new List&lt;string&gt;();
-        ValidatePatternGroup(errors, TagFamilyPatterns, &quot;tag family&quot;);
-        // ... validate other groups
-        
-        return errors.Count == 0
-            ? Task.FromResult(SettingsValidationResult.Success)
-            : Task.FromResult(SettingsValidationResult.FromErrors(errors.ToArray()));
-    }
-
-    [RelayCommand]
-    private void ClearWarning()
-    {
-        HasWarning = false;
-        RefreshRequiredParameters();
-        NotifyStateChanged();
-    }
-}
-</code></pre>
-<p>Custom context constructors should stay passive. Foundation Tags initializes bindable collections and the status prompt in its constructor; active Revit prerequisite reads happen only through explicit Refresh/Clear Warning/Install-Repair actions.</p>
-<hr>
-<h2 id="accessing-settings-at-runtime">Accessing Settings at Runtime</h2>
-<h3 id="in-commands-one-time-read">In Commands (One-time Read)</h3>
-<p>Inject the typed section with <code>ISettingsProvider</code> for a snapshot of current settings:</p>
-<pre><code class="lang-csharp">public sealed class MyWorkflow
-{
-    private readonly ISettingsProvider _settings;
-    private readonly SettingsSection&lt;MyToolSettings&gt; _section;
-
-    public MyWorkflow(
-        ISettingsProvider settings,
-        SettingsSection&lt;MyToolSettings&gt; section)
-        =&gt; (_settings, _section) = (settings, section);
-
-    public void Execute()
-    {
-        var settings = _settings.Get(_section);
-        
-        if (!settings.SomeFeatureEnabled)
-        {
-            return;
-        }
-        
-        // Use settings.SomeValue, settings.SomeList, etc.
-    }
-}
-</code></pre>
-<h3 id="in-services-current-read">In Services (Current Read)</h3>
-<p>Inject <code>ISettingsProvider</code> for a current settings snapshot:</p>
-<pre><code class="lang-csharp">public class MyService
-{
-    private readonly ISettingsProvider _settings;
-    private readonly SettingsSection&lt;MyToolSettings&gt; _section;
-    
-    public MyService(
-        ISettingsProvider settings,
-        SettingsSection&lt;MyToolSettings&gt; section)
-    {
-        _settings = settings;
-        _section = section;
-    }
-    
-    public void DoWork()
-    {
-        var current = _settings.Get(_section);
-        
-        if (current.AutoUpdateEnabled &amp;&amp; !current.HasWarning)
-        {
-            // Perform auto-update logic
-        }
-    }
-}
-</code></pre>
-<h3 id="in-viewactivatedtask-auto-update-pattern">In ViewActivatedTask (Auto-update Pattern)</h3>
-<p>The <code>ViewActivatedTask&lt;T&gt;</code> abstracts settings access for view-activated tools:</p>
-<pre><code class="lang-csharp">public sealed class AutoUpdateTask : ViewActivatedTask&lt;FoundationTagsSettings&gt;
-{
-    public AutoUpdateTask(
-        ISettingsProvider settingsProvider,
-        SettingsSection&lt;FoundationTagsSettings&gt; settingsSection,
-        ISettingsWarningService warnings,
-        IErrorNotifier notifier,
-        ILogger&lt;AutoUpdateTask&gt; logger,
-        string[] warningIds)
-        : base(
-            settingsProvider,
-            settingsSection,
-            warnings,
-            notifier,
-            logger,
-            &quot;structural.foundation_tags.updater&quot;,
-            &quot;Combined Foundation Tags&quot;,
-            warningIds)
-    {
-    }
-
-    protected override void ExecuteTask(Document document, View view)
-    {
-        // Called only when AutoUpdateEnabled &amp;&amp; !HasWarning
-    }
-}
-</code></pre>
-<hr>
-<h2 id="persisting-settings">Persisting Settings</h2>
-<h3 id="automatic-save-settings-window">Automatic Save (Settings Window)</h3>
-<p>When the user clicks Save in the Settings window, <code>SettingsWindowViewModel</code> delegates persistence to <code>SettingsPersistenceWorkflow</code> under <code>Settings/Persistence</code>:</p>
-<pre><code class="lang-csharp">var flags = BuildFlagsSnapshot();
-await _persistence.SaveAndValidateAsync(flags, _packs.Rows);
-</code></pre>
-<blockquote>
-<p><strong>Note:</strong> The <code>PublishPackChanged</code> / <code>PackChanged</code> / <code>SettingsPackChangedEventArgs</code> event surface was deleted during the Core Full-Tree Cleanup. Consumers read current values through <code>ISettingsProvider</code> when they need them.</p>
-</blockquote>
-<p>The settings window groups visible packs into <code>SettingsPanelBlock</code> instances under <code>Settings/ViewModels</code>. <code>SettingsPackCollection</code> carries the explicit <code>SettingsPackHostContext</code> from the window factory and asks each definition for one runtime. <code>SettingsPackViewModel</code> owns that runtime: lazy view creation, pending-change and reset-target projection, owner-window propagation, state-change subscription, bound warning projection/application, and runtime disposal. The window view model builds rows and panel groups, but it cannot separately pair definitions, contexts, or warning delegates.</p>
-<h3 id="manual-save-programmatic">Manual Save (Programmatic)</h3>
-<p>Save settings directly using <code>ISettingsProvider</code>:</p>
-<pre><code class="lang-csharp">var section = serviceProvider.GetRequiredService&lt;SettingsSection&lt;MyToolSettings&gt;&gt;();
-var settingsProvider = serviceProvider.GetRequiredService&lt;ISettingsProvider&gt;();
-var settings = settingsProvider.Get(section);
-settings.SomeValue = newValue;
-await settingsProvider.CommitAsync(new[] { section.CreateWrite(settings) });
-</code></pre>
-<h3 id="settingssectionwriter-low-level">SettingsSectionWriter (Low-level)</h3>
-<p>For direct section writes, the settings provider delegates to <code>SettingsSectionWriter</code>:</p>
-<pre><code class="lang-csharp">public sealed class SettingsSectionWriter : IDisposable
-{
-    public SettingsSectionWriter(string settingsPath);
-    public Task CommitAsync(
-        IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes,
-        CancellationToken ct = default);
-}
-</code></pre>
-<p>App composition supplies the base directory and the absolute
-<code>AppPaths.SettingsFile</code> to <code>SettingsSectionReader</code>, and supplies that absolute
-settings file path to this writer. When a reader receives a relative user-file
-name, it resolves that name relative to the base directory. Each
-settings DTO has a source-generated <code>JsonSerializerContext</code> beside it. Supply its
-<code>JsonTypeInfo&lt;T&gt;</code> when constructing the section; <code>SettingsSection&lt;T&gt;.CreateWrite(value)</code>
-carries that metadata into the heterogeneous batch. The reader loads both layers
-fresh for each <code>Get</code>; the writer validates duplicate names before I/O, reads the
-existing document once, updates every supplied section while retaining unrelated
-sections, and performs one file swap.</p>
-<p>A validation or writer failure occurs before the swap and leaves baselines and the settings file unchanged. A baseline/default-application or warning-validation failure after the swap is reported as <code>SettingsPostCommitException</code>, whose operation and phase make the already-committed state explicit.</p>
-<p>Only an absent settings file starts a new document. An existing empty or whitespace-only file is corrupt and remains unchanged when a commit fails.</p>
-<p>Reset All applies the committed flag snapshot and attempts every committed pack default before warning validation. This keeps the editable settings state aligned with the durable batch even when later post-commit validation fails, and aggregates any default-application failures after all packs have been attempted.</p>
-<p>The Settings window asks for confirmation before Reset All or a pack Reset. Cancel leaves the current settings and feedback unchanged. Confirm runs the same persistence and warning-validation workflow and then shows the reset success banner. When settings cannot load, choosing <strong>Reset Settings</strong> in the load-problem alert already confirms the operation, so that path resets directly without a second prompt.</p>
-<p>The <code>SettingsSectionWriter</code> implementation ensures atomic, cross-process-safe writes:</p>
-<ol>
-<li>Hold an exclusive lock on the sibling file <code>settings.{YEAR}.json.lock</code> from the re-read of the settings document through its swap. A commit waits while another process holds the lock, and fails with an <code>IOException</code> if the lock stays held for more than 10 seconds. Cancellation while waiting leaves the settings file unchanged. The OS releases the lock when its holder closes the handle or exits, so a crashed process never leaves a stale lock. The lock file itself persists; it carries no content.</li>
-<li>Under the lock, re-read the current document and replace only the committed sections</li>
-<li>Write to a per-commit staged file <code>.{guid}.tmp</code> in the settings directory</li>
-<li>Publish with an atomic <code>File.Move(source, destination, overwrite: true)</code>; no backup artifact is retained</li>
-<li>Serialize in-process publications. Retry sharing, lock, and publication access-denied failures at most six times; reject known read-only destinations immediately. Surface publication access denial as <code>IOException</code> with its original cause.</li>
-<li>Attempt to remove the staged file after publication or failure, including cancellation. Cleanup must preserve the original failure.</li>
-</ol>
-<p>Same-year Revit processes share one settings file. Because every commit merges into the document that the previous lock holder published, concurrent commits from separate processes preserve each other's sections: a commit replaces only the sections in its own batch. Within one process, the writer instance also serializes its own commits.</p>
-<hr>
-<h2 id="settings-ui-integration">Settings UI Integration</h2>
-<h3 id="view-location">View Location</h3>
-<p>Settings pack views are rendered in the Settings window under their assigned panel. The panel is determined by the manifest's required <code>panel</code> field through <code>ToolManifestExtensions.GetRequiredPanel()</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Manifest <code>panel</code> value</th>
-<th>Panel</th>
+<th>Value</th>
+<th>Settings group</th>
 </tr>
 </thead>
 <tbody>
@@ -774,220 +216,309 @@ sections, and performs one file swap.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="design-time-autoupdateview">Design-Time AutoUpdateView</h3>
-<p>Core keeps a simple toggle + description view for the settings-window designer sample. Production settings packs should define their own tool-owned settings view:</p>
-<pre><code class="lang-xml">&lt;UserControl x:Class=&quot;DBTools.Presentation.Settings.DesignTime.AutoUpdate.Views.AutoUpdateView&quot;&gt;
-    &lt;Border Style=&quot;{DynamicResource FeatureCard}&quot;&gt;
-        &lt;Grid&gt;
-            &lt;ToggleButton
-                IsChecked=&quot;{Binding AutoUpdateEnabled, Mode=TwoWay}&quot;
-                IsEnabled=&quot;{Binding ToggleEnabled}&quot;
-                Style=&quot;{DynamicResource SwitchToggleButton}&quot;
-                ToolTip=&quot;{Binding ToggleToolTip}&quot; /&gt;
-            &lt;TextBlock Text=&quot;{Binding Title}&quot; /&gt;
-            &lt;TextBlock Text=&quot;{Binding Description}&quot; TextWrapping=&quot;Wrap&quot; /&gt;
-        &lt;/Grid&gt;
-    &lt;/Border&gt;
-&lt;/UserControl&gt;
-</code></pre>
-<h3 id="custom-views">Custom Views</h3>
-<p>For complex settings, create a custom view in your tool's <code>Settings/</code> folder:</p>
-<pre><code class="lang-xml">&lt;UserControl x:Class=&quot;DBTools.Structural.FoundationTags.Settings.FoundationTagsSettingsPackView&quot;&gt;
-    &lt;StackPanel&gt;
-        &lt;!-- Auto-update toggle --&gt;
-        &lt;CheckBox IsChecked=&quot;{Binding AutoUpdateEnabled}&quot; 
-                  IsEnabled=&quot;{Binding ToggleEnabled}&quot; /&gt;
-        
-        &lt;!-- Tag pattern list --&gt;
-        &lt;ItemsControl ItemsSource=&quot;{Binding TagFamilyPatterns}&quot;&gt;
-            &lt;ItemsControl.ItemTemplate&gt;
-                &lt;DataTemplate&gt;
-                    &lt;TextBox Text=&quot;{Binding Pattern, UpdateSourceTrigger=PropertyChanged}&quot; /&gt;
-                &lt;/DataTemplate&gt;
-            &lt;/ItemsControl.ItemTemplate&gt;
-        &lt;/ItemsControl&gt;
-        
-        &lt;!-- Add/Remove buttons --&gt;
-        &lt;Button Command=&quot;{Binding AddTagPatternCommand}&quot; 
-                IsEnabled=&quot;{Binding CanAddTagPattern}&quot; /&gt;
-    &lt;/StackPanel&gt;
-&lt;/UserControl&gt;
-</code></pre>
-<hr>
-<h2 id="warning-integration">Warning Integration</h2>
-<h3 id="how-warnings-work">How Warnings Work</h3>
-<p>Warnings are conditions that disable tool functionality:</p>
-<ol>
-<li><strong>Warning activates</strong>: Validation fails (e.g., invalid path)</li>
-<li><strong>Tools disabled</strong>: Ribbon buttons grayed out, commands rejected</li>
-<li><strong>User notified</strong>: Warning card appears in Settings window</li>
-<li><strong>User fixes</strong>: Corrects settings, clicks &quot;Clear Warning&quot;</li>
-<li><strong>Tools re-enabled</strong>: Ribbon buttons active again</li>
-</ol>
-<h3 id="warning-registration">Warning Registration</h3>
-<p>In <code>RegisterSettingsPacks()</code>, set the public registration's <code>Warning</code> property:</p>
-<pre><code class="lang-csharp">new SettingsPackRegistration&lt;TSettings, TContext&gt;
+<h2 id="registration">Registration</h2>
+<p>Register the typed section in <code>ToolModule.RegisterSettings</code>:</p>
+<pre><code class="lang-csharp">public override void RegisterSettings(IServiceCollection services, ToolManifest manifest)
 {
-    // Required pack registration members omitted for brevity.
-    Warning = new SettingsPackWarningRegistration&lt;TContext&gt;
-    {
-        Id = &quot;core.structural.combined_tags&quot;,
-        Title = &quot;Combined Foundation Tags Disabled&quot;,
-        Message = &quot;Combined foundation tag updates are disabled due to a warning...&quot;,
-        ToolInternalNamesToDisable = new[] { &quot;DBTools.MyCommand&quot; },
-        FlagGetter = context =&gt; context.HasWarning,
-        FlagSetter = (context, active) =&gt;
-        {
-            context.HasWarning = active;
-            if (active)
-                context.AutoUpdateEnabled = false;
-        }
-    }
+    services.AddSingleton(new SettingsSection&lt;MyToolSettings&gt;(
+        manifest.GetRequiredConfigSection(),
+        MyToolSettingsJsonContext.Default.MyToolSettings));
 }
 </code></pre>
-<p><code>AddDbtSettingsPackDefinition(...)</code> creates the internal warning definition from this
-registration. Use the complete registration pattern above when declaring the pack.</p>
-<!-- VERIFIED: 2026-09-06 -->
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Composition/SettingsPackServiceCollectionExtensions.cs</code></p>
-</blockquote>
-<h3 id="warning-service">Warning Service</h3>
-<p><code>ISettingsWarningService</code> manages warning state across the application:</p>
-<pre><code class="lang-csharp">public interface ISettingsWarningService
+<p>Register the editor in <code>RegisterSettingsPacks</code>. The following excerpt assumes
+<code>SettingsPackContext</code> implements <code>ISettingsPackContext&lt;MyToolSettings&gt;</code>, accepts
+a warning ID, and exposes <code>HasWarning</code>. <code>MyToolSettingsView</code> is the tool-owned
+pack view:</p>
+<pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, ToolManifest manifest)
 {
-    IReadOnlyCollection&lt;ISettingsWarningDefinition&gt; Definitions { get; }
-    bool IsWarningActive(string warningId);
-    SettingsWarningStateChange SetWarning(string warningId, bool active);
-}
-</code></pre>
-<p>Full-state publication and active-id enumeration are internal responsibilities of the single concrete <code>SettingsWarningService</code>; tools receive only the narrowed interface above.</p>
-<h3 id="validation-triggered-warnings">Validation-Triggered Warnings</h3>
-<p>Implement <code>ISettingsWarningContext</code> to automatically trigger warnings on validation:</p>
-<pre><code class="lang-csharp">public sealed partial class TdvSettingsPackContext : ObservableObject,
-    ISettingsPackContext&lt;LibrarySettings&gt;,
-    ISettingsWarningContext  // &lt;-- Key interface
-{
-    public string WarningId =&gt; _warningId;  // From constructor
+    var section = new SettingsSection&lt;MyToolSettings&gt;(
+        manifest.GetRequiredConfigSection(),
+        MyToolSettingsJsonContext.Default.MyToolSettings);
+    var pack = manifest.GetSingleSettingsPack();
+    var warning = pack.GetSingleWarning(manifest.Id);
 
-    public async Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct = default)
-    {
-        var options = BuildOptionsSnapshot();
-        var invalidEntries = options.Files.Where(f =&gt; !IsValid(f)).ToList();
-        
-        HasWarnings = invalidEntries.Count &gt; 0;
-        
-        if (HasWarnings)
-            return new SettingsValidationResult(false, new[] { &quot;Invalid library path&quot; });
-        
-        return SettingsValidationResult.Success;
-    }
+    services.AddDbtSettingsPackDefinition&lt;MyToolSettings, SettingsPackContext&gt;(
+        new SettingsPackRegistration&lt;MyToolSettings, SettingsPackContext&gt;
+        {
+            SettingsSection = section,
+            PackKey = pack.Key,
+            PackTitle = pack.Title,
+            RibbonPanel = manifest.GetRequiredPanel(),
+            ApplyBehavior = SettingsPackApplyBehavior.NextToolRun,
+            ContextFactory = (_, input) =&gt; new SettingsPackContext(input.RequireWarningId()),
+            ViewFactory = context =&gt; new MyToolSettingsView { DataContext = context },
+            Warning = new SettingsPackWarningRegistration&lt;SettingsPackContext&gt;
+            {
+                Id = warning.Id,
+                Title = warning.Title,
+                Message = warning.Message,
+                ToolInternalNamesToDisable = warning.DisableTools,
+                FlagGetter = context =&gt; context.HasWarning,
+                FlagSetter = (context, active) =&gt; context.HasWarning = active
+            }
+        });
 }
 </code></pre>
-<h3 id="startup-evaluation-validate-aware-packs">Startup Evaluation (Validate-Aware Packs)</h3>
-<p>Validate-aware settings packs are evaluated during addin startup (after ribbon composition and before the initial warning publish) so ribbon tools are disabled immediately when underlying configuration is invalid, without requiring the user to open Settings.</p>
-<p>The startup evaluator:</p>
-<ul>
-<li>Receives the validated <code>SettingsCatalog</code> used by the settings shell and warning service</li>
-<li>Creates bound pack runtimes without constructing WPF views</li>
-<li>Loads options from <code>ISettingsProvider</code></li>
-<li>Runs <code>ValidateAsync</code> only for runtime contexts implementing <code>ISettingsWarningContext</code></li>
-<li>Activates warnings on invalid results</li>
-<li>Does not activate warnings on validation exceptions (exceptions are treated as runtime errors and should surface via normal error flows/logs)</li>
-<li>Does not proactively clear warnings on startup</li>
-<li>Disposes every created runtime, retries a failed cleanup once, records persistent cleanup failures with pack identity, and preserves cancellation even when cleanup also fails</li>
-</ul>
-<hr>
-<h2 id="real-examples">Real Examples</h2>
-<h3 id="example-1-joistgirderweight-auto-update-regex-matching">Example 1: JoistGirderWeight (Auto-Update + Regex Matching)</h3>
-<p><strong>Use case:</strong> Toggle auto-calculation and configure regex matching for family/load resolution.</p>
-<p><strong>Settings model:</strong></p>
-<pre><code class="lang-csharp">public sealed class JoistGirderWeightSettings : IAutoUpdateSettings
+<p>These APIs live under <code>DBTools.Core.Settings.Composition</code>, <code>.Persistence</code>,
+<code>.SettingsPack</code>, and <code>.Warnings</code>. Manifest extension methods live under
+<code>DBTools.Core.Tools.Manifest</code>. Use the tool's real namespaces for its context,
+view, and DTO.</p>
+<p><code>SettingsSection</code>, pack key/title/panel, and context/view factories are required
+registration members. When present, a warning requires its ID, title, message,
+and flag getter/setter. <code>AddDbtSettingsPackDefinition</code> also checks strings and
+delegates at runtime. <code>ApplyBehavior</code> defaults to <code>Immediate</code>. Set it explicitly
+when values apply at the next tool run or require a restart.</p>
+<h3 id="apply-timing">Apply timing</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Immediate</code></td>
+<td>Saved values apply immediately, such as ribbon visibility flags.</td>
+</tr>
+<tr>
+<td><code>NextToolRun</code></td>
+<td>Commands or view-activation tasks read saved values on their next run.</td>
+</tr>
+<tr>
+<td><code>RequiresRestart</code></td>
+<td>The pack documents a specific restart requirement.</td>
+</tr>
+</tbody>
+</table>
+<p>Do not show a blanket restart warning for all settings. Read settings at the
+operation boundary so saved changes reach the next operation.</p>
+<h2 id="runtime-and-context-ownership">Runtime and context ownership</h2>
+<p><code>ISettingsPackDefinition</code> supplies catalog metadata and creates one
+<code>ISettingsPackRuntime</code> for an editor row. That runtime binds the exact context,
+typed section, lazy view factory, staged writes, and warning delegates. Callers
+cannot pair an unrelated context with a warning definition.</p>
+<p><code>SettingsPackCollection</code> carries <code>SettingsPackHostContext</code> from the window
+factory into runtime creation. Use <code>SettingsPackHostContext.Empty</code> without a
+host or <code>FromApplication(application)</code> with one. A context extracts the typed
+application through <code>TryGetApplication&lt;TApplication&gt;()</code>.</p>
+<p>Constructors should initialize bindable state without modifying the Revit model.
+Elevation Tags uses host data for preview snapshots and accepts no active
+document as an empty preview. Foundation Tags uses explicit Refresh, Clear
+Warning, and Install/Repair actions for prerequisite work. It reports that an
+action is unavailable when it needs an active document.</p>
+<h3 id="context-interfaces">Context interfaces</h3>
+<p>The editor implements these base contracts:</p>
+<pre><code class="lang-csharp">public interface ISettingsPackContext
 {
-    public bool AutoUpdateEnabled { get; set; } = true;
-    public bool HasWarning { get; set; }
-    public List&lt;string&gt; FamilyNamePatterns { get; set; } = new()
-    {
-        &quot;^(?:(?:[BV]?G)|Vulcraft) Joist Girder$&quot;
-    };
-    public List&lt;string&gt; LoadParameterPatterns { get; set; } = new()
-    {
-        &quot;^(?:Panel Point Load|Panel Load - User Defined|Panel Load|Point Load - User Defined|Point Load|Total Load - User Defined|Total Load|Joist Load|BG Joist Girder)$&quot;
-    };
+    Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct = default);
 }
-</code></pre>
-<p><strong>Registration:</strong> Uses custom <code>JoistGirderWeightSettingsPackContext</code> and <code>JoistGirderWeightSettingsPackView</code> with <code>+/-</code> regex row controls (max 3) and save-time validation.</p>
-<p><strong>Manifest:</strong></p>
-<pre><code class="lang-yaml">settingsPacks:
-  - key: structural.joist_girder_weight
-    title: &quot;Joist Girder Weights&quot;
-    warnings:
-      - id: core.structural.joist_girder
-        title: &quot;Joist Girder Weights Disabled&quot;
-        disableTools:
-          - DBTools.UpdateJoistGirderWeights
-</code></pre>
-<h3 id="example-2-foundationtags-custom-patterns">Example 2: FoundationTags (Custom Patterns)</h3>
-<p><strong>Use case:</strong> Configure regex patterns for family matching.</p>
-<p><strong>Settings model:</strong> Includes <code>List&lt;string&gt;</code> for patterns.</p>
-<p><strong>Context:</strong> Custom <code>FoundationTagsSettingsPackContext</code> with pattern editing commands.</p>
-<p><strong>View:</strong> Custom <code>FoundationTagsSettingsPackView.xaml</code> with pattern lists.</p>
-<h3 id="example-3-tdv-library-complex-validation">Example 3: TDV Library (Complex Validation)</h3>
-<p><strong>Use case:</strong> Configure library file paths with validation warnings.</p>
-<p><strong>Settings model:</strong></p>
-<pre><code class="lang-csharp">public sealed class LibrarySettings
+
+public interface ISettingsPackContext&lt;TOptions&gt; : ISettingsPackContext
 {
-    public IList&lt;LibraryFileEntry&gt; Files { get; set; } = new List&lt;LibraryFileEntry&gt;();
+    void Load(TOptions options);
+    TOptions BuildOptionsSnapshot();
 }
 </code></pre>
-<p><strong>Context:</strong> <code>TdvSettingsPackContext</code> with file picker, tree view, and validation.</p>
-<p><strong>Key features:</strong></p>
-<ul>
-<li><code>IOwnerAwareContext</code> for file dialogs</li>
-<li><code>ISettingsPackSaveState&lt;LibraryOptions&gt;</code> for the committed baseline</li>
-<li><code>ISettingsWarningContext</code> for automatic warning activation</li>
-</ul>
-<hr>
-<h2 id="best-practices">Best Practices</h2>
-<h3 id="do">Do</h3>
-<ul>
-<li><strong>Use <code>IAutoUpdateSettings</code></strong> for tools with view-activated auto-update</li>
-<li><strong>Clone settings in context</strong> to detect <code>HasPendingChanges</code></li>
-<li><strong>Fire <code>StateChanged</code></strong> when any bindable property changes</li>
-<li><strong>Implement validation</strong> that returns meaningful error messages</li>
-<li><strong>Use existing patterns</strong> - check JoistGirderWeight for simple, FoundationTags for complex</li>
-</ul>
-<h3 id="dont">Don't</h3>
-<ul>
-<li><strong>Don't save directly</strong> from context - let <code>SettingsWindowViewModel.Save()</code> and <code>SettingsPersistenceWorkflow.SaveAndValidateAsync()</code> handle persistence</li>
-<li><strong>Don't bypass warnings</strong> - respect <code>HasWarning</code> in command availability</li>
-<li><strong>Don't block UI thread</strong> - use <code>async</code> for file I/O in validation</li>
-<li><strong>Don't ignore <code>CancellationToken</code></strong> - validation can be cancelled</li>
-</ul>
-<h3 id="testing-settings">Testing Settings</h3>
+<p>Optional contracts add specific behavior:</p>
+<table>
+<thead>
+<tr>
+<th>Interface</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ISettingsStateContext</code></td>
+<td>Raise <code>StateChanged</code> for editable-state changes.</td>
+</tr>
+<tr>
+<td><code>IPendingChangesContext</code></td>
+<td>Expose <code>HasPendingChanges</code>.</td>
+</tr>
+<tr>
+<td><code>IOwnerAwareContext</code></td>
+<td>Receive an owner handle provider for dialogs.</td>
+</tr>
+<tr>
+<td><code>ISettingsPackSaveState&lt;TOptions&gt;</code></td>
+<td>Accept <code>MarkSaved(committedOptions)</code> as the persisted baseline.</td>
+</tr>
+<tr>
+<td><code>ISettingsWarningContext</code></td>
+<td>Identify the warning that validation evaluates.</td>
+</tr>
+<tr>
+<td><code>ISettingsPackSaveValidation</code></td>
+<td>Expose <code>BlockSaveOnInvalid</code> to refuse invalid drafts.</td>
+</tr>
+<tr>
+<td><code>IWarningFixProvider</code></td>
+<td>Supply a matching warning's Fix action and label.</td>
+</tr>
+</tbody>
+</table>
+<p><code>SettingsValidationResult.Success</code> is a property. Use
+<code>SettingsValidationResult.FromErrors(...)</code> for invalid values. Exceptions mean
+validation failed to run. They are not an invalid-result substitute.
+Honor cancellation and return messages that identify the invalid value and
+its correction.</p>
+<h3 id="production-base-settingspackautoupdatecontext">Production Base: SettingsPackAutoUpdateContext</h3>
+<p><code>SettingsPackAutoUpdateContext&lt;TOptions&gt;</code> in
+<code>DBTools.Core.Settings.SettingsPack.AutoUpdate</code> implements the common toggle
+editor. It owns title/description/tooltip text, <code>AutoUpdateEnabled</code>, <code>HasWarning</code>,
+<code>ToggleEnabled</code>, <code>ClearWarningCommand</code>, <code>WarningId</code>, pending-change tracking,
+<code>StateChanged</code>, and the validation envelope. It blocks saving invalid options.</p>
+<p>The protected base constructor supplies warning identity and editor text:</p>
+<pre><code class="lang-csharp">protected SettingsPackAutoUpdateContext(
+    string warningId, string title, string description, string toggleToolTip);
+</code></pre>
+<p>Derived contexts implement:</p>
+<pre><code class="lang-csharp">protected abstract void LoadCore(TOptions options);
+protected abstract void CollectValidationErrors(List&lt;string&gt; errors);
+protected abstract bool SettingsEqual(TOptions left, TOptions right);
+public abstract TOptions BuildOptionsSnapshot();
+</code></pre>
+<p><code>Load</code> applies the toggle, clears the context warning, calls <code>LoadCore</code>, and
+notifies state changes. <code>LoadCore</code> sets a baseline through <code>SetBaseline</code>.
+<code>MarkSaved</code> uses the exact committed options, not the latest editable snapshot.
+Edits made while a commit is pending therefore remain dirty.</p>
+<p>Elevation Tags and Joist Girder Weight use this base. Foundation Tags implements
+the interfaces directly because its prerequisite state and repair actions need
+a different context. The <code>AutoUpdateViewModel&lt;TSettings&gt;</code> under
+<code>Settings/DesignTime</code> is a designer sample, not a production base.</p>
+<h3 id="regex-pattern-lists">Regex pattern lists</h3>
+<p><code>RegexPatternListContext</code> owns bindable <code>RegexPatternEntry</code> rows, add/remove
+commands, a configured maximum, empty-list default seeding, snapshots that omit
+blank rows, and state-change events. <code>Load</code> takes at most the configured maximum.
+Removal retains at least one row. Tool contexts retain their binding property
+names and validation rules.</p>
+<p>Elevation Tags and Foundation Tags use the shared list mechanics with at most
+three rows per pattern list. Do not copy those mechanics into a new context.
+Joist Girder Weight's settings use
+individual <code>FamilyNamePattern</code>, <code>DeadLoadPattern</code>, <code>LiveLoadPattern</code>, and
+<code>TotalLoadPattern</code> strings rather than pattern lists.</p>
+<h3 id="tool-settings-examples">Tool settings examples</h3>
+<p>Foundation Tags persists <code>TagFamilyPatterns</code>, <code>PierFamilyPatterns</code>, and
+<code>FootingFamilyPatterns</code>. Empty lists select these tool defaults:</p>
+<pre><code class="lang-text">TagFamilyPatterns      ^DB Pier and Foundation Combined Tag(?: No Elevations)?$
+PierFamilyPatterns     ^Foundation Pier(?: - Round)?$
+FootingFamilyPatterns  ^(?:Footing|Pile Cap)-Rectangular$
+</code></pre>
+<p>Elevation Tags uses <code>TagNamePatterns</code> with default
+<code>^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$</code>, plus <code>TypeOffsets</code> keyed
+by spot-elevation type name. Joist Girder Weight supplies these defaults for
+blank individual patterns:</p>
+<pre><code class="lang-text">FamilyNamePattern  ^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
+DeadLoadPattern    (?:^DL$|Dead\s*Load)
+LiveLoadPattern    (?:^LL$|Live\s*Load)
+TotalLoadPattern   (?:Point\s*Load|Total\s*Load)
+</code></pre>
+<p>TDV's <code>LibraryOptions</code> contains a <code>Files</code> list of
+<code>LibraryFile</code> values. Its pack owns file selection, validation, and pending
+changes. Read each tool's DTO and generated JSON context when extending it.</p>
+<h2 id="runtime-reads-and-programmatic-writes">Runtime reads and programmatic writes</h2>
+<p><code>ISettingsProvider</code> exposes typed reads and heterogeneous batch writes:</p>
+<pre><code class="lang-csharp">TSettings Get&lt;TSettings&gt;(SettingsSection&lt;TSettings&gt; section)
+    where TSettings : class, new();
+Task CommitAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes,
+    CancellationToken ct = default);
+</code></pre>
+<p>Inject the provider and typed section. Read once per operation, then pass that
+snapshot to the work:</p>
+<pre><code class="lang-csharp">var current = settingsProvider.Get(section);
+if (!current.AutoUpdateEnabled)
+    return;
+</code></pre>
+<p>For view-activated updates, <code>ViewActivationTask&lt;TSettings&gt;</code> reads once during
+admission and captures the snapshot in the admission. It checks session warnings
+separately. See <a href="hooks.html#the-iviewactivationtask-system">Hooks</a>.</p>
+<p>A programmatic write uses the same typed metadata:</p>
+<pre><code class="lang-csharp">var current = settingsProvider.Get(section);
+current.AutoUpdateEnabled = true;
+await settingsProvider.CommitAsync(new[] { section.CreateWrite(current) }, ct);
+</code></pre>
+<p>Batch related section changes in one <code>CommitAsync</code>. A direct commit persists
+options. The Settings workflow additionally applies flags, baselines, and
+warning publication.</p>
+<h2 id="save-and-reset-sequence">Save and reset sequence</h2>
+<p><code>SettingsWindowFactory</code> opens the raw
+<code>DBTools.Presentation.Settings.Views.SettingsWindow.xaml</code> resource through
+<code>ToolWindowFactory</code>. The registered modal session owns the window, error
+boundary, owner, handlers, and cleanup. Packs remain separate tool-owned views.</p>
+<p><code>SettingsPackViewModel</code> owns one bound runtime, lazy view creation, pending
+changes, reset state, owner propagation, warning projection, and disposal.
+<code>SettingsPanelBlock</code> groups rows. <code>SettingsWindowViewModel</code> delegates persistence
+to <code>SettingsPersistenceWorkflow</code> under <code>Settings/ViewModels</code>.</p>
+<p>Save proceeds in this order:</p>
 <ol>
-<li><strong>Build artifacts tests</strong> verify settings structure</li>
-<li><strong>Integration tests</strong> can mock <code>ISettingsProvider</code></li>
-<li><strong>Manual testing</strong> in Revit validates UI binding</li>
+<li>Evaluate the unsaved drafts. A blocking invalid result stops the save.
+This pass can update editor warning flags but does not change command blocking.</li>
+<li>Capture current pack writes and the flags snapshot.</li>
+<li>Commit the complete batch with one file swap.</li>
+<li>Mark each pack saved against its exact committed options.</li>
+<li>Apply committed flags. Validate saved settings in fresh warning-aware runtimes.</li>
+<li>Project and publish warning decisions to the ribbon and Settings UI.</li>
 </ol>
-<hr>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="new-tool-guide.html">Creating New Tools</a> - Complete tool creation guide</li>
-<li><a href="feature-warnings.html">Feature Warnings</a> - Deep dive on the warning system</li>
-<li><a href="../projects/core.html">Core Infrastructure</a> - DBTools.Core project reference</li>
-</ul>
-<hr>
-<h2 id="summary">Summary</h2>
-<p>Settings Packs provide a unified way to expose tool configuration:</p>
+<p>The Validate button diagnoses draft values. It does not publish the draft as
+saved warning state. Opening Settings validates loaded options. Startup checks
+warning-aware packs without constructing their views. See
+<a href="feature-warnings.html#validation-and-activation">Feature Warnings</a>.</p>
+<p>A validation or writer failure before publication leaves the settings file and
+saved baselines unchanged. A failure after the swap becomes
+<code>SettingsPostCommitException</code>, which identifies the operation and phase.
+Persisted values remain the saved baseline and the window stays open.
+Concurrent edits remain pending against that baseline.</p>
+<p>Reset All commits default flags and every pack's default snapshot. It attempts
+to apply all committed defaults before warning validation and aggregates
+application failures. A pack reset commits only that pack. Both actions ask for
+confirmation and use the normal warning/feedback path. Cancel preserves current
+state and feedback. Choosing Reset Settings in the load-problem alert already
+confirms the reset, so it does not prompt twice.</p>
+<h2 id="atomic-persistence">Atomic persistence</h2>
+<p><code>SettingsSectionWriter</code> performs these steps:</p>
 <ol>
-<li><strong>Declare</strong> in <code>manifest.yml</code> with <code>settingsPacks</code></li>
-<li><strong>Model</strong> settings as a typed class (optionally implementing <code>IAutoUpdateSettings</code>)</li>
-<li><strong>Register</strong> via <code>RegisterSettings()</code> and <code>RegisterSettingsPacks()</code> in your tool module</li>
-<li><strong>Access</strong> through the registered <code>SettingsSection&lt;T&gt;</code> using <code>ISettingsProvider.Get(section)</code></li>
-<li><strong>Persist</strong> automatically through the Settings window or manually via one <code>ISettingsProvider.CommitAsync(...)</code> batch built with <code>SettingsSection&lt;T&gt;.CreateWrite(...)</code></li>
-<li><strong>Warn</strong> users when validation fails, disabling affected tools until resolved</li>
+<li>Reject an empty batch, null entries, and case-insensitive duplicate section names.</li>
+<li>Serialize calls on the writer instance and acquire the sibling
+<code>settings.&lt;year&gt;.json.lock</code> file exclusively.</li>
+<li>Re-read the current document under that lock. Replace only the supplied sections.</li>
+<li>Serialize with each section's generated metadata into one document.</li>
+<li>Write a <code>.&lt;guid&gt;.tmp</code> file in the same directory and publish it with
+<code>File.Move(source, destination, overwrite: true)</code>.</li>
+<li>Attempt staged-file cleanup on success, failure, and cancellation.</li>
 </ol>
-<p>The system provides fresh layered reads, batch-atomic persistence, and consistent UX across all DBTools tools.</p>
+<p>A competing process can hold the lock for up to 10 seconds before the writer
+fails with <code>IOException</code>. Cancellation while waiting leaves the file unchanged.
+The OS releases the lock on handle close or process exit. The empty lock file
+persists and does not indicate a live lock.</p>
+<p><code>TextFileIO.s_publicationGate</code> serializes file publication process-wide across
+writer instances. The writer's own semaphore serializes its commits, while the
+sibling lock file coordinates separate processes.</p>
+<p><code>TextFileIO</code> allows at most six publication attempts for transient sharing,
+locking, and access-denied failures. It refuses known read-only destinations
+immediately and surfaces publication access denial as <code>IOException</code> with the
+original cause. Cleanup does not replace the primary failure. No backup file is
+retained.</p>
+<p>Same-year Revit processes share this file. Re-reading under the cross-process
+lock preserves other sections published by the previous writer. A case-variant
+section name replaces that section in place. An absent file starts an empty
+object. An existing empty, whitespace-only, malformed, or non-object file is
+corrupt and is not silently reset.</p>
+<h2 id="views-and-tests">Views and tests</h2>
+<p>Create a tool-owned view for the editor. Bind the auto-update toggle to
+<code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit
+properties and commands. The design-time AutoUpdate view is only a Settings
+designer sample. Pack views created by <code>ViewFactory</code> are distinct from the raw
+top-level tool-window resources described in <a href="modularity.html">Modularity</a>.</p>
+<p>Test real readers and writers with isolated files. Cover defaults, layering,
+case-insensitive keys, source-generated serialization, invalid values, atomic
+batches, competing writes, cancellation, and corrupt files. Exercise the real
+context and persistence workflow for pending changes and post-commit failures.
+Stub only true externals. Use Windows Pure tests for WPF binding and owner
+behavior, and hosted tests for actual Revit prerequisite actions.</p>
+<p>See <a href="testing-tools.html">Testing Tools</a> for execution commands and
+<a href="feature-warnings.html">Feature Warnings</a> for warning publication and Fix actions.</p>
 
 </article>
 

@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,91 +89,146 @@
         <article data-uid="">
 <h1 id="test-refactoring-strategy">Test Refactoring Strategy</h1>
 
-<!-- Last Updated: 2026-11-05 -->
-<!-- Verified By: TOOLING_Session 04-30-26-0105pm -->
-<p>This page records the current test-refactoring direction for DBTools. The older GM/SGT
-<code>Both</code> / <code>Local</code> / <code>DA-compatible</code> strategy has been superseded by the current-dev Revit
-test taxonomy plan.</p>
-<h2 id="core-rule">Core Rule</h2>
-<p>Tests must be labeled by the host they truly require:</p>
+<p>Refactor tests according to the execution host their behavior requires. Keep
+pure logic tests separate from Revit integration and real APS WorkItem tests.
+Use real product services and assert their outcomes.</p>
+<h2 id="host-classification">Host classification</h2>
 <table>
 <thead>
 <tr>
 <th>Marker</th>
-<th>Meaning</th>
+<th>Host and purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>plain <code>[Test]</code></td>
-<td>Pure/off-Revit test</td>
+<td>Plain NUnit <code>[Test]</code></td>
+<td>Pure execution without Revit. Windows Pure fixtures may use WPF.</td>
 </tr>
 <tr>
 <td><code>[RevitLocal]</code></td>
-<td>Local Revit-hosted execution</td>
+<td>Real Revit UI, documents, API callbacks, and add-in lifetime on the daemon fleet.</td>
 </tr>
 <tr>
 <td><code>[RevitDA]</code></td>
-<td>True Autodesk APS Design Automation WorkItem execution</td>
+<td>Real APS Design Automation WorkItem execution and output validation.</td>
 </tr>
 </tbody>
 </table>
-<p>The old <code>Category(&quot;Both&quot;)</code>, <code>TestCategories.Both</code>, <code>Category(&quot;DA&quot;)</code>, and
-<code>TestCategories.DA</code> markers have been removed. <code>.DA.Tests</code> project names are not routing
-truth and do not prove DA execution unless the selected tests submit and validate a real
-APS WorkItem.</p>
-<h2 id="refactoring-priorities">Refactoring Priorities</h2>
+<p>A <code>.DA.Tests</code> filename does not establish APS coverage. <code>Local</code>, <code>Both</code>, and
+<code>DA</code> categories are invalid routing metadata. Orthogonal categories may describe
+other test properties without changing the execution host.</p>
+<h2 id="refactoring-procedure">Refactoring procedure</h2>
 <ol>
-<li>Move pure logic to plain <code>[Test]</code> and remove Revit/WPF/add-in-host closure from those projects.</li>
-<li>Rewrite tests that use Revit API types only as convenient data carriers into native C# DTO/value/snapshot tests.</li>
-<li>Keep <code>[RevitLocal]</code> only for tests that genuinely require local Revit UI/session/add-in-host behavior.</li>
-<li>Use <code>[RevitDA]</code> only for tests that execute through APS Design Automation WorkItems and assert real outputs.</li>
-<li>Delete fake, mock-call-only, redundant, stale, or misleading tests instead of preserving old coverage names.</li>
-<li>Keep owner tests colocated under the owning <code>Tests/</code> directory, but keep pure, local, and DA execution hosts separated by positive project membership until a single project can preserve those host contracts without dependency leakage.</li>
-<li>Split test directories before they exceed roughly 12 files, delete empty test directories, and avoid placeholder folders.</li>
+<li>Reproduce the failure and trace the product boundary. Correct product behavior
+before adjusting a test expectation.</li>
+<li>Replace Revit types used only as data carriers with native values or snapshots
+when the product exposes that boundary.</li>
+<li>Exercise real matchers, planners, workflows, and persistence. Stub only true
+externals such as Revit, network, filesystem, or time.</li>
+<li>Put portable behavior in a Pure project. Keep actual WPF behavior in Windows
+Pure tests and actual Revit behavior in Local tests.</li>
+<li>Assert the observable result, failure, and cleanup. Remove redundant or
+misleading tests only when their behavior has no useful independent coverage.</li>
+<li>Compile and run the affected tests through the repository entrypoints. Report
+separately any hosted behavior that was compiled but not executed.</li>
 </ol>
-<p>Local Revit test projects must disable default compile items and explicitly include only
-the <code>[RevitLocal]</code> fixtures plus local-only support files they own. App
-and Core project-suite local projects follow the same rule as tool-owned local projects. They
-must not use broad default globs with large <code>Compile Remove</code> lists to subtract pure
-tests. If a local project needs a pure support helper, move the helper to a shared
-neutral location or duplicate no behavior; do not pull pure-only fixtures into the
-local assembly.</p>
-<h2 id="gm-direction">GM Direction</h2>
-<p>GM pure kernel, persistence, saved-mapping, similarity, usage-normalization, usage
-projection, usage-pane selection clearing, and planning tests should become plain
-<code>[Test]</code> after their Revit/WPF/App closure is removed. Nested family
-object-style/material projection is now covered through <code>FamilyMappingOptionProjector</code>
-without constructing the shell or usage pane view model, and usage-pane preview state
-flows through native values before WPF presentation is applied at the pane edge. Real
-document adapter, shared parameter, deep-scan, shell/window, owner wiring, and active
-view/document tests remain <code>[RevitLocal]</code> unless rewritten around native snapshots. DA
-coverage must wait for true WorkItem execution and must avoid WPF, <code>UIApplication</code>,
-<code>UIDocument</code>, selection, and interactive add-in-session assumptions.</p>
-<h2 id="sgt-direction">SGT Direction</h2>
-<p>Most SGT package-mirrored unit tests are pure and should stay plain <code>[Test]</code>. The
-current pure set includes feature tests under <code>Unit/Features/*</code>, shared-domain tests
-under <code>Unit/Shared/*</code>, and undo/redo history plus file-backed UI-state persistence
-because those assert native service outcomes, not Revit host behavior.</p>
-<p>Tests that currently use Revit DB types for geometry or document state must be
-rewritten to native geometry/value snapshots where practical. UI smoke, parity harness,
-preview rendering, remaining shell command/view-model behavior, active-document, and
-selection behavior remains <code>[RevitLocal]</code> until each fixture proves it can be split.
-SGT DA coverage needs a product DA entry and a WorkItem test of its own, like the
-Sentinel's, and the test must obey DA host constraints.</p>
+<p>Do not replace an owned workflow with canned outcomes, loosen assertions to
+match a defect, catch arbitrary exceptions as inconclusive, or repair missing
+fixture data dynamically.</p>
+<h2 id="project-membership-and-placement">Project membership and placement</h2>
+<p>Tests mirror the production owner beneath <code>Tests/</code>. Revit fixtures mirror it
+beneath <code>Tests/Integration/Revit/</code>. Reusable external doubles, construction
+helpers, and assertions belong under the applicable <code>Tests/Support/</code> owner or
+shared <code>testing/TestSupport/</code> source links.</p>
+<p>Use separate <code>.Pure.Tests</code>, <code>.Local.Tests</code>, and actual WorkItem-backed DA
+projects. Local projects disable default compile items and explicitly include
+hosted fixtures and required support. Do not subtract Pure fixtures from broad
+Local globs. A shared helper must be neutral. Linking it must not pull Pure
+fixtures into the hosted assembly.</p>
+<p>Split directories around coherent owners before they exceed roughly 12
+fixture/support files. Remove empty directories and avoid placeholders.</p>
+<p>When adding, deleting, or renaming <code>testing/**/*.cs</code> files, update their exact
+paths in <code>.desloppify/config.json</code> <code>zone_overrides</code> with value <code>&quot;test&quot;</code>.
+Pre-push rejects missing, invalid, or stale entries for <code>testing/</code> files.</p>
+<h2 id="gm">GM</h2>
+<p>Use Pure tests for native mapping state, persistence, saved mappings,
+similarity, usage normalization/projection, selection clearing, and planning.
+Use <code>FamilyMappingOptionProjector</code> for nested family option projection instead
+of constructing the complete application window. Keep preview state as native
+values until the WPF presentation boundary.</p>
+<p>Keep document adapters, shared parameters, deep scans, actual window composition,
+owner wiring, and active-view/document behavior hosted when they require Revit.
+An integration test does not become Pure merely because it avoids showing a
+window. APS coverage needs a product entry and real WorkItem outputs without
+<code>UIApplication</code>, <code>UIDocument</code>, selection, or interactive session assumptions.</p>
+<p>Examples of GM Pure fixtures and their boundaries:</p>
+<table>
+<thead>
+<tr>
+<th>Fixtures</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>StatePersistenceTests</code>, <code>UIStateCacheTests</code>, <code>UIStateLifecycleTests</code></td>
+<td>UI-state and saved-mapping persistence.</td>
+</tr>
+<tr>
+<td><code>MappingIntentStoreTests</code>, <code>ProjectStateStoreTests</code></td>
+<td>Mapping intent and project-state replacement.</td>
+</tr>
+<tr>
+<td><code>SharedParameterTreeProjectorTests</code></td>
+<td>Native shared-parameter tree projection.</td>
+</tr>
+<tr>
+<td><code>SavedMappingRestoreWorkflowTests</code></td>
+<td>Saved-mapping restoration.</td>
+</tr>
+<tr>
+<td><code>FamilyMappingSelectionNavigationWorkflowTests</code></td>
+<td>Family-details navigation.</td>
+</tr>
+<tr>
+<td><code>FamilyMappingOptionProjectorTests</code></td>
+<td>Nested family options without full window construction.</td>
+</tr>
+<tr>
+<td><code>OperationRowProjectorTests</code></td>
+<td>Commit-review operation and error rows.</td>
+</tr>
+<tr>
+<td><code>SessionOperationGateTests</code></td>
+<td>Session operation admission and overlay lifetime.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sgt">SGT</h2>
+<p>Use Pure tests for native domain values, feature decisions, undo/redo history,
+and file-backed UI state. Use the portable target for inward behavior that runs
+on Linux. Replace incidental Revit geometry carriers with native snapshots
+where the product boundary permits it.</p>
+<p>Keep real geometry/document adapters, placement parity, Revit selection,
+window composition, and host-dependent preview behavior Local. WPF behavior
+that needs no Revit belongs in Windows Pure tests. Classify each fixture by
+what it actually executes rather than by a directory's historical name.
+SGT APS coverage requires its own product entry and WorkItem test.
+<code>UIStateStoreTests</code> is Windows Pure, while <code>ExtentResolverTests</code> and
+<code>MemberResolutionSpanIndexTests</code> exercise the portable domain.
+<code>PreviewPlacementParityTests</code> remains hosted.</p>
 <h2 id="validation">Validation</h2>
-<p>Use canonical commands only:</p>
-<pre><code class="lang-bash">bash build.sh BuildAll
-dotnet test --list-tests                       # static discovery via the daemon adapter
-dotnet test --filter &quot;TestCategory=GM&quot; --list-tests
-dotnet test --filter &quot;TestCategory=GM&quot;
-dotnet test --filter &quot;TestCategory=SGT&quot;
+<p>Inspect selections, then execute or compile the affected tests:</p>
+<pre><code class="lang-bash">./test.sh list --tool GM,SGT --scope pure --summary
+./test.sh list --tool GM,SGT --scope local --projects
+./test.sh test --tool GM --scope pure --fixture DuplicateDetectionEngineTests
+./build.sh BuildSelectedLocalTests --TestProjects DBTools.GM.Local.Tests -y 2026
 </code></pre>
-<p><code>dotnet test</code> discovers tests statically and dispatches <code>[RevitLocal]</code> work to the
-dbtools-daemon fleet; pure <code>[Test]</code> fixtures run in-process. APS WorkItem tests never go
-through the daemon. The one such test, the DA Sentinel, runs on the operator's host with
-the operator's APS credentials, and agents never run it; see
-<a href="testing-tools.html#aps-design-automation-sentinel">APS Design Automation Sentinel</a>.</p>
+<p>Run the affected full Pure suites after focused checks.
+<a href="testing-tools.html">Testing Tools</a> documents execution routing, build commands,
+model prerequisites, and failure evidence. <a href="testing-tools.html#aps-design-automation-sentinel">APS Design Automation Sentinel</a>
+describes the separate credentialed cloud test.</p>
 
 </article>
 

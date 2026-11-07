@@ -2,16 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Sandbox Integration Guide | DB Tools </title>
+      <title>Sandbox Integration | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Sandbox Integration Guide | DB Tools ">
+      <meta name="title" content="Sandbox Integration | DB Tools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,13 +87,18 @@
         </div>
 
         <article data-uid="">
-<h1 id="sandbox-integration-guide">Sandbox Integration Guide</h1>
+<h1 id="sandbox-integration">Sandbox Integration</h1>
 
-<p>The Sandbox previews tool windows and validates a staged product candidate
-without starting Revit. It runs one fresh process per candidate year.</p>
+<p>Sandbox previews tool windows and validates a staged distribution without
+starting Revit. Native validation runs on Windows and constructs real WPF
+windows. Run one fresh Sandbox process for each candidate year.</p>
+<p>Portable build validation checks metadata, raw XAML, and Dev Mode policy on
+Linux. It does not execute Sandbox, WPF, or a live Dev Mode inject/reload.
+<a href="testing-tools.html#build-and-validation-commands">Testing Tools</a> distinguishes
+these checks.</p>
 <h2 id="candidate-loading">Candidate loading</h2>
-<p>The BCL-only Sandbox entry validates a year directory before Core-backed logging,
-Presentation, or WPF startup:</p>
+<p>The BCL-only <code>SandboxEntry</code> resolves and validates the candidate before loading
+Core, Presentation, or WPF. A year directory contains:</p>
 <pre><code class="lang-text">DBTools.addin
 DBTools.dll
 DBTools.Core.dll
@@ -101,184 +106,256 @@ DBTools.Presentation.dll
 DBTools.HandyControl.dll
 Tools/DBTools.&lt;Tool&gt;.dll
 </code></pre>
-<p>It checks the <code>.addin</code>, exact file set, PE identities, assembly locations, and
-supported year. It then loads the candidate's top-level product images and
-manifest-declared tool images from their actual paths in the default context.
-The entry uses a non-inlined boundary to start WPF after candidate loading and
-exits after validation. Do not add a Loader, Bootstrap, embedded payload,
-runtime manifest, or DBTools-owned load context to make Sandbox work.</p>
+<p>Candidate validation checks the add-in manifest, required top-level DLLs, PE
+identities, and conflicting loaded assembly locations. It rejects extra top-level
+DLLs. <code>Tools/</code> must contain tool DLLs directly, with no nested directories.
+This check does not enforce an exact recursive set of every file.</p>
+<p>Before WPF starts, Sandbox loads HandyControl, Presentation, Core, and App from
+the candidate paths into the default assembly context. Tool assemblies load
+later as needed for manifests, views, and design-time ViewModels. A non-inlined
+call boundary delays WPF startup until the four product assemblies are loaded.</p>
+<p>Sandbox uses the candidate's ordinary file-backed product layout. It does not
+invoke App's Revit startup. Revit reference DLLs supply metadata for validation
+and must not load as executable product assemblies. Do not add a separate
+loader, embedded payload, runtime manifest, or DBTools-owned assembly load
+context to bypass candidate validation.</p>
 <h2 id="register-a-window">Register a window</h2>
-<p>Declare the window in the tool's <code>manifest.yml</code>:</p>
+<p>Declare a raw view in the tool's <code>manifest.yml</code>:</p>
 <pre><code class="lang-yaml">sandboxWindows:
   - id: DBTools.MyTool.Main
     displayName: &quot;My Tool&quot;
     group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.MyTool.MyToolView.xaml&quot;
-    windowKind: Modal
-    designTimeViewModelType: &quot;DBTools.MyTool.App.DesignTime.MyToolDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.MyTool&quot;
-    designTimeViewModelVisibility: Public
-</code></pre>
-<p>The <code>xamlResource</code> value must match the owning project's embedded logical name:</p>
-<pre><code class="lang-xml">&lt;EmbeddedResource Include=&quot;App\Views\MyToolView.xaml&quot;&gt;
-  &lt;LogicalName&gt;DBTools.ToolViews.MyTool.MyToolView.xaml&lt;/LogicalName&gt;
-&lt;/EmbeddedResource&gt;
-
-The required fields are `id`, `displayName`, `group`, `xamlResource`,
-`windowKind`, `designTimeViewModelType`, `designTimeViewModelAssembly`, and
-`designTimeViewModelVisibility`. Optional fields include width, height, minimum sizes,
-taskbar visibility, startup location, and tool-specific grouping metadata. Keep the
-manifest as the single owner of these values; do not infer a window type from a filename.
-
-For example, a tool with two raw views can declare separate stable ids while sharing one
-design-time state type:
-
-```yaml
-sandboxWindows:
-  - id: DBTools.MyTool.Main
-    displayName: &quot;My Tool&quot;
-    group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.MyTool.MainView.xaml&quot;
+    xamlResource: &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;
     windowKind: Modal
     width: 1200
     height: 700
     minWidth: 900
     minHeight: 500
     startupLocation: CenterScreen
-    designTimeViewModelType: &quot;DBTools.MyTool.App.DesignTime.MyToolDesignTimeViewModel&quot;
+    designTimeViewModelType: &quot;DBTools.MyTool.App.DesignTime.MyToolWindowDesignTimeViewModel&quot;
     designTimeViewModelAssembly: &quot;DBTools.MyTool&quot;
     designTimeViewModelVisibility: Public
 </code></pre>
-<pre><code>
-Sandbox copies manifest values into local specifications and opens the raw view
-through `DBTools.Presentation.ToolWindows.ToolWindowHost`. It does not activate
-a candidate `Window` type by reflection. Raw views have no `x:Class`,
-code-behind, payload pack URI, event attribute, payload BAML, or implicit
-payload template. Use explicit templates, selectors, and display paths for
-bound content.
-
-## Runtime ownership
-
-Presentation owns stable WPF shells, themes, resources, and
-`ToolWindowCallbackScope`. Core and tool assemblies remain candidate-owned and
-are loaded from the year tree. Sandbox does not invoke App's Revit startup and
-does not load Revit reference DLLs as executable product files.
-
-## Archive and validation
-
-Distribution archives are year-keyed even though both years target the same TFM:
-
-```text
-.artifacts/sandbox/&lt;configuration&gt;/&lt;year&gt;/&lt;tfm&gt;/
-sandbox/&lt;year&gt;/&lt;sanitized-tfm&gt;/
+<p>Embed the matching resource in the owning tool project:</p>
+<pre><code class="lang-xml">&lt;EmbeddedResource Include=&quot;App\Views\MyToolWindow.xaml&quot;
+                  LogicalName=&quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot; /&gt;
 </code></pre>
-<p>Portable checks validate raw XAML, manifest ownership, metadata, and recursive
-file fingerprints. Native WPF layout, binding, theme, and window cleanup require
-the Windows acceptance process. A live daemon Dev Mode inject/reload remains a
-separate operational proof.</p>
-<h2 id="design-time-viewmodels">Design-time ViewModels</h2>
-<p>The manifest's <code>designTimeViewModelType</code> and <code>designTimeViewModelAssembly</code> are
-validated against the candidate tool image. The type must be public, concrete, and
-have a public parameterless constructor. Keep design-time construction independent
-of Revit documents, external events, network services, and production settings.</p>
-<pre><code class="lang-csharp">public sealed class MyWindowDesignTimeViewModel
-{
-    public MyWindowDesignTimeViewModel()
-    {
-        Rows = [new MyRow(&quot;Example&quot;, &quot;Preview&quot;)];
-    }
-
-    public IReadOnlyList&lt;MyRow&gt; Rows { get; }
-}
-</code></pre>
-<p>Use explicit state and commands in the design-time graph. A small <code>NoOpCommand</code> is
-appropriate for a display-only action whose behavior is outside the validation surface;
-do not hide a production command failure behind a design-time double. If a design-time
-fixture needs an analyzer suppression, keep it on the narrow declaration and explain the
-actual WPF or generated-code reason.</p>
-<p>Raw XAML is the stable boundary. It must use the exact logical resource name, avoid
-<code>x:Class</code>, code-behind event attributes, payload CLR namespaces, inferred columns, and
-implicit payload templates. Bind visible text, headers, items, and tooltips explicitly.
-The stable Presentation host owns themes, resources, window lifecycle, and the callback
-scope; a tool owns its candidate view resource and design-time ViewModel.</p>
-<h2 id="local-commands">Local commands</h2>
-<p>Build the candidate before running the Sandbox:</p>
-<pre><code class="lang-bash">./build.sh AssembleDistributionCandidate -y 2026
-./build.sh AssembleDistributionCandidate -y 2027
-</code></pre>
-<p>Without <code>--dist-dir</code>, interactive validation opens the published Release tree. Pass
-<code>--dist-dir</code> to select a candidate:</p>
-<pre><code class="lang-bash">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj \
-  -- --dist-dir .artifacts/dist/candidate/2026
-</code></pre>
-<p>Headless validation avoids creating windows while preserving candidate checks:</p>
-<pre><code class="lang-bash">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj -- \
-  --headless --dist-dir .artifacts/dist/candidate/2026 \
-  --revit-reference-dir /path/to/Revit2026
-</code></pre>
-<p>The supported options are <code>--dist-dir</code> (or <code>--dist-dir=&lt;path&gt;</code>),
-<code>--revit-reference-dir</code> (required with <code>--headless</code>, rejected without it), and
-<code>--headless</code>. Blank values are rejected. An absent or ambiguous year directory fails
-before Core, Presentation, or WPF loads.
-Run one fresh process per candidate year; do not reuse a process after changing the
-candidate tree.</p>
-<h2 id="validation-checks-and-troubleshooting">Validation checks and troubleshooting</h2>
-<p>The validation sequence is deliberately ordered:</p>
-<ol>
-<li>Parse the year and candidate directory.</li>
-<li>Validate <code>.addin</code>, required top-level files, recursive <code>Tools/</code> files, PE identities,
-and supported target framework.</li>
-<li>Load candidate App/Core/Presentation/HandyControl and declared tool images from their
-actual default-context paths.</li>
-<li>Validate embedded manifests, raw XAML logical names, design-time ViewModels, and
-stable resource ownership.</li>
-<li>Construct native windows, exercise layout and interactions, capture binding errors,
-close windows, and verify Dispatcher cleanup.</li>
-</ol>
-<p>Common failures have direct owners:</p>
 <table>
 <thead>
 <tr>
-<th>Failure</th>
-<th>Check</th>
+<th>Field</th>
+<th>Requirement and meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Tool window resource missing</td>
-<td>Match <code>xamlResource</code> to the owning project's <code>LogicalName</code>.</td>
+<td><code>id</code></td>
+<td>Required stable window identity.</td>
 </tr>
 <tr>
-<td>ViewModel cannot be created</td>
-<td>Make the declared type public, concrete, and parameterless.</td>
+<td><code>displayName</code></td>
+<td>Required catalog/window title.</td>
 </tr>
 <tr>
-<td>Binding errors</td>
-<td>Inspect the binding listener output and bind display state explicitly.</td>
+<td><code>group</code></td>
+<td>Required catalog group.</td>
 </tr>
 <tr>
-<td>Candidate file mismatch</td>
-<td>Rebuild the selected year and compare the recursive product listing.</td>
+<td><code>assembly</code></td>
+<td>Optional raw-view assembly override. Otherwise the tool's manifest owner.</td>
 </tr>
 <tr>
-<td>Revit reference mismatch</td>
-<td>Pass the matching installed year directory; reference files are metadata evidence.</td>
+<td><code>xamlResource</code></td>
+<td>Required exact embedded logical resource name.</td>
 </tr>
 <tr>
-<td>Window cleanup failure</td>
-<td>Close the window and allow its Dispatcher cleanup to complete before process exit.</td>
+<td><code>windowKind</code></td>
+<td><code>Modal</code> by default, or <code>Modeless</code>.</td>
+</tr>
+<tr>
+<td><code>designTimeViewModelType</code></td>
+<td>Required fully qualified design-time type.</td>
+</tr>
+<tr>
+<td><code>designTimeViewModelAssembly</code></td>
+<td>Required simple assembly name.</td>
+</tr>
+<tr>
+<td><code>designTimeViewModelVisibility</code></td>
+<td>Required <code>Public</code> or <code>Internal</code>, matching the type.</td>
+</tr>
+<tr>
+<td><code>width</code>, <code>height</code>, <code>minWidth</code>, <code>minHeight</code></td>
+<td>Optional finite dimensions. Width/height must be positive. Minimum sizes may be zero.</td>
+</tr>
+<tr>
+<td><code>showInTaskbar</code></td>
+<td>Optional Boolean. Defaults to false.</td>
+</tr>
+<tr>
+<td><code>startupLocation</code></td>
+<td>Optional WPF startup location. Defaults to <code>CenterOwner</code>.</td>
+</tr>
+<tr>
+<td><code>titleBindingPath</code>, <code>titleStringFormat</code></td>
+<td>Optional title binding and format.</td>
 </tr>
 </tbody>
 </table>
-<p>The Sandbox process does not prove Revit startup, daemon ProductLoadContext sharing, or
-Dev Mode reload behavior. Those remain separate coordinator-owned Windows/daemon proofs.</p>
-<h2 id="tool-examples">Tool examples</h2>
-<p>GM uses multiple <code>sandboxWindows</code> entries that point to raw logical resources and
-tool-owned design-time ViewModels. SGT follows the same pattern for its raw views. A new
-tool should copy the manifest shape, add explicit raw resources and ViewModels, and add
-the owning Pure validation fixture before requesting native evidence.</p>
+<p>The parser rejects unknown fields and blank required values. Use exact enum
+spellings. Multiple entries can share a design-time type while using different
+stable IDs and raw resources. The manifest owns this metadata. Sandbox does not
+infer a Window type from a filename.</p>
+<h2 id="raw-views-and-runtime-ownership">Raw views and runtime ownership</h2>
+<p>Use a stable root such as <code>Grid</code>. Raw views have no Window root, <code>x:Class</code>,
+code-behind, event attributes, tool CLR namespaces, payload pack URIs, payload
+BAML, or implicit templates for tool types. Bind visible text, headers, items,
+and tooltips explicitly. Use explicit templates, selectors, and display paths
+for bound content.</p>
+<p><code>SandboxWindowFactory</code> reads the raw resource and constructs the design-time
+ViewModel. <code>DBTools.Presentation.ToolWindows.ToolWindowHost</code> creates the shell.
+Core installs its window initializer, and the session owns initializer cleanup.
+Presentation owns themes, resources, window shells, and <code>ToolWindowCallbackScope</code>.
+Core and tool assemblies come from the selected candidate tree.</p>
+<p>The production session contract is described in
+<a href="modularity.html#tool-window-sessions">Modularity</a>. Settings pack views supplied by
+pack factories are a separate embedded editor surface.</p>
+<h2 id="design-time-viewmodels">Design-time ViewModels</h2>
+<p>A <code>Public</code> type needs a public parameterless constructor. An <code>Internal</code> type
+must be non-public and have a public or non-public parameterless constructor.
+The manifest must select the matching visibility. The type must be constructible.
+Keep construction independent of Revit documents, external events, network
+services, and production settings.</p>
+<pre><code class="lang-csharp">namespace DBTools.MyTool.App.DesignTime;
+
+public sealed class MyToolWindowDesignTimeViewModel
+{
+    public string Title =&gt; &quot;My Tool&quot;;
+    public IReadOnlyList&lt;string&gt; Rows { get; } = new[] { &quot;Example&quot;, &quot;Preview&quot; };
+}
+</code></pre>
+<p>Use explicit sample state and commands. A display-only action may use
+<code>NoOpCommand</code> from <code>DBTools.Core.UI.Commanding.DesignTime.NoOp</code>. Do not use a
+design-time double to conceal a production command failure. Keep any analyzer
+suppression on the narrow declaration and explain the WPF or generated-code
+constraint it addresses.</p>
+<p>GM declares several raw views and their design-time ViewModels. SGT follows
+the same manifest pattern and adds its explicit Sandbox view composition where
+needed. Use these owners as examples without copying their feature behavior.</p>
+<h2 id="build-and-run">Build and run</h2>
+<p>Build a product candidate and Sandbox:</p>
+<pre><code class="lang-bash">./build.sh AssembleDistributionCandidate -y 2026
+./build.sh BuildSandbox -y 2026
+</code></pre>
+<p>Candidate assembly can compile edited source. Acceptance targets require a clean
+committed tree. Read the build output for its build ID and use that invocation's
+candidate directory:</p>
+<pre><code class="lang-text">.artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026/
+.artifacts/sandbox/Release/2026/net10.0-windows/
+</code></pre>
+<p>Run Sandbox on Windows with the matching Revit year installed. Both modes
+resolve that installation, require its runtime files, and check metadata/runtime
+compatibility. Supplying metadata references does not remove the installation
+requirement. For example, from the repository root:</p>
+<pre><code class="lang-powershell">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj -p:RevitYear=2026 -- --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026
+</code></pre>
+<p>Replace <code>&lt;build-id&gt;</code> with the ID printed by the candidate build. To validate
+without the interactive catalog, add headless mode and the matching installed
+Revit reference directory:</p>
+<pre><code class="lang-powershell">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj -p:RevitYear=2026 -- --headless --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026 --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
+</code></pre>
+<p>These are native Windows commands. Daemon-routed acceptance uses its hidden
+desktop. See <a href="testing-tools.html#execution-hosts">Testing Tools</a> for routing.</p>
+<h3 id="options">Options</h3>
+<pre><code class="lang-text">Sandbox [--dist-dir PATH] [--headless --revit-reference-dir PATH]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default and behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--dist-dir PATH</code></td>
+<td><code>.artifacts/dist/Release</code>. Accept a year directory or a root containing supported year directories.</td>
+</tr>
+<tr>
+<td><code>--headless</code></td>
+<td>Disabled. Run native validation without the interactive catalog.</td>
+</tr>
+<tr>
+<td><code>--revit-reference-dir PATH</code></td>
+<td>Required with <code>--headless</code>. Invalid without it.</td>
+</tr>
+</tbody>
+</table>
+<p>Both path options also accept <code>--name=value</code>. Blank values and unknown arguments
+fail. A distribution root selects the newest supported year containing
+<code>DBTools.dll</code>. It does not reject a root merely because both years are present.
+Use an explicit year directory to select 2026 when 2027 also exists.
+A missing candidate fails before WPF startup.</p>
+<p>Headless mode suppresses interactive UI but still creates native WPF windows,
+checks layout and bindings, exercises supported interactions, and closes owned
+windows. It requires Windows Desktop. It is not a Linux metadata-only mode.</p>
+<h2 id="validation-and-archives">Validation and archives</h2>
+<p>Native validation checks the add-in entrypoint, themes, catalog entries,
+manifests, Core windows, and tool windows. A binding listener captures errors.
+It verifies that Revit host assemblies did not load, closes owned windows, and
+disposes the candidate runtime. Primary and cleanup failures remain visible.</p>
+<p><code>PackageSandboxValidationInput</code> packages the current candidate and Sandbox for
+native validation. Sandbox output and archive paths remain year-keyed even
+though both desktop years use one target framework:</p>
+<pre><code class="lang-text">.artifacts/sandbox/&lt;configuration&gt;/&lt;year&gt;/&lt;tfm&gt;/
+sandbox/&lt;year&gt;/&lt;sanitized-tfm&gt;/
+</code></pre>
+<p>Portable validation checks metadata, ownership, raw XAML, recursive fingerprints,
+and static Dev Mode policy. Native WPF layout, binding, themes, and cleanup
+require Windows. A live daemon Dev Mode inject/reload additionally tests product
+load-context sharing and generation replacement. Neither Sandbox nor portable
+preflight substitutes for that operational check.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Missing view resource</td>
+<td>Match <code>xamlResource</code> to the owning project's <code>LogicalName</code>.</td>
+</tr>
+<tr>
+<td>ViewModel construction failure</td>
+<td>Check assembly/type names, declared visibility, and parameterless constructor access.</td>
+</tr>
+<tr>
+<td>Binding errors</td>
+<td>Read binding-listener output and supply explicit display bindings.</td>
+</tr>
+<tr>
+<td>Candidate file/identity mismatch</td>
+<td>Rebuild the selected candidate and inspect its recursive file set.</td>
+</tr>
+<tr>
+<td>Wrong candidate year</td>
+<td>Pass an explicit year directory rather than the distribution root.</td>
+</tr>
+<tr>
+<td>Reference mismatch</td>
+<td>Supply matching installed-year Revit references in headless mode.</td>
+</tr>
+<tr>
+<td>Cleanup failure</td>
+<td>Inspect the window/session cleanup failure before terminating the process.</td>
+</tr>
+</tbody>
+</table>
 <p>See <a href="../architecture/sandbox-validator.html">Sandbox Validator</a>,
-<a href="../architecture/assembly-loading.html">Assembly Loading Contract</a>, and
+<a href="../architecture/assembly-loading.html">Assembly Loading</a>, and
 <a href="new-tool-guide.html">Creating New Tools</a>.</p>
 
 </article>

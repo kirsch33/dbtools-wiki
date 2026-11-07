@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -122,7 +122,7 @@ The run scope rejects invalid expected or active documents and requires matching
 <li><strong><code>InlineUi</code></strong>: modal Revit commands or daemon-hosted Revit automation contexts that already run on the UI thread and do not require <code>ExternalEvent</code>/Idling pumping.</li>
 <li><strong><code>QueuedModeless</code></strong>: modeless tool windows or long-running workflows that must marshal Revit API work onto the UI thread via the queued host.</li>
 </ul>
-<h3 id="itransactionrunner-itransactiongroupservice"><code>ITransactionRunner</code> / <code>ITransactionGroupService</code></h3>
+<h3 id="itransactionrunner--itransactiongroupservice"><code>ITransactionRunner</code> / <code>ITransactionGroupService</code></h3>
 <ul>
 <li><strong>Resolve scoped transaction services from the App/command scope</strong> (<code>context.Resolve&lt;ITransactionRunner&gt;()</code> / <code>context.Resolve&lt;ITransactionGroupService&gt;()</code>) to ensure Revit API access is routed through the call gate and wrapped in proper transactions. <code>IRevitRunScope</code> owns only UIApplication, the call gate, document access, and disposal.</li>
 <li><code>TransactionRunner</code> is explicitly built on top of <code>IRevitCallGate</code> and applies synchronous delegate/result-type admission before entering the gate or opening a transaction. Its reference-result awaitable guard executes inside the transaction body, before commit. This keeps transactions and UI-thread access consistent with Revit’s rules.</li>
@@ -204,9 +204,11 @@ its own task and the turn continues with the next item. An item that leaves a
 transaction open in any document ends the turn: Revit discards what a callback leaves
 open only when the callback returns, so the next item waits for a later turn instead of
 running inside it. A transaction group without an open transaction is invisible to that
-check, so every production member that creates a <code>TransactionGroup</code> also calls
-<code>RevitCallGateTurnBoundary.EndAfterCurrentCall()</code>, which ends the turn after its call.
-<code>TransactionGroupTurnBoundaryContractTests</code> (Build tests) fails when a construction lacks it.
+check, so production code creates transaction groups through
+<code>RevitTransactionGroups.Begin</code>. The factory ends the current turn before it
+constructs and starts the group. <code>TransactionGroupTurnBoundaryContractTests</code>
+(Build tests) scans compiled production assemblies and permits construction only
+inside that factory.
 Nested Auto calls stay inline while
 <code>ForceQueue</code> explicitly defers to a future turn. The probe never raises its event
 and therefore does not claim that Revit dispatched a later native turn.</p>
