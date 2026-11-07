@@ -207,10 +207,26 @@ Sentinel is Pending, Present, or Missing. ACAD shows the Core Console path or Un
 <h2 id="testing">Testing</h2>
 <p>The Pure project references the normal desktop tool project, which owns its source and resource mapping.
 Pure fixtures cover domain, planning, preview, execution, filesystem policy, CAD process handling, view models, and catalog editing.
-CAD fixtures replace <code>accoreconsole.exe</code> with a <code>.cmd</code> file that copies a prepared result file to <code>{stem}.result.json</code>
+Most CAD fixtures replace <code>accoreconsole.exe</code> with a <code>.cmd</code> file that copies a prepared result file to <code>{stem}.result.json</code>
 and the input file to the scratch folder, and the planner fixtures use a fake <code>ICadPreviewer</code>.
-No automated test runs <code>rs_xrefs.lsp</code> in AutoCAD Core Console.
-Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover TransmissionData and WPF application behavior.</p>
+<code>CadLiveTests</code> runs the embedded <code>rs_xrefs.lsp</code> through <code>CadPreviewer</code>, <code>CadXrefDiscovery</code>,
+<code>PreviewPlanBuilder</code> and <code>CadExecutor</code> with real AutoCAD Core Console. Each test is ignored unless
+<code>ACCORECONSOLE</code> names an existing file. The fixture does not search PATH or Autodesk installation folders.
+Select it with <code>./test.sh test --tool RECORDSET --scope pure --fixture CadLiveTests</code> on a machine with AutoCAD.
+The fixture creates DWGs in a temporary folder and removes that folder in teardown. It checks a relative
+attachment, a nested attachment and an Xref inserted only inside a local block, their planned copies and
+stored-path maps, repath readback, and Bind All from source-relative paths. Readback occurs after removing
+the source drawings. It exercises CAD plan items directly, without opening a Revit host.</p>
+<p>The fixture script uses these AutoCAD command sequences:</p>
+<ul>
+<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-E8C1190C-A26C-484C-ADDD-DDF81666F69F.htm">LINE</a>: first point, next point, end input.</li>
+<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-E2CEA3F2-43CA-41D0-A2C6-BACF2229715A.htm">SAVEAS</a>: default file format, filename, with <code>FILEDIA=0</code>.</li>
+<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-70599862-DF52-4291-B64B-8A4C45599F39.htm">-XREF Attach</a>: filename, insertion point, X scale, Y scale, rotation.
+<a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-CCC90130-7575-4901-8905-FBB4553DAA3F.htm">REFPATHTYPE=1</a> selects relative paths after the host has a filename.</li>
+<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-816B2D9C-F518-4E8B-971F-08E0E43006E7.htm">-BLOCK</a>: name, Mode/Convert, base point, selected Xref insert, end selection.</li>
+<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-99900C99-230D-4709-B8DD-A44435328A13.htm">QSAVE</a>: save the named drawing without a filename prompt.</li>
+</ul>
+<p>Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover TransmissionData and WPF application behavior.</p>
 <p>WPF fixtures share <code>WindowRuntimeScope</code>, which releases only runtime state it installs.
 The hosted bootstrap supplies the Revit owner. Modal tests use <code>ToolWindowDialog.Show</code> with synchronous callbacks
 and a ten-second watchdog. The watchdog cannot interrupt native code or callbacks that do not pump the dispatcher.</p>
