@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/common/elevation-tags.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../../public/main.js?v=20260125" defer></script>
+      <script src="../../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,591 +89,250 @@
         <article data-uid="">
 <h1 id="elevation-tags">Elevation Tags</h1>
 
-<p><strong>Elevation Tags</strong> is a Revit add-in tool that automatically aligns spot elevation tags in floor, structural, and ceiling plan views, ensuring consistent text positioning relative to leader endpoints.</p>
-<h2 id="overview">Overview</h2>
-<p>Elevation Tags provides two modes of operation:</p>
-<ul>
-<li><strong>Automatic Update</strong>: Tags are aligned when activating floor/structural/ceiling plan views</li>
-<li><strong>Manual Update</strong>: Users can trigger alignment on-demand via the ribbon button</li>
-</ul>
-<p>The tool calculates precise text positioning based on:</p>
-<ul>
-<li>Tag type font metrics (size, width scale, font family)</li>
-<li>View scale factor</li>
-<li>Leader direction</li>
-<li>Configurable leader-relative offsets</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:59-91</code></p>
-</blockquote>
-<h2 id="features">Features</h2>
-<table>
-<thead>
-<tr>
-<th>Feature</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Auto-Update on View Activation</strong></td>
-<td>Automatically aligns elevation tags when opening floor/structural/ceiling plan views</td>
-</tr>
-<tr>
-<td><strong>Manual Alignment Command</strong></td>
-<td>Ribbon button to align tags in the active view on-demand</td>
-</tr>
-<tr>
-<td><strong>Regex Tag Filtering</strong></td>
-<td>Configure which tags to align using regex patterns (up to 3 patterns), matched case-insensitively against spot/tag type family+type naming</td>
-</tr>
-<tr>
-<td><strong>Detailed No-Update Diagnostics</strong></td>
-<td>Manual command distinguishes no spots, no regex matches, and already-aligned results</td>
-</tr>
-<tr>
-<td><strong>Live Preview</strong></td>
-<td>Settings pack includes a compact real-time preview of the configured nudges</td>
-</tr>
-<tr>
-<td><strong>Leader-Relative Offsets</strong></td>
-<td>Fine-tune alignment with Along Leader and Perpendicular offsets instead of raw X/Y nudges</td>
-</tr>
-<tr>
-<td><strong>Warning System</strong></td>
-<td>Tool can be disabled via warnings, preventing accidental auto-updates</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:21-56</code></p>
-</blockquote>
-<h2 id="user-interface">User Interface</h2>
-<h3 id="ribbon-button">Ribbon Button</h3>
-<p>The tool adds a single ribbon button:</p>
-<ul>
-<li><strong>Display Text</strong>: &quot;Align Elevation Tags&quot;</li>
-<li><strong>Tooltip</strong>: &quot;Align elevation tags in the active view&quot;</li>
-<li><strong>Icon</strong>: <code>align_elevation_tags_icon.png</code></li>
-<li><strong>Availability</strong>: Only enabled when an active view is present</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/manifest.yml:18-26</code></p>
-</blockquote>
-<h3 id="settings-panel">Settings Panel</h3>
-<p>The settings UI provides controls for:</p>
+<p>Elevation Tags aligns spot elevation text relative to leader endpoints in floor, structural, and ceiling plans.
+Manual alignment runs on the active view. Automatic alignment runs when a supported view activates.</p>
+<h2 id="use-and-settings">Use and settings</h2>
 <ol>
-<li><strong>Auto-Update Toggle</strong> - Enable/disable automatic updates on view activation</li>
-<li><strong>Tag Name Patterns</strong> - Regex patterns to match elevation tag names (max 3)</li>
-<li><strong>Alignment Offsets</strong> - Along Leader and Perpendicular offset values with spinner controls</li>
-<li><strong>Live Preview</strong> - Inline specimen that redraws as offsets change</li>
+<li>Open a FloorPlan, EngineeringPlan, or CeilingPlan view.</li>
+<li>Configure <strong>Elevation Tags</strong> in Settings.</li>
+<li>Run <strong>Align Elevation Tags</strong>, or enable automatic updates.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettingsPackView.xaml:1</code></p>
-</blockquote>
-<h2 id="architecture">Architecture</h2>
-<h3 id="module-structure">Module Structure</h3>
-<pre><code>src/Tools/Common/ElevationTags/
-+-- DBTools.ElevationTags.csproj    # Project file
-+-- ElevationTagsToolModule.cs      # DI registration entry point
-+-- manifest.yml                    # Tool manifest
-+-- Assets/
-|   +-- align_elevation_tags_icon.png
-+-- Features/
-|   +-- AlignElevationTagsInViewCommand.cs  # Ribbon command
-|   +-- ElevationTagsAutoUpdater.cs         # Core alignment logic
-+-- Hooks/
-|   +-- ElevationTagsViewActivatedTask.cs   # View activation handler
-+-- Settings/
-    +-- ElevationTagsSettings.cs            # Settings model
-    +-- ElevationTagsSettingsPackContext.cs # Settings UI context
-    +-- ElevationTagsSettingsPackView.xaml  # Settings UI view
-    +-- ElevationTagsSettingsPackView.xaml.cs
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> Directory structure of <code>src/Tools/Common/ElevationTags/</code></p>
-</blockquote>
-<h3 id="data-flow">Data Flow</h3>
-<pre><code>                    +---------------------------+
-                    | View Activation / Command |
-                    +-----------+---------------+
-                                |
-                                v
-                    +---------------------------+
-                    | ElevationTagsViewActivated|
-                    | Task / Command            |
-                    +-----------+---------------+
-                                |
-                                | Retrieves settings, creates updater
-                                v
-                    +---------------------------+
-                    |  ElevationTagsAutoUpdater |
-                    +-----------+---------------+
-                                |
-         +----------------------+----------------------+
-         |                      |                      |
-         v                      v                      v
-  +--------------+    +-----------------+    +------------------+
-  | Collect Tags |    | Compute Layout  |    | Update Positions |
-  | (Regex Match)|    | Inputs          |    | (Transaction)    |
-  +--------------+    +-----------------+    +------------------+
-</code></pre>
-<h3 id="key-classes">Key Classes</h3>
+<p>The command requires an active view. An unsupported view produces a warning toast without running alignment.
+The settings preview redraws as per-type offsets change.</p>
+<p>Settings use configuration section <code>Tools.ElevationTags</code> and pack key <code>common.elevation_tags</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Class</th>
-<th>File</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ElevationTagsToolModule</code></td>
-<td><code>ElevationTagsToolModule.cs:14-92</code></td>
-<td>Tool module registration; registers settings, services, and settings packs</td>
-</tr>
-<tr>
-<td><code>AlignElevationTagsInViewCommand</code></td>
-<td><code>Features/AlignElevationTagsInViewCommand.cs:19-48</code></td>
-<td>Ribbon command entry point; creates updater and runs alignment</td>
-</tr>
-<tr>
-<td><code>ElevationTagsAutoUpdater</code></td>
-<td><code>Features/ElevationTagsAutoUpdater.cs:15-232</code></td>
-<td>Core alignment logic; computes text positions and updates spot dimensions</td>
-</tr>
-<tr>
-<td><code>ElevationTagsViewActivatedTask</code></td>
-<td><code>Hooks/ElevationTagsViewActivatedTask.cs:20-66</code></td>
-<td>View activation hook; triggers auto-update on floor/structural/ceiling plan views</td>
-</tr>
-<tr>
-<td><code>ElevationTagsSettings</code></td>
-<td><code>Settings/ElevationTagsSettings.cs:21-56</code></td>
-<td>Settings model with default values</td>
-</tr>
-<tr>
-<td><code>ElevationTagsSettingsPackContext</code></td>
-<td><code>Settings/ElevationTagsSettingsPackContext.cs:18-242</code></td>
-<td>MVVM context for settings UI with validation</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/ElevationTagsToolModule.cs:14-92</code></p>
-</blockquote>
-<h3 id="alignment-algorithm">Alignment Algorithm</h3>
-<p>The <code>ElevationTagsAutoUpdater.TryUpdateSpot()</code> method performs the alignment calculation:</p>
-<ol>
-<li><p><strong>Extract Tag Properties</strong></p>
-<ul>
-<li>Origin position, leader end position, current text position</li>
-<li>Tag type parameters (text height, width scale, font name)</li>
-<li>Elevation base setting (Project Base Point, Survey Point, Relative)</li>
-</ul>
-</li>
-<li><p><strong>Format Elevation Value</strong></p>
-<ul>
-<li>Apply elevation indicator prefix/suffix</li>
-<li>Format using document unit settings</li>
-</ul>
-</li>
-<li><p><strong>Measure Text</strong></p>
-<ul>
-<li>Use GDI+ to measure formatted text string</li>
-<li>Account for font size scaled to view</li>
-</ul>
-</li>
-<li><p><strong>Calculate New Position</strong></p>
-<ul>
-<li>Resolve a base placement from the current tag type/text side</li>
-<li>Derive semantic directions from that placement</li>
-<li>Apply Along Leader and Perpendicular user offsets without overriding the tag type's own above/below behavior</li>
-</ul>
-</li>
-<li><p><strong>Update Position</strong></p>
-<ul>
-<li>Update when either X or Y changes (rounded to 2 decimal places)</li>
-<li>Set <code>SpotDimension.TextPosition</code> to new XYZ</li>
-</ul>
-</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs</code></p>
-</blockquote>
-<h3 id="view-activation-hook">View Activation Hook</h3>
-<p>The <code>ElevationTagsViewActivatedTask</code> implements <code>ViewActivatedTaskBase&lt;ElevationTagsSettings&gt;</code>:</p>
-<pre><code class="lang-csharp">protected override Task&lt;bool&gt; ShouldRunInternalAsync(
-    UIApplication uiapp,
-    ViewActivatedEventArgs args,
-    ElevationTagsSettings settings,
-    CancellationToken ct)
-{
-    var view = app.ActiveUIDocument?.Document?.ActiveView;
-    if (view == null)
-        return Task.FromResult(false);
-
-	    return Task.FromResult(
-	        view.ViewType == ViewType.FloorPlan ||
-	        view.ViewType == ViewType.EngineeringPlan ||
-	        view.ViewType == ViewType.CeilingPlan);
-	}
-	```
-
-The task only runs when:
-- Auto-update is enabled in settings
-- No active warning is set
-- The activated view is a floor plan, structural plan, or ceiling plan
-
-&gt; **Source:** `src/Tools/Common/ElevationTags/Hooks/ElevationTagsViewActivatedTask.cs:40-52`
-
-## Settings
-
-### Settings Model
-
-```csharp
-public sealed class ElevationTagsSettings : IAutoUpdateSettings
-{
-    /// &lt;summary&gt;Whether auto-update on view activation is enabled.&lt;/summary&gt;
-    public bool AutoUpdateEnabled { get; set; } = true;
-
-    /// &lt;summary&gt;Whether a warning has been set (disables auto-update).&lt;/summary&gt;
-    public bool HasWarning { get; set; }
-
-    /// &lt;summary&gt;
-    /// Regex patterns to match tag names. Tags matching any pattern will be aligned.
-    /// Default pattern matches:
-    /// - DB Elevation Tag - Concrete Label
-    /// - DB Elevation Tag - Steel Label
-    /// - DB Elevation Tag - Wall Label
-    /// Maximum of 3 patterns.
-    /// &lt;/summary&gt;
-    public List&lt;string&gt; TagNamePatterns { get; set; } = new()
-    {
-        &quot;^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$&quot;
-    };
-
-    /// &lt;summary&gt;Semantic offset along the leader direction.&lt;/summary&gt;
-    public double AlongLeaderOffset { get; set; }
-
-    /// &lt;summary&gt;Semantic offset perpendicular to the leader direction.&lt;/summary&gt;
-    public double PerpendicularOffset { get; set; }
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Settings/ElevationTagsSettings.cs:1</code></p>
-</blockquote>
-<h3 id="default-values">Default Values</h3>
-<table>
-<thead>
-<tr>
-<th>Setting</th>
-<th>Default Value</th>
-<th>Description</th>
+<th>Property</th>
+<th>Default</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>AutoUpdateEnabled</code></td>
 <td><code>true</code></td>
-<td>Auto-update is enabled by default</td>
-</tr>
-<tr>
-<td><code>HasWarning</code></td>
-<td><code>false</code></td>
-<td>No warning set initially</td>
+<td>Run on supported view activation</td>
 </tr>
 <tr>
 <td><code>TagNamePatterns</code></td>
-<td><code>[&quot;^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$&quot;]</code></td>
-<td>Matches the three DB elevation label families</td>
+<td>Empty list</td>
+<td>Regex patterns. An empty or all-blank list uses the static defaults</td>
 </tr>
 <tr>
-<td><code>AlongLeaderOffset</code></td>
-<td><code>0.0</code></td>
-<td>No additional along-leader nudge</td>
-</tr>
-<tr>
-<td><code>PerpendicularOffset</code></td>
-<td><code>0.0</code></td>
-<td>No additional perpendicular nudge</td>
+<td><code>TypeOffsets</code></td>
+<td>Empty dictionary</td>
+<td><code>TypeAlignmentOffsets</code> keyed by spot elevation type name</td>
 </tr>
 </tbody>
 </table>
-<h3 id="configuration-section">Configuration Section</h3>
-<p>Settings are stored under the <code>Tools.ElevationTags</code> configuration section.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/manifest.yml:7</code></p>
-</blockquote>
-<h2 id="manifest">Manifest</h2>
-<pre><code class="lang-yaml">id: DBTools.ElevationTags
-assembly: DBTools
-moduleType: DBTools.ElevationTags.ElevationTagsToolModule
-order: 0
-tool:
-  settings:
-    configSection: Tools.ElevationTags
-  settingsPacks:
-    - key: common.elevation_tags
-      title: &quot;Elevation Tags&quot;
-      warnings:
-        - id: core.structural.elevation_tags
-          title: &quot;Elevation Tags Disabled&quot;
-          message: &quot;Elevation tag alignment is disabled due to a warning. Clear the warning to re-enable.&quot;
-          disableTools:
-            - DBTools.AlignElevationTagsInView
-  ribbonTools:
-    - internalName: DBTools.AlignElevationTagsInView
-      commandType: DBTools.ElevationTags.AlignElevationTagsInViewCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtActiveViewAvailability
-      runProfile: InlineUi
-      displayText: &quot;Align Elevation\nTags&quot;
-      iconBaseKey: align_elevation_tags
-      tooltip: &quot;Align elevation tags in the active view&quot;
-      controlKind: PushButton
-      order: 20
+<p>The default pattern is:</p>
+<pre><code class="lang-regex">^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/manifest.yml:1-27</code></p>
-</blockquote>
-<h3 id="manifest-properties">Manifest Properties</h3>
+<p>The UI permits up to three patterns and validates their syntax. At least one nonblank pattern is required to save settings.
+Runtime compiles nonblank patterns case-insensitively. Invalid patterns log warnings and are skipped.
+With no valid compiled patterns, no tags match.</p>
+<p><code>TypeAlignmentOffsets</code> contains <code>AlongLeaderOffset</code> and <code>PerpendicularOffset</code>.
+Both default to zero for an unconfigured type. Runtime multiplies these values by <code>view.Scale / 12</code>.
+The signs follow the computed text side relative to the leader endpoint.</p>
+<h2 id="filtering">Filtering</h2>
+<p><code>AutoUpdater</code> collects non-type <code>OST_SpotElevations</code> elements from the active view as <code>SpotDimension</code> instances.
+A match against any configured regex includes the spot.
+Candidate strings include the spot name, spot type and family names, and resolved marker-symbol type and family names.
+The matcher tests these strings separately.</p>
+<p>A failure reading a spot's names increments <code>FailedCount</code>.
+The first such failure in a run logs its exception. Leaderless spots, missing types, and Relative-base spots require no update.</p>
+<h2 id="alignment-algorithm">Alignment algorithm</h2>
+<ol>
+<li>Read the origin, leader end, current text position, and spot type.</li>
+<li>Resolve elevation and format its text using document units and the type's unit options.</li>
+<li>Measure the text with GDI+ using font, text size, width scale, and display DPI.</li>
+<li>Compute placement relative to the leader end and current above/below text side.</li>
+<li>Apply the configured per-type offsets.</li>
+<li>Write <code>TextPosition</code> when X or Y differs after rounding to two decimal places in internal coordinates.</li>
+</ol>
+<p>Z remains the existing text Z. The view factor is <code>view.Scale / 12</code>.
+The measured horizontal half-width receives margins of <code>2 * factor / 128 + factor / 8</code>.
+The vertical margin is <code>factor / 64</code>. Placement below the leader also accounts for measured text height.</p>
+<p>The elevation base uses the type's displayed <code>SPOT_ELEV_BASE</code> value:</p>
 <table>
 <thead>
 <tr>
-<th>Property</th>
-<th>Value</th>
-<th>Description</th>
+<th>Display value</th>
+<th>Calculation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>id</code></td>
-<td><code>DBTools.ElevationTags</code></td>
-<td>Unique tool identifier</td>
+<td><code>Project Base Point</code></td>
+<td>Subtract project base point Z only when project and survey point positions differ by at least <code>1e-9</code> on an axis</td>
 </tr>
 <tr>
-<td><code>assembly</code></td>
-<td><code>DBTools</code></td>
-<td>Target assembly name</td>
+<td><code>Relative</code></td>
+<td>Skip alignment</td>
 </tr>
 <tr>
-<td><code>moduleType</code></td>
-<td><code>DBTools.ElevationTags.ElevationTagsToolModule</code></td>
-<td>Entry point class</td>
-</tr>
-<tr>
-<td><code>order</code></td>
-<td><code>0</code></td>
-<td>Load order priority</td>
-</tr>
-<tr>
-<td><code>configSection</code></td>
-<td><code>Tools.ElevationTags</code></td>
-<td>Settings configuration key</td>
-</tr>
-<tr>
-<td><code>runProfile</code></td>
-<td><code>InlineUi</code></td>
-<td>Runs on UI thread with inline modal gate</td>
-</tr>
-<tr>
-<td><code>availabilityType</code></td>
-<td><code>DbtActiveViewAvailability</code></td>
-<td>Command available when active view exists</td>
+<td>Other values, including Survey Point</td>
+<td>Use spot origin Z</td>
 </tr>
 </tbody>
 </table>
-<h3 id="warning-system">Warning System</h3>
-<p>The tool defines a single warning that can disable functionality:</p>
-<ul>
-<li><strong>Warning ID</strong>: <code>core.structural.elevation_tags</code></li>
-<li><strong>Title</strong>: &quot;Elevation Tags Disabled&quot;</li>
-<li><strong>Effect</strong>: When active, disables the <code>AlignElevationTagsInView</code> command and auto-update</li>
-</ul>
-<p>When the warning is set:</p>
-<ul>
-<li><code>HasWarning</code> becomes <code>true</code></li>
-<li><code>AutoUpdateEnabled</code> is forced to <code>false</code></li>
-<li>The toggle in settings is disabled</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/ElevationTagsToolModule.cs:47-68</code></p>
-</blockquote>
-<h2 id="api-reference">API Reference</h2>
-<h3 id="elevationtagsautoupdater">ElevationTagsAutoUpdater</h3>
-<p>The main alignment class that processes spot elevation tags:</p>
-<pre><code class="lang-csharp">public sealed class ElevationTagsAutoUpdater
-{
-    public ElevationTagsAutoUpdater(
-        ITransactionRunner tx,
-        Document doc,
-        View activeView,
-        ILogger&lt;ElevationTagsAutoUpdater&gt; logger,
-        ElevationTagsSettings? settings = null);
-
-    /// &lt;summary&gt;
-    /// Runs the alignment process and returns the count of updated tags.
-    /// Only processes floor plan and ceiling plan views.
-    /// &lt;/summary&gt;
-    public int Run();
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:27-91</code></p>
-</blockquote>
-<h3 id="filtering-logic">Filtering Logic</h3>
-<p>Tags are collected using a <code>FilteredElementCollector</code> scoped to the active view:</p>
-<pre><code class="lang-csharp">var tags = new FilteredElementCollector(_doc, _view.Id)
-    .OfCategory(BuiltInCategory.OST_SpotElevations)
-    .WhereElementIsNotElementType()
-    .ToElements();
-</code></pre>
-<p>Each tag's name is tested against all configured regex patterns. Tags matching any pattern are included.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:96-122</code></p>
-</blockquote>
-<h3 id="elevation-base-handling">Elevation Base Handling</h3>
-<p>The tool respects the elevation base setting on tag types:</p>
+<p>These comparisons use English display strings with ordinal matching.
+An <code>Elevation Indicator</code> becomes the prefix only when <code>Elevation Indicator as Prefix/Suffix</code> equals <code>Prefix</code> and the indicator is nonblank.
+Otherwise the measured prefix is <code>EL. </code>. The calculation does not append a configured suffix.
+Font defaults to Arial and width scale defaults to 1 when their parameters are absent.
+A units-format lookup failure logs once and uses default formatting.</p>
+<h2 id="results-and-errors">Results and errors</h2>
+<p><code>AutoUpdater.Run()</code> returns <code>ElevationTagRunResult</code> with:</p>
 <table>
 <thead>
 <tr>
-<th>Base Setting</th>
-<th>Behavior</th>
+<th>Field</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Survey Point</td>
-<td>Uses raw elevation value</td>
+<td><code>TotalSpotsInView</code></td>
+<td>Collected spots</td>
 </tr>
 <tr>
-<td>Project Base Point</td>
-<td>Subtracts project base point Z from elevation</td>
+<td><code>PatternMatches</code></td>
+<td>Spots accepted by name patterns</td>
 </tr>
 <tr>
-<td>Relative</td>
-<td>Tag is skipped (not aligned)</td>
+<td><code>UpdatedCount</code></td>
+<td>Spots whose position changed</td>
+</tr>
+<tr>
+<td><code>FailedCount</code></td>
+<td>Name-reading or per-spot update failures</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:166-170</code></p>
-</blockquote>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="common-issues">Common Issues</h3>
+<p>Candidate updates share <code>DB Tools - Autoupdating spot elevations</code>.
+The updater catches per-spot update faults, counts them, and continues. The first update fault logs its exception.
+Collection, layout preparation, and transaction-level failures can propagate.</p>
+<p>The manual workflow shows a Warning toast when failures exist, Success when tags change,
+and Info for no spots, no pattern matches, or matching spots requiring no changes.
+The last case includes already aligned, leaderless, and Relative-base spots. Counts do not distinguish those cases.
+Automatic updates log a summary warning for partial failures.
+Uncaught automatic-update failures reach Core's view-activation handling, which shows a runtime-failure banner
+and skips that task for the document session. This runtime failure does not set a persistent settings warning.</p>
+<p>Warning <code>core.structural.elevation_tags</code> disables <code>DBTools.AlignElevationTagsInView</code> and automatic updates.
+The settings context exposes the warning state and disables its automatic-update toggle while the warning is active.</p>
+<h2 id="ownership-and-registration">Ownership and registration</h2>
+<p>Source: <code>src/Tools/Structural/ElevationTags/</code>. The manifest places the tool on the <strong>Common</strong> panel.</p>
 <table>
 <thead>
 <tr>
-<th>Issue</th>
-<th>Cause</th>
-<th>Resolution</th>
+<th>Owner</th>
+<th>Responsibility</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Tags not aligning</td>
-<td>No patterns match tag names</td>
-<td>Add regex pattern matching your tag family names</td>
+<td><code>App/Composition/ElevationTagsCommand</code></td>
+<td>Ribbon entry point and active-view availability</td>
 </tr>
 <tr>
-<td>Auto-update not running</td>
-<td>Warning is active</td>
-<td>Clear the warning in settings panel</td>
+<td><code>App/Composition/ElevationTagsToolModule</code></td>
+<td>Settings and pack registration</td>
 </tr>
 <tr>
-<td>Auto-update not running</td>
-<td>Disabled in settings</td>
-<td>Enable auto-update toggle</td>
+<td><code>App/Composition/ServiceCollectionExtensions</code></td>
+<td>Feature registration</td>
 </tr>
 <tr>
-<td>No tags in view</td>
-<td>View type not supported</td>
-<td>Only floor and ceiling plans are processed</td>
+<td><code>App/Composition/SettingsPackContextFactory</code></td>
+<td>Settings context and live type snapshots</td>
 </tr>
 <tr>
-<td>Invalid regex pattern</td>
-<td>Syntax error in pattern</td>
-<td>Check regex syntax; patterns are validated</td>
+<td><code>Features/AlignElevationTagsWorkflow</code></td>
+<td>Manual validation and completion toasts</td>
 </tr>
 <tr>
-<td>Tags with Relative base skipped</td>
-<td>By design</td>
-<td>Tags with Relative elevation base cannot be aligned</td>
+<td><code>Features/ViewActivatedTask</code></td>
+<td>Supported-view automatic execution</td>
+</tr>
+<tr>
+<td><code>Features/ElevationTagsUpdater</code></td>
+<td>Shared inline call gate, transaction runner, and updater construction</td>
+</tr>
+<tr>
+<td><code>Features/AutoUpdater</code></td>
+<td>Filtering, layout, mutation, and counts</td>
+</tr>
+<tr>
+<td><code>Features/SpotElevationSymbolResolver</code></td>
+<td>Spot marker-symbol resolution</td>
+</tr>
+<tr>
+<td><code>Features/SpotElevationTypeProjector</code></td>
+<td>Live type snapshots for settings</td>
+</tr>
+<tr>
+<td><code>Settings/SettingsPackContext</code></td>
+<td>Pattern, type, and preview wiring and validation</td>
+</tr>
+<tr>
+<td><code>Settings/PatternContext</code></td>
+<td>Core <code>RegexPatternListContext</code> adapter</td>
+</tr>
+<tr>
+<td><code>Settings/TypeContext</code>, <code>TypeSelection</code></td>
+<td>Type filtering, navigation, and offsets</td>
+</tr>
+<tr>
+<td><code>Settings/PreviewContext</code></td>
+<td>Preview formatting and image state</td>
+</tr>
+<tr>
+<td><code>Settings/Views/ElevationTagsSettingsPackView.xaml</code></td>
+<td>Settings layout</td>
 </tr>
 </tbody>
 </table>
-<h3 id="logging">Logging</h3>
-<p>The tool logs diagnostic information via <code>ILogger&lt;ElevationTagsAutoUpdater&gt;</code>:</p>
-<ul>
-<li>Invalid regex patterns are logged as warnings</li>
-<li>Tags that fail to filter or update are logged (first occurrence only)</li>
-<li>Units format option errors are logged</li>
-</ul>
-<pre><code class="lang-csharp">_logger.LogWarning(ex, &quot;[ElevationTags] Invalid regex pattern '{Pattern}'; skipping.&quot;, pattern);
-_logger.LogWarning(&quot;[ElevationTags] No valid tag name patterns are configured; auto-update will be skipped.&quot;);
-_logger.LogWarning(ex, &quot;[ElevationTags] Some elevation tags could not be updated; continuing.&quot;);
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/ElevationTags/Features/ElevationTagsAutoUpdater.cs:51-189</code></p>
-</blockquote>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="../../architecture/overview.html">Architecture Overview</a> - DBTools architecture fundamentals</li>
-<li><a href="../../architecture/theme-system.html">Theme System</a> - UI theming for settings panels</li>
-</ul>
-<h2 id="source-files-reviewed">Source Files Reviewed</h2>
+<p>The assembly and tool ID are <code>DBTools.ElevationTags</code>.
+The module type is <code>DBTools.ElevationTags.App.Composition.ElevationTagsToolModule</code>.
+Command and availability both use <code>DBTools.ElevationTags.App.Composition.ElevationTagsCommand</code>.
+The button uses <code>InlineUi</code>, icon key <code>align_elevation_tags</code>, and order 20.
+The icon asset is <code>Assets/align_elevation_tags_icon.png</code>.</p>
+<h2 id="troubleshooting-and-tests">Troubleshooting and tests</h2>
 <table>
 <thead>
 <tr>
-<th>File</th>
-<th>Purpose</th>
+<th>Symptom</th>
+<th>Check</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>manifest.yml</code></td>
-<td>Tool declaration and ribbon configuration</td>
+<td>No matches</td>
+<td>Compare patterns with spot, type, family, and marker-symbol names</td>
 </tr>
 <tr>
-<td><code>ElevationTagsToolModule.cs</code></td>
-<td>Module registration and DI setup</td>
+<td>Automatic updates absent</td>
+<td>Check the toggle, warning state, supported view type, and runtime log</td>
 </tr>
 <tr>
-<td><code>AlignElevationTagsInViewCommand.cs</code></td>
-<td>Ribbon command entry point</td>
+<td>Matching spots unchanged</td>
+<td>Check leader presence, elevation base, and rounded position</td>
 </tr>
 <tr>
-<td><code>ElevationTagsAutoUpdater.cs</code></td>
-<td>Core alignment algorithm</td>
-</tr>
-<tr>
-<td><code>ElevationTagsViewActivatedTask.cs</code></td>
-<td>View activation hook</td>
-</tr>
-<tr>
-<td><code>ElevationTagsSettings.cs</code></td>
-<td>Settings model definition</td>
-</tr>
-<tr>
-<td><code>ElevationTagsSettingsPackContext.cs</code></td>
-<td>Settings UI view model</td>
-</tr>
-<tr>
-<td><code>ElevationTagsSettingsPackView.xaml</code></td>
-<td>Settings UI layout</td>
-</tr>
-<tr>
-<td><code>DBTools.ElevationTags.csproj</code></td>
-<td>Project configuration</td>
+<td>Partial alignment</td>
+<td>Inspect the first filtering or update exception in the DBTools log</td>
 </tr>
 </tbody>
 </table>
+<p>Pure tests cover the runner, symbol resolution, settings state, preview, and manual summaries.
+Hosted tests under <code>Tests/Integration/Revit/</code> cover the command, module, workflow, view activation,
+live updater, and type projection.</p>
+<p>See <a href="../../architecture/overview.html">architecture</a> and <a href="../../architecture/theme-system.html">themes</a>.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/common/elevation-tags.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

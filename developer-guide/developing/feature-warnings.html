@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/developing/feature-warnings.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -104,9 +104,6 @@
 <li>The Settings button icon shows a warning indicator</li>
 <li>The DB Tools tab gets a highlight marker</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/DbtSettingsWarningDefinition.cs:9-20</code></p>
-</blockquote>
 <hr>
 <h2 id="warning-lifecycle">Warning Lifecycle</h2>
 <pre><code>1. DEFINITION (manifest.yml)
@@ -114,14 +111,14 @@
            |
            v
 2. REGISTRATION (ToolModule.RegisterSettingsPacks)
-   DbtSettingsWarningDefinition created with validation logic
+   SettingsPackRegistration.Warning supplies warning metadata and validation logic
            |
            v
-3. VALIDATION (Settings window load / manual trigger)
+3. VALIDATION (Settings window load / Save; the Validate button only diagnoses)
    Pack context validates settings and computes warning state
            |
            v
-4. ACTIVATION (IDbtSettingsWarningService.SetWarningAsync)
+4. ACTIVATION (ISettingsWarningService.SetWarning)
    Warning state stored in-session, ribbon buttons disabled
            |
            v
@@ -133,7 +130,7 @@
    Warning state cleared, ribbon buttons re-enabled
 </code></pre>
 <hr>
-<h2 id="defining-warnings-in-manifestyml">Defining Warnings in manifest.yml</h2>
+<h2 id="defining-warnings-in-manifest.yml">Defining Warnings in manifest.yml</h2>
 <p>Warnings are declared within <code>settingsPacks</code> in your tool's <code>manifest.yml</code>:</p>
 <h3 id="complete-schema">Complete Schema</h3>
 <pre><code class="lang-yaml">tool:
@@ -149,9 +146,6 @@
             - DBTools.MoveCombinedFoundationTags
             - DBTools.OrganizeFoundationTypes
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:8-18</code></p>
-</blockquote>
 <h3 id="warning-properties-reference">Warning Properties Reference</h3>
 <table>
 <thead>
@@ -198,8 +192,8 @@
 </ul>
 <hr>
 <h2 id="warning-properties-in-code">Warning Properties in Code</h2>
-<p>The <code>DbtToolWarningManifest</code> class represents the YAML definition:</p>
-<pre><code class="lang-csharp">public sealed class DbtToolWarningManifest
+<p>The <code>ToolWarningManifest</code> class represents the YAML definition:</p>
+<pre><code class="lang-csharp">public sealed class ToolWarningManifest
 {
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
@@ -207,14 +201,11 @@
     public List&lt;string&gt;? DisableTools { get; set; }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolManifest.cs:44-50</code></p>
-</blockquote>
 <hr>
 <h2 id="registering-warning-definitions">Registering Warning Definitions</h2>
 <p>Warnings must be registered in your <code>ToolModule.RegisterSettingsPacks()</code> method. This connects the declarative manifest to the runtime validation logic.</p>
 <h3 id="complete-registration-pattern">Complete Registration Pattern</h3>
-<pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, DbtToolManifest manifest)
+<pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, ToolManifest manifest)
 {
     Guard.NotNull(services, nameof(services));
     Guard.NotNull(manifest, nameof(manifest));
@@ -222,95 +213,81 @@
     var configSection = manifest.GetRequiredConfigSection();
     var pack = manifest.GetSingleSettingsPack();
     var warning = pack.GetSingleWarning(manifest.Id);
-    var panel = DbtToolPanelResolver.GetSettingsPanelName(manifest.Id);
+    var panel = manifest.GetRequiredPanel();
     
-    services.AddSingleton&lt;IDbtSettingsPackDefinition&gt;(_ =&gt;
-    {
-        var warningDefinitions = new[]
+    services.AddDbtSettingsPackDefinition&lt;MyToolSettings, MySettingsPackContext&gt;(
+        new SettingsPackRegistration&lt;MyToolSettings, MySettingsPackContext&gt;
         {
-            new DbtSettingsWarningDefinition&lt;MyToolSettings, MySettingsPackContext&gt;(
-                warning.Id,                           // From manifest
-                pack.Key,                             // Pack key
-                warning.Title,                        // From manifest
-                warning.Message,                      // From manifest
-                // Context flag getter - read warning state from context
-                context =&gt; context.HasWarning,
-                // Context flag setter - write warning state to context
-                (context, active) =&gt; context.HasWarning = active,
-                // Tools to disable (from manifest)
-                warning.DisableTools?.ToArray() ?? Array.Empty&lt;string&gt;())
-        };
-
-        return new DbtSettingsPackDefinition&lt;MyToolSettings, MySettingsPackContext&gt;(
-            pack.Key,
-            pack.Title,
-            panel,
-            () =&gt; new MySettingsPackContext(),
-            ctx =&gt; new MySettingsPackView { DataContext = ctx },
-            () =&gt; new MyToolSettings(),
-            settings =&gt; settings.Get&lt;MyToolSettings&gt;(),
-            (settings, options, ct) =&gt; settings.SaveAsync(configSection, options, ct),
-            warningDefinitions);  // Pass warning definitions to pack
-    });
+            ConfigSection = configSection,
+            PackKey = pack.Key,
+            PackTitle = pack.Title,
+            RibbonPanel = panel,
+            ContextFactory = (sp, input) =&gt; new MySettingsPackContext(),
+            ViewFactory = context =&gt; new MySettingsPackView { DataContext = context },
+            Warning = new SettingsPackWarningRegistration&lt;MySettingsPackContext&gt;
+            {
+                Id = warning.Id,
+                Title = warning.Title,
+                Message = warning.Message,
+                ToolInternalNamesToDisable = warning.DisableTools?.ToArray(),
+                FlagGetter = context =&gt; context.HasWarning,
+                FlagSetter = (context, active) =&gt; context.HasWarning = active
+            }
+        });
 }
 </code></pre>
+<p>The registration extension constructs the internal warning definition and validates all
+required strings and delegates at the DI admission boundary.</p>
+<!-- VERIFIED: 2026-07-31 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/FoundationTagsToolModule.cs:36-81</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Composition/SettingsPackServiceCollectionExtensions.cs</code></p>
 </blockquote>
-<h3 id="dbtsettingswarningdefinition-constructor-parameters">DbtSettingsWarningDefinition Constructor Parameters</h3>
+<h3 id="settingspackwarningregistration-properties">SettingsPackWarningRegistration Properties</h3>
 <table>
 <thead>
 <tr>
-<th>Parameter</th>
+<th>Property</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>id</code></td>
+<td><code>Id</code></td>
 <td><code>string</code></td>
 <td>Warning identifier from manifest</td>
 </tr>
 <tr>
-<td><code>packKey</code></td>
-<td><code>string</code></td>
-<td>Parent settings pack key</td>
-</tr>
-<tr>
-<td><code>title</code></td>
+<td><code>Title</code></td>
 <td><code>string</code></td>
 <td>Display title</td>
 </tr>
 <tr>
-<td><code>message</code></td>
+<td><code>Message</code></td>
 <td><code>string</code></td>
 <td>Display message</td>
 </tr>
 <tr>
-<td><code>contextFlagGetter</code></td>
+<td><code>FlagGetter</code></td>
 <td><code>Func&lt;TContext, bool&gt;</code></td>
-<td>Get warning flag from context</td>
+<td>Gets warning state from context</td>
 </tr>
 <tr>
-<td><code>contextFlagSetter</code></td>
+<td><code>FlagSetter</code></td>
 <td><code>Action&lt;TContext, bool&gt;</code></td>
-<td>Set warning flag on context</td>
+<td>Sets warning state on context</td>
 </tr>
 <tr>
-<td><code>toolInternalNamesToDisable</code></td>
+<td><code>ToolInternalNamesToDisable</code></td>
 <td><code>IReadOnlyCollection&lt;string&gt;?</code></td>
 <td>Tools to disable</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/DbtSettingsWarningDefinition.cs:33-57</code></p>
-</blockquote>
 <hr>
 <h2 id="settings-model-requirements">Settings Model Requirements</h2>
 <p>Warning state is session-only. Settings models should persist user preferences (for example <code>AutoUpdateEnabled</code>) but should not persist warning flags.</p>
-<pre><code class="lang-csharp">using DBTools.Core.Settings.Models;
+<pre><code class="lang-csharp">using DBTools.Core.Settings;
 
 namespace DBTools.MyTool.Settings;
 
@@ -327,36 +304,36 @@ public sealed class MyToolSettings : IAutoUpdateSettings
     bool AutoUpdateEnabled { get; set; }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Models/IAutoUpdateSettings.cs:3-7</code></p>
-</blockquote>
 <hr>
 <h2 id="triggering-warnings">Triggering Warnings</h2>
-<p>Warnings are triggered through the <code>IDbtSettingsWarningService</code>:</p>
+<p>Warnings are triggered through the <code>ISettingsWarningService</code>:</p>
 <h3 id="service-interface">Service Interface</h3>
-<pre><code class="lang-csharp">public interface IDbtSettingsWarningService
+<pre><code class="lang-csharp">public interface ISettingsWarningService
 {
-    IReadOnlyCollection&lt;IDbtSettingsWarningDefinition&gt; Definitions { get; }
-    Task&lt;bool&gt; IsWarningActiveAsync(string warningId, CancellationToken ct = default);
-    Task SetWarningAsync(string warningId, bool active, object? context = null, CancellationToken ct = default);
-    Task PublishWarningChangesAsync(CancellationToken ct = default);
-    Task PublishWarningStateAsync(CancellationToken ct = default);
+    IReadOnlyCollection&lt;ISettingsWarningDefinition&gt; Definitions { get; }
+    bool IsWarningActive(string warningId);
+    SettingsWarningStateChange SetWarning(string warningId, bool active);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/DbtSettingsWarningService.cs:11-18</code></p>
-</blockquote>
+<p><code>SettingsWarningService</code> owns definition lookup, the narrow tool-facing state API,
+and session-only publication state. Active-id enumeration and full-state/change
+publication remain internal operations used only by settings orchestration. It does not accept or mutate an
+erased settings context. Each <code>ISettingsPackRuntimeWarning</code> is already bound to
+the exact context created by its pack runtime; settings rows update that bound
+warning and then publish the state through the service. <code>SettingsWarningPublicationPolicy</code>
+owns per-warning event publication, full warning replay, and aggregate
+<code>HasWarnings</code> publication over the service-provided warning state.</p>
 <h3 id="setting-a-warning-active">Setting a Warning Active</h3>
 <pre><code class="lang-csharp">// In your validation logic
-var warningService = serviceProvider.GetRequiredService&lt;IDbtSettingsWarningService&gt;();
-await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, true, packContext);
+var warningService = serviceProvider.GetRequiredService&lt;ISettingsWarningService&gt;();
+warningService.SetWarning(&quot;core.my_tool.warning&quot;, true);
 </code></pre>
 <h3 id="clearing-a-warning">Clearing a Warning</h3>
-<pre><code class="lang-csharp">await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, false, packContext);
+<pre><code class="lang-csharp">warningService.SetWarning(&quot;core.my_tool.warning&quot;, false);
 </code></pre>
 <h3 id="validation-in-settings-pack-context">Validation in Settings Pack Context</h3>
 <p>Typically, warnings are validated when the settings pack loads or saves. Implement validation in your context's <code>ValidateAsync</code> method:</p>
-<pre><code class="lang-csharp">public async Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
+<pre><code class="lang-csharp">public async Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
 {
     var errors = new List&lt;string&gt;();
     
@@ -372,13 +349,10 @@ await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, true, pac
     }
     
     return errors.Count &gt; 0
-        ? DbtSettingsValidationResult.Failed(errors)
-        : DbtSettingsValidationResult.Success();
+        ? SettingsValidationResult.Failed(errors)
+        : SettingsValidationResult.Success();
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:137-170</code></p>
-</blockquote>
 <hr>
 <h2 id="warning-ui-in-settings-window">Warning UI in Settings Window</h2>
 <p>When warnings are active, they appear as prominent cards in the Settings window:</p>
@@ -400,125 +374,101 @@ await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, true, pac
         &lt;/StackPanel&gt;
         &lt;Button Grid.Column=&quot;1&quot;
                 MinWidth=&quot;70&quot;
+                MinHeight=&quot;28&quot;
+                Padding=&quot;{DynamicResource Pad8x4}&quot;
                 Command=&quot;{Binding ClearCommand}&quot;
                 Content=&quot;Clear&quot;
-                Style=&quot;{DynamicResource SubtleButton}&quot; /&gt;
+                Style=&quot;{DynamicResource SecondaryButton}&quot; /&gt;
     &lt;/Grid&gt;
 &lt;/Border&gt;
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Views/SettingsWarningCardView.xaml:14-37</code></p>
-</blockquote>
-<h3 id="warning-viewmodel">Warning ViewModel</h3>
-<p>The <code>DbtSettingsWarningViewModel</code> provides the binding context:</p>
-<pre><code class="lang-csharp">public sealed partial class DbtSettingsWarningViewModel : ObservableObject, IDisposable
+<h3 id="warning-card-viewmodel">Warning Card ViewModel</h3>
+<p><code>SettingsWarningViewModel</code> receives an <code>ISettingsPackRuntimeWarning</code> whose
+getter/setter are already bound to its owning pack context. It owns the Clear/Fix
+commands, warning-service interaction, remediation dispatch, and
+logged/bannered action failures:</p>
+<pre><code class="lang-csharp">public sealed partial class SettingsWarningViewModel : ObservableObject, IDisposable
 {
-    public string WarningId =&gt; _definition.Id;
-    public string Title =&gt; _definition.Title;
-    public string Message =&gt; _definition.Message;
-    public bool IsActive =&gt; _definition.GetIsActive(_context);
+    public string WarningId =&gt; _warning.Id;
+    public string Title =&gt; _warning.Title;
+    public string Message =&gt; _warning.Message;
+    public bool IsActive =&gt; _warning.IsActive;
     public IAsyncRelayCommand ClearCommand { get; }
+    public IAsyncRelayCommand FixCommand { get; }
+    public bool HasFix =&gt; _actionPolicy.HasFix;
 
     private async Task ClearAsync()
     {
-        await _warnings.SetWarningAsync(_definition.Id, false, _context);
-        OnPropertyChanged(nameof(IsActive));
+        if (await _actionPolicy.ClearAsync().ConfigureAwait(true))
+            OnPropertyChanged(nameof(IsActive));
     }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/ViewModels/DbtSettingsWarningViewModel.cs:10-57</code></p>
-</blockquote>
 <hr>
 <h2 id="disabletools-mechanism">disableTools Mechanism</h2>
 <p>When a warning is active, the specified ribbon tools are automatically disabled.</p>
 <h3 id="event-flow">Event Flow</h3>
 <ol>
-<li><strong>Warning Activated</strong>: <code>IDbtSettingsWarningService.SetWarningAsync()</code> is called</li>
+<li><strong>Warning Activated</strong>: <code>ISettingsWarningService.SetWarning()</code> is called</li>
 <li><strong>Event Published</strong>: <code>ISettingsChangePublisher.PublishWarningChanged()</code> fires</li>
-<li><strong>Listener Receives</strong>: <code>RibbonSettingsListener.OnWarningChanged()</code> handles event</li>
-<li><strong>Buttons Disabled</strong>: <code>RibbonRegistry.SetToolsEnabled()</code> disables buttons</li>
+<li><strong>Listener Receives</strong>: <code>RibbonSettingsSubscriber</code> handles the settings change event</li>
+<li><strong>Warning Policy Applies</strong>: <code>RibbonSettingsUpdater</code> dispatches the registry update</li>
+<li><strong>Buttons Disabled</strong>: <code>RibbonControlRegistryUpdater</code> updates created controls</li>
 </ol>
-<pre><code class="lang-csharp">// RibbonSettingsListener.cs
-private void OnWarningChanged(object? sender, SettingsWarningChangedEventArgs e)
+<pre><code class="lang-csharp">// RibbonSettingsSubscriber.cs
+private void OnWarningChanged(object? sender, WarningChangedEventArgs e)
 {
-    RunOnUiThread(
-        () =&gt; RibbonRegistry.SetToolsEnabled(e.ToolInternalNamesToDisable, !e.IsActive),
-        &quot;Failed to apply ribbon warning change.&quot;);
+    RibbonSettingsUpdater.ApplyToolWarningState(e, _logger);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Features/Ribbon/RibbonSettingsListener.cs:53-58</code></p>
-</blockquote>
-<h3 id="ribbonregistry-implementation">RibbonRegistry Implementation</h3>
-<pre><code class="lang-csharp">public static void SetToolsEnabled(IEnumerable&lt;string&gt; internalNames, bool enabled)
-{
-    foreach (var name in internalNames)
-    {
-        try { SetToolEnabled(name, enabled); }
-        catch (Exception ex) { Logger?.LogWarning(ex, &quot;Failed to set tool '{InternalName}' enabled state.&quot;, name); }
-    }
-}
-
-public static void SetToolEnabled(string internalName, bool enabled)
-{
-    if (!_toolButtons.TryGetValue(internalName, out var button))
-    {
-        Logger?.LogWarning(&quot;Tool button '{InternalName}' not found in registry.&quot;, internalName);
-        return;
-    }
-    button.Enabled = enabled;
-}
+<p><code>RibbonSettingsSubscriber</code> remains the settings-event adapter. <code>RibbonSettingsUpdater</code>
+owns both aggregate warning visuals and per-tool warning enablement dispatch.</p>
+<h3 id="ribbon-registry-update">Ribbon Registry Update</h3>
+<pre><code class="lang-csharp">RibbonControlRegistryUpdater.RegisterToolButton(...);
+RibbonSettingsUpdater.ApplyToolWarningState(...);
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Features/Ribbon/RibbonRegistry.cs:31-52</code></p>
-</blockquote>
+<p>The ribbon registry state is initialized by <code>RibbonComposer</code> before observers publish any state, so warning handlers operate against an explicit registry snapshot rather than startup-time property mutation.</p>
 <h3 id="visual-indicators">Visual Indicators</h3>
 <p>When warnings exist:</p>
 <ol>
 <li><strong>Settings Button Icon</strong>: Changes to show warning indicator</li>
 <li><strong>Tab Highlight</strong>: DB Tools tab shows a &quot;New&quot; highlight</li>
 </ol>
-<pre><code class="lang-csharp">private void OnWarningsChanged(object? sender, SettingsWarningsChangedEventArgs e)
+<pre><code class="lang-csharp">private void OnWarningsChanged(object? sender, WarningSetChangedEventArgs e)
 {
-    RunOnUiThread(
-        () =&gt;
-        {
-            RibbonRegistry.UpdateSettingsIcon(e.HasWarnings);
-            RibbonRegistry.UpdateTabHighlight(e.HasWarnings);
-        },
-        &quot;Failed to apply ribbon warning updates.&quot;);
+    RibbonSettingsUpdater.ApplyVisualState(e.HasWarnings, _logger);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Features/Ribbon/RibbonSettingsListener.cs:42-51</code></p>
-</blockquote>
+<p><code>RibbonSettingsUpdater</code> owns warning visual policy/dispatch, per-tool
+warning enablement dispatch, and current warning-state publication/reset.
+<code>RibbonSettingsSubscriber</code> stays as the settings event adapter, and the
+registry updater exposes only internal low-level settings icon/tab-highlight/tool-enabled mutation.</p>
 <hr>
 <h2 id="conditional-warnings">Conditional Warnings</h2>
 <p>Warnings can be conditional based on settings or environment. Implement the condition in your validation logic:</p>
 <h3 id="based-on-settings-value">Based on Settings Value</h3>
-<pre><code class="lang-csharp">public async Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
+<pre><code class="lang-csharp">public async Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
 {
     // Only validate if feature is enabled
     if (!AutoUpdateEnabled)
     {
         HasWarning = false;
-        return DbtSettingsValidationResult.Success();
+        return SettingsValidationResult.Success();
     }
     
     // Validate when enabled
     if (!IsConfigurationValid())
     {
         HasWarning = true;
-        return DbtSettingsValidationResult.Failed(&quot;Configuration is invalid.&quot;);
+        return SettingsValidationResult.Failed(&quot;Configuration is invalid.&quot;);
     }
     
     HasWarning = false;
-    return DbtSettingsValidationResult.Success();
+    return SettingsValidationResult.Success();
 }
 </code></pre>
 <h3 id="based-on-environment">Based on Environment</h3>
-<pre><code class="lang-csharp">public async Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
+<pre><code class="lang-csharp">public async Task&lt;SettingsValidationResult&gt; ValidateAsync(CancellationToken ct)
 {
     var errors = new List&lt;string&gt;();
     
@@ -532,58 +482,61 @@ public static void SetToolEnabled(string internalName, bool enabled)
     
     HasWarnings = errors.Count &gt; 0;
     return HasWarnings 
-        ? DbtSettingsValidationResult.Failed(errors)
-        : DbtSettingsValidationResult.Success();
+        ? SettingsValidationResult.Failed(errors)
+        : SettingsValidationResult.Success();
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/TDV/Settings/LibrarySettingsPackContext.cs:137-170</code></p>
-</blockquote>
 <hr>
 <h2 id="auto-update-task-integration">Auto-Update Task Integration</h2>
-<p>For tools with auto-update functionality (triggered on view activation), the <code>ViewActivatedTaskBase</code> checks warning state before execution:</p>
-<pre><code class="lang-csharp">public async Task&lt;bool&gt; ShouldRunAsync(UIApplication uiapp, ViewActivatedEventArgs args, CancellationToken ct)
+<p>For tools with auto-update functionality (triggered on view activation), <code>ViewActivationTask&lt;TSettings&gt;</code> checks warning state before execution:</p>
+<pre><code class="lang-csharp">public async Task&lt;ViewActivationAdmission?&gt; AdmitAsync(UIApplication uiapp, ViewActivatedEventArgs args, CancellationToken ct)
 {
-    var settings = GetSettings(_settingsProvider) ?? new TSettings();
-    
+    var settings = _settingsProvider.Get(_settingsSection);
+
     if (!settings.AutoUpdateEnabled)
     {
         LogSkip(&quot;auto-update disabled&quot;);
-        return false;
+        return null;
     }
 
-    if (settings.HasWarning)
+    foreach (var warningId in _warningIds)
     {
-        LogSkip(&quot;warning active&quot;);
-        return false;
+        if (_warnings.IsWarningActive(warningId))
+        {
+            LogSkip(&quot;warning active&quot;);
+            return null;
+        }
     }
 
-    return await ShouldRunInternalAsync(uiapp, args, settings, ct).ConfigureAwait(false);
+    if (!await ShouldRunInternalAsync(uiapp, args, settings, ct).ConfigureAwait(false))
+        return null;
+
+    // The admission executes with this attempt's settings snapshot and never reads settings again.
+    return new ViewActivationAdmission(executionCt =&gt; ExecuteInternalAsync(uiapp, args, settings, executionCt));
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/ViewActivatedTaskBase.cs:46-65</code></p>
-</blockquote>
 <p>This ensures auto-update tasks don't run when warnings are active, protecting against potential failures.</p>
 <hr>
 <h2 id="clearing-warnings">Clearing Warnings</h2>
 <p>Warnings can be cleared in several ways:</p>
-<h3 id="1-user-clicks-clear-button">1. User Clicks Clear Button</h3>
-<p>The Settings window warning card has a &quot;Clear&quot; button that calls:</p>
+<h3 id="user-clicks-clear-button">1. User Clicks Clear Button</h3>
+<p>The Settings window warning card has a &quot;Clear&quot; button. The view model clears the
+warning via <code>ISettingsWarningService</code> and reports failures through the Core
+logging/banner path:</p>
 <pre><code class="lang-csharp">private async Task ClearAsync()
 {
-    await _warnings.SetWarningAsync(_definition.Id, false, _context);
-    OnPropertyChanged(nameof(IsActive));
+    if (await _actionPolicy.ClearAsync().ConfigureAwait(true))
+        OnPropertyChanged(nameof(IsActive));
 }
 </code></pre>
-<h3 id="2-programmatically-when-conditions-change">2. Programmatically When Conditions Change</h3>
+<h3 id="programmatically-when-conditions-change">2. Programmatically When Conditions Change</h3>
 <pre><code class="lang-csharp">// After user fixes configuration
 if (IsConfigurationNowValid())
 {
-    await warningService.SetWarningAsync(&quot;core.my_tool.warning&quot;, false, context);
+    warningService.SetWarning(&quot;core.my_tool.warning&quot;, false);
 }
 </code></pre>
-<h3 id="3-through-settings-pack-context-reset">3. Through Settings Pack Context Reset</h3>
+<h3 id="through-settings-pack-context-reset">3. Through Settings Pack Context Reset</h3>
 <pre><code class="lang-csharp">public void ResetToDefaults()
 {
     AutoUpdateEnabled = true;
@@ -591,9 +544,6 @@ if (IsConfigurationNowValid())
     // Reset other settings...
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettingsPackContext.cs:206-212</code></p>
-</blockquote>
 <hr>
 <h2 id="real-examples">Real Examples</h2>
 <h3 id="example-1-foundation-tags-warning">Example 1: Foundation Tags Warning</h3>
@@ -611,9 +561,6 @@ settingsPacks:
           - DBTools.MoveCombinedFoundationTags
           - DBTools.OrganizeFoundationTypes
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:8-18</code></p>
-</blockquote>
 <h3 id="example-2-library-paths-warning">Example 2: Library Paths Warning</h3>
 <p>Disables import/export when library paths are invalid:</p>
 <pre><code class="lang-yaml"># manifest.yml
@@ -623,14 +570,11 @@ settingsPacks:
     warnings:
       - id: core.library.invalid
         title: &quot;Library Paths Invalid&quot;
-        message: &quot;One or more library file paths are invalid. Fix the paths and clear the warning to re-enable import/export.&quot;
+        message: &quot;One or more saved library file paths are invalid. Fix the paths and save the settings to re-enable import/export.&quot;
         disableTools:
           - DBTools.ExportToLibrary
           - DBTools.ImportFromLibrary
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/TDV/manifest.yml:14-23</code></p>
-</blockquote>
 <h3 id="example-3-simple-single-tool-warning">Example 3: Simple Single-Tool Warning</h3>
 <pre><code class="lang-yaml"># manifest.yml
 settingsPacks:
@@ -643,15 +587,12 @@ settingsPacks:
         disableTools:
           - DBTools.UpdateJoistGirderWeights
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/manifest.yml:8-16</code></p>
-</blockquote>
 <hr>
 <h2 id="warning-event-args">Warning Event Args</h2>
 <p>The warning system uses specific event args for state changes:</p>
-<h3 id="settingswarningchangedeventargs">SettingsWarningChangedEventArgs</h3>
+<h3 id="warningchangedeventargs">WarningChangedEventArgs</h3>
 <p>Fired when a specific warning's state changes:</p>
-<pre><code class="lang-csharp">public sealed class SettingsWarningChangedEventArgs : EventArgs
+<pre><code class="lang-csharp">public sealed class WarningChangedEventArgs : EventArgs
 {
     public string WarningId { get; }
     public string PackKey { get; }
@@ -659,22 +600,16 @@ settingsPacks:
     public IReadOnlyCollection&lt;string&gt; ToolInternalNamesToDisable { get; }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Contracts/ISettingsChangePublisher.cs:25-43</code></p>
-</blockquote>
-<h3 id="settingswarningschangedeventargs">SettingsWarningsChangedEventArgs</h3>
+<h3 id="warningsetchangedeventargs">WarningSetChangedEventArgs</h3>
 <p>Fired when the overall warning state changes (any warnings -&gt; no warnings, or vice versa):</p>
-<pre><code class="lang-csharp">public sealed class SettingsWarningsChangedEventArgs : EventArgs
+<pre><code class="lang-csharp">public sealed class WarningSetChangedEventArgs : EventArgs
 {
     public bool HasWarnings { get; }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Contracts/ISettingsChangePublisher.cs:15-23</code></p>
-</blockquote>
 <hr>
 <h2 id="best-practices">Best Practices</h2>
-<h3 id="1-clear-warning-messages">1. Clear Warning Messages</h3>
+<h3 id="clear-warning-messages">1. Clear Warning Messages</h3>
 <p>Write messages that explain:</p>
 <ul>
 <li>What is wrong</li>
@@ -682,12 +617,12 @@ settingsPacks:
 <li>How to fix it</li>
 </ul>
 <pre><code class="lang-yaml"># Good
-message: &quot;One or more library file paths are invalid. Fix the paths and clear the warning to re-enable import/export.&quot;
+message: &quot;One or more saved library file paths are invalid. Fix the paths and save the settings to re-enable import/export.&quot;
 
 # Bad
 message: &quot;Warning active.&quot;
 </code></pre>
-<h3 id="2-disable-only-affected-tools">2. Disable Only Affected Tools</h3>
+<h3 id="disable-only-affected-tools">2. Disable Only Affected Tools</h3>
 <p>Only list tools that actually depend on the valid configuration:</p>
 <pre><code class="lang-yaml"># Good - only disables tools that use foundation tags
 disableTools:
@@ -699,7 +634,7 @@ disableTools:
   - DBTools.UpdateCombinedFoundationTags
   - DBTools.SomeUnrelatedTool
 </code></pre>
-<h3 id="3-auto-disable-auto-update">3. Auto-Disable Auto-Update</h3>
+<h3 id="auto-disable-auto-update">3. Auto-Disable Auto-Update</h3>
 <p>When setting a warning active, also disable auto-update to prevent background failures:</p>
 <pre><code class="lang-csharp">// Context flag setter (for auto-update packs)
 (context, active) =&gt;
@@ -708,19 +643,15 @@ disableTools:
     if (active) context.AutoUpdateEnabled = false;  // Optional: keep background hooks quiet
 }
 </code></pre>
-<h3 id="4-test-warning-scenarios">4. Test Warning Scenarios</h3>
+<h3 id="test-warning-scenarios">4. Test Warning Scenarios</h3>
 <p>Ensure your tool handles:</p>
 <ul>
-<li>Warning active on startup (validate-aware packs are evaluated during addin startup before the initial warning publish)</li>
+<li>Warning active on startup (validate-aware packs are evaluated by the startup warning publisher before the initial warning publish)</li>
 <li>Warning cleared mid-session</li>
 <li>Multiple warnings in same pack</li>
 <li>Runtime exceptions in hooks (banner + session-disable; <strong>do not</strong> activate feature warnings)</li>
 <li>Validation exceptions in validate-aware packs (exceptions are runtime errors; log and <strong>do not</strong> activate feature warnings)</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Addin/AddinEntry.cs:324</code>
-<strong>Source:</strong> <code>src/DBTools.Core/Settings/Features/DbtSettingsStartupWarningEvaluator.cs:36</code></p>
-</blockquote>
 <hr>
 <h2 id="cross-references">Cross-References</h2>
 <ul>
@@ -732,7 +663,6 @@ disableTools:
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/developing/feature-warnings.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

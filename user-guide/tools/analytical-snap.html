@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/analytical-snap.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,233 +89,85 @@
         <article data-uid="">
 <h1 id="analytical-snap-to-level">Analytical Snap To Level</h1>
 
-<p>Quickly align your analytical model elements to specific level elevations with a single click. This tool eliminates the tedious manual adjustment of beam and column endpoints, ensuring your analytical model accurately reflects your structural intent.</p>
-<hr>
-<h2 id="what-is-analytical-snap-to-level">What is Analytical Snap To Level?</h2>
-<p>Analytical Snap To Level is a productivity tool that moves analytical member endpoints to match a chosen level elevation. Instead of manually editing each beam or column's analytical representation, you can select multiple elements and snap them all to your target level at once.</p>
-<p>The tool intelligently handles different element types—beams snap both ends to the level, while columns only move the endpoint closest to your target elevation, preserving your column's span in the opposite direction.</p>
-<hr>
-<h2 id="when-to-use">When to Use</h2>
+<p>Analytical Snap To Level moves the end points of the selected analytical beams and columns to the elevation of a level you choose. It edits the analytical model only. The physical elements do not change.</p>
+<h2 id="synopsis">Synopsis</h2>
+<p>Ribbon: <strong>DB Tools</strong> &gt; <strong>Structural</strong> &gt; <strong>Analytical Snap To Level</strong>.</p>
+<p>The button is enabled when at least one element is selected. Elements that are not supported analytical members are skipped and reported (see Result).</p>
+<h2 id="usage">Usage</h2>
+<ol>
+<li>Select analytical members. Select the analytical members themselves, not the physical elements they represent.</li>
+<li>Click <strong>Analytical Snap To Level</strong>.</li>
+<li>In the <strong>Select Target Level</strong> dialog, select one level and confirm. Closing the dialog without a selection cancels the command with the message <code>No target level selected.</code></li>
+<li>Read the <strong>Snap to Level Complete</strong> dialog.</li>
+</ol>
+<p>The level list is sorted by elevation, lowest first. Each entry reads <code>&lt;name&gt; (Elev: &lt;value&gt;)</code>, where the value is the level elevation in feet with two decimals. The project has to contain at least one level.</p>
+<h2 id="snapping-rules">Snapping rules</h2>
+<p>A member is snapped only when all of these hold:</p>
+<ul>
+<li>it is an analytical member (the Analytical Member category);</li>
+<li>its structural role is Beam or Column;</li>
+<li>its curve is a straight line.</li>
+</ul>
 <table>
 <thead>
 <tr>
-<th>Scenario</th>
-<th>Description</th>
+<th>Role</th>
+<th>Rule</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Model cleanup</strong></td>
-<td>After importing or linking models where analytical elements don't align with levels</td>
+<td>Beam</td>
+<td>Both end points move to the level elevation. The member becomes horizontal. Its plan position is unchanged.</td>
 </tr>
 <tr>
-<td><strong>Floor-by-floor coordination</strong></td>
-<td>Ensuring all framing on a floor shares the same analytical elevation</td>
-</tr>
-<tr>
-<td><strong>Post-modification fixes</strong></td>
-<td>After moving levels or adjusting floor-to-floor heights</td>
-</tr>
-<tr>
-<td><strong>New model setup</strong></td>
-<td>Quickly establishing analytical geometry for freshly placed members</td>
-</tr>
-<tr>
-<td><strong>QA/QC workflows</strong></td>
-<td>Standardizing analytical model before running analysis or export</td>
+<td>Column</td>
+<td>Only the end point closer to the level elevation moves to it. The start point moves when both ends are equally close. The other end stays fixed.</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h2 id="quick-start">Quick Start</h2>
-<ol>
-<li><strong>Select</strong> the analytical beams and/or columns you want to snap</li>
-<li><strong>Click</strong> the &quot;Analytical Snap To Level&quot; button on the ribbon</li>
-<li><strong>Choose</strong> your target level from the dialog</li>
-<li><strong>Review</strong> the summary showing how many elements were processed</li>
-</ol>
-<hr>
-<h2 id="user-interface">User Interface</h2>
-<h3 id="ribbon-button">Ribbon Button</h3>
-<p>The <strong>Analytical Snap To Level</strong> button is located in the DB Tools ribbon tab. The button is enabled when you have a valid selection in an analytical model view.</p>
-<h3 id="level-picker-dialog">Level Picker Dialog</h3>
-<p>After clicking the button, a dialog appears listing all levels in your project:</p>
-<ul>
-<li>Levels are sorted by elevation (lowest to highest)</li>
-<li>Each level shows its name and elevation value</li>
-<li>Select a single level as your snap target</li>
-<li>Click <strong>OK</strong> to proceed or <strong>Cancel</strong> to abort</li>
-</ul>
-<hr>
-<h2 id="supported-elements">Supported Elements</h2>
-<p>This tool works with <strong>analytical members</strong> only:</p>
+<p>X and Y coordinates of every end point are unchanged.</p>
+<h2 id="result">Result</h2>
+<p>The whole run is one Revit transaction named <code>DB Tools - Snap Analytical Elements to Level</code>. If an unexpected error occurs, the transaction is rolled back and no member changes.</p>
+<p>The completion dialog shows the number of elements processed and skipped. Below that, it lists one line per skip reason with the count.</p>
 <table>
 <thead>
 <tr>
-<th>Element Type</th>
-<th>Supported</th>
-<th>Notes</th>
+<th>Skip reason</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Analytical Beams</td>
-<td>✓</td>
-<td>Includes girders and joists</td>
+<td><code>not an analytical member</code></td>
+<td>The element is not an analytical member (a physical element, an analytical wall or floor). Only the count is shown.</td>
 </tr>
 <tr>
-<td>Analytical Columns</td>
-<td>✓</td>
-<td>Vertical framing members</td>
+<td><code>role not supported</code></td>
+<td>The structural role is not Beam or Column (for example girder or brace).</td>
 </tr>
 <tr>
-<td>Analytical Braces</td>
-<td>✗</td>
-<td>Not supported</td>
+<td><code>not straight</code></td>
+<td>The curve is not a line. The member is not changed.</td>
 </tr>
 <tr>
-<td>Analytical Walls</td>
-<td>✗</td>
-<td>Not supported</td>
-</tr>
-<tr>
-<td>Analytical Floors</td>
-<td>✗</td>
-<td>Not supported</td>
-</tr>
-<tr>
-<td>Physical elements</td>
-<td>✗</td>
-<td>Select the analytical representation, not the physical model</td>
+<td><code>would collapse</code></td>
+<td>The snap would make the member shorter than Revit's short-curve tolerance.</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Note:</strong> If your selection includes unsupported elements, they will be skipped and reported in the summary.</p>
-</blockquote>
-<hr>
-<h2 id="snapping-behavior">Snapping Behavior</h2>
-<p>The tool handles beams and columns differently to produce structurally meaningful results:</p>
-<h3 id="beams">Beams</h3>
-<p><strong>Both endpoints</strong> move to the target level elevation.</p>
+<p>For each reason other than <code>not an analytical member</code>, the dialog lists up to 10 element IDs and <code>and N more</code> for the rest.</p>
+<p>Press <code>Ctrl+Z</code> to undo a completed run in one step.</p>
+<h2 id="limitations">Limitations</h2>
 <ul>
-<li>The beam becomes horizontal at the target level</li>
-<li>Use this to align framing to a consistent floor elevation</li>
-<li>Original beam length in plan is preserved</li>
+<li>The tool snaps to levels. It does not accept a reference plane or an arbitrary elevation. To use another elevation, create a level at it.</li>
+<li>All selected members snap to the one level you choose. To snap different floors to different levels, run the tool once per floor.</li>
+<li>Braces, walls, floors and curved members are not supported.</li>
 </ul>
-<h3 id="columns">Columns</h3>
-<p><strong>Only the closest endpoint</strong> moves to the target level.</p>
-<ul>
-<li>The tool determines which end (top or bottom) is nearest to your target level</li>
-<li>That endpoint snaps to the level; the opposite end stays fixed</li>
-<li>Column verticality and opposite connection are preserved</li>
-</ul>
-<p><strong>Example:</strong> A column spanning from Level 1 to Level 2—if you snap to Level 2, only the top endpoint adjusts. If you snap to Level 1, only the bottom endpoint adjusts.</p>
-<hr>
-<h2 id="workflows">Workflows</h2>
-<h3 id="workflow-1-align-all-floor-framing">Workflow 1: Align All Floor Framing</h3>
-<p><strong>Goal:</strong> Snap all beams on a floor to a single level elevation.</p>
-<ol>
-<li>Open your analytical model view for the target floor</li>
-<li>Use <strong>Select All</strong> or draw a <strong>crossing window</strong> to select all beams</li>
-<li>Click <strong>Analytical Snap To Level</strong></li>
-<li>Select the floor level (e.g., &quot;Level 2&quot;)</li>
-<li>Click <strong>OK</strong></li>
-<li>Review the summary—all beams should now share the same elevation</li>
-</ol>
-<h3 id="workflow-2-fix-column-tops-after-level-change">Workflow 2: Fix Column Tops After Level Change</h3>
-<p><strong>Goal:</strong> After adjusting a level's elevation, realign column tops.</p>
-<ol>
-<li>Select the columns that connect to the moved level</li>
-<li>Click <strong>Analytical Snap To Level</strong></li>
-<li>Select the level you adjusted</li>
-<li>Click <strong>OK</strong></li>
-<li>Column tops now match the new level elevation</li>
-</ol>
-<h3 id="workflow-3-mixed-selection-cleanup">Workflow 3: Mixed Selection Cleanup</h3>
-<p><strong>Goal:</strong> Process a selection containing both beams and columns.</p>
-<ol>
-<li>Select all analytical members in an area (beams and columns together)</li>
-<li>Click <strong>Analytical Snap To Level</strong></li>
-<li>Choose your target level</li>
-<li>Click <strong>OK</strong></li>
-<li>Beams snap both ends; columns snap their nearest end</li>
-<li>Review the summary for any skipped elements</li>
-</ol>
-<hr>
-<h2 id="tips--best-practices">Tips &amp; Best Practices</h2>
-<ul>
-<li><strong>Work in analytical views</strong> — Selecting analytical members is easier when physical elements aren't competing for your click</li>
-<li><strong>Use filters</strong> — Create selection filters for &quot;Analytical Beams&quot; or &quot;Analytical Columns&quot; to quickly grab what you need</li>
-<li><strong>Process by floor</strong> — Work one floor at a time to maintain control and easily verify results</li>
-<li><strong>Check before analysis</strong> — Run this tool as part of your pre-analysis QC checklist</li>
-<li><strong>Verify column spans</strong> — After snapping columns, confirm they still connect to the correct levels at both ends</li>
-<li><strong>Undo is available</strong> — The operation can be undone with Ctrl+Z if results aren't what you expected</li>
-</ul>
-<hr>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<table>
-<thead>
-<tr>
-<th>Issue</th>
-<th>Cause</th>
-<th>Solution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Button is grayed out</td>
-<td>No valid elements selected</td>
-<td>Select analytical beams or columns before clicking</td>
-</tr>
-<tr>
-<td>&quot;0 elements processed&quot;</td>
-<td>Selection contains no supported types</td>
-<td>Verify you selected analytical members, not physical elements</td>
-</tr>
-<tr>
-<td>Element didn't move</td>
-<td>Element may be constrained or locked</td>
-<td>Check for constraints on the analytical member</td>
-</tr>
-<tr>
-<td>Wrong endpoint moved (column)</td>
-<td>The other end was closer to target</td>
-<td>Choose a different target level, or manually adjust</td>
-</tr>
-<tr>
-<td>Beam tilted unexpectedly</td>
-<td>Endpoints were at different Z values</td>
-<td>This is expected—both ends now match the level</td>
-</tr>
-<tr>
-<td>Some elements skipped</td>
-<td>Braces, walls, or floors were in selection</td>
-<td>Only beams and columns are supported</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h2 id="faq">FAQ</h2>
-<p><strong>Q: Does this modify my physical model?</strong><br>
-A: No. This tool only adjusts the analytical model representation. Your physical beams and columns remain unchanged.</p>
-<p><strong>Q: Can I snap to a reference plane instead of a level?</strong><br>
-A: No. The tool only supports levels defined in your project.</p>
-<p><strong>Q: What happens if I select elements on multiple floors?</strong><br>
-A: All selected elements snap to the single level you choose. If you want different floors, process each floor separately.</p>
-<p><strong>Q: Can I undo the snap operation?</strong><br>
-A: Yes. Use <strong>Ctrl+Z</strong> or the Undo button immediately after to reverse the changes.</p>
-<p><strong>Q: Why don't braces work?</strong><br>
-A: Braces typically span between different elevations intentionally. Snapping both ends to one level would make them horizontal, which isn't typically desired. Brace endpoints should be adjusted manually.</p>
-<p><strong>Q: Does this work in Revit LT?</strong><br>
-A: No. Revit LT does not include analytical model capabilities.</p>
-<p><strong>Q: Can I snap to a specific elevation instead of a level?</strong><br>
-A: Not directly. Create a level at your desired elevation, then snap to that level.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/analytical-snap.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

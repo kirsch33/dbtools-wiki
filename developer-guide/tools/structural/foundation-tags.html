@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/foundation-tags.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../../public/main.js?v=20260125" defer></script>
+      <script src="../../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,485 +89,194 @@
         <article data-uid="">
 <h1 id="foundation-tags">Foundation Tags</h1>
 
-<h2 id="overview">Overview</h2>
-<p>The Foundation Tags tool automates the management and positioning of combined foundation tags in Revit structural documentation. It provides two main capabilities: updating parameter values on foundation elements based on pier associations, and moving tags to consistent corner positions on their tagged footings.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:1-4</code></p>
-</blockquote>
-<p><strong>Location</strong>: <code>src/Tools/Structural/FoundationTags/</code></p>
-<p><strong>Tool ID</strong>: <code>DBTools.Structural.FoundationTags</code></p>
-<p><strong>Ribbon Location</strong>: Structural group, split button <code>foundation_tags</code></p>
-<h2 id="features">Features</h2>
-<h3 id="core-functionality">Core Functionality</h3>
+<p>Foundation Tags updates pier/footing association parameters and moves combined tags to footing corners.
+Source: <code>src/Tools/Structural/FoundationTags/</code>. The assembly and tool ID are <code>DBTools.FoundationTags</code>.</p>
+<h2 id="commands">Commands</h2>
 <table>
 <thead>
 <tr>
-<th>Feature</th>
-<th>Description</th>
+<th>Ribbon command</th>
+<th>Identity</th>
+<th>Split-button order</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Update Combined Tags</strong></td>
-<td>Updates pier-footing associations and elevation parameters</td>
+<td>Update Combined Foundation Tags</td>
+<td><code>DBTools.UpdateCombinedFoundationTags</code></td>
+<td>0</td>
 </tr>
 <tr>
-<td><strong>Move Combined Tags</strong></td>
-<td>Moves tags to corner positions on footings</td>
-</tr>
-<tr>
-<td><strong>Auto-Update on View</strong></td>
-<td>Automatically updates tags when activating floor/ceiling plans</td>
-</tr>
-<tr>
-<td><strong>Linked Element Support</strong></td>
-<td>Processes tags on footings in linked Revit models</td>
-</tr>
-<tr>
-<td><strong>Selection Sets</strong></td>
-<td>Creates timestamped selection sets for modified/skipped elements</td>
+<td>Move Combined Tags</td>
+<td><code>DBTools.MoveCombinedFoundationTags</code></td>
+<td>1</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:19-39</code></p>
-</blockquote>
-<h3 id="ribbon-commands">Ribbon Commands</h3>
-<h4 id="update-combined-foundation-tags">Update Combined Foundation Tags</h4>
-<p>Updates parameter values on piers and footings in the current view:</p>
+<p>Both use <code>InlineUi</code> on the Structural panel in split group <code>foundation_tags</code>.
+Their command and availability classes are <code>UpdateCombinedFoundationTagsCommand</code> and
+<code>MoveCombinedFoundationTagsCommand</code> under <code>App/Composition</code>.
+Icon keys are <code>update_combined</code> and <code>move_combined</code>.
+<a href="organize-foundation.html">Organize Foundation Types</a> occupies order 2 in the same group.</p>
+<h2 id="update">Update</h2>
+<p><code>Features/CombinedFoundationTagsUpdater</code> collects visible <code>FamilyInstance</code> elements from the active view.
+Configured family patterns classify piers and footings. Updates affect host-document instances.</p>
 <ol>
-<li><strong>Pier Processing</strong>: Calculates <code>Foundation Pier Top</code> elevation from <code>Top Level</code> + <code>Top Offset</code></li>
-<li><strong>Footing Processing</strong>: Associates each footing with its nearest pier (within 2-foot threshold)</li>
-<li><strong>Parameter Updates</strong>: Sets <code>Associated Pier</code> (type mark) and <code>Associated Pier Elevation</code> on footings</li>
+<li>Compute each pier's top as <code>Top Level</code> elevation plus <code>Top Offset</code>.</li>
+<li>Write <code>Foundation Pier Top</code> by GUID.</li>
+<li>Find the nearest pier to each footing using XY location points, within two feet inclusive.</li>
+<li>Write that pier's type mark to <code>Associated Pier</code> and its top to <code>Associated Pier Elevation</code>.</li>
+<li>Publish current-run result IDs and timestamped selection sets.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:68-267</code></p>
-</blockquote>
-<p><strong>Command</strong>: <code>DBTools.UpdateCombinedFoundationTags</code><br>
-<strong>Display Text</strong>: &quot;Update Combined Foundation Tags&quot;<br>
-<strong>Run Profile</strong>: InlineUi</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:20-29</code></p>
-</blockquote>
-<h4 id="move-combined-foundation-tags">Move Combined Foundation Tags</h4>
-<p>Repositions foundation tags to specific corners of their tagged footings:</p>
-<ol>
-<li><strong>Tag Collection</strong>: Finds structural foundation tags matching configured family patterns</li>
-<li><strong>Footing Resolution</strong>: Retrieves tagged footing (host or linked)</li>
-<li><strong>Corner Calculation</strong>: Computes footing corners using geometry tessellation</li>
-<li><strong>Position Assignment</strong>: Moves tag to the corner specified by the tag name/type</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsMover.cs:58-116</code></p>
-</blockquote>
-<p><strong>Command</strong>: <code>DBTools.MoveCombinedFoundationTags</code><br>
-<strong>Display Text</strong>: &quot;Move Combined Tags&quot;<br>
-<strong>Run Profile</strong>: InlineUi</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:30-39</code></p>
-</blockquote>
-<h3 id="view-activated-auto-update">View-Activated Auto-Update</h3>
-<p>When enabled, the tool automatically runs the Update Combined Tags operation when activating floor or ceiling plan views.</p>
-<p>If shared-parameter prerequisites are invalid during auto-update, the tool sets warning <code>core.structural.combined_tags</code>, skips execution, and shows a prerequisite banner once per document session.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs</code></p>
-</blockquote>
-<p><strong>Supported View Types:</strong></p>
-<ul>
-<li>FloorPlan</li>
-<li>CeilingPlan</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs:48</code></p>
-</blockquote>
-<h2 id="architecture">Architecture</h2>
-<h3 id="directory-structure">Directory Structure</h3>
-<pre><code>src/Tools/Structural/FoundationTags/
-+-- Features/                    # Core feature implementations
-|   +-- CombinedFoundationTagsUpdater.cs    # Update logic
-|   +-- CombinedFoundationTagsMover.cs      # Move logic
-|   +-- FoundationTagsGeometry.cs           # Pure geometry calculations
-|   +-- UpdateCombinedFoundationTagsCommand.cs
-|   +-- MoveCombinedFoundationTagsCommand.cs
-+-- Hooks/                       # Event handlers
-|   +-- CombinedTagsViewActivatedTask.cs    # Auto-update on view activation
-+-- Settings/                    # Configuration
-|   +-- FoundationTagsSettings.cs
-|   +-- FoundationTagsSettingsPackContext.cs
-|   +-- FoundationTagsSettingsPackView.xaml
-+-- Tests/                       # Unit tests
-|   +-- FoundationTagsGeometryTests.cs
-+-- FoundationTagsToolModule.cs  # DI registration
-+-- manifest.yml                 # Tool manifest
-</code></pre>
-<h3 id="key-components">Key Components</h3>
-<h4 id="foundationtagstoolmodule">FoundationTagsToolModule</h4>
-<p>The module class registers settings, services, and settings packs with the dependency injection container.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/FoundationTagsToolModule.cs:14-91</code></p>
-</blockquote>
-<p><strong>Registration Points:</strong></p>
-<ul>
-<li><code>RegisterSettings</code>: Binds <code>FoundationTagsSettings</code> to configuration section <code>Tools.FoundationTags</code></li>
-<li><code>RegisterServices</code>: Registers <code>CombinedTagsViewActivatedTask</code> as <code>IViewActivatedTask</code></li>
-<li><code>RegisterSettingsPacks</code>: Creates settings UI with warning definitions</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/FoundationTagsToolModule.cs:16-81</code></p>
-</blockquote>
-<h4 id="combinedfoundationtagsupdater">CombinedFoundationTagsUpdater</h4>
-<p>The core service that updates pier and footing parameters.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:16-275</code></p>
-</blockquote>
-<p><strong>Processing Flow:</strong></p>
-<ol>
-<li>Collect piers matching configured family patterns</li>
-<li>Collect footings matching configured family patterns</li>
-<li>For each pier: calculate and set <code>Foundation Pier Top</code></li>
-<li>For each footing: find nearest pier and set association parameters</li>
-<li>Create selection sets for modified and skipped elements</li>
-</ol>
-<p><strong>Pier-Footing Association:</strong></p>
-<ul>
-<li>Uses 2D distance (X, Y only) to find nearest pier</li>
-<li>Maximum distance threshold: 2 feet (squared distance = 4.0)</li>
-<li>Clears association if no pier found within threshold</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:167</code></p>
-</blockquote>
-<h4 id="combinedfoundationtagsmover">CombinedFoundationTagsMover</h4>
-<p>The service that repositions tags to footing corners.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsMover.cs:18-376</code></p>
-</blockquote>
-<p><strong>Corner Selection Algorithm:</strong></p>
-<ol>
-<li>Extract footing geometry points via tessellation</li>
-<li>Project corners onto view coordinate system (right/up axes)</li>
-<li>Select corner based on tag name using dot product projection</li>
-</ol>
-<p><strong>Supported Corner Names:</strong></p>
-<ul>
-<li>&quot;Top Right&quot;</li>
-<li>&quot;Top Left&quot;</li>
-<li>&quot;Bottom Right&quot;</li>
-<li>&quot;Bottom Left&quot;</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:142-149</code></p>
-</blockquote>
-<h4 id="foundationtagsgeometry">FoundationTagsGeometry</h4>
-<p>A pure, testable geometry module with no Revit dependencies.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:112-250</code></p>
-</blockquote>
-<p><strong>Functions:</strong></p>
+<p>A missing or invalid Top Level records a pier failure. Missing Top Offset uses zero.
+Piers without <code>LocationPoint</code> cannot participate in nearest-point matching.
+Equal-distance ties retain the first candidate.</p>
+<p>Without a pier, the updater clears the association text to an empty string.
+It keeps a stored elevation and reports failure because these length parameters cannot be cleared.
+Parameter.ClearValue requires HideWhenNoValue, which the shipped definitions do not set.
+An elevation without a stored value needs no clearing.
+Double writes compare values rounded to two decimal places in internal feet.
+String comparison is ordinal.</p>
+<p><code>UpdateParameterWriter</code> returns failures for missing, read-only, wrong-storage, or rejected parameter writes.
+The updater records these failures and continues. A footing can appear in both Modified and Failed sets
+when one parameter changes and another fails. Unexpected exceptions escape the parameter transaction and roll back the run.</p>
+<p>Parameter writes and selection-set publication use separate transactions inside one transaction group.
+The group assimilates to one Undo entry. A selection-set failure preserves committed parameter writes,
+then propagates after assimilation. Other failures attempt group rollback and preserve concurrent cleanup faults.</p>
+<p><code>UpdateRunResult</code> contains <code>UpdatedCount</code>, <code>FailedCount</code>, and read-only snapshots of Modified and Failed IDs.
+The manual workflow offers <strong>Select Modified</strong> and <strong>Select Skipped</strong> when updates exist.
+Those banner actions check that the source document is still active before selecting IDs.
+With no updates, it shows an Info or Warning toast without selection actions.</p>
+<p>Selection sets use <code>DB Tools - FoundationTags - Modified Elements (...)</code> and
+<code>DB Tools - FoundationTags - Skipped Elements (...)</code> names with Eastern-time timestamps.
+Repeated names receive suffixes starting at <code>(2)</code>.
+Pruning retains five sets across both kinds, ordered by descending element ID.</p>
+<h2 id="move">Move</h2>
+<p><code>Features/Move/MoveCombinedFoundationTagsRunner</code> collects visible <code>IndependentTag</code> instances,
+resolves a tagged host or linked structural foundation, and filters tag family/type names by the configured patterns.
+Only the host tag moves. Linked footing geometry transforms into host coordinates.</p>
+<p>The desired name is the trimmed tag name, or its type name when the tag name is blank.
+Supported values are case-insensitive <code>Top Right</code>, <code>Top Left</code>, <code>Bottom Right</code>, and <code>Bottom Left</code>.</p>
+<p>The runner tessellates fine-detail footing geometry, including nonvisible objects, in the instance's local frame.
+Local XY extents define four rectangular corners. <code>FoundationTagsGeometry.SelectCornerByViewOrientation</code>
+labels them against the view's RightDirection and UpDirection.
+The edge most aligned with view-right becomes horizontal. A tie uses the second declared edge.
+The tag retains its current Z.</p>
+<p>Unsupported names, missing point locations, and geometry without usable corners are skips.
+All candidate moves share <code>DB Tools - Move Combined Foundation Tags</code>.
+Unexpected transform, geometry, tessellation, or tag-write errors log the tag ID and propagate, rolling back every move.
+<code>MoveRunResult</code> separates moved, skipped, candidate, total-view-tag, structural-foundation, and pattern-rejection counts,
+with rejected-name samples for diagnostics.</p>
+<h2 id="prerequisites-and-repair">Prerequisites and repair</h2>
+<p>Manual commands and automatic updates validate shared parameters without modifying them.
+The required definitions are owned by <code>Features/Prerequisite/PrerequisiteRequiredParameters</code>:</p>
 <table>
 <thead>
 <tr>
-<th>Function</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>SelectCornerByViewOrientation</code></td>
-<td>Selects corner based on view direction vectors</td>
-</tr>
-<tr>
-<td><code>FindNearestPoint2D</code></td>
-<td>Finds nearest candidate point within threshold</td>
-</tr>
-<tr>
-<td><code>IsValidCornerName</code></td>
-<td>Validates corner name strings</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:123-249</code></p>
-</blockquote>
-<p><strong>Data Types:</strong></p>
-<table>
-<thead>
-<tr>
+<th>Parameter</th>
+<th>GUID</th>
 <th>Type</th>
-<th>Description</th>
+<th>Instance category</th>
+<th>Initial group</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Point2D</code></td>
-<td>2D point for distance calculations</td>
+<td>Associated Pier</td>
+<td><code>7f6c2c2a-46ab-4e78-9bf6-9b9c2ef8f7d1</code></td>
+<td>Text</td>
+<td>Structural Foundation</td>
+<td>Identity Data</td>
 </tr>
 <tr>
-<td><code>Point3D</code></td>
-<td>3D point/vector for projections</td>
+<td>Associated Pier Elevation</td>
+<td><code>6d9b0f7f-4f7a-44a4-9c5c-0c0f4bf0da21</code></td>
+<td>Length</td>
+<td>Structural Foundation</td>
+<td>Identity Data</td>
 </tr>
 <tr>
-<td><code>FootingCornerPoints</code></td>
-<td>Four corners of a rectangular footing</td>
-</tr>
-<tr>
-<td><code>NearestPointResult</code></td>
-<td>Result of nearest point search</td>
+<td>Foundation Pier Top</td>
+<td><code>93de44b8-bb7c-4e58-a7e0-9a3a1c8e4d70</code></td>
+<td>Length</td>
+<td>Structural Columns</td>
+<td>Constraints</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/FoundationTagsGeometry.cs:11-106</code></p>
-</blockquote>
+<p>Invalid prerequisites activate <code>core.structural.combined_tags</code> and refuse manual commands with
+<code>SafeExecutionRefusedException</code>. Safe execution shows a Warning banner and logs a Warning without a stack.
+Unexpected validation faults remain errors and do not assert invalid prerequisites.</p>
+<p>Use Settings → <strong>Combined Foundation Tags</strong> → <strong>Refresh</strong> to inspect the active document.
+Use <strong>Fix (Install/Repair)</strong> or <strong>Install/Repair Required Parameters</strong> to repair it.
+Construction of the settings context is passive and shows a Refresh prompt.
+<code>SettingsRuntime</code> receives the settings host's <code>UIApplication</code> explicitly.
+Refresh replaces immutable <code>RequiredParameters</code> status rows. Their six column bindings use <code>OneTime</code>.
+<code>HasWarning</code> belongs to the session context and is not persisted in <code>FoundationTagsSettings</code>.</p>
+<p>Install/Repair uses embedded definitions in group <code>DBTools.Structural.FoundationTags</code>.
+It creates a temporary shared-parameter file, restores Revit's original shared-parameter path,
+and attempts temporary-file deletion. No startup deployment is required.</p>
+<p>Repair deletes conflicting definitions with the same required name and a different GUID, including duplicate-name collisions.
+It preserves other categories and the existing group when extending a binding.
+An instance binding already containing the required category remains unchanged.
+A type binding becomes an instance binding with its existing categories plus the required category.
+Revit drops the type values and the installer logs a Warning naming the parameter.
+The updater accesses these parameters by GUID.</p>
+<p>The warning disables Update, Move, and Organize Foundation Types.
+Its title is <strong>Combined Foundation Tags Disabled</strong>. Clear it after resolving the prerequisite issue.</p>
+<h2 id="automatic-updates-and-monitoring">Automatic updates and monitoring</h2>
+<p><code>CombinedFoundationTagsAutoUpdateTask</code> runs Update in FloorPlan and CeilingPlan views when enabled and no warning blocks it.
+Invalid prerequisites set the warning and show a banner once per document session through <code>PrerequisiteBannerLedger</code>.
+NotApplicable and TransientNotReady evaluations skip execution.
+An unexpected runtime fault sets no prerequisite warning. Core's <code>ViewActivationHook</code> suppresses the failed task for that document session.</p>
+<p><code>PrerequisiteMonitorTask</code> checks prerequisite state and schedules an Idling retry for transient initialization states.
+<code>PrerequisiteRetryCoordinator</code> retains each original event source and detach callback.
+Evaluation faults log and can be checked again on the next view activation.
+The monitor disposes its own retry coordinator at synchronous App shutdown. An injected coordinator remains caller-owned.
+Disposed lifetimes reject scheduling. Failed-detach entries retain cleanup state without retry work.
+A late Idling event can retry detachment.</p>
 <h2 id="settings">Settings</h2>
-<h3 id="configuration-section">Configuration Section</h3>
-<p><strong>Path</strong>: <code>Tools.FoundationTags</code></p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:7</code></p>
-</blockquote>
-<h3 id="foundationtagssettings">FoundationTagsSettings</h3>
-<p>Settings class implementing <code>IAutoUpdateSettings</code>.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:9-50</code></p>
-</blockquote>
+<p>Configuration section: <code>Tools.FoundationTags</code>. Pack: <code>structural.foundation_tags</code>, titled <strong>Combined Foundation Tags</strong>.
+<code>AutoUpdateEnabled</code> defaults to <code>true</code>. Pattern lists default empty and resolve to:</p>
 <table>
 <thead>
 <tr>
 <th>Property</th>
-<th>Type</th>
-<th>Default</th>
-<th>Description</th>
+<th>Default pattern</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>AutoUpdateEnabled</code></td>
-<td><code>bool</code></td>
-<td><code>true</code></td>
-<td>Enable auto-update on view activation</td>
-</tr>
-<tr>
-<td><code>HasWarning</code></td>
-<td><code>bool</code></td>
-<td><code>false</code></td>
-<td><strong>Session-only</strong> warning state mirrored into Settings UI (not persisted to disk). Tool enable/disable is driven by warning <code>core.structural.combined_tags</code>.</td>
-</tr>
-<tr>
 <td><code>TagFamilyPatterns</code></td>
-<td><code>List&lt;string&gt;</code></td>
-<td>See below</td>
-<td>Regex patterns for tag families</td>
+<td><code>^DB Pier and Foundation Combined Tag(?: No Elevations)?$</code></td>
 </tr>
 <tr>
 <td><code>PierFamilyPatterns</code></td>
-<td><code>List&lt;string&gt;</code></td>
-<td>See below</td>
-<td>Regex patterns for pier families</td>
+<td><code>^Foundation Pier(?: - Round)?$</code></td>
 </tr>
 <tr>
 <td><code>FootingFamilyPatterns</code></td>
-<td><code>List&lt;string&gt;</code></td>
-<td>See below</td>
-<td>Regex patterns for footing families</td>
+<td><code>^(?:Footing\|Pile Cap)-Rectangular$</code></td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs:14-49</code></p>
-</blockquote>
-<h3 id="warning--remediation-flow">Warning + remediation flow</h3>
-<ul>
-<li>Active-document prerequisite checks toggle warning <code>core.structural.combined_tags</code> to disable Foundation Tags commands when required shared parameters are missing/mismatched.</li>
-<li>Settings warning cards can expose a <strong>Fix</strong> action when the owning settings pack context supports remediation (Foundation Tags uses this to run Install/Repair).</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/FoundationTagsPrerequisiteMonitorTask.cs:1</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Settings/Shell/SettingsWarningViewModel.cs:1</code></p>
-</blockquote>
-<h3 id="default-patterns">Default Patterns</h3>
-<p><strong>Tag Family Patterns (Move Combined Tags):</strong></p>
-<pre><code>^DB Pier and Foundation Combined Tag(?: No Elevations)?$
+<p>The UI allows three patterns per group through Core <code>RegexPatternListContext</code>.
+It validates syntax and tracks pending changes. <code>FamilyNameClassifier</code> compiles the configured patterns for both workflows.</p>
+<h2 id="ownership-and-tests">Ownership and tests</h2>
+<p><code>App/Composition/FoundationTagsToolModule</code> binds settings, registers the pack, and delegates feature registration
+to <code>ServiceCollectionExtensions.AddFoundationTagsFeatures</code>.
+<code>Features/UpdateCombinedFoundationTagsWorkflow</code> and <code>Features/Move/MoveCombinedFoundationTagsWorkflow</code>
+own manual execution and completion reporting. Queued result-selection gates receive the workflow logger.</p>
+<p>Pure geometry types are <code>Point2D</code>, <code>FoundationTagsPoint</code>, <code>FootingCornerPoints</code>, and <code>NearestPointResult</code>.
+<code>FoundationTagsGeometry</code> owns <code>SelectCornerByViewOrientation</code>, <code>FindNearestPoint2D</code>, and <code>IsValidCornerName</code>.</p>
+<p>Pure tests cover geometry, rotated views, corner names, regex classification, prerequisite lifecycle, and write results.
+Hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.</p>
+<pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope local -y 2026
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs</code></p>
-</blockquote>
-<p><strong>Pier Family Patterns (Update Combined Tags):</strong></p>
-<pre><code>^Foundation Pier(?: - Round)?$
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs</code></p>
-</blockquote>
-<p><strong>Footing Family Patterns (Update Combined Tags):</strong></p>
-<pre><code>^(?:Footing|Pile Cap)-Rectangular$
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettings.cs</code></p>
-</blockquote>
-<h3 id="settings-ui">Settings UI</h3>
-<p>The settings pack provides a configuration panel with:</p>
-<ul>
-<li><strong>Auto-Update Toggle</strong>: Enable/disable automatic tag updates</li>
-<li><strong>Tag Family Patterns</strong>: Up to 3 regex patterns for matching tag families</li>
-<li><strong>Pier Family Patterns</strong>: Up to 3 regex patterns for matching pier families</li>
-<li><strong>Footing Family Patterns</strong>: Up to 3 regex patterns for matching footing families</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettingsPackContext.cs:35-48</code></p>
-</blockquote>
-<p><strong>UI Features:</strong></p>
-<ul>
-<li>Pattern validation with regex syntax checking</li>
-<li>Add/remove pattern buttons (max 3 per group)</li>
-<li>Warning state management with clear action</li>
-<li>Pending changes detection</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Settings/FoundationTagsSettingsPackContext.cs:132-166</code></p>
-</blockquote>
-<h3 id="warning-system">Warning System</h3>
-<p>The tool uses a warning system to disable functionality when issues occur.</p>
-<p><strong>Warning Definition:</strong></p>
-<ul>
-<li><strong>ID</strong>: <code>core.structural.combined_tags</code></li>
-<li><strong>Title</strong>: &quot;Combined Foundation Tags Disabled&quot;</li>
-<li><strong>Message</strong>: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:12-18</code></p>
-</blockquote>
-<p><strong>Disabled Tools When Warning Active:</strong></p>
-<ul>
-<li><code>DBTools.UpdateCombinedFoundationTags</code></li>
-<li><code>DBTools.MoveCombinedFoundationTags</code></li>
-<li><code>DBTools.OrganizeFoundationTypes</code></li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:15-18</code></p>
-</blockquote>
-<h3 id="prerequisite-enforcement-mode">Prerequisite Enforcement Mode</h3>
-<p>Manual command runs and view-activated auto-update now perform <strong>strict, non-mutating prerequisite validation</strong>.<br>
-If required shared parameters are missing/mismatched (including GUID mismatch), the command fails immediately, activates warning <code>core.structural.combined_tags</code>, and does not attempt in-command repair.</p>
-<p>Repair remains an explicit settings action via <strong>Install/Repair Required Parameters</strong> in the Foundation Tags settings pack.</p>
-<p><strong>Repair behavior:</strong></p>
-<ul>
-<li>Install/Repair deletes <strong>all conflicting parameter definitions</strong> that share the required parameter names but do not match the required GUID (including duplicate-name collisions), then re-binds the correct shared parameter definitions from the DBTools shared parameter file.</li>
-<li>The Combined Tags updater reads/writes these prerequisite parameters by <strong>GUID</strong> (not name) to ensure deterministic behavior even in models that previously had name collisions.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs:221</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/SharedParameters/FoundationTagsSharedParameterInstaller.cs:384</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:141</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:183</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/UpdateCombinedFoundationTagsHandler.cs:51</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/MoveCombinedFoundationTagsHandler.cs:47</code>
-<strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Hooks/CombinedTagsViewActivatedTask.cs:64</code></p>
-</blockquote>
-<h2 id="manifest">Manifest</h2>
-<pre><code class="lang-yaml">id: DBTools.Structural.FoundationTags
-assembly: DBTools
-moduleType: DBTools.Structural.FoundationTags.FoundationTagsToolModule
-order: 0
-tool:
-  settings:
-    configSection: Tools.FoundationTags
-  settingsPacks:
-    - key: structural.foundation_tags
-      title: &quot;Combined Foundation Tags&quot;
-      warnings:
-        - id: core.structural.combined_tags
-          title: &quot;Combined Foundation Tags Disabled&quot;
-          message: &quot;Combined foundation tag updates are disabled due to a warning. Clear the warning to re-enable.&quot;
-          disableTools:
-            - DBTools.UpdateCombinedFoundationTags
-            - DBTools.MoveCombinedFoundationTags
-            - DBTools.OrganizeFoundationTypes
-  ribbonTools:
-    - internalName: DBTools.UpdateCombinedFoundationTags
-      commandType: DBTools.Structural.FoundationTags.UpdateCombinedFoundationTagsCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtActiveViewAvailability
-      runProfile: InlineUi
-      displayText: &quot;Update Combined\nFoundation Tags&quot;
-      iconBaseKey: update_combined
-      tooltip: &quot;Update combined foundation tag instances&quot;
-      controlKind: SplitButtonItem
-      splitGroup: foundation_tags
-      order: 0
-    - internalName: DBTools.MoveCombinedFoundationTags
-      commandType: DBTools.Structural.FoundationTags.MoveCombinedFoundationTagsCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtActiveViewAvailability
-      runProfile: InlineUi
-      displayText: &quot;Move Combined Tags&quot;
-      iconBaseKey: move_combined
-      tooltip: &quot;Move combined foundation tags to corner positions&quot;
-      controlKind: SplitButtonItem
-      splitGroup: foundation_tags
-      order: 1
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/manifest.yml:1-39</code></p>
-</blockquote>
-<h2 id="integration-points">Integration Points</h2>
-<h3 id="revit-api-integration">Revit API Integration</h3>
-<p>The tool interacts with Revit through standard API patterns:</p>
-<ul>
-<li><strong>FilteredElementCollector</strong>: Queries piers, footings, and tags</li>
-<li><strong>FamilyInstance.Location</strong>: Extracts element positions</li>
-<li><strong>Parameter.Set/ClearValue</strong>: Updates element parameters</li>
-<li><strong>IndependentTag.TagHeadPosition</strong>: Repositions tags</li>
-<li><strong>SelectionFilterElement</strong>: Creates selection sets for results</li>
-<li><strong>RevitLinkInstance</strong>: Supports linked model elements</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsMover.cs:67-189</code></p>
-</blockquote>
-<h3 id="transaction-management">Transaction Management</h3>
-<p>Operations use the <code>ITransactionRunner</code> interface for transaction management:</p>
-<pre><code class="lang-csharp">_tx.RunAsync(_doc, &quot;DB Tools - Update Combined Foundation Tags...&quot;, doc =&gt;
-{
-    // Parameter updates
-});
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Features/CombinedFoundationTagsUpdater.cs:96-222</code></p>
-</blockquote>
-<h3 id="related-documentation">Related Documentation</h3>
-<ul>
-<li><a href="../../architecture/overview.html">System Architecture</a> - Overall system design</li>
-<li><a href="organize-foundation.html">Organize Foundation Types</a> - Related foundation tool</li>
-</ul>
-<h2 id="testing">Testing</h2>
-<p>The tool includes unit tests for the geometry module:</p>
-<p><strong>Test File:</strong> <code>FoundationTagsGeometryTests.cs</code></p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Tests/FoundationTagsGeometryTests.cs:12</code></p>
-</blockquote>
-<p><strong>Test Categories:</strong></p>
-<ul>
-<li>Corner selection by view orientation</li>
-<li>Rotated view handling</li>
-<li>Case-insensitive corner name matching</li>
-<li>Invalid input handling</li>
-<li>Nearest point 2D search</li>
-<li>Corner name validation</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/FoundationTags/Tests/FoundationTagsGeometryTests.cs:24-432</code></p>
-</blockquote>
-<p>Run headless tests:</p>
-<pre><code class="lang-bash">dotnet test src/Tools/Structural/FoundationTags/Tests/DBTools.Structural.FoundationTags.Tests.csproj -c Release
-</code></pre>
-<hr>
-<blockquote>
-<p><strong>Documentation Status</strong>: Complete</p>
-<p><strong>Last Updated</strong>: 2026-01-24</p>
-<p><strong>Source Review</strong>: Verified against source files in <code>src/Tools/Structural/FoundationTags/</code></p>
-</blockquote>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/foundation-tags.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

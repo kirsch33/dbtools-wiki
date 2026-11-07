@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Record Set technical specification | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Record Set technical specification | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="record-set-technical-specification">Record Set technical specification</h1>
+
+<p>Record Set builds a package from selected RVT host files and their file-based external references.
+It copies files, optionally processes DWG Xrefs, and rewrites references in copied RVT files through TransmissionData.
+The source is <code>src/Tools/Experimental/RecordSet/</code>.
+<a href="recordset.html">Record Set</a> describes application composition and window interactions.</p>
+<h2 id="data-contracts">Data contracts</h2>
+<p><code>Features/Domain</code> owns these values:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SourceFile</code></td>
+<td>Read-only Name, Path, LinkType, and nullable 64-bit LinkId. Mutable Discipline, Building, CadHandlingMode, BindType. Manual child list</td>
+</tr>
+<tr>
+<td><code>HostModel</code></td>
+<td>HostFile and read-only Links collection</td>
+</tr>
+<tr>
+<td><code>ExternalReferenceKey</code></td>
+<td>NormalizedPath plus typed LinkType</td>
+</tr>
+<tr>
+<td><code>PlanOptions</code></td>
+<td>Nullable AutoDiscoverCadXrefs and AllowCadRepath</td>
+</tr>
+<tr>
+<td><code>PlanContext</code></td>
+<td>TargetFolder, SelectedHosts, Options, and computed CommonLinkKeys</td>
+</tr>
+<tr>
+<td><code>ExecutionPlan</code></td>
+<td>Ordered Items, TotalBytes, PredictedOutputBytes, Summary, Fingerprint</td>
+</tr>
+<tr>
+<td><code>PlanSummary</code></td>
+<td>Hosts, UniqueLinks, CopyBytes, PredictedOutputBytes, Items</td>
+</tr>
+<tr>
+<td><code>PlanMessage</code></td>
+<td>Info, Warning, or Block severity and text</td>
+</tr>
+</tbody>
+</table>
+<p><code>SourceFile.CreateHost</code>, <code>CreateDiscoveredLink</code>, and <code>CreateManualCadXref</code> construct source values.
+Discipline defaults to empty. Building defaults to <code>-</code>. Blank building input normalizes to <code>-</code>.
+CAD mode defaults to Inherit and bind type defaults to Bind. Destination paths belong to immutable
+<code>PreviewDestination</code> projections, rather than mutable source-file properties.</p>
+<table>
+<thead>
+<tr>
+<th>Enum</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LinkType</code></td>
+<td>Rvt = 0, Dwg = 1, Other = 2</td>
+</tr>
+<tr>
+<td><code>CadHandlingMode</code></td>
+<td>Inherit = 0, AddXrefs = 1, BindAll = 2</td>
+</tr>
+<tr>
+<td><code>BindType</code></td>
+<td>Bind = 0, Insert = 1</td>
+</tr>
+<tr>
+<td><code>ExecutionStatus</code></td>
+<td>Ok, Cancelled</td>
+</tr>
+</tbody>
+</table>
+<p>Inherit resolves to AddXrefs during planning.
+A null PlanOptions flag follows Core Console availability independently for each preview.
+The UI initially shows unchecked flags, publishes their effective values after preview,
+and preserves explicit user choices for the window lifetime. These options are not persisted.</p>
+<h2 id="host-import-and-reference-reading">Host import and reference reading</h2>
+<p><code>FileSelectionWorkflow</code> owns OS pickers. <code>HostImporter</code> normalizes picks, rejects existing or repeated hosts,
+and calls <code>PlanningService.ScanHost</code> with empty discipline and building <code>-</code>.
+A <code>RevitOperationException</code> or scan warning rejects that host and returns an ordered issue.
+Owner-token cancellation propagates. The application displays issues and adds only accepted hosts.</p>
+<p><code>RevitOperations</code> implements <code>IExternalReferenceReader</code> and <code>ITransmissionWriter</code>.
+It strips long-path prefixes before passing paths to Revit.
+Missing TransmissionData or external-reference collections fail with operation and host context.</p>
+<p>Reference reading uses desired data when <code>IsTransmitted</code> is true and last-saved data otherwise.
+Library references (<code>PathType.Content</code>, including library-located keynote or assembly-code tables) are omitted.
+Absolute references retain their stored path. Relative references resolve against the source host folder.
+For a workshared local, the base is the file-system central folder from <code>BasicFileInfo.CentralPath</code>.
+Without a usable file-system central path, resolution uses the reference's saved absolute path.
+A moved package with intact relative structure therefore resolves its own files.</p>
+<p>The scan creates discovered links using their resolved paths and host metadata.
+It classifies RVT, DWG, and Other external references. It does not recursively scan linked RVT models.</p>
+<h2 id="destination-rules">Destination rules</h2>
+<p><code>PlanningService.BuildContext</code> counts normalized source-path/type occurrences.
+Keys appearing at least twice become common links. Identity uses the complete normalized path and type,
+not just a filename. The count includes repeated references within one host.</p>
+<p><code>TargetPathRules</code> computes intended paths:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Destination</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Host with building</td>
+<td><code>{target}/{building}/{discipline}/{name}</code></td>
+</tr>
+<tr>
+<td>Host without building</td>
+<td><code>{target}/{discipline}/{name}</code></td>
+</tr>
+<tr>
+<td>Noncommon link with building</td>
+<td><code>{target}/{building}/{discipline}/Linked Files/{name}</code></td>
+</tr>
+<tr>
+<td>Noncommon link without building</td>
+<td><code>{target}/{discipline}/Linked Files/{name}</code></td>
+</tr>
+<tr>
+<td>Common link</td>
+<td><code>{target}/Common Linked Files/{name}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Blank or <code>-</code> building omits that segment. Empty discipline adds no directory segment.
+The destination allocator compares normalized paths. Reusing the same source/destination needs no extra copy.
+A different source colliding with a destination receives <code>name (2).ext</code>, then <code>(3)</code>, and so on,
+with a warning. Allocation fails when the counter exceeds 10,000.
+Mappings and preview projections use the allocated destination.</p>
+<h2 id="plan-construction-and-limits">Plan construction and limits</h2>
+<p><code>Features/Planning/Preview/PreviewPlanBuilder.BuildPlanAsync</code> performs these stages:</p>
+<ol>
+<li>Find Core Console and resolve nullable CAD flags.</li>
+<li>Plan hosts and non-CAD links under the file policy.</li>
+<li>Plan each distinct DWG destination once, using its first occurrence's CAD options.</li>
+<li>Append Revit repath operations for copied hosts with allowed mappings.</li>
+<li>Check sources, count bytes, estimate bound output, enforce limits, and compute the fingerprint.</li>
+</ol>
+<p>Denied hosts or links produce warnings. Missing planned source paths produce Block messages.
+Directory copies count only policy-allowed files. TotalBytes counts each distinct source/destination copy pair,
+including repeated copies of one source to different destinations.
+<code>PlanSummary.UniqueLinks</code> is the number of distinct copy-source paths, including host paths.
+<code>Hosts</code> is the selected-host count. <code>Items</code> includes directory and message items.</p>
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Value</th>
+<th>Result when exceeded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PlanningLimits.MaxTotalBytes</code></td>
+<td>80 × 1024³ bytes</td>
+<td>Block</td>
+</tr>
+<tr>
+<td><code>PlanningLimits.MaxTotalItems</code></td>
+<td>10,000</td>
+<td>Block</td>
+</tr>
+</tbody>
+</table>
+<p>PredictedOutputBytes starts at TotalBytes. For Bind All, the estimate adds allowed discovered Xref sizes
+beyond the copied host DWG size. Estimate failure produces a warning and retains the existing estimate.
+These are preview limits, not guarantees of final package size.</p>
+<h3 id="plan-items-and-progress">Plan items and progress</h3>
+<p>Plan items are typed records. <code>PlanAction</code> supplies their dispatch identity.</p>
+<table>
+<thead>
+<tr>
+<th>Record</th>
+<th>Data</th>
+<th>Fingerprint action</th>
+<th>Fingerprint keys</th>
+<th style="text-align: right;">Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FsCreateDirItem</code></td>
+<td>Path</td>
+<td><code>fs_create_dir</code></td>
+<td><code>path</code></td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr>
+<td><code>FsCopyItem</code></td>
+<td>Source, Destination</td>
+<td><code>fs_copy</code></td>
+<td><code>src</code>, <code>dst</code></td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td><code>CadCopyItem</code></td>
+<td>Source, Destination</td>
+<td><code>cad_copy</code></td>
+<td><code>src</code>, <code>dst</code></td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td><code>CadRepathItem</code></td>
+<td>Host, NewRoot</td>
+<td><code>cad_repath</code></td>
+<td><code>host</code>, <code>new_root</code></td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td><code>CadBindAllItem</code></td>
+<td>Host, BindType</td>
+<td><code>cad_bind_all</code></td>
+<td><code>host</code>, <code>bindtype</code> as invariant numeric enum text</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td><code>RevitRepathItem</code></td>
+<td>Host, SourceHost, Mapping</td>
+<td><code>revit_repath</code></td>
+<td><code>host</code>, <code>source_host</code>, <code>map:{source}</code> per mapping</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td><code>UIWarnItem</code></td>
+<td>Message</td>
+<td><code>ui_warn</code></td>
+<td><code>msg</code></td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td><code>UIInfoItem</code></td>
+<td>Message</td>
+<td><code>ui_info</code></td>
+<td><code>msg</code></td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+<p>Progress increases after an item completes, using its weight divided by the total weight, with a minimum denominator of 1.
+It is an operation estimate, not byte progress.</p>
+<p>Each item emits an action string and ordinally sorted <code>key=value</code> fields separated by <code>|</code>.
+Revit mappings use <code>map:{source}</code> keys. Fingerprinting hashes successive UTF-8 item segments with SHA-256,
+without an extra separator between segments, and keeps the first 16 lowercase hexadecimal characters.
+It records plan identity for the audit output. Execution does not use it as a content checksum.</p>
+<h2 id="cad-planning">CAD planning</h2>
+<p>For AddXrefs, the planner copies the DWG and allowed manual Xrefs beside it.
+With discovery enabled and Core Console available, it scans the tree and copies unique referenced paths
+beside the destination DWG, allocating collision suffixes when necessary.
+When repath is enabled, it appends <code>CadRepathItem</code> using the destination DWG directory as NewRoot.</p>
+<p>Discovery failure logs a warning and uses heuristic copying.
+Disabled discovery or unavailable Core Console also uses heuristic copying:
+copy existing sibling directories named <code>xrefs</code>, <code>xref</code>, <code>refs</code>, <code>ref</code>, <code>external</code>, <code>dwg</code>, or <code>cad</code>.
+Each source/destination directory pair is copied once. This path does not rewrite Xrefs and can leave broken references.
+The planner emits Info messages <code>Auto-discover CAD Xrefs disabled.</code> when discovery is disabled with Core Console present,
+or <code>AutoCAD Core Console not found. DWG Xrefs copied by heuristic only.</code> when Core Console is absent.
+Explicitly enabling both discovery and repath without Core Console produces Block.</p>
+<p>BindAll requires Core Console. Without it, preview produces Block and schedules no bind operation.
+With it, the plan copies the DWG and appends bind work, without manual or discovered Xref copy work.
+Selecting BindAll clears manual children. Bind and Insert select AutoCAD BINDTYPE 0 and 1 respectively.
+Bind preserves Xref-prefixed names. Insert merges names and can produce naming conflicts.</p>
+<h3 id="core-console-boundary">Core Console boundary</h3>
+<p><code>CoreConsoleRuntime.FindCoreConsole</code> searches:</p>
+<ol>
+<li>An existing path from <code>ACCORECONSOLE</code>.</li>
+<li><code>accoreconsole.exe</code> in PATH order.</li>
+<li>AutoCAD 2026, 2025, and 2024 under <code>C:\Program Files\Autodesk</code>.</li>
+<li>DWG TrueView 2025 under the same directory.</li>
+</ol>
+<p>Each run extracts an embedded <code>DBTools.ToolCad.RecordSet.*</code> script to a unique temporary <code>.lsp</code> file
+and attempts deletion in <code>finally</code>. Deletion failures log a Warning.
+<code>CoreConsoleRunner</code> starts both redirected reads immediately and returns immutable standard output,
+standard error, and exit code. It creates a temporary .scr file that loads and invokes the extracted LISP script:</p>
+<pre><code class="lang-text">accoreconsole.exe /i &quot;&lt;input.dwg&gt;&quot; /s &quot;&lt;temporary.scr&gt;&quot;
+</code></pre>
+<p>Cancellation terminates the owned process tree and observes terminal stream completion.
+The runner attempts .scr cleanup on every exit and logs deletion failures.
+Execution rechecks Core Console availability for each CAD repath or bind item.
+If it is missing, the executor logs the affected DWG path and throws InvalidOperationException rather than using heuristic copying.</p>
+<table>
+<thead>
+<tr>
+<th>Script and function</th>
+<th>Argument</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rs_list_xrefs.lsp</code>, <code>rs-list-xrefs</code></td>
+<td>Host DWG path</td>
+<td>Enumerates Xref blocks and emits nested JSON</td>
+</tr>
+<tr>
+<td><code>rs_repath_xrefs.lsp</code>, <code>rs-repath-xrefs</code></td>
+<td><code>host.dwg\|new_root</code></td>
+<td>Strips matching root prefixes from Xref paths and saves</td>
+</tr>
+<tr>
+<td><code>rs_bind_all_xrefs.lsp</code>, <code>rs-bind-all-xrefs</code></td>
+<td><code>host.dwg\|BIND</code> or <code>host.dwg\|INSERT</code></td>
+<td>Sets BINDTYPE, binds <code>*</code>, purges three times, quick-saves</td>
+</tr>
+</tbody>
+</table>
+<p>Discovery requires a zero exit code and parseable JSON between the first <code>{</code> and last <code>}</code> in output.
+The root requires an <code>xrefs</code> array. Every node requires a non-null <code>children</code> array with non-null nodes.
+Host, node name, and node path can be blank. Blank paths do not expand into copy work.
+The JSON fields are <code>host</code>, <code>xrefs</code>, <code>name</code>, <code>path</code>, <code>overlay</code>, and <code>children</code>.
+The shipped scanner emits <code>overlay: false</code> rather than detecting overlay state.</p>
+<p>The scanner calls <code>vl-file-syst-exists-p</code> before opening a referenced drawing.
+The shipped scripts define no such function. A scan fault takes the heuristic path described above.
+The repath script receives a root, not the planner's source-to-copy mapping.
+It only strips a case-insensitive matching root prefix. It does not resolve relocated or collision-renamed Xrefs.
+<code>CadExecutor</code> checks only the repath process exit code.
+Bind requires both a zero exit code and an output marker containing <code>&quot;ok&quot;:true</code>.
+These contracts do not establish that every dependency in an arbitrary DWG package resolves.</p>
+<h2 id="revit-repath">Revit repath</h2>
+<p><code>RevitRepathItem.SourceHost</code> preserves the source reference base while Host names the copied RVT.
+Mapping keys are normalized source paths and values are allocated output paths.
+The writer reads effective references, skips Content references, and matches against the source base.
+It sets desired paths while preserving effective loaded/unloaded state.</p>
+<p><code>TransmissionWriteResult.UpdatedCount</code> is zero for no matching changes.
+The writer leaves the copied RVT untouched in that case.
+A positive count causes TransmissionData to be written with <code>IsTransmitted = true</code>.
+A rewritten workshared copy opens detached and cannot create new locals while transmitted.
+Reference failures preserve operation, host, reference ID, old/new path context, and original causes through <code>RevitOperationException</code>.
+Owner cancellation remains cancellation.</p>
+<h2 id="safety-policy">Safety policy</h2>
+<p><code>PolicyReader</code> loads the embedded resource <code>DBTools.ToolConfigs.RecordSet.recordset_policy.json</code>
+from <code>Policies/recordset_policy.json</code>. It does not load a user-side policy file.</p>
+<table>
+<thead>
+<tr>
+<th>JSON member</th>
+<th>Shipped value or rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowed_target_roots</code></td>
+<td>Nonempty required list. Shipped root is <code>\\fileserver\Projects</code></td>
+</tr>
+<tr>
+<td><code>verify_after_copy</code></td>
+<td>Required Boolean, shipped false</td>
+</tr>
+<tr>
+<td><code>min_free_bytes</code></td>
+<td>Required nonnegative number, shipped 10,737,418,240</td>
+</tr>
+<tr>
+<td><code>denied_extensions</code></td>
+<td><code>.dwl</code>, <code>.dwl2</code>, <code>.tmp</code>, <code>.bak</code>, <code>.lnk</code>, <code>.exe</code></td>
+</tr>
+<tr>
+<td><code>allowed_extensions</code></td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><code>deny_globs</code></td>
+<td>Required list, shipped <code>*backup*.rvt</code>, <code>*.old</code>, <code>~$*</code></td>
+</tr>
+<tr>
+<td><code>paths.enable_long_paths</code></td>
+<td>Required Boolean in required paths object, shipped false</td>
+</tr>
+<tr>
+<td><code>delete_mode</code></td>
+<td>Defaults to <code>quarantine</code>. No plan action consumes it</td>
+</tr>
+<tr>
+<td><code>require_sentinel_for_delete</code></td>
+<td>Defaults true. No delete action consumes it</td>
+</tr>
+</tbody>
+</table>
+<p>Configured string entries must be nonblank. Roots must be absolute Windows drive-letter paths
+or complete UNC server/share paths. Relative, drive-relative, root-relative, and incomplete UNC roots fail admission.
+Malformed or incompatible policy throws. It is not normalized into valid data.</p>
+<p>Preview checks the target against admitted roots. Execution reloads policy and checks it again.
+The containment predicate admits equality with the root and descendants.
+Before acquiring the lock, execution checks every output-bearing plan path:
+directories, copy destinations, CAD repath hosts/roots, bind hosts, Revit hosts, and mapping destinations.
+Copy sources, mapping keys, and Revit source hosts remain source paths.</p>
+<p>Execution requires free space minus <code>max(TotalBytes, PredictedOutputBytes)</code> to meet MinFreeBytes.
+Safe filesystem operations resolve existing file and directory redirects before checking containment.
+Recursive copies carry destination checks into every nested operation.
+Lock, sentinel, and manifest mutations repeat containment checks.
+These checks do not make validation and mutation atomic against concurrent path replacement.</p>
+<p>Copies overwrite existing destination files and preserve the source file's UTC creation, last-access, and last-write timestamps. Optional verification compares SHA-256 hashes,
+including every allowed file in a copied directory. It verifies copied bytes before later CAD/Revit mutations.</p>
+<h2 id="execution-cancellation-and-audit-files">Execution, cancellation, and audit files</h2>
+<p><code>ExecutionPlanExecutor.ExecuteAsync</code> validates preconditions, creates runtime metadata,
+acquires the lock, writes the sentinel, executes items in order, and writes an outcome manifest.
+It always attempts lock release after successful acquisition.
+The UI passes <code>CancellationToken.None</code> and shows a non-cancelable overlay.
+Lower owners honor supplied cancellation at work boundaries. Execution is not dispatched to a worker thread.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Successful execution</td>
+<td><code>ExecutionStatus.Ok</code>, <code>ok</code> manifest</td>
+</tr>
+<tr>
+<td>Owner cancellation before lock acquisition</td>
+<td><code>Cancelled</code>, empty run ID and manifest path</td>
+</tr>
+<tr>
+<td>Owner cancellation after acquisition</td>
+<td><code>Cancelled</code>, <code>cancelled</code> manifest, lock release</td>
+</tr>
+<tr>
+<td>Unexpected fault or foreign cancellation</td>
+<td>Attempt <code>failed</code> manifest, release lock, propagate failure</td>
+</tr>
+</tbody>
+</table>
+<p>Manifest-write, diagnostic, or lock-release failures remain visible with the primary failure.
+A cancellation-manifest failure preserves both cancellation and write exceptions.
+Preflight failures fault the returned task and create no manifest.
+The UI displays <code>(none)</code> when no manifest exists and preserves known sentinel state for pre-lock cancellation.</p>
+<p>Runtime paths are:</p>
+<pre><code class="lang-text">{target}/.recordset.lock
+{target}/.recordset_sentinel
+{target}/_recordset_manifests/{run_id}.json
+</code></pre>
+<p>Run IDs use UTC <code>yyyyMMdd-HHmmss</code> plus four random lowercase hex characters.
+The lock uses <code>FileMode.CreateNew</code>, <code>FileShare.None</code>, and UTF-8 contents:</p>
+<pre><code class="lang-text">run_id={run_id}
+fingerprint={fingerprint}
+</code></pre>
+<p>Acquisition invokes no external log callback after creation.
+A write/dispose failure attempts partial-lock deletion before propagating.
+After acquisition, logging and all later work are inside the release boundary.
+The sentinel is opened or created and remains after completion. There is no package deletion or quarantine plan action.
+<code>SafeOperationRuntime.TrashRoot</code> names <code>_RS_TRASH/{run_id}</code> but execution does not use it.</p>
+<p>The manifest has this shape:</p>
+<pre><code class="lang-json">{
+  &quot;run_id&quot;: &quot;20260113-154200-a1b2&quot;,
+  &quot;fingerprint&quot;: &quot;0123456789abcdef&quot;,
+  &quot;target_root&quot;: &quot;C:\\Output&quot;,
+  &quot;utc&quot;: &quot;2026-01-13T15:42:00Z&quot;,
+  &quot;summary&quot;: {
+    &quot;hosts&quot;: 1,
+    &quot;unique_links&quot;: 3,
+    &quot;copy_bytes&quot;: 1000000,
+    &quot;predicted_output_bytes&quot;: 1500000,
+    &quot;items&quot;: 8
+  },
+  &quot;status&quot;: &quot;ok&quot;
+}
+</code></pre>
+<p><code>SafeWriteManifestRequest</code> carries only the five summary scalars and Status.
+Execution projects these from PlanSummary. Operations does not depend on the planning aggregate.
+The manifest records summary/status, not an item-by-item rollback journal.</p>
+<p>The lock prevents concurrent Record Set executions at one target. It does not roll back file mutations.
+A failed run can leave copied or rewritten files. Inspect its log and manifest before cleaning output or retrying.
+Remove a stale lock only after establishing that its execution is no longer active.</p>
+<h2 id="manage-items">Manage Items</h2>
+<p>The Options menu opens discipline or building catalogs through ManageDisciplinesCommand and ManageBuildingsCommand.
+ManageItemsWindowViewModel exposes AddCommand, RenameCommand, and DeleteCommand.
+Add trims NewName and requires nonblank input. It ignores case-insensitive duplicates and clears NewName after adding.
+Rename requires a selected item and nonblank RenameTo, trims the replacement, and rejects case-insensitive duplicates.
+It replaces the item in place, invokes the rename callback, selects the replacement, and clears RenameTo.
+Delete requires a selection, removes the item, invokes the delete callback, and clears selection and RenameTo.
+MetadataCatalogWorkflow returns the ordered catalog edits for the App view model to apply to host/link metadata.
+The dialog's default Close button closes without accepting a separate result payload.</p>
+<h2 id="ui-and-test-contracts">UI and test contracts</h2>
+<p><code>PreviewWorkflowState</code> requires a current preview, allowed target, and no Block messages before Process can run.
+Async Add Hosts, Sync Preview, and Execute commands use nonthrowing safe execution and restore busy state.
+Debounced preview handles expected owner cancellation separately.
+For Ok and Cancelled results, the production overlay reports completion and an alert shows status and manifest path.
+Execution failures throw to the application error-banner boundary without showing that completion alert.
+There is no separate progress window with Copy Logs or Cancel controls.</p>
+<p>Pure fixtures exercise production planning, collision handling, policy admission, execution ordering,
+cancellation, process-stream handling, lock cleanup, manifest output, and filesystem redirects.
+Hosted fixtures exercise actual TransmissionData and application interaction.
+See <a href="recordset.html#tests">Record Set tests</a> for WPF fixture lifetime requirements.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

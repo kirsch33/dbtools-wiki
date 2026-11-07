@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/projects/core.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,14 +87,24 @@
         </div>
 
         <article data-uid="">
-<h1 id="dbtoolscore">DBTools.Core</h1>
+<h1 id="dbtools.core">DBTools.Core</h1>
 
-<!-- STATUS: verified -->
-<!-- Last Updated: 2026-01-26 -->
-<!-- Verified By: docs-verification-20260126 - Source anchors verified against code -->
+<!-- STATUS: draft -->
+<!-- Last Updated: 2026-09-25 -->
+<!-- Updated By: ongoing-desloppify -->
 <p>DBTools.Core is the foundational library providing shared infrastructure for all DBTools components. It contains Revit execution abstractions, transaction management, safe execution patterns, logging infrastructure, settings management, tool module system, and shared UI components.</p>
 <h2 id="overview">Overview</h2>
 <p>DBTools.Core serves as the central infrastructure layer, abstracting away Revit API complexities while providing consistent patterns for error handling, logging, and dependency injection across all tools.</p>
+<h2 id="test-ownership">Test ownership</h2>
+<p><code>DBTools.Core.Portable.Pure.Tests</code> is the Linux-runnable <code>net10.0</code> suite for
+portable Core behavior. It owns the Guard, strict JSON enum, safe-execution
+name, and monotonic-progress cases and references Core directly.</p>
+<p><code>DBTools.Core.Pure.Tests</code> is the desktop <code>net10.0-windows</code> suite for normal
+Core and merged-owner behavior, including collectible composition activation.
+<code>DBTools.Core.Local.Tests</code> owns Revit-local fixtures, including the physical
+Progress Overlay fixture; it has a test-only direct reference to
+<code>DBTools.Presentation</code> because that control remains Presentation-owned.</p>
+<p><code>LoggerWindowDispatcherRouterSmokeTests</code> runs real WPF dispatcher routing against desktop Core in the separate Windows VSTest Pure process, not inside Revit. Its nonparallel fixture checks recorded SelfLog fallback, ordered triple-failure propagation, and the posting-caller rejection path without replacing the Revit process's diagnostic writer. The Local logger-window fixture remains responsible for actual window ownership and session behavior.</p>
 <table>
 <thead>
 <tr>
@@ -108,12 +118,12 @@
 <td><code>DBTools.Core.dll</code></td>
 </tr>
 <tr>
-<td><strong>Target Frameworks</strong></td>
-<td><code>net48</code>, <code>net8.0-windows</code></td>
+<td><strong>Target Framework</strong></td>
+<td>Desktop <code>net10.0-windows</code> (Revit 2026.5+ and 2027); portable <code>net10.0</code></td>
 </tr>
 <tr>
 <td><strong>WPF Support</strong></td>
-<td>Yes (<code>UseWPF=true</code>)</td>
+<td>Desktop target only (<code>UseWPF=true</code>)</td>
 </tr>
 <tr>
 <td><strong>Nullable</strong></td>
@@ -121,9 +131,10 @@
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/DBTools.Core.csproj:1-10</code></p>
-</blockquote>
+<p>Normal/default Revit-year Core builds emit an evaluated compile/reference assembly under
+the artifact locations selected by the shared build props. Local tests consume the
+evaluated Core <code>TargetPath</code>, so pruning the product staging tree does not remove their
+project-reference input.</p>
 <h2 id="responsibilities">Responsibilities</h2>
 <ol>
 <li><strong>Revit Execution Abstraction</strong> - Thread-safe API access via call gates and run scopes</li>
@@ -134,21 +145,46 @@
 <li><strong>Tool Module System</strong> - Discovery, registration, and lifecycle management for tools</li>
 <li><strong>Shared UI Components</strong> - Window bases, alert dialogs, progress overlays, and behaviors</li>
 </ol>
+<h2 id="manifest-validation">Manifest validation</h2>
+<p>Embedded YAML is deserialized only into parser-private nullable DTOs. The parser
+immediately promotes each resource into immutable, constructor-validated public
+manifest values; partially populated public manifests are not a supported
+state. <code>ToolManifestValidationPolicy</code> then validates cross-resource rules over
+all successfully promoted entries: duplicate manifest and module identities,
+plus every warning-disable target against the complete ordinal set of declared
+ribbon-tool names. Parse, promotion, and cross-resource errors retain the
+declaring resource and original cause.</p>
 <h2 id="key-components">Key Components</h2>
 <h3 id="revit-execution-layer">Revit Execution Layer</h3>
+<p><code>ElementIdConverter.ToLong</code> preserves Revit element identities. <code>ToInt</code> remains a checked conversion for actual integer contracts, including built-in category IDs. SGT framing diagnostics and TDV failed-element warnings retain full-width IDs so diagnostic formatting cannot replace the original outcome with an overflow.</p>
 <h4 id="irevitcallgate">IRevitCallGate</h4>
 <p>The unified entry point for executing Revit API callbacks, supporting both inline (modal) and queued (modeless) execution modes.</p>
 <pre><code class="lang-csharp">public interface IRevitCallGate
 {
     bool InGate { get; }
     Task&lt;T&gt; RunAsync&lt;T&gt;(Func&lt;UIApplication, T&gt; work, CancellationToken ct = default,
-        RevitCallMode mode = RevitCallMode.Auto);
+        RevitCallGateMode mode = RevitCallGateMode.Auto);
     Task RunAsync(Action&lt;UIApplication&gt; work, CancellationToken ct = default,
-        RevitCallMode mode = RevitCallMode.Auto);
+        RevitCallGateMode mode = RevitCallGateMode.Auto);
 }
 </code></pre>
+<p>Call-gate admission is synchronous by construction. Async-state-machine
+<code>Action&lt;UIApplication&gt;</code> delegates and generic <code>Task</code>, <code>Task&lt;T&gt;</code>, <code>ValueTask</code>,
+and <code>ValueTask&lt;T&gt;</code> result shapes are rejected before context resolution or
+queue scheduling. Nullable <code>ValueTask</code> result types are rejected as well.
+Reference-typed multicast result delegates are rejected before invocation, and
+all reference-typed results receive a runtime awaitable check after invocation
+to catch interface-erased <code>Task</code> and boxed <code>ValueTask</code> values. Custom awaiter
+structs are outside this check.</p>
+<p><code>QueuedRevitCallGate</code> and the host's <code>RevitCallGateTask</code> each require an <code>ILogger</code> from their composition owner (App passes its runtime logger to <code>AppLocalRevitTaskLifecycle.Start</code>). A missing logger is a construction error; production does not substitute a null logger for queued Revit work.</p>
+<p><code>RevitCallGateTask</code> runs every queued call that was waiting when a native Execute turn starts, in order, within a 50 ms budget after the first call; calls queued during the turn wait for the next one. A call that leaves a transaction open, or that creates a transaction group (its owner calls <code>RevitCallGateTurnBoundary.EndAfterCurrentCall()</code>), is the last call of its turn. Every raise is posted to the Revit dispatcher, also from the dispatcher thread, so the raise for leftover work runs after Execute returns. The task logs a throttled Debug <code>[CallGate/Turns]</code> summary of turn count, queue depth, Raise-to-Execute gap and Execute duration. A queued gate call costs one Revit round trip when it waits alone. A caller that needs several reads for one user action makes them in one <code>RunAsync</code> body, or starts independent calls together so one turn runs them all. See <a href="../architecture/revit-execution-and-progress-overlay.html">Revit execution</a> for the scheduler contract.</p>
+<!-- VERIFIED: 2026-07-30 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IRevitCallGate.cs:8-28</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/CallGateDelegateValidator.cs:14-43</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/InlineRevitCallGate.cs:26-64</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/QueuedRevitCallGate.cs:38-100</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/RevitCallGateTask.cs</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/RevitCallGateTaskQueue.cs</code></p>
 </blockquote>
 <p><strong>Execution Modes:</strong></p>
 <table>
@@ -161,41 +197,44 @@
 <tbody>
 <tr>
 <td><code>Auto</code></td>
-<td>Execute inline if valid context exists; otherwise queue</td>
-</tr>
-<tr>
-<td><code>InlineOnly</code></td>
-<td>Execute inline only; throw if context unavailable</td>
+<td>Use the current ambient gate when one exists; otherwise queue through the owned ExternalEvent host</td>
 </tr>
 <tr>
 <td><code>ForceQueue</code></td>
-<td>Always queue via ExternalEvent/RevitTask</td>
-</tr>
-<tr>
-<td><code>RequiresActiveView</code></td>
-<td>Require an active UIDocument before executing</td>
+<td>Always queue through the owned ExternalEvent</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IRevitCallGate.cs:30-51</code></p>
-</blockquote>
+<p>The active <code>UIApplication</code>, queued-gate depth, and Revit-test depth are internal,
+scoped ambient state rather than public mutation points. <code>QueuedRevitCallGate</code>
+owns queued ambient and test scopes, while <code>RevitRunScope</code> owns its application
+context token. Every scope restores the exact previous value, and repeated
+disposal is harmless.</p>
 <h4 id="irevitrunscope">IRevitRunScope</h4>
-<p>Represents a single Revit run scope (command, modeless session, or test). Owns UI/document context plus call gate and transaction services.</p>
-<pre><code class="lang-csharp">public interface IRevitRunScope
+<p>Represents a single Revit run scope (command, modeless session, or test). Owns UIApplication, call-gate, document access, and disposal. Transaction services are scoped registrations resolved through <code>IAppRunScope</code> or <code>ICommandContext</code> with <code>Resolve&lt;T&gt;()</code>.</p>
+<pre><code class="lang-csharp">public interface IRevitRunScope : IDisposable
 {
     UIApplication UIApplication { get; }
     IRevitCallGate CallGate { get; }
-    ITransactionRunner TransactionRunner { get; }
-    ITransactionGroupService TransactionGroupService { get; }
     UIDocument GetActiveUiDocument();
     Document GetActiveDocument();
-    Document GetLockedDocument(Document expectedDocument, string? context = null);
+    Document GetVerifiedActiveDocument(Document expectedDocument, string? context = null);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IRevitRunScope.cs:11-20</code></p>
-</blockquote>
+<p><code>IAppRunScopeFactory</code> is the App-composed construction boundary for the concrete
+<code>AppRunScope</code>, which owns scoped service resolution, its <code>IRevitRunScope</code>, and
+disposal. Scope construction and disposal preserve the primary failure, attempt
+every owned cleanup step, and report any additional cleanup failures in order.
+<code>IAppRunScope</code> exposes <code>Resolve&lt;T&gt;()</code> and <code>RevitRunScope</code> directly;
+there is no separate command-runtime interface. <code>AppRunScopeProfile</code> selects the
+inline or queued call gate while preserving the manifest <code>InlineUi</code> and
+<code>QueuedModeless</code> values. <code>GetVerifiedActiveDocument(...)</code> rejects
+invalid expected or active documents and verifies matching <code>DocumentSessionKey</code>
+values before returning the active document.</p>
+<p>Core logging keeps the active file writer and its path in <code>LogFileSink</code>. A file
+cutover publishes the replacement writer and path before retiring the previous
+writer; a retirement failure is contextual diagnostic data and does not roll
+back the committed path.</p>
 <p><strong>Run Scope Profiles:</strong></p>
 <table>
 <thead>
@@ -208,249 +247,300 @@
 <tbody>
 <tr>
 <td><code>InlineUi</code></td>
-<td>Modal commands and RevitTest</td>
-<td><code>ModalInlineCallGate</code> + <code>CallGateTransactionRunner</code></td>
+<td>Modal commands and daemon-hosted Revit automation</td>
+<td><code>InlineRevitCallGate</code> + scoped <code>ITransactionRunner</code></td>
 </tr>
 <tr>
 <td><code>QueuedModeless</code></td>
 <td>Long-running/modeless tools</td>
-<td><code>ModelessQueuedCallGate</code> + RevitTaskService</td>
+<td><code>QueuedRevitCallGate</code> + scoped <code>ITransactionRunner</code></td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IRevitRunScope.cs:22-36</code></p>
-</blockquote>
-<h4 id="modalinlinecallgate">ModalInlineCallGate</h4>
+<h4 id="inlinerevitcallgate">InlineRevitCallGate</h4>
 <p>Call-gate implementation that executes delegates inline on the Revit UI thread using a supplied UIApplication. Used for modal command execution.</p>
-<pre><code class="lang-csharp">public sealed class ModalInlineCallGate : IRevitCallGate
+<pre><code class="lang-csharp">public sealed class InlineRevitCallGate : IRevitCallGate
 {
-    public ModalInlineCallGate(UIApplication uiapp) { ... }
+    public InlineRevitCallGate(UIApplication uiapp) { ... }
     public bool InGate =&gt; _inGate.Value;
     public Task&lt;T&gt; RunAsync&lt;T&gt;(Func&lt;UIApplication, T&gt; work, ...) { ... }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/ModalInlineCallGate.cs:10-74</code></p>
-</blockquote>
 <h3 id="transaction-management">Transaction Management</h3>
 <h4 id="itransactionrunner">ITransactionRunner</h4>
 <p>Provides a unified API for executing Revit model modifications with automatic transaction management.</p>
 <pre><code class="lang-csharp">public interface ITransactionRunner
 {
-    Task RunAsync(string name, Action action, CancellationToken ct = default);
-    Task&lt;T&gt; RunAsync&lt;T&gt;(string name, Func&lt;T&gt; action, CancellationToken ct = default);
-    Task RunAsync(string name, Action&lt;Document&gt; action, CancellationToken ct = default);
-    Task&lt;T&gt; RunAsync&lt;T&gt;(string name, Func&lt;Document, T&gt; action, CancellationToken ct = default);
-    // Additional overloads with UIApplication access and explicit Document
+    Task RunInActiveDocumentAsync(string name, Action&lt;RevitTransactionContext&gt; action, CancellationToken ct = default);
+    Task&lt;T&gt; RunInActiveDocumentAsync&lt;T&gt;(string name, Func&lt;RevitTransactionContext, T&gt; action, CancellationToken ct = default);
+    Task RunInDocumentAsync(Document doc, string name, Action&lt;RevitTransactionContext&gt; action, CancellationToken ct = default);
+    Task&lt;T&gt; RunInDocumentAsync&lt;T&gt;(Document doc, string name, Func&lt;RevitTransactionContext, T&gt; action, CancellationToken ct = default);
 }
 </code></pre>
+<p>Transaction-runner entrypoints apply the same synchronous admission before
+entering the call gate or starting a transaction. Reference-typed results also
+receive a runtime awaitable check inside the transaction body, including
+interface-erased <code>Task</code> values, so failure rolls the transaction back before
+commit.</p>
+<p><code>TransactionFailureException</code> is the public diagnostic contract for a transaction
+that did not reach <code>Committed</code>. Its constructors remain Core-internal; callers
+read the transaction name, terminal status, warnings, blocking failure text and
+failure-definition identities from the public properties. Tool write boundaries
+map this exception and Revit refusal exceptions to their tool-specific typed
+failure while preserving the original exception as the inner cause.</p>
+<!-- VERIFIED: 2026-07-30 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/ITransactionRunner.cs:6-53</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/TransactionRunner.cs:26-101</code></p>
 </blockquote>
-<h4 id="callgatetransactionrunner">CallGateTransactionRunner</h4>
+<h4 id="transactionrunner">TransactionRunner</h4>
 <p>The primary implementation that wraps all Revit API calls in properly managed transactions:</p>
 <ul>
 <li><strong>Auto-selects transaction type</strong>: Uses <code>SubTransaction</code> if <code>doc.IsModifiable</code> (already in transaction), otherwise creates new <code>Transaction</code></li>
 <li><strong>Cross-document protection</strong>: Prevents starting transactions on Document B while Document A is modifiable</li>
-<li><strong>Failure handling</strong>: Attaches <code>SilentFailuresPreprocessor</code> to suppress non-critical Revit warnings</li>
+<li><strong>Failure handling</strong>: Attaches <code>TransactionFailurePreprocessor</code> from <code>Revit/Transactions</code> to suppress non-critical Revit warnings</li>
 </ul>
+<p><code>TransactionFailurePreprocessor.AttachToTransaction</code> sets clear-after-rollback before failure processing starts. A warning is reported as suppressed only after Revit deletes it; a blocking failure or failure-accessor fault records a blocking diagnostic and requests rollback. An accessor fault also keeps the caught exception, which becomes the <code>InnerException</code> of the <code>TransactionFailureException</code> (an <code>AggregateException</code> when several accessors failed). Attachment faults propagate before commit instead of attempting to change rollback options inside the failure callback.
+The preprocessor also keeps one <code>TransactionFailureRecord</code> per message it reads: severity, description, failure definition GUID, failing element ids and whether the message rolled the transaction back. A fault while reading the failing element ids joins <code>AccessorFaults</code> but never changes how the message resolves. A runner built with <code>new TransactionRunner(gate, logger)</code> logs every record (and every accessor fault) at WARN after the commit, so a log names what Revit objected to; the one-argument constructor logs nothing. GM's apply runners opt in.</p>
+<p><code>TransactionFailureProcessingTests</code> keeps the raw Revit failure-preprocessor
+checks and exercises the runner boundary in a RevitLocal host: a posted blocking
+failure rolls back a runner-managed transaction and raises
+<code>TransactionFailureException</code> with the transaction name and blocking diagnostic.
+The transient document is nonmodifiable afterward and is closed by the fixture.</p>
+<!-- VERIFIED: 2026-09-25 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs:9-390</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Tests/Integration/Revit/Revit/Transactions/TransactionFailureProcessingTests.cs:53-113</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/{TransactionRunner.cs,TransactionExecutor.cs,TransactionBoundary.cs}</code></p>
 </blockquote>
 <p><strong>Usage Example:</strong></p>
 <pre><code class="lang-csharp">// Basic modification with automatic transaction
-await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt;
+await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall&quot;, context =&gt;
 {
-    Wall.Create(doc, curve, levelId, false);
+    Wall.Create(context.Document, curve, levelId, false);
 });
 
 // Get a result from a transaction
-var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt;
+var wallId = await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall&quot;, context =&gt;
 {
-    var wall = Wall.Create(doc, curve, levelId, false);
+    var wall = Wall.Create(context.Document, curve, levelId, false);
     return wall.Id;
 });
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/CallGateTransactionRunner.cs:64-79</code></p>
-</blockquote>
+<!-- VERIFIED: 2026-05-15 -->
 <h4 id="itransactiongroupservice">ITransactionGroupService</h4>
 <p>Manages transaction groups for operations requiring multiple undoable transactions to appear as a single undo item.</p>
 <pre><code class="lang-csharp">public interface ITransactionGroupService
 {
     bool IsActive { get; }
     Task BeginAsync(string name, CancellationToken ct = default);
-    Task BeginAsync(Document document, string name, CancellationToken ct = default);
-    Task FinalizeAsync(bool commit, CancellationToken ct = default);
+    Task FinalizeAsync(TransactionGroupFinalization finalization, CancellationToken ct = default);
 
     Task&lt;bool&gt; IsGroupHealthyAsync(CancellationToken ct = default);
-    Task RunAsync(string name, bool commit, Func&lt;Task&gt; work, CancellationToken ct = default);
-    Task RunAsync(Document document, string name, bool commit, Func&lt;Task&gt; work, CancellationToken ct = default);
-
-    // Atomic grouping: Begin + Work + Finalize executed within a single call-gate callback.
-    // Work must complete synchronously (no async yields) or a spec failure is thrown.
-    Task RunAtomicAsync(string name, bool commit, Func&lt;CancellationToken, Task&gt; work, CancellationToken ct = default);
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/ITransactionGroupService.cs:1</code></p>
+<p><strong>Note:</strong> The transaction-group surface is intentionally manual and active-document scoped. Finalization accepts only the explicit <code>Commit</code> and <code>Rollback</code> enum values; unsupported values fail before inactive-session handling. <code>RunAtomicAsync*</code>, <code>BeginAsync(Document, ...)</code>, <code>RunAsync(string, Document, ...)</code>, and the later <code>RunAsync(Document, string, ...)</code> convenience wrapper were removed as dead or Revit-type-leaking public contract. Callers that need guaranteed cleanup must pair <code>BeginAsync(...)</code> with <code>FinalizeAsync(...)</code> in their own workflow.</p>
 </blockquote>
+<p>Revit rolls back a transaction group that is still open when the Revit API callback that started it returns. A modeless GM apply on Revit 2027 showed this on 2026-11-05: under <code>QueuedModeless</code> every call-gate call is its own callback, so a group begun by one call was already closed for the next, and the apply committed outside it. <code>BeginAsync</code> and <code>FinalizeAsync</code> in separate calls therefore keep one group only on an <code>InlineUi</code> gate inside one callback, as SGT's and TDV's modal commands do. Queued modeless work uses <code>IAtomicTransactionGroup.RunAsync</code>, which <code>TransactionGroupService</code> also implements: it begins the group, runs the work, then assimilates the group when <code>keep</code> accepts the result or rolls it back otherwise, all in one gate call. An exception, or cancellation seen at any point before finalization (including after the work returns), rolls the group back and propagates. A document that already has an open transaction is refused before any work, because the group would own nothing to roll back. The work must complete inside that callback, where its gate calls run inline; work that is still pending when the callback returns is cancelled and the group is rolled back. Every outcome is classified by the group status Revit reports after the attempt, not by how many failures were thrown: only a confirmed <code>RolledBack</code> status counts as discarded and only <code>Committed</code> as kept. Anything else throws <code>TransactionGroupOutcomeUnknownException</code>, and the caller must not report the work as discarded.</p>
+<p>Finalization always clears the active group state and attempts owned disposal.
+When the requested operation and cleanup both fail, the operation failure stays
+primary and cleanup failures follow it in an ordered aggregate.</p>
 <h3 id="safe-execution">Safe Execution</h3>
 <h4 id="isafeexecutor">ISafeExecutor</h4>
 <p>The central error handling service. All tool entrypoints must execute within <code>ISafeExecutor</code>.</p>
 <pre><code class="lang-csharp">public interface ISafeExecutor
 {
-    Task RunAsync(Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier = null,
-        CancellationToken ct = default);
     Task RunAsync(Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier,
-        SafeExecutor.SafeExecuteOptions? opts, CancellationToken ct = default);
+        SafeExecutionOptions opts, CancellationToken ct = default);
+    Task&lt;SafeExecutionResult&gt; RunWithoutThrowingAsync(Func&lt;Task&gt; action, ILogger logger,
+        IErrorNotifier? notifier, SafeExecutionOptions opts, CancellationToken ct = default);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/ISafeExecutor.cs:6-16</code></p>
-</blockquote>
 <h4 id="safeexecutor-implementation">SafeExecutor Implementation</h4>
 <p>Provides comprehensive error handling:</p>
 <ul>
 <li><strong>Correlation IDs</strong>: Each execution gets a unique GUID for log correlation</li>
 <li><strong>Timing</strong>: Tracks elapsed milliseconds for performance analysis</li>
 <li><strong>Exception logging</strong>: Logs full exception details including inner exceptions and XAML parse context</li>
+<li><strong>Cancellation admission</strong>: Checks the supplied token immediately before invoking the caller action inside the protected execution boundary, so pre-cancelled work returns a canceled result without admitting the action</li>
+<li><strong>Diagnostic ownership</strong>: <code>SafeExecution/Runtime/ExceptionDiagnosticsLogger</code> owns exception, cancellation, XAML, and notifier-failure log formatting; <code>SafeExecutor</code> retains execution policy and failure presentation</li>
 <li><strong>User notification</strong>: Shows error banners via <code>IErrorNotifier</code></li>
-<li><strong>Debug mode</strong>: Automatically enables debug mode and shows logger window on fatal errors</li>
-<li><strong>Lifecycle hooks</strong>: Optional <code>OnSuccessAsync</code>, <code>OnCancelAsync</code>, <code>OnErrorAsync</code> callbacks</li>
+<li><strong>Failure surfacing boundary</strong>: Calls the execution-owned <code>ISafeExecutionFailureSurface</code> on fatal errors; App composition adapts the UI-owned log surface's show action without a Logging-to-SafeExecution dependency</li>
+<li><strong>Notification presentation</strong>: Owns safe-execution banner success/error presentation and notifier-failure logging inside the retained execution boundary</li>
+<li><strong>Explicit failure policy</strong>: <code>RunAsync(...)</code> is fail-fast, while <code>RunWithoutThrowingAsync(...)</code> is the opt-in path for event/UI callers that intentionally suppress propagation after logging/notifying</li>
+<li><strong>Delayed-hide ownership</strong>: <code>ProgressOverlayDelayedHideScheduler</code> retains the dispatcher operation it posts, observes every terminal outcome, and clears pending state only when the completing operation owns the current cancellation token; an aborted or faulted stale operation cannot retire a replacement hide.</li>
 </ul>
+<!-- VERIFIED: 2026-08-18 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:12-467</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/SafeExecution/Runtime/SafeExecutor.cs:59-103</code>
+<strong>Source:</strong> <code>src/DBTools.Core/SafeExecution/Runtime/ExceptionDiagnosticsLogger.cs:11-211</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Progress/Overlay/Runtime/ProgressOverlayDelayedHideScheduler.cs:113-139</code></p>
 </blockquote>
-<p><strong>SafeExecuteOptions:</strong></p>
-<pre><code class="lang-csharp">public sealed class SafeExecuteOptions
+<p><strong>SafeExecutionOptions</strong> (own file in <code>SafeExecution/Domain/</code>):</p>
+<pre><code class="lang-csharp">public sealed class SafeExecutionOptions
 {
-    public string? Name { get; set; }
-    public bool LogStart { get; set; } = true;
-    public bool ShowCompletionToUser { get; set; }
-    public Guid? CorrelationId { get; set; }
-    public Func&lt;Task&gt;? OnSuccessAsync { get; set; }
-    public Func&lt;Task&gt;? OnCancelAsync { get; set; }
-    public Func&lt;Exception, Task&gt;? OnErrorAsync { get; set; }
-    public NotifyKindKind NotifyKind { get; set; } = NotifyKindKind.Success;
+    public enum Mode
+    {
+        SuccessAndError = 0,
+        ErrorOnly = 1,
+        SuppressAlways = 2
+    }
+
+    public enum FailureSurfacePolicy { Surface, Suppress }
+
+    public SafeExecutionOptions(string name);
+    public string Name { get; }
+    public bool LogStart { get; init; } = true;
+    public bool LogCompletion { get; init; } = true;
+    public bool LogFailure { get; init; } = true;
+    public Mode BannerMode { get; init; } = Mode.SuccessAndError;
+    public FailureSurfacePolicy FailureSurface { get; init; } = FailureSurfacePolicy.Surface;
+    public Guid? CorrelationId { get; init; }
+
+    public static SafeExecutionOptions ErrorBanner(string name, ...);
+    public static SafeExecutionOptions SuppressFailurePresentation(string name);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:451-466</code></p>
-</blockquote>
-<h3 id="dbttoolcommand-base-class">DbtToolCommand Base Class</h3>
-<p>Abstract base class for Revit commands that enforces <code>ISafeExecutor</code> usage, run-scope creation, and centralized error notification.</p>
-<pre><code class="lang-csharp">public abstract class DbtToolCommand : IExternalCommand
+<p><code>SafeExecutionOptions</code> owns banner, failure-surface, and logging policy directly.
+Its required constructor establishes the operation name; all optional policy and
+properties are immutable after initialization.</p>
+<h3 id="toolcommand-base-class">ToolCommand Base Class</h3>
+<p>Abstract base class for Revit commands that enforces <code>ISafeExecutor</code> usage, run-scope creation, runtime preflight, and centralized error notification. The public <code>IExternalCommand.Execute(...)</code> remains a thin Autodesk adapter: it validates the Autodesk arguments, extracts the non-null <code>UIApplication</code>, and delegates to the package-visible <code>ExecuteCore(...)</code> orchestration seam. That seam resolves <code>ISafeExecutor</code>, <code>ILogger</code>, and <code>IErrorNotifier</code> from the live in-process <code>IAppRuntime</code>, calls the narrow <code>CommandPreflight</code> contract, and creates one <code>CommandContext</code> owning its <code>IAppRunScope</code> before invoking <code>RunAsync(...)</code>. Command subclasses use <code>ICommandContext</code>, which is the single command adapter over the scope plus captured command UI/document state. <code>ToolCommand</code> exposes no pass-through service resolution, call-gate, or owner-aware tool-window helpers. A command that owns a window composes its <code>ToolWindowFactory</code> and invokes the resulting <code>IToolWindowSession</code>.</p>
+<pre><code class="lang-csharp">public abstract class ToolCommand : IExternalCommand
 {
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
-        // Wraps execution in ISafeExecutor, creates run scope
+        // Validates Autodesk inputs and delegates to ExecuteCore.
     }
-    
-    protected abstract Task RunAsync(IDbtToolContext context);
-    
-    // Convenience methods
-    protected static T GetService&lt;T&gt;(IDbtToolContext context) where T : notnull;
-    protected static Task&lt;T&gt; RunInRevitAsync&lt;T&gt;(IDbtToolContext context, Func&lt;UIApplication, T&gt; work, ...);
-    protected static bool? ShowToolWindow&lt;TWindow&gt;(Func&lt;TWindow&gt; windowFactory) where TWindow : Window;
+
+    internal Result ExecuteCore(UIApplication uiApplication, ref string message)
+    {
+        // Wraps execution in ISafeExecutor and owns command-scope lifetime.
+    }
+
+    protected abstract Task RunAsync(ICommandContext context);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/DbtToolCommand.cs:35-238</code></p>
-</blockquote>
-<h3 id="tool-context">Tool Context</h3>
-<h4 id="idbttoolcontext">IDbtToolContext</h4>
-<p>Ambient context provided to DBT tool commands, wrapping the current Revit run scope, DI scope, and shared services.</p>
-<pre><code class="lang-csharp">public interface IDbtToolContext
+<h4 id="command-preflight">Command Preflight</h4>
+<p>Command runtime preflight is exposed to <code>ToolCommand</code> through <code>CommandPreflight</code>; the command entrypoint no longer imports or resolves <code>ToolRegistry</code> directly. Contextual edit <code>ExternalEvent</code> flows also declare the registered command type on their <code>ContextualRibbonInjector</code> implementation and call the same preflight contract before <code>RunEditFlow(...)</code>. The concrete <code>CommandPreflight</code> adapter lives in the Core tool command package and coordinates the preflight sequence: resolve an enabled registration, delegate Revit availability through the supplied availability callback, then validate active settings warnings. Registry metadata lookup, ribbon panel flag policy, and settings warning blocking stay inside that adapter so command execution does not mix sequencing with policy checks.</p>
+<pre><code class="lang-csharp">internal sealed class CommandPreflight
 {
-    ExternalCommandData CommandData { get; }
+    internal CommandPreflight(ToolRegistry registry, ISettingsProvider settings, Action&lt;RegisteredCommand, UIApplication&gt; validateAvailability, ISettingsWarningService warnings);
+    internal RegisteredCommand ResolveRegisteredCommand(Type commandType);
+    internal Task&lt;RegisteredCommand&gt; ValidateAsync(RegisteredCommand command, UIApplication application, CancellationToken ct = default);
+}
+</code></pre>
+<h3 id="tool-context">Tool Context</h3>
+<h4 id="icommandcontext">ICommandContext</h4>
+<p>Ambient context provided to DBT tool commands, wrapping the current Revit run scope, DI scope, and shared services.</p>
+<pre><code class="lang-csharp">public interface ICommandContext : IAppRunScope
+{
     UIApplication UIApplication { get; }
     UIDocument UIDocument { get; }
     Document Document { get; }
-    IAppRunScope RunScope { get; }
-    IRevitRunScope RevitRunScope { get; }
     ILogger Logger { get; }
-    IErrorNotifier ErrorNotifier { get; }
-    RevitRunScopeProfile RunProfile { get; }
-    T Resolve&lt;T&gt;() where T : notnull;
+    IWindowOwnerHandleProvider OwnerHandleProvider { get; }
+    void ShowBanner(string title, string message);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/IDbtToolContext.cs:14-27</code></p>
-</blockquote>
 <h3 id="runtime">Runtime</h3>
-<h4 id="appruntime">AppRuntime</h4>
-<p>Static accessor for the application runtime. Provides global access to services when DI is not available (e.g., Revit's parameterless constructor requirement).</p>
-<pre><code class="lang-csharp">public static class AppRuntime
+<h4 id="appruntimeaccessor">AppRuntimeAccessor</h4>
+<p>Static accessor for the current <code>IAppRuntime</code>. Provides global access to services when DI is not available (e.g., Revit's parameterless constructor requirement).</p>
+<pre><code class="lang-csharp">public static class AppRuntimeAccessor
 {
     public static bool IsInitialized { get; }
     public static void Initialize(IAppRuntime runtime);
-    public static void InitializeIfNeeded(Func&lt;IAppRuntime&gt; factory);
+    public static void Reset();
+    public static IAppRuntime RequireInProcessRuntime(string consumerName);
     public static ILogger Logger { get; }
-    public static ISettingsProvider Settings { get; }
-    public static IAppRunScope CreateRunScope(UIApplication uiapp, RevitRunScopeProfile profile);
+    public static ILoggerFactory LoggerFactory { get; }
+    public static ILogger CreateLogger(string categoryName);
+    public static ILogger CreateLogger&lt;T&gt;();
     public static T Resolve&lt;T&gt;() where T : notnull;
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Runtime/AppRuntime.cs:8-155</code></p>
-</blockquote>
 <h4 id="iappruntime">IAppRuntime</h4>
 <p>Interface for the application runtime container.</p>
 <pre><code class="lang-csharp">public interface IAppRuntime
 {
     ILogger Logger { get; }
-    ISettingsProvider Settings { get; }
-    IAppRunScope CreateRunScope(UIApplication uiapp, RevitRunScopeProfile profile);
+    ILoggerFactory LoggerFactory { get; }
     T Resolve&lt;T&gt;() where T : notnull;
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Runtime/IAppRuntime.cs:8-16</code></p>
-</blockquote>
 <h4 id="iapprunscope">IAppRunScope</h4>
 <p>Scoped DI container for per-command lifetimes.</p>
 <pre><code class="lang-csharp">public interface IAppRunScope : IDisposable
 {
+    IRevitRunScope RevitRunScope { get; }
     T Resolve&lt;T&gt;() where T : notnull;
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Runtime/IAppRunScope.cs:5-8</code></p>
-</blockquote>
 <h3 id="logging-infrastructure">Logging Infrastructure</h3>
-<h4 id="idbtlogginghost">IDbtLoggingHost</h4>
-<p>Central logging host that implements <code>ILoggerFactory</code> directly.</p>
-<pre><code class="lang-csharp">public interface IDbtLoggingHost : ILoggerFactory, IDisposable
+<h4 id="logging-runtime">Logging runtime</h4>
+<p>The logging runtime owns Serilog setup, the UI sink, active log-file path, and
+manual in-session file rollover.</p>
+<p><code>LoggingRuntimeFactory.Create(LoggingOptions)</code> remains the public construction
+boundary for general consumers and returns <code>ILoggingRuntime</code>. That contract combines
+<code>ILoggerFactory</code>, lifecycle, current log-path access, debug-level control, and
+console mirroring. App composition requires the existing internal <code>LoggingRuntime</code>,
+which implements every required narrow capability. Registration exposes that same
+host through its interfaces, not as a concrete DI service. The sink, file-session,
+and instance-metadata capability contracts remain internal to Core.</p>
+<pre><code class="lang-csharp">// Public surface (Core):
+public static class LoggingRuntimeFactory
 {
-    SerilogUiSink UiSink { get; }
-    bool IsDebugMode { get; }
-    void SetDebugMode(bool enabled);
-    ILoggerFactory LoggerFactory { get; }
-    string InstanceId { get; }
-    int? RevitYear { get; }
-    string? LogFilePath { get; }
-    string ForceNewLogFileWithAutoSuffix();
-    string ForceNewLogFile(string suffix);
+    public static ILoggingRuntime Create(LoggingOptions options);
 }
+
+// Internal implementation:
+internal sealed class LoggingRuntime :
+    ILoggingRuntime,
+    ILoggingDebugLevelController,
+    ILoggingSinkSource,
+    ILoggingFileSession,
+    ILoggingInstanceMetadata
+{ /* Serilog setup, UI sink, file rollover, metadata */ }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:22-47</code></p>
-</blockquote>
-<h4 id="dbtlogginghost-implementation">DbtLoggingHost Implementation</h4>
+<p>The logger window (<code>LoggerWindowHost</code>, <code>LoggerWindowSurfaceSession</code>, <code>LoggerWindowViewModel</code>) depends only on the narrow internal capability contracts, registered inside Core logging composition; nothing outside Core references the concrete host. The view model owns one bounded raw-entry sequence as its retention authority and derives the grouped/expanded <code>Items</code> collection as a presentation projection. Display filters affect only that projection; Copy All and Export enumerate retained raw entries once in arrival order.</p>
+<p>Logger export treats path selection, retained-entry formatting, and file writing
+as one operation: a canceled picker is silent; a picker or write failure records
+the diagnostic without losing a visible export-specific Error entry. File reload
+reads the active log through <code>LogFileSession.ReadCurrentLogTail</code> while its writer
+is open. The bounded UTF-8 reader drops only an incomplete first physical line
+when the byte window starts inside a line; an exactly aligned final line remains.
+Continuation lines are separate entries. They inherit metadata from a parsed
+header only when that header remains inside the selected physical-line window.</p>
+<p><code>LoggingRuntime.CreateLogger(...)</code> is valid only while the runtime is live. Calling it after disposal throws <code>ObjectDisposedException</code>; it never returns a silent null logger.</p>
+<h4 id="logging-runtime-implementation">Logging runtime implementation</h4>
 <p>Features:</p>
 <ul>
 <li><strong>Serilog integration</strong>: Uses Serilog with structured logging</li>
 <li><strong>UI sink</strong>: Feeds log entries to the Logger Window</li>
-<li><strong>File sink</strong>: Custom <code>DbtTextFileSink</code> avoids version conflicts with Serilog.Sinks.File</li>
+<li><strong>File sink</strong>: Custom <code>TextFileSink</code> avoids version conflicts with Serilog.Sinks.File</li>
+<li><strong>Notification banner logging</strong>: User-visible banners are written through the currently configured <code>WindowDiagnostics</code> category logger; error banners are <code>Error</code>, warning banners are <code>Warning</code>, and info/success banners are <code>Information</code>.</li>
+<li><strong>Notification banner boundaries</strong>: <code>Notifications/Composition</code> owns <code>IErrorNotifier</code> construction. <code>NotificationBannerService</code> keeps the public banner API, logging policy, explicit <code>ShowError</code> error route, action-free <code>ShowToast</code> route, sole action-bearing <code>ShowToastActions</code> route, and action-failure surfacing. Banner actions expose one cancellation-aware asynchronous callback; the action command awaits completion, closes only after successful completion when requested, and keeps the banner open on failure or cancellation. <code>NotificationBannerHostRegistry</code> owns dispatcher resolution, owner HWND selection, host creation, top-warning replacement, dismissal, and terminal all-host cleanup. Only an explicit zero owner HWND or the absence of a usable anchor position suppresses a banner. <code>WindowOwnerHandleProvider</code> resolves a closing or closed window to the registered default owner (Revit's main window), so a banner queued by a tool whose window closes before delivery still shows; dialog and file-picker owners resolve the same way. <code>ModalWindow</code> and <code>ModelessWindow</code> start lifecycle tracking in their constructors, before callers can register close handlers. A raw WPF window first seen after it closes uses the default owner only when it was not tracked from construction and has no HWND after <code>EnsureHandle</code> fails; other failures propagate. The window lifecycle record lives in stable Presentation (<code>WindowOwnerHandleLifecycle</code>), so a retained shell never keeps a retired Core generation reachable. Calls already on the UI thread resolve the owner and show synchronously. Worker-thread requests queue owner resolution and banner creation together without waiting for the dispatcher. Their returned handle can cancel delivery before it starts or dismiss the banner after it binds. Queue and callback failures are logged with the request title and kind, and disposed, reset, or retired requests identify the reason they were dropped. Host construction and showing occur outside the registry lock; generation validation and registration are rechecked before presentation. A worker request uses normal dispatcher priority, so a UI-thread request made while it is queued may be presented first; this ordering is intentional. Default-owner registration captures the actual existing UI dispatcher without invoking the HWND supplier, refreshes stale entries, and never creates a dispatcher implicitly. A registry reset invalidates pending requests. Synchronous owner resolution, banner addition, and new-host cleanup failures propagate, with an add failure ordered before a cleanup failure when both occur; later timer and window-close cleanup callbacks remain logged best-effort. Terminal reset snapshots and clears registrations first, attempts each host, and reports cleanup failures after all attempts. <code>WpfDispatcher.Invoke</code> is synchronous; <code>WpfDispatcher.Post</code> always queues and returns an owned completion task. A callback failure faults that task with the original exception without rethrowing to the dispatcher error boundary. An aborted dispatcher operation cancels the task. Direct dispatcher callbacks still use the existing dispatcher error boundary. Banner dismissal explicitly observes/logs the completion task. <code>NotificationBannerWindowViewModel</code> owns banner item state, visible-item projection, overflow state, action commands, expanded/collapsed state, and per-item auto-close cancellation. <code>NotificationBannerTimingController</code> owns every delayed close/auto-close task under one window-lifetime cancellation source, uses required <code>TimeProvider.System</code> at the sole production construction site, retains only in-flight operations, retires each operation when observation completes, dispatches callbacks to the owning dispatcher, and observes/logs callback failures; virtual-time tests use the official <code>FakeTimeProvider</code> and disposal cancels the lifetime before the window can receive late callbacks.</li>
+<li><strong>Notification host lifecycle</strong>: Host construction remains outside the registry lock. Each host rechecks its disposed state around the final <code>AddBanner</code> presentation steps, while reset closes hosts on their owning dispatchers. <code>WpfDispatcher.Invoke</code> and file-picker/alert return-value APIs are synchronous and may wait for their owning dispatcher; worker notification delivery uses <code>WpfDispatcher.Post</code> and does not wait.</li>
 <li><strong>Manual in-session rollover</strong>: Logger UI can force file logging to switch to a new file path on demand</li>
 <li><strong>Thread enrichment</strong>: Adds thread ID to all log entries</li>
-<li><strong>Instance identification</strong>: Unique instance ID per Revit process</li>
+<li><strong>Instance identification</strong>: Uses the runtime-owned <code>RevitInstanceIdentifier</code> for the current process identity and Revit year</li>
 <li><strong>Log rotation</strong>: Automatic cleanup of old log files by age, count, and total size</li>
 </ul>
+<h4 id="logger-window-composition">Logger Window Composition</h4>
+<p><code>LoggerWindowHost</code> owns the logger-window error relay and registers it through the narrow <code>ILoggingSinkSource</code> contract (not the concrete logging runtime) during host startup, and toggles debug level through <code>ILoggingDebugLevelController</code>. It implements the UI-owned <code>IWindowErrorLogSurface</code>, not the SafeExecution contract. At the App composition root, <code>SafeExecutionFailureSurface</code> adapts that surface's <code>Show</code> action to <code>ISafeExecutionFailureSurface</code>, so SafeExecution owns failure policy while Logging remains unaware of it. Error-boundary banners depend on <code>IWindowErrorBanner</code>; App composition supplies that surface through the concrete notification package, so <code>DBTools.Core.UI.Windows</code> does not import logging composition or notification packages. The host receives the UI-owned <code>IFilePicker</code> and passes it to <code>LoggerWindowSurfaceSession</code>; the session owns owner-window-aware save-path selection and <code>LoggerWindowViewModel</code> raises an internal export-path request instead of storing a WPF <code>Window</code> or file-picker service. The host still supplies <code>ILogger&lt;LoggerWindowViewModel&gt;</code> to the view model, so the logger window does not use lazy service-location or static runtime logging to build its view model and low-level path ownership stays separate from WPF file dialogs. <code>LoggerWindowViewModel</code> keeps buffered log ingestion in <code>Logging/ViewModels/LoggerWindowViewModel.Buffering.cs</code>, filtering in <code>Logging/ViewModels/LoggerWindowViewModel.Filtering.cs</code>, and file reload/export operations in <code>Logging/ViewModels/LoggerWindowViewModel.FileOperations.cs</code>. Posted logger-window operations have one router that observes rejection, abortion, and callback failure exactly once. Terminal host/session cleanup attempts every owned resource in order and preserves one original failure or an ordered aggregate. Core primary-failure boundaries use the internal contained-diagnostic helper so a failed <code>ILogger</code> write falls back to Serilog <code>SelfLog</code> without replacing the primary exception or skipping later cleanup.</p>
+<p><code>ContainedDiagnostic.TryWrite(...)</code> returns <code>null</code> after a successful requested write. After a write failure, it attempts contextual Serilog <code>SelfLog</code> reporting. If <code>SelfLog</code> returns (including when disabled), it returns the original diagnostic exception. If <code>SelfLog</code> also throws, it returns an <code>AggregateException</code> whose inner exceptions are ordered as the requested-write failure, then the <code>SelfLog</code> failure. It never throws that aggregate. Callers may ignore the returned diagnostic. <code>WindowErrorPresenter</code> retains it as secondary presentation-failure data.</p>
+<p><code>LoggerWindowDispatcherRouter</code> runs inline work on the owning dispatcher and propagates its action failure to that caller. For posted work, it reports an action, posting, or cancellation failure to the supplied handler at most once. If that handler throws, the router attempts to write both failures through Serilog <code>SelfLog</code> (which writes nothing when disabled). If the diagnostic write also throws, one <code>AggregateException</code> preserves the reported failure, handler failure, and diagnostic failure in that order. The aggregate escapes the reporting context: the target dispatcher for a queued action, the posting caller for a rejected or already-aborted operation, or the thread raising <code>Aborted</code> (including dispatcher shutdown). This preserves causes at the router boundary; it does not guarantee a WPF error handler is registered or that shutdown continues. <code>LoggerWindowSurfaceSession</code> retains its existing contained-diagnostic policy for synchronous failures.</p>
+<p>Core file picking exposes cardinality-specific contracts: <code>FilePickerPathRequest</code> owns single-file, folder, and save-file requests, while <code>FilePickerPathsRequest</code> owns multi-file requests. <code>IFilePicker</code> accepts the corresponding request type for each result cardinality, so cross-cardinality dispatch is unrepresentable. The concrete <code>FilePicker</code> keeps path admission and file-type mapping private, and uses WPF's built-in <code>OpenFolderDialog</code> for owner-aware folder selection. Workflow-specific text and defaults stay with their owners: the logger window owns export-log naming, TDV settings owns library/fallback RVT picker titles, and RecordSet owns target-folder, host-file, and DWG picker titles. Core does not carry TDV, RecordSet, or log-export convenience factories in the shared request contract.</p>
+<p><code>AppPaths.LogsDir</code> is the single log-directory path contract. Reading it only
+computes <code>%APPDATA%/DBTools/Logs</code>; lifecycle owners call
+<code>AppPaths.EnsureCreated()</code> before constructing logging runtimes. There is no
+assembly-location-specific log path or getter-shaped directory initializer.</p>
+<!-- VERIFIED: 2026-08-09 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:49-302</code>, <code>src/DBTools.Core/Logging/Features/DbtTextFileSink.cs:91-118</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/FilePicker/IFilePicker.cs:6-11</code>
+<strong>Source:</strong> <code>src/DBTools.Core/UI/FilePicker/FilePicker.cs:10-40</code>
+<strong>Source:</strong> <code>src/DBTools.Core/UI/FilePicker/FilePicker.Dialogs.cs:17-110</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Paths/AppPaths.cs:7-28</code>
+<strong>Source:</strong> <code>src/DBTools.App/Logging/AppLoggingRuntimeFactory.cs:10-28</code></p>
 </blockquote>
 <p><strong>Log File Naming:</strong></p>
 <pre><code>dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}.log
@@ -458,166 +548,337 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 <p>Manual rollovers append the generated suffix before <code>.log</code>:</p>
 <pre><code class="lang-text">dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}-manual-{timestamp}.log
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:111-123</code>, <code>src/DBTools.Core/Logging/Features/DbtLoggingHost.cs:150-182</code></p>
-</blockquote>
 <h3 id="settings-system">Settings System</h3>
 <h4 id="isettingsprovider">ISettingsProvider</h4>
 <p>Interface for reading and persisting settings.</p>
 <pre><code class="lang-csharp">public interface ISettingsProvider
 {
-    TSettings Get&lt;TSettings&gt;() where TSettings : class, new();
-    Task SaveAsync&lt;TSettings&gt;(string section, TSettings settings, CancellationToken ct = default)
-        where TSettings : class;
+    TSettings Get&lt;TSettings&gt;(SettingsSection&lt;TSettings&gt; section)
+        where TSettings : class, new();
+    Task CommitAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes,
+        CancellationToken ct = default);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/ISettingsProvider.cs:1-8</code></p>
-</blockquote>
-<h4 id="dbtsettingsregistry">DbtSettingsRegistry</h4>
-<p>Registry for settings pack definitions, enabling the Settings Window to discover and display tool-specific settings.</p>
-<pre><code class="lang-csharp">public sealed class DbtSettingsRegistry
+<p><code>SettingsSection&lt;T&gt;</code> identifies settings for runtime reads and persistence.
+Its source-generated JSON metadata preserves defaults and typed values.
+<code>CreateWrite(value)</code> carries its name, declared type, and value into an atomic commit.
+Consumers use <code>ISettingsProvider.Get(section)</code> for current file values.</p>
+<h4 id="settingscatalog">SettingsCatalog</h4>
+<p>Internal read-only catalog for settings pack definitions, enabling the Settings
+Window and settings-warning services to consume the same validated composition
+boundary. The catalog rejects null pack definitions, duplicate pack keys, null
+warning definitions, warning pack-key mismatches, and duplicate warning IDs
+before warning publication or startup evaluation runs.</p>
+<pre><code class="lang-csharp">internal sealed class SettingsCatalog
 {
-    public IReadOnlyCollection&lt;IDbtSettingsPackDefinition&gt; Definitions { get; }
-    public void Register(IDbtSettingsPackDefinition definition);
-    public bool Unregister(string key);
-    public IEnumerable&lt;IDbtSettingsPackDefinition&gt; ForPanel(string ribbonPanel);
-    public IEnumerable&lt;IDbtSettingsWarningDefinition&gt; WarningDefinitions();
+    internal SettingsCatalog(IEnumerable&lt;ISettingsPackDefinition&gt; definitions);
+    public IReadOnlyCollection&lt;ISettingsPackDefinition&gt; Definitions { get; }
+    public IReadOnlyCollection&lt;ISettingsWarningDefinition&gt; WarningDefinitions { get; }
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/DbtSettingsRegistry.cs:8-62</code></p>
+<p><strong>Note:</strong> Renamed from <code>DbtSettingsRegistry</code> to <code>SettingsCatalog</code> during the Core Full-Tree Cleanup to reflect its read-only catalog semantics. The <code>PackChanged</code> / <code>PublishPackChanged</code> / <code>SettingsPackChangedEventArgs</code> event surface was deleted.</p>
 </blockquote>
-<h4 id="dbttoolsettingspack">DbtToolSettingsPack</h4>
-<p>Generic container for tool settings with validation support.</p>
-<pre><code class="lang-csharp">public sealed class DbtToolSettingsPack&lt;TOptions&gt; : IDbtToolSettingsPack
+<p><code>SettingsWarningService</code> and <code>SettingsStartupWarningWorkflow</code> now receive <code>SettingsCatalog</code> instead of raw <code>ISettingsPackDefinition</code> collections, so warning-state publication and validate-aware startup evaluation use the same catalog validation as the settings shell.</p>
+<h4 id="settingspackdefinition">SettingsPackDefinition</h4>
+<p>Heterogeneous catalog contract for immutable pack metadata and creation of one bound runtime per settings row.</p>
+<pre><code class="lang-csharp">public interface ISettingsPackDefinition
 {
-    public string Key { get; }
-    public string Title { get; }
-    public string RibbonPanel { get; }
-    public Type OptionsType { get; }
-    public object Context { get; }
-    public object CreateDefaultOptions();
-    public object BuildOptionsSnapshot();
-    public Task&lt;DbtSettingsValidationResult&gt; ValidateAsync(CancellationToken ct = default);
-    public FrameworkElement View { get; }
+    string Key { get; }
+    string Title { get; }
+    string RibbonPanel { get; }
+    SettingsPackApplyBehavior ApplyBehavior { get; }
+    IReadOnlyCollection&lt;ISettingsWarningDefinition&gt; WarningDefinitions { get; }
+    ISettingsPackRuntime CreateRuntime(SettingsPackHostContext hostContext);
 }
 </code></pre>
+<p><code>SettingsPackDefinition&lt;TOptions, TContext&gt;</code> keeps the typed factories and <code>SettingsSection&lt;TOptions&gt;</code> together and creates <code>SettingsPackRuntime&lt;TOptions,TContext&gt;</code>. That runtime owns the exact <code>TContext</code>, binds every warning getter/setter to that same instance, loads through the typed section, and stages current/default writes without accepting a caller-supplied context. <code>SettingsPackViewModel</code> receives only the runtime, so definitions, contexts, sections, and warnings cannot be accidentally recombined after catalog admission.</p>
+<p><code>ISettingsPackRuntime</code> exposes pack metadata, <code>ValidationContext</code>, bound runtime warnings, parameterless lazy view creation, provider-based load, current/default write staging, and post-commit baseline/default application. Failed owned-context cleanup remains retryable. Disposing a row attempts every warning row and its runtime, preserves pack/warning identity around failures, and reports the aggregate. <code>ISettingsWarningDefinition</code> is metadata only; <code>ISettingsPackRuntimeWarning.IsActive</code> and <code>SetActive(bool)</code> are the context-bound mutation surface.</p>
+<p><code>ISettingsPackContext</code> contains only the shared validation contract. <code>ISettingsPackContext&lt;TOptions&gt;</code> is the sole owner of typed <code>Load(TOptions)</code> and <code>BuildOptionsSnapshot()</code> operations; tool contexts do not implement erased adapters.</p>
+<p>Tool modules register definitions through <code>SettingsPackRegistration&lt;TOptions,TContext&gt;</code>. Config section, pack key/title/panel, context factory, and view factory are compile-time <code>required</code> members; warning id/title/message and flag delegates are likewise required when a warning is present. The DI admission boundary still validates non-empty strings and non-null delegates so reflection or default misuse cannot admit an invalid registration. <code>SettingsPackHostContext</code> can be created only through <code>Empty</code> or <code>FromApplication(...)</code>; its raw application constructor is private.</p>
+<!-- VERIFIED: 2026-09-06 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/DbtToolSettingsPack.cs:37-85</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/Composition/SettingsPackServiceCollectionExtensions.cs</code></p>
 </blockquote>
+<h4 id="settingspackautoupdatecontext">SettingsPackAutoUpdateContext</h4>
+<p>Production base for auto-update settings pack contexts under <code>Settings/SettingsPack</code>. It owns the shared context mechanics — header text, <code>AutoUpdateEnabled</code>/<code>HasWarning</code> toggle state, <code>ClearWarningCommand</code>, <code>WarningId</code>, <code>BlockSaveOnInvalid</code>, baseline-driven <code>HasPendingChanges</code>, post-commit <code>MarkSaved</code>, <code>StateChanged</code> notification, and the validation envelope — while derived contexts own typed load, snapshot, baseline equality, and validation rules for their settings type. Current consumers are <code>ElevationTagsSettingsPackContext</code> and <code>JoistGirderWeightSettingsPackContext</code>; <code>FoundationTagsSettingsPackContext</code> implements the context interfaces directly because it owns prerequisite/warning-fix runtime behavior that does not fit the base. The design-time-only <code>AutoUpdateViewModel&lt;TSettings&gt;</code> under <code>Settings/DesignTime</code> remains internal designer sample composition, not production infrastructure.</p>
+<p>The shared state-notification contract is <code>Settings/State/ISettingsStateContext.cs</code>;
+it is cross-cutting settings state, not a child of the catalog owner.</p>
+<h4 id="regexpatternlistcontext">RegexPatternListContext</h4>
+<p>Shared settings domain context for editable regex pattern rows. It owns the
+<code>RegexPatternEntry</code> collection, add/remove commands, maximum-row guard, default
+row seeding for empty loads, blank-value omission from snapshots, and
+<code>StateChanged</code> notification. Tool contexts expose their own binding names over
+this context instead of duplicating the same list mechanics.</p>
+<p>Current consumers are <code>ElevationTagsPatternContext</code> and the Foundation Tags
+settings-pack pattern partial.</p>
+<h4 id="settings-window-ownership">Settings Window Ownership</h4>
+<p><code>Settings/ViewModels</code> owns <code>SettingsPanelBlock</code>, <code>SettingsPackCollection</code>,
+<code>SettingsPackViewModel</code>, <code>SettingsWarningViewModel</code>, and the settings-window partials.
+Regex-list row state lives under <code>Settings/RegexPatterns</code>. Save-state,
+save-validation, pending-change, and owner-aware pack contracts live under
+<code>Settings/SettingsPack</code>.</p>
+<p><code>SettingsWindowFactory</code> loads the raw embedded Settings view through Core's
+<code>ToolWindowFactory</code> and returns a registered modal <code>IToolWindowSession</code>. The
+factory applies the existing owner, title, size, initializer, and Settings
+view-model wiring; <code>SettingsCommand</code> invokes <code>session.ShowDialog()</code>. The session
+owns normal-close and retirement teardown while the Settings view model retains
+Save, Reset All, cancel/close, validation, warning, and success-banner behavior.
+The view model is also the session's close gate. It refuses close while Save
+Settings, Reset All Settings, a pack Reset or the load-problem Reset Settings is
+running. Save requests its close through that gate, so a running reset keeps
+Settings open.</p>
+<p>Settings construction owns cleanup from the first acquired pack runtime. If warning
+or row construction fails, the row owner disposes its acquired warnings and runtime.
+If a later pack fails, the collection removes successfully cleaned rows and retains
+failed cleanup owners for retry. Construction failures remain primary when cleanup
+also fails.</p>
+<p>The window factory retains the view model until window setup completes. Failed
+setup detaches installed handlers, clears owner bindings, closes the incomplete
+window, and disposes the view model. Cleanup attempts are independent. An aggregate
+reports the construction error first when cleanup also fails.</p>
+<p><code>SettingsWarningValidator</code> accepts pack runtimes, not presentation rows. It checks
+warning ownership, updates bound runtime flags, and publishes warning state.
+Its result freezes the counters, ordered state transitions, and every evaluated
+<code>(PackKey, WarningId, IsActive)</code> decision. The persistence workflow and settings
+window apply those decisions to their matching rows, including unchanged states.
+Startup retains its separate activation-only, error-logging, and runtime-cleanup
+workflow.</p>
+<p>The validator wraps each validation failure with its pack key and title, without
+logging or presenting it. Validate Library owns interactive logging and feedback.
+Silent initialization propagates the same wrapper to <code>SettingsWindowFactory</code>.
+<code>SettingsPersistenceWorkflow</code> retains pre-commit validation, post-commit failure
+wrapping, and baseline ordering. <code>Settings/Persistence</code> owns provider-based
+storage. Catalog and warning validation do not depend on <code>Settings/ViewModels</code>.</p>
+<p><code>SettingsChangePublisher</code> keeps synchronous event delivery for ordinary settings
+consumers and the <code>SettingsChangeDelivery.BestEffort</code> ribbon path used by
+immediate UI changes. App's active ribbon composition registers one callback for
+each flags, warning-set, and individual-warning update. Awaited publication
+delivers the ordinary events, then calls that callback with
+<code>SettingsChangeDelivery.Required</code>, which must apply on the ribbon dispatcher; it
+never adds a second best-effort post. A skipped, retired, or failed active-ribbon application
+propagates as <code>SettingsPostCommitException</code> after persistence commits, so the UI
+keeps the committed baseline and does not show success feedback. Core-only and
+Sandbox use without a registered ribbon observer continues to publish ordinary
+events without requiring a ribbon.</p>
+<!-- VERIFIED: 2026-10-27 -->
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Settings/{State/SettingsChangePublisher.cs,State/SettingsChangeDelivery.cs,ViewModels/SettingsPersistenceWorkflow.cs,ViewModels/SettingsWindowViewModel.Commands.cs}</code>
+<strong>Source:</strong> <code>src/DBTools.App/Ribbon/Settings/RibbonSettingsObserver.cs</code></p>
+</blockquote>
+<p><code>Settings/Views</code> owns the WPF window and warning card. <code>Settings/Feedback</code> and
+<code>Settings/Reset/Workflow</code> own feedback and reset workflows. <code>Settings/DesignTime</code>
+owns the designer-only sample pack graph.</p>
+<p>For a blocked save, the pack-scoped validation exception includes the pack
+title, key, and validation error text in its outer message; the original
+validation exception remains the inner cause. Save feedback displays the outer
+message so the user can correct the reported error without inspecting logs.</p>
 <h3 id="tool-module-system">Tool Module System</h3>
-<h4 id="dbttoolmodule">DbtToolModule</h4>
+<p>Core tool infrastructure is grouped by runtime ownership under
+<code>src/DBTools.Core/Tools/</code>: <code>Manifest/</code> owns promotion of portable parse results,
+immutable public manifest values, extensions, and cross-manifest validation;
+<code>Modules/Catalog/</code> is the public discovery boundary and owns module construction
+plus the complete promoted-manifest/error result; <code>Modules/Composition/</code> owns
+the <code>ToolModule</code> base contract; root <code>ToolRegistry</code>, <code>ToolAssemblyResolver</code>, and
+<code>ToolTypeResolver</code> files own registration and explicit resolution;
+<code>Commands/</code> owns command preflight; <code>Availability/</code> owns generic Revit command
+availability predicates; <code>Ribbon/</code> owns Revit-free ribbon specs and projection;
+<code>Sandbox/</code> owns sandbox window projection; and <code>Hooks/</code> owns hook hosting and
+lifecycle composition.</p>
+<p><code>ToolModuleCatalog.Discover(...)</code> invokes the internal manifest loader exactly once and
+returns one snapshotted result containing all successfully promoted manifest
+entries, successfully created modules, and every load/promotion/discovery
+error. App and the dist-owned <code>SandboxCatalog</code> consume that result in the
+product assembly's owning load context. <code>ThrowIfErrors()</code> fails closed with one contextual
+<code>AggregateException</code> whose inner exceptions are the captured original causes
+in deterministic source order. App logs each error with its manifest/resource
+context before delegating terminal behavior to that catalog result.</p>
+<p><code>ManifestResourceParser.Parse</code> in the portable manifest owner owns YAML shape and
+per-document semantic admission. Build tooling references that project; Core merges it privately.
+The parser's private mappers convert admitted values without a second validation policy.
+Core constructors retain guards for direct callers. Cross-document duplicate and
+warning-target checks remain in <code>ManifestResourceValidationPolicy</code>.</p>
+<p><code>ToolModuleCatalog.LoadManifestEntries(...)</code> is the narrow data-only companion for
+consumers that have already completed module discovery in the product assembly's owning
+load context. It validates and promotes manifest values but never resolves or constructs
+<code>moduleType</code>; the Sandbox uses it for later metadata checks so its compile-time Core cannot
+re-discover candidate modules against a different <code>ToolModule</code> type identity.</p>
+<!-- VERIFIED: 2026-08-22 -->
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/Manifest/ManifestLoadResult.cs:7-30</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Manifest/ToolManifestLoadError.cs:4-16</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Modules/Catalog/ToolModuleCatalogResult.cs:9-33</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Modules/Catalog/ToolModuleCatalogError.cs:4-18</code>
+<strong>Source:</strong> <code>src/DBTools.App/Composition/ToolModule/AppToolModuleRegistrar.cs:132-149</code></p>
+</blockquote>
+<h4 id="generic-availability">Generic Availability</h4>
+<p>Generic manifest availability predicates live in Core because they are shared command infrastructure, not App host behavior. Tool manifests should reference these Core-owned predicates for common active-document, active-view, or selection requirements; tool-specific predicates should stay with the tool feature that owns the domain rule.</p>
+<p>Command and availability type resolution are explicit to the registration path.
+<code>ToolTypeResolver</code> resolves a requested manifest type only from the assemblies
+supplied by the caller and never scans every assembly loaded in the AppDomain
+or AssemblyLoadContext. App delegates command validation to Core against the
+manifest/tool assembly. Availability resolution checks the manifest/tool
+assembly, Core, and the root runtime App assembly, so startup cannot silently
+bind to stale or unrelated loaded assemblies.</p>
+<h4 id="toolmodule">ToolModule</h4>
 <p>Base class for tool modules to contribute DI services and tool registrations.</p>
-<pre><code class="lang-csharp">public abstract class DbtToolModule
+<pre><code class="lang-csharp">public abstract class ToolModule
 {
-    public virtual void RegisterSettings(IServiceCollection services, IConfiguration configuration,
-        DbtToolManifest manifest) { }
-    public virtual void RegisterServices(IServiceCollection services, DbtToolManifest manifest) { }
-    public virtual void RegisterSettingsPacks(IServiceCollection services, DbtToolManifest manifest) { }
-    public virtual void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest) { }
+    public virtual void RegisterSettings(IServiceCollection services,
+        ToolManifest manifest) { }
+    public virtual void RegisterServices(IServiceCollection services, ToolManifest manifest) { }
+    public virtual void RegisterSettingsPacks(IServiceCollection services, ToolManifest manifest) { }
+    public virtual void RegisterHooks(ToolRegistry registry, ToolManifest manifest) { }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolModule.cs:9-49</code></p>
-</blockquote>
-<h4 id="dbttoolregistry">DbtToolRegistry</h4>
-<p>Central registry for tool registrations and hook handlers.</p>
-<pre><code class="lang-csharp">public sealed class DbtToolRegistry
+<h4 id="toolregistry">ToolRegistry</h4>
+<p>Central registry for tool registrations and hook handlers. Command execution consumes registration metadata indirectly through <code>CommandPreflight</code>; hook hosting resolves hook implementations through <code>HookCatalog</code>.</p>
+<pre><code class="lang-csharp">public sealed class ToolRegistry
 {
-    public ReadOnlyCollection&lt;DbtToolRegistration&gt; Tools { get; }
+    public ReadOnlyCollection&lt;ToolRegistration&gt; Tools { get; }
+    public bool HasHookRegistrations { get; }
     public IReadOnlyDictionary&lt;Type, IReadOnlyCollection&lt;Type&gt;&gt; HookRegistrations { get; }
-    public void RegisterTool(DbtToolRegistration registration);
+    public void RegisterTool(ToolRegistration registration);
     public void RegisterHook&lt;THook, TImplementation&gt;() where THook : class where TImplementation : class, THook;
     public Type[] GetHookImplementations&lt;THook&gt;() where THook : class;
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolRegistry.cs:9-83</code></p>
-</blockquote>
-<h4 id="dbttoolregistration">DbtToolRegistration</h4>
+<p>App startup still owns assembly loading plus Revit command and availability type validation. Once those concrete types are resolved, registration construction is delegated to Core through <code>ToolRegistration.FromManifest(...)</code>, and the registry accepts the constructed <code>ToolRegistration</code>.</p>
+<h4 id="toolregistration">ToolRegistration</h4>
 <p>Encapsulates a tool command registration with ribbon configuration.</p>
-<pre><code class="lang-csharp">public sealed class DbtToolRegistration
+<pre><code class="lang-csharp">public sealed class ToolRegistration
 {
     public Type CommandType { get; }
     public Type? AvailabilityType { get; }
-    public RevitRunScopeProfile RunProfile { get; }
-    public DbtToolRibbonSpec Ribbon { get; }
-    public Func&lt;Flags, bool&gt;? AvailabilityPredicate { get; init; }
+    public AppRunScopeProfile ExecutionProfile { get; }
+    public ToolRibbonSpec Ribbon { get; }
+    public static ToolRegistration FromManifest(Type commandType,
+        ToolManifest manifest, RibbonToolManifest tool, Type? availabilityType = null);
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolRegistration.cs:8-38</code></p>
-</blockquote>
-<h4 id="dbttoolmanifest">DbtToolManifest</h4>
-<p>YAML manifest structure for tool discovery.</p>
-<pre><code class="lang-csharp">public sealed class DbtToolManifest
+<h4 id="toolribbonspec">ToolRibbonSpec</h4>
+<p>Revit-free ribbon metadata consumed by App ribbon composition. <code>ToolRegistration.FromManifest(...)</code> is the sole projection junction holding both the tool manifest and ribbon manifest. It selects the internal <code>ToolRibbonSpec.CreatePushButton(...)</code> or <code>CreateGroupedControl(...)</code> factory while preserving manifest display text and grouped metadata. Push controls cannot carry grouped-control fields; grouped controls require a non-push control kind and a nonblank split-group identity. Construction stays internal to Core through these named invariant-bearing factories.</p>
+<h4 id="toolmanifest">ToolManifest</h4>
+<p>Immutable public manifest value promoted from parser-private YAML DTOs.</p>
+<pre><code class="lang-csharp">public sealed class ToolManifest
 {
-    public string Id { get; set; }
-    public string Assembly { get; set; }
-    public string ModuleType { get; set; }
-    public int? Order { get; set; }
-    public List&lt;DbtSandboxWindowManifest&gt;? SandboxWindows { get; set; }
-    public DbtToolMetadataManifest? Tool { get; set; }
+    public ToolManifest(string id, string assembly, int order,
+        string? moduleType = null, string? panel = null,
+        IEnumerable&lt;SandboxWindowManifest&gt;? sandboxWindows = null,
+        ToolMetadataManifest? tool = null);
+
+    public string Id { get; }
+    public string Assembly { get; }
+    public string? ModuleType { get; }
+    public int Order { get; }
+    public string? Panel { get; }
+    public IReadOnlyList&lt;SandboxWindowManifest&gt; SandboxWindows { get; }
+    public ToolMetadataManifest? Tool { get; }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolManifest.cs:5-13</code></p>
-</blockquote>
-<h4 id="dbthookhost">DbtHookHost</h4>
-<p>Coordinates application-level hooks, dispatching events to registered handlers.</p>
-<p><strong>Supported Hook Interfaces:</strong></p>
+<p>Required scalar values and collection snapshots are established during
+promotion. Moduleless manifests are rejected unless they declare a panel and at
+least one ribbon command, and they cannot declare settings or settings packs.
+Module manifests must still declare at least one concrete responsibility
+through <code>tool.ribbonTools</code>, <code>tool.settings</code>, <code>tool.settingsPacks</code>, or a
+registered hook. App startup checks that responsibility after
+<code>RegisterHooks(...)</code> against the temporary registry and before merging module
+registrations into the root container.</p>
+<h4 id="hookhost">HookHost</h4>
+<p>Coordinates application-level hook attach/detach state. <code>IHookLifecycle</code> defines asynchronous initialization, asynchronous attach-failure rollback, and synchronous application-boundary shutdown. Synchronous <code>Shutdown</code> has no cancellation token or task surface, and <code>HookShutdownAction</code> owns only a plain <code>Action</code>. <code>HookCatalog</code> owns supported-hook policy and DI handler resolution solely through that contract; it has no concrete hook type checks or task-completion adapter. <code>HookHost</code> adds its direct <code>ViewActivated</code> subscription as the final <code>HookAttachAction</code>, queues both subscription and attach-failure unsubscription through the Revit call gate, and publishes attached host state only after the whole transaction succeeds. <code>HookLifecycleCoordinator</code> retains successfully initialized attach actions, rolls them back in reverse order after a later attach failure, and runs their synchronous shutdown actions in reverse initialization order. Normal detach clears that ownership only after every action succeeds; if any action fails, the complete idempotent action set remains available for retry. Each lifecycle implementation owns cleanup if its own initialization fails after acquiring resources. Contextual Ribbon performs that cleanup transactionally in its queued initialization context, attempting selection detach, every contextual UI removal, and edit-event disposal while preserving both initialization and cleanup failures. Its injection registry removes only successful registrations, retains failed registrations for retry, and throws one aggregate after attempting them all. Its selection controller retains the exact detach action captured during subscription, so synchronous shutdown needs no new <code>UIApplication</code>. The unused <code>OnSubscribed</code> and <code>OnUnsubscribed</code> extension hooks were deleted; <code>OnEvaluateAndToggleCompleted</code> remains because ERFT implements it. Dialog Suppression likewise records ownership immediately after adapter subscription and invokes the existing unsubscribe path if later initialization work fails. <code>ViewActivationHookDispatcher</code> owns the high-frequency safe-executor dispatch policy, and <code>ViewActivationHook</code> owns the per-task, per-document runtime-failure gate. The gate keys on <code>DocumentSessionKey</code> (title, path and instance hash): a reopened model starts clean, and after Save As or a new model's first save the task may run once more under the new key.</p>
+<p>Contextual ribbon ownership is artifact-specific: each registration retains the actual
+tab, panel, and button plus whether that injection created the panel or only the button.
+Cleanup removes a whole panel only when it owns that panel; a reused panel loses only
+the created button, and a foreign same-ID button and handler are preserved. Injection
+and button-state sweeps attempt every target, preserve original causes under exact
+tab/panel/button context, and throw one aggregate after the sweep. The selection refresh
+completion callback runs only after injection, toggle, or cleanup mutations all succeed.</p>
+<!-- VERIFIED: 2026-09-05 -->
+<p><strong>Supported Hook Types:</strong></p>
 <ul>
-<li><code>IViewActivatedHookHandler</code> - Called when views are activated</li>
-<li><code>IContextualRibbonInjector</code> - For contextual ribbon panel initialization</li>
+<li><code>ViewActivationHook</code> - Core-owned dispatcher called when views are activated</li>
+<li><code>IHookLifecycle</code> - For module-owned hook lifecycle work such as contextual ribbon setup or dialog-showing event subscriptions</li>
 </ul>
-<pre><code class="lang-csharp">public sealed class DbtHookHost
+<pre><code class="lang-csharp">internal sealed class HookHost
 {
-    public void Attach(UIControlledApplication application);
     public Task AttachAsync(UIControlledApplication application, CancellationToken ct);
-    public void Detach(UIControlledApplication application);
+    public Task RollbackAttachAsync(CancellationToken ct);
+    public void Detach();
 }
 </code></pre>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtHookHost.cs:28-244</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/Lifecycle/IHookLifecycle.cs:5-10</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/Host/HookCatalog.cs:32-109</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/Host/HookHost.cs:54-212</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/Lifecycle/HookLifecycleCoordinator.cs:14-174</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/ContextualRibbon/ContextualRibbonInjector.Lifecycle.cs:12-126</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/ContextualRibbon/ContextualRibbonInjectionRegistry.cs:10-102</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Tools/Hooks/ContextualRibbon/SelectionChange/ContextualRibbonSelectionChangeController.cs:25-56</code>
+<strong>Source:</strong> <code>src/Tools/Services/DialogSuppression/Features/DialogSuppressionHook.cs:32-97</code></p>
 </blockquote>
 <h3 id="ui-components">UI Components</h3>
-<h4 id="dbtwindowbase">DbtWindowBase</h4>
-<p>Modal-first base window for DBT. Hosts the progress overlay and central UI error boundary.</p>
-<pre><code class="lang-csharp">public class DbtWindowBase : Window, IWindowWithOwnerProvider, IThemeOptOut
+<h4 id="modalwindow">ModalWindow</h4>
+<p>Presentation owns only the stable modal-window surface: WPF <code>Window</code> inheritance,
+owner-handle support through <code>IWindowOwnerHandleTarget</code>, and the <code>IThemeOptOut</code>
+theme-opt-out contract. <code>ToolWindowHost</code> constructs the stable modal shell.
+Core's <code>ToolWindowFactory</code> installs the owner, theme, icon, error boundary and
+progress lifecycle before the raw view loads; session retirement releases them.</p>
+<pre><code class="lang-csharp">public class ModalWindow : Window, IWindowOwnerHandleTarget, IThemeOptOut
 {
-    public IWindowOwnerProvider? OwnerProvider { get; set; }
+    public IWindowOwnerHandleProvider? OwnerHandleProvider { get; set; }
     public bool UseDefaultTheme { get; set; }
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/DbtWindowBase.cs:27-47</code></p>
-</blockquote>
+<h4 id="modelesswindow">ModelessWindow</h4>
+<p>Presentation owns only the stable modeless-window surface: WPF <code>Window</code> inheritance,
+owner-handle support, and the <code>IThemeOptOut</code> theme-opt-out contract. The session's
+Core shell initializer selects the modeless owner policy and installs the runtime
+lifecycle before raw XAML loads. Session retirement releases the complete graph.</p>
+<pre><code class="lang-csharp">public class ModelessWindow : Window, IWindowOwnerHandleTarget, IThemeOptOut
+{
+    public IWindowOwnerHandleProvider? OwnerHandleProvider { get; set; }
+    public bool UseDefaultTheme { get; set; }
+}
+</code></pre>
 <h4 id="ialertservice">IAlertService</h4>
 <p>Service for showing alert dialogs with various body types.</p>
 <pre><code class="lang-csharp">public interface IAlertService
 {
     AlertResult Show(AlertRequest request);
-    bool Confirm(string message, string title = &quot;DB Tools&quot;);
-    T? SelectSingle&lt;T&gt;(IEnumerable&lt;T&gt; items, Func&lt;T, string&gt; displayFunc, ...);
-    IReadOnlyList&lt;T&gt; SelectMultiple&lt;T&gt;(IEnumerable&lt;T&gt; items, Func&lt;T, string&gt; displayFunc, ...);
+    bool Confirm(string message, IWindowOwnerHandleProvider ownerHandleProvider,
+        string title = &quot;DB Tools&quot;);
+    T? SelectSingle&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
+    IReadOnlyList&lt;T&gt; SelectMultiple&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Alerts/Features/IAlertService.cs:1-30</code></p>
-</blockquote>
+<p><code>AlertServiceFactory</code> and <code>IAlertService</code> form the public boundary. Internal
+<code>AlertService</code>, <code>AlertBodyBuilder</code>, <code>AlertSelectionPolicy</code>,
+<code>AlertWindowPresenter</code>, and <code>AlertWindowViewModel</code> own request planning, body
+composition, selection extraction, modal presentation, and shell state. Alert
+window ownership is explicit: confirmation receives an
+<code>IWindowOwnerHandleProvider</code>, while <code>AlertWindowOptions</code> carries owner and size
+policy for other alert workflows.</p>
+<p>Alerts open with <code>WindowStartupLocation.CenterScreen</code>, which WPF centers on the
+owner window's monitor work area in device pixels, so an alert stays on its
+owner's monitor (Revit or the DB Tools window that raised it) at any display
+scaling. WPF does not clamp this placement, so an alert
+larger than that work area overflows it.</p>
 <h4 id="ierrornotifier">IErrorNotifier</h4>
 <p>Interface for displaying error/success banners to users.</p>
-<pre><code class="lang-csharp">public interface IErrorNotifier
+<pre><code class="lang-csharp">public interface IErrorNotifier : IWindowErrorBanner
 {
-    void ShowBanner(string title, string message);         // Error (red)
     void ShowWarningBanner(string title, string message);  // Warning (yellow/orange)
     void ShowSuccessBanner(string title, string message);  // Success (green)
+    void ShowInfoBanner(string title, string message);     // Info (blue)
 }
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Notifications/Features/IErrorNotifier.cs:1-18</code></p>
-</blockquote>
+<p><code>IErrorNotifier</code> includes the UI-owned <code>IWindowErrorBanner</code> surface so window
+error boundaries can request error banners without depending on the broader
+Notifications implementation. The notification contract lives under
+<code>Notifications/Domain</code>, the handled-window-error banner surface lives under
+<code>UI/Windows/ErrorBoundary</code>, and owner-handle contracts live under
+<code>UI/Windows/Ownership</code>. Concrete banner construction remains under
+<code>Notifications/Composition</code>.</p>
 <h2 id="dependencies">Dependencies</h2>
 <h3 id="nuget-packages">NuGet Packages</h3>
 <table>
@@ -629,62 +890,34 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 </thead>
 <tbody>
 <tr>
-<td><code>Newtonsoft.Json</code></td>
-<td>JSON serialization</td>
+<td><code>DBTools.Manifest</code> (project)</td>
+<td>Portable manifest parser; merged privately with YamlDotNet</td>
 </tr>
 <tr>
-<td><code>CSharpFunctionalExtensions</code></td>
-<td>Result types and functional patterns</td>
+<td><code>Serilog</code>, <code>Serilog.Extensions.Logging</code></td>
+<td>Structured logging; Core supplies the <code>ThreadId</code> enricher</td>
 </tr>
 <tr>
-<td><code>Ardalis.GuardClauses</code></td>
-<td>Argument validation</td>
-</tr>
-<tr>
-<td><code>AutoMapper</code></td>
-<td>Object mapping</td>
-</tr>
-<tr>
-<td><code>UnitsNet</code></td>
-<td>Units and measurements</td>
-</tr>
-<tr>
-<td><code>Serilog</code> + extensions</td>
-<td>Structured logging</td>
-</tr>
-<tr>
-<td><code>Microsoft.Extensions.DependencyInjection</code></td>
-<td>Dependency injection</td>
-</tr>
-<tr>
-<td><code>Microsoft.Extensions.Configuration.*</code></td>
-<td>Configuration binding</td>
+<td><code>Microsoft.Extensions.DependencyInjection.Abstractions</code></td>
+<td>Dependency-injection contracts</td>
 </tr>
 <tr>
 <td><code>CommunityToolkit.Mvvm</code></td>
 <td>MVVM base classes</td>
 </tr>
-<tr>
-<td><code>DynamicData</code></td>
-<td>Reactive collections</td>
-</tr>
-<tr>
-<td><code>System.Reactive</code></td>
-<td>Reactive extensions</td>
-</tr>
-<tr>
-<td><code>Ookii.Dialogs.Wpf</code></td>
-<td>Native file dialogs</td>
-</tr>
-<tr>
-<td><code>ricaun.Revit.UI.Tasks</code></td>
-<td>Revit async task support</td>
-</tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/DBTools.Core.csproj:102-161</code></p>
-</blockquote>
+<h3 id="structural-preview-lifetime">Structural preview lifetime</h3>
+<p><code>DBTools.Presentation.StructuralPreview.IStructuralPreview3D</code> owns structural
+preview navigation and rendering. ERFT and SGT pass immutable DBTools-owned
+scene and emphasis snapshots and consume stable pointer events. Core compiles
+against Presentation; Helix and SharpDX compile assets are private to Presentation. The former <code>UI/HelixViewport</code> navigation
+and <code>UI/StructuralPreview</code> graphics owners are retired.</p>
+<p>Each tool registers the viewport's synchronous disposal as a session cleanup.
+<code>ToolWindowRegistry.RetireAll</code> retires child sessions first, releases viewport
+handlers, timers, camera/material/device state and payload subscriptions, and
+then closes the shell. App shutdown invokes this registry before other runtime
+owners reset. There is no separate static viewport shutdown registry.</p>
 <h3 id="project-references">Project References</h3>
 <table>
 <thead>
@@ -695,51 +928,49 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 </thead>
 <tbody>
 <tr>
-<td><code>DBTools.Themes</code></td>
-<td>WPF theme resources</td>
+<td><code>DBTools.Presentation</code></td>
+<td>Stable WPF resources and controls</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/DBTools.Core.csproj:153</code></p>
-</blockquote>
 <h2 id="directory-structure">Directory Structure</h2>
 <pre><code>DBTools.Core/
-+-- Assets/           # Shared resources (icons)
-+-- Compat/           # Cross-framework compatibility utilities
-+-- Constants/        # Application-wide constants
-+-- Execution/        # Safe execution, error handling
-+-- Hosting/          # Service hosting infrastructure
-+-- IO/               # File system utilities
-+-- Logging/          # Serilog infrastructure, UI sink
-+-- Notifications/    # Banner notifications
-+-- Revit/
-|   +-- Context/      # Revit context accessors
-|   +-- Execution/    # Call gates, run scopes, tool context
-|   +-- Transactions/ # Transaction runners and groups
-|   +-- Utilities/    # Revit helpers (RevitId, Failures, etc.)
-+-- Runtime/          # AppRuntime, IAppRunScope
-+-- Sandbox/          # Sandbox mode stubs
-+-- Settings/         # Settings infrastructure
-+-- Tools/            # Tool module system
-+-- UI/
-    +-- Alerts/       # Alert dialog system
-    +-- Behaviors/    # WPF attached behaviors
-    +-- Converters/   # Value converters
-    +-- Icons/        # Icon loading
-    +-- Progress/     # Progress overlay
-    +-- Theming/      # Theme validation
-    +-- Windows/      # Window base classes
++-- Alert/{Body,Composition,DesignTime,Domain,Selection,ViewModels,Views,Workflow}
++-- AppRuntime/{Domain,RunScope,Runtime} # Runtime contracts and typed static facade
++-- Guarding                            # Guard and analyzer marker
++-- Hashing                             # SHA-256 operations
++-- Logging/{Composition,DebugMode,Files,LoggerWindow,Retention,Runtime,Sinks}
++-- Notifications/{Composition,Domain,NotificationBanner,Runtime}
++-- Paths                               # App/settings paths
++-- Progress/{Aggregation,Overlay}
++-- Regex                               # Shared regex construction
++-- Revit/{Composition,Context,DocumentSession,Execution,Transactions}
++-- RevitInstance/{Identity,RevitYear}
++-- SafeExecution/{Domain,Runtime}      # Safe-execution contracts and implementation
++-- Sandbox                             # SandboxMode
++-- Settings/{Alerts,Catalog,Composition,Controls,DesignTime,Domain,Feedback,Persistence,RegexPattern,Reset,SettingsPack,State,Validation,ViewModels,Views,Warnings}
++-- TextFile                            # Text-file operations
++-- Time
++-- Tools/{Availability,Commands,Hooks,Manifest,Modules,Ribbon,Sandbox}
++-- Tests                               # Explicitly linked pure and local fixtures
++-- UI/                                 # Cross-tool UI grammar container
+    +-- Binding, ColorPicker, Commanding, Converters, DataGrid, DesignTime
+    +-- Dialogs, Dispatching, FilePicker, ListView
+    +-- Theming, TreeView, Windows
 </code></pre>
 <h2 id="public-api-summary">Public API Summary</h2>
 <h3 id="revit-execution">Revit Execution</h3>
 <ul>
 <li><code>IRevitCallGate</code> - Thread-safe Revit API execution</li>
 <li><code>IRevitRunScope</code> - Command execution scope</li>
-<li><code>IRevitRunScopeFactory</code> - Factory for run scopes</li>
-<li><code>DbtToolCommand</code> - Base class for Revit commands</li>
-<li><code>IDbtToolContext</code> - Command context interface</li>
+<li><code>IAppRunScopeFactory</code> - Explicit app run-scope construction boundary</li>
+<li><code>ToolCommand</code> - Base class for Revit commands</li>
+<li><code>ICommandContext</code> - Command adapter over an App run scope and captured command state</li>
 </ul>
+<p><code>RevitServiceCollectionExtensions</code> registers only Revit-scoped run-scope access,
+call-gate, and transaction services. The App composition root registers
+<code>IAppRunScopeFactory</code>, safe execution, and command preflight/context services,
+preserving their lifetimes without making Core Revit composition their owner.</p>
 <h3 id="transaction-management-1">Transaction Management</h3>
 <ul>
 <li><code>ITransactionRunner</code> - Transaction execution</li>
@@ -752,39 +983,114 @@ var wallId = await _transactionRunner.RunAsync(&quot;Create Wall&quot;, doc =&gt
 </ul>
 <h3 id="logging">Logging</h3>
 <ul>
-<li><code>IDbtLoggingHost</code> - Logging host interface</li>
-<li><code>ILogSink</code> - Custom sink interface</li>
+<li><code>LoggingRuntimeFactory</code> - Logging-runtime construction boundary</li>
+<li><code>ILoggingRuntime</code> - Logger factory, lifecycle, file path, and runtime controls</li>
 </ul>
 <h3 id="settings">Settings</h3>
 <ul>
 <li><code>ISettingsProvider</code> - Settings access</li>
-<li><code>DbtSettingsRegistry</code> - Settings pack registry</li>
-<li><code>IDbtToolSettingsPack</code> - Settings pack interface</li>
+<li><code>ISettingsPackDefinition</code> - Settings pack definition, row context, and view factory contract</li>
 </ul>
 <h3 id="tool-system">Tool System</h3>
 <ul>
-<li><code>DbtToolModule</code> - Tool module base class</li>
-<li><code>DbtToolRegistry</code> - Tool registration</li>
-<li><code>DbtToolManifest</code> - Manifest structure</li>
-<li><code>DbtHookHost</code> - Hook coordination</li>
+<li><code>ToolModule</code> - Tool module base class</li>
+<li><code>ToolRegistry</code> - Tool registration</li>
+<li><code>ToolManifest</code> - Manifest structure</li>
 </ul>
 <h3 id="ui">UI</h3>
 <ul>
-<li><code>DbtWindowBase</code> - Window base class</li>
+<li><code>ModalWindow</code> - Modal-first window base class (<code>DBTools.Presentation.Windows</code>)</li>
+<li><code>ModelessWindow</code> - Modeless window base class (<code>DBTools.Presentation.Windows</code>)</li>
 <li><code>IAlertService</code> - Alert dialogs</li>
-<li><code>IWindowOwnerProvider</code> - Window ownership</li>
+<li><code>IWindowOwnerHandleProvider</code> - <code>DBTools.Presentation.Windows.Ownership.WindowOwnerHandle</code> window ownership contract</li>
+<li><code>IWindowErrorBanner</code> - <code>UI/Windows/ErrorBoundary</code> handled-error banner surface</li>
+<li><code>WindowErrorBoundaryRegistry</code> - <code>UI/Windows/ErrorBoundary</code> one dispatcher subscription, active-window routing, and per-window boundary wiring</li>
+<li><code>WindowErrorBoundary</code> - <code>UI/Windows/ErrorBoundary</code> selected-window exception classification, presentation, and handled-failure observation</li>
+<li><code>WindowErrorPresenter</code> - <code>UI/Windows/ErrorBoundary</code> handled UI-error banner/log-surface presentation</li>
 </ul>
+<p>Window error-boundary workflow lives in
+<code>DBTools.Core.UI.Windows.ErrorBoundary</code>.
+Concrete banner notifier construction is supplied by App startup through the single
+<code>WindowStaticRuntime.Configure(...)</code> composition boundary. Core window initialization
+attaches the boundary through its registry and no longer constructs <code>WindowErrorNotifier</code>
+directly. The aggregate runtime receives <code>IWindowErrorLogSurface</code> and
+<code>IWindowErrorBanner</code>, so window error boundaries can request logger
+surfacing and handled-error banners without depending on the concrete logger
+window shell or notification packages. <code>WindowErrorBoundaryRegistry</code> owns one
+exception subscription per dispatcher and routes each failure to the most recently
+activated attached active window, falling back through activation history and then the
+attached list while excluding windows that have already closed. The selected
+<code>WindowErrorBoundary</code> classifies the original exception and
+every nested branch, including every aggregate branch, for DBTools provenance: a branch
+qualifies when its throwing method or a frame on its stack belongs to an assembly whose
+name is exactly <code>DBTools</code> or starts with <code>DBTools.</code> (ordinal match). Shipped vendor code
+qualifies only through <code>DBTools.HandyControl</code> (the renamed HandyControl build) or
+<code>DBTools.Presentation</code> (which merges Helix). A raw <code>HandyControl</code> or <code>HelixToolkit*</code>
+assembly is always another add-in's copy and never qualifies, whether it throws directly
+or only appears on the stack. So a framework or Revit API failure raised from DBTools code
+is handled while a foreign add-in's vendor failure is not. A bare DBTools-owned
+<code>OperationCanceledException</code> whose token was cancelled is marked handled with a Warning
+log only: no banner and no handled-failure signal. It presents and publishes the exact original outer exception, preserving
+contextual wrappers and their causes, and returns the handled-state decision to the
+registry. Entirely foreign exception trees remain unhandled and produce no boundary
+notification. A window observed as closed retains a weak lifecycle tombstone and cannot be reattached. A never-attached, never-observed closed WPF window is outside this registry lifecycle contract; classifying it would require reflection or creating an HWND. A lifecycle owner may subscribe through <code>WindowErrorBoundaryRegistry</code>
+to the handled-failure signal for its exact window. Subscription requires the
+already-attached per-window host and fails
+loud when that construction invariant is broken; there is no pending or global
+observer route. The notification includes the original failure and any
+presentation failure, and detachment clears the per-window observers.
+<code>WindowErrorPresenter</code> owns the banner notification and logger-window
+show policy.</p>
+<p><code>WindowRuntimeCapabilities.CreateSandbox(...)</code> is the shared interactive/headless Sandbox
+construction boundary. It creates the concrete Sandbox logger factory, logger, error-log surface,
+notification surface, and no-op progress capability inside the candidate Core that owns the window
+interfaces. App/Revit startup continues to configure its own concrete notification, logging, and
+progress capabilities directly.</p>
+<p><code>WindowStaticRuntime</code> is the Core UI configuration/reset owner for both App and
+Sandbox. It serializes the complete aggregate lifecycle, publishes readiness only
+after diagnostics, window error boundaries, and progress overlays are all configured,
+and rejects duplicate or partial incumbents before mutating them. Failed configuration
+rolls back only surfaces installed by that attempt in reverse order, leaving the
+aggregate retryable and retaining cleanup failures alongside the primary failure.
+Reset attempts every Core UI cleanup step, clears aggregate readiness even when a
+step fails, and reports cleanup failures in one aggregate. The production
+progress-overlay capability owns its host
+registry and visual attachment, so the same aggregate reset disposes every registered
+host; App shutdown does not carry a second progress-host reset route. Subordinate
+diagnostics, error-boundary, and progress-lifecycle configuration/reset mutations are
+internal implementation details. The capability exposes only a getter for its attached
+overlay-visibility state so tool XAML can collapse airspace content without gaining a
+second mutation route. Configuration failure retains a secondary reset failure instead
+of replacing the original error.</p>
+<p>Settings, Alert, Logger and notification banners use raw views hosted by
+<code>ToolWindowSession</code>. Core's <code>ToolWindowFactory</code> registers modal Settings and Alert
+sessions and modeless Logger sessions in the generation registry. The banner host
+registry retires its modeless sessions when banners close or reset. Each owning
+composition retains its view-model, feedback and native owner behavior. Sandbox
+previews load the same raw resources with manifest-declared design-time models.</p>
+<!-- VERIFIED: 2026-08-09 -->
+<blockquote>
+<p><strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/Runtime/WindowRuntimeCapabilities.cs:27-146</code>
+<strong>Source:</strong> <code>src/DBTools.Core/UI/Windows/Runtime/WindowStaticRuntime.cs:7-68</code>
+<strong>Source:</strong> <code>src/DBTools.Sandbox/Composition/AppRuntime.cs</code>
+<strong>Source:</strong> <code>src/DBTools.Presentation/Settings/Views/SettingsWindow.xaml</code>
+<strong>Source:</strong> <code>src/DBTools.Core/Settings/Composition/SettingsWindowFactory.cs</code>
+<strong>Source:</strong> <code>src/DBTools.Presentation/Logging/LoggerWindow/Views/LoggerWindow.xaml</code>
+<strong>Source:</strong> <code>src/DBTools.Presentation/Alert/Views/AlertWindow.xaml</code></p>
+</blockquote>
 <h2 id="usage-examples">Usage Examples</h2>
 <h3 id="creating-a-tool-command">Creating a Tool Command</h3>
-<pre><code class="lang-csharp">public class MyToolCommand : DbtToolCommand
+<pre><code class="lang-csharp">public class MyToolCommand : ToolCommand
 {
-    protected override async Task RunAsync(IDbtToolContext context)
+    protected override async Task RunAsync(ICommandContext context)
     {
         var myService = context.Resolve&lt;IMyService&gt;();
         
         // Execute Revit API work
-        await context.RevitRunScope.TransactionRunner.RunAsync(&quot;My Operation&quot;, doc =&gt;
+        var transactionRunner = context.Resolve&lt;ITransactionRunner&gt;();
+        await transactionRunner.RunInActiveDocumentAsync(&quot;My Operation&quot;, tx =&gt;
         {
+            var doc = tx.Document;
             // Modify document
         });
     }
@@ -796,96 +1102,80 @@ var result = await callGate.RunAsync(uiapp =&gt;
 {
     var doc = uiapp.ActiveUIDocument.Document;
     return doc.GetElement(elementId);
-}, ct, RevitCallMode.RequiresActiveView);
+}, ct);
 </code></pre>
 <h3 id="registering-a-tool-module">Registering a Tool Module</h3>
-<pre><code class="lang-csharp">public class MyToolModule : DbtToolModule
+<pre><code class="lang-csharp">public class MyToolModule : ToolModule
 {
-    public override void RegisterServices(IServiceCollection services, DbtToolManifest manifest)
+    public override void RegisterServices(IServiceCollection services, ToolManifest manifest)
     {
         services.AddSingleton&lt;IMyService, MyService&gt;();
+        services.AddSingleton&lt;IViewActivationTask, MyViewActivatedTask&gt;();
     }
     
-    public override void RegisterHooks(DbtToolRegistry registry, DbtToolManifest manifest)
+    public override void RegisterHooks(ToolRegistry registry, ToolManifest manifest)
     {
-        registry.RegisterHook&lt;IViewActivatedHookHandler, MyViewHandler&gt;();
+        registry.RegisterHook&lt;IHookLifecycle, MyContextualRibbonInjector&gt;();
     }
 }
 </code></pre>
 <h2 id="extension-points">Extension Points</h2>
 <ol>
 <li><strong>Custom Call Gates</strong> - Implement <code>IRevitCallGate</code> for specialized execution modes</li>
-<li><strong>Hook Handlers</strong> - Register implementations of <code>IViewActivatedHookHandler</code> or <code>IContextualRibbonInjector</code></li>
-<li><strong>Settings Packs</strong> - Create <code>DbtToolSettingsPack&lt;T&gt;</code> instances for tool-specific settings UI</li>
+<li><strong>Hook Handlers</strong> - Register <code>IHookLifecycle</code> implementations or <code>IViewActivationTask</code> services for view-activated work</li>
+<li><strong>Settings Packs</strong> - Register <code>ISettingsPackDefinition</code> instances for tool-specific settings UI</li>
 <li><strong>Alert Bodies</strong> - Implement <code>IAlertBody</code> for custom alert dialog content</li>
 </ol>
 <h2 id="build-considerations">Build Considerations</h2>
 <h3 id="conditional-compilation">Conditional Compilation</h3>
+<!-- VERIFIED: 2026-07-25 -->
 <ul>
-<li><strong>Sandbox builds</strong> (<code>DBT_IsSandboxBuild</code>): Revit-dependent files excluded, sandbox stubs used</li>
+<li><strong>Desktop builds</strong> always compile the complete Core for one Revit year; Pure tests and Sandbox use that same image. Revit references stay compile-only.</li>
+<li><strong>Portable builds</strong> (<code>$(DBT_PortableTargetFramework)</code>): only the bounded positive source list compiles, without WPF, Revit, merging or content identity.</li>
 <li><strong>Designer builds</strong> (<code>DBT_IsDesignerBuild</code>): Revit sources excluded for XAML designer</li>
 <li><strong>wpftmp builds</strong>: Special handling for temporary projects during BAML compilation</li>
 </ul>
 <blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/DBTools.Core.csproj:12-99</code></p>
+<p><strong>Source:</strong> <code>src/DBTools.Core/DBTools.Core.csproj</code></p>
 </blockquote>
 <h3 id="internalsvisibleto">InternalsVisibleTo</h3>
-<p>Test projects and DBTools.App have access to internal types:</p>
+<p>The runtime assembly and these test identities have access to Core internals:</p>
 <ul>
-<li><code>DBTools.App</code></li>
-<li><code>DBTools.GM.Tests</code></li>
-<li><code>DBTools.RecordSet.Tests</code></li>
-<li><code>DBTools.SGT.Tests</code></li>
-<li><code>DBTools.TDV.Tests</code></li>
+<li><code>DBTools</code></li>
+<li><code>DBTools.App.Pure.Tests</code>, <code>DBTools.App.Local.Tests</code></li>
+<li><code>DBTools.AnalyticalSnapToLevel.Local.Tests</code>, <code>DBTools.ElevationTags.Local.Tests</code></li>
+<li><code>DBTools.FoundationTags.Local.Tests</code>, <code>DBTools.FramingJoins.Local.Tests</code></li>
+<li><code>DBTools.GM.Local.Tests</code>, <code>DBTools.JoistGirderWeight.Local.Tests</code></li>
+<li><code>DBTools.OrganizeFoundationTypes.Local.Tests</code>, <code>DBTools.SGT.Local.Tests</code></li>
+<li><code>DBTools.Core.Pure.Tests</code>, <code>DBTools.Core.Local.Tests</code></li>
+<li><code>DBTools.DialogSuppression.Local.Tests</code>, <code>DBTools.ERFT.Local.Tests</code></li>
+<li><code>DBTools.RecordSet.Local.Tests</code>, <code>DBTools.TDV.Local.Tests</code>, <code>DBTools.VTC.Local.Tests</code></li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/DBTools.Core.csproj:26-33</code></p>
-</blockquote>
+<p>Core test projects use explicit <code>&lt;Compile&gt;</code> membership. <code>DBTools.Core.Pure.Tests</code>
+owns sandbox-safe pure fixtures such as
+<code>Tools/Hooks/ContextualRibbon/ContextualRibbonInjectorBaseTabTests.cs</code>; <code>DBTools.Core.Local.Tests</code>
+owns local/Revit-capable fixtures plus local support stubs under <code>Support/</code>,
+including the <code>Autodesk.Revit.UI.IExternalCommandAvailability</code> compile stub.
+Folded Core test mirrors use owner folders under <code>Tools/*</code>, <code>Settings/*</code>,
+<code>Progress/</code>, <code>Revit/*</code>, and <code>UI/Windows/*</code>; the explicit compile links in the
+pure and local projects are updated in lockstep with those moves. Current
+identity-focused mirrors include
+<code>Settings/Alerts/SettingsAlertRequestBuilderTests.cs</code>,
+<code>Settings/Catalog/SettingsCatalogTests.cs</code>,
+<code>Settings/State/Warning/WarningChangedEventArgsTests.cs</code>,
+<code>Progress/Overlay/Runtime/ProgressOverlayDelayedHideSchedulerTests.cs</code>,
+<code>Tools/Hooks/ContextualRibbon/SystemSelection/ContextualRibbonSystemSelectorTests.cs</code>,
+and <code>UI/Theming/Window/WindowThemeApplicatorTests.cs</code>.</p>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>
 <li><a href="../architecture/overview.html">Architecture Overview</a> - System-wide architecture</li>
 <li><a href="../architecture/project-references.html">Project References</a> - Inter-project dependencies</li>
-<li><a href="loader.html">DBTools.Loader</a> - Revit entry point</li>
+<li><a href="app.html">DBTools.App</a> - Direct Revit entry point and application runtime</li>
 </ul>
-<hr>
-<h2 id="verification-status">Verification Status</h2>
-<table>
-<thead>
-<tr>
-<th>Check</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Source anchors for all claims</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>UNVERIFIED markers where needed</td>
-<td>No (all verified)</td>
-</tr>
-<tr>
-<td>Cross-references added</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Examples tested</td>
-<td>N/A</td>
-</tr>
-<tr>
-<td>No assumptions without evidence</td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Verified by:</strong> docs-run-20260124-020412<br>
-<strong>Date:</strong> 2026-01-24</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/projects/core.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

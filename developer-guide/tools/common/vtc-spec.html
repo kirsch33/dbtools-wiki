@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>VTC As-Built Spec | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="VTC As-Built Spec | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="vtc-as-built-spec">VTC As-Built Spec</h1>
+
+<p>This file records the current VTC design after the March 6, 2026 native-only Revit Links rewrite.</p>
+<p>The current ownership boundary has one document façade: <code>Revit/Template/TemplateRuntime</code>. App composition supplies its concrete extractor, Revit-link adapter, difference evaluator, applier, and materializer. App batch-session orchestration consumes the focused <code>App/Sessions/ITemplateSessionRuntime</code> port implemented by that façade; tests replace the external port without redeclaring or shadowing the production runtime. Comparison owns <code>SettingPreviewItem</code>, window comparison state, the diff-tree filter contract, substantive Comparison views, and the UI-neutral <code>RevitLinkActionSourceResolver</code>; Library owns its concrete Library view; Template Apply owns pending overrides, apply outcomes, Revit-link batch execution, and expected conflict classification; App owns keyed outcome projection plus Revit-link prompting, modal hosting, refresh, result presentation, and cross-pane request handling. App composes outcome-only runtime templates into Comparison views; feature packages do not import App. <code>AlertPresenter</code> is the only App-facing alert boundary, so no workflow or view-model consumer receives <code>IAlertService</code>.</p>
+<!-- VERIFIED: 2026-09-05 -->
+<blockquote>
+<p><strong>Sources:</strong> <code>src/Tools/Experimental/VTC/Revit/Template/TemplateRuntime.cs</code>, <code>src/Tools/Experimental/VTC/Features/TemplateApply/Execution/TemplateApplier.Operations.cs</code>, <code>src/Tools/Experimental/VTC/Features/Comparison/Window/VtcWindowComparisonCoordinator.cs</code></p>
+</blockquote>
+<hr>
+<h2 id="scope">Scope</h2>
+<ul>
+<li>VTC compares two view templates from the current document.</li>
+<li>Category edits remain staged locally until Process.</li>
+<li>Import Categories are not a separate subsystem; they are ordinary category rows routed to the imported tab.</li>
+<li>Revit Links are limited to settings that the active public Revit API can both read and write.</li>
+</ul>
+<hr>
+<h2 id="vg-tab-structure">VG Tab Structure</h2>
+<p>VTC still mirrors Revit VG organization at the tree level:</p>
+<ul>
+<li><code>ModelCategories</code></li>
+<li><code>AnnotationCategories</code></li>
+<li><code>AnalyticalModelCategories</code></li>
+<li><code>ImportedCategories</code></li>
+<li><code>Filters</code></li>
+<li><code>RevitLinks</code></li>
+<li><code>Worksets</code></li>
+<li><code>DesignOptions</code></li>
+</ul>
+<p>Imported categories are detected in <code>VtcCategoryClassifier</code>; Revit Links are a dedicated tab whose children are grouped link-setting rows.</p>
+<hr>
+<h2 id="import-categories">Import Categories</h2>
+<h3 id="extraction-and-compare">Extraction and compare</h3>
+<ul>
+<li><code>ExtractCategories(...)</code> emits imported parents and imported layers/subcategories as <code>VtcCategoryGraphicsData</code>.</li>
+<li><code>AddCategoryChanges(...)</code> keeps those rows in the same category compare pipeline as all other categories.</li>
+<li>Imported rows keep <code>SettingType=CategoryOverride</code>; there is no import-specific apply path.</li>
+</ul>
+<h3 id="editprocess-behavior">Edit/process behavior</h3>
+<ul>
+<li>Inline edit buttons, Inspector-side edit actions, Preview, pending override retention, BatchApply, save-merged, and snapshot apply all reuse the standard category path.</li>
+<li>Missing-side imported selections reset visibility/graphics the same way as any other category row.</li>
+</ul>
+<hr>
+<h2 id="revit-links">Revit Links</h2>
+<h3 id="contract">Contract</h3>
+<p>The linked-file blob is deleted. The active contract is:</p>
+<ul>
+<li><code>VtcTemplateSettingsModel.RevitLinks</code></li>
+<li><code>VtcRevitLinkTargetInfo</code></li>
+<li><code>VtcRevitLinkSettingData</code></li>
+<li><code>VtcRevitLinkSettingValue</code></li>
+<li><code>VtcCopyRevitLinkSettingsOptions</code></li>
+</ul>
+<p>Each row is one target plus one native setting, not a mixed payload.</p>
+<h3 id="target-kinds">Target kinds</h3>
+<p>VTC extracts both:</p>
+<ul>
+<li><code>RevitLinkType</code></li>
+<li><code>RevitLinkInstance</code></li>
+</ul>
+<p>Targets are keyed separately, labeled separately, and copied separately.</p>
+<h3 id="supported-setting-matrix">Supported setting matrix</h3>
+<p>VTC derives support from runtime member availability on <code>RevitLinkGraphicsSettings</code>.</p>
+<p>Supported desktop Revit 2026.5+ and 2027 metadata:</p>
+<ul>
+<li><code>LinkVisibilityType</code></li>
+<li><code>LinkedViewId</code></li>
+</ul>
+<p>The current Revit 2026 metadata source is the pinned 2026.4.10 portable package used for cross-platform compilation, not proof of installed-Revit-2026.5 API parity.</p>
+<ul>
+<li><code>ViewFilterType</code></li>
+<li><code>NestedLinks</code></li>
+<li><code>ObjectStyles</code></li>
+<li><code>ColorFill</code></li>
+<li><code>ViewRange</code></li>
+<li><code>Phase</code></li>
+<li><code>PhaseFilter</code></li>
+<li><code>ViewDetailLevel</code></li>
+<li><code>Discipline</code></li>
+</ul>
+<p>The adapter binds directly to typed Revit API members; all 11 setting kinds are emitted and copied in every supported year.</p>
+<h3 id="extraction">Extraction</h3>
+<ul>
+<li><code>ExtractRevitLinks(...)</code> enumerates link targets, reads <code>View.GetLinkOverrides(...)</code>, and emits one <code>VtcRevitLinkSettingData</code> row for each of the 11 setting kinds.</li>
+<li>Simple settings use native <code>LinkVisibility</code> or <code>ElementId</code> values directly.</li>
+<li>Phase, Phase Filter, Detail Level, and Discipline use their public getter/setter pairs and are stored as one explicit row each.</li>
+<li>VTC stores template display settings as typed VTC enums (<code>DetailLevel</code>, <code>DisplayStyle</code>, <code>PartsVisibility</code>, <code>ViewDiscipline</code>, <code>VtcShowHiddenLinesMode</code>) and only converts to Autodesk Revit enums at the Revit service boundary.</li>
+<li>Linked element names are resolved from the linked document only when available. Those names are the canonical cross-model identity for <code>Linked View</code>, <code>Phase</code>, and <code>Phase Filter</code>.</li>
+</ul>
+<h3 id="compare-and-tree-shape">Compare and tree shape</h3>
+<ul>
+<li><code>RevitLinkDiffEvaluator</code> produces explicit diff rows keyed as <code>link.{type|instance}.name.{link}.{setting}</code>.</li>
+<li><code>TemplateDifferenceEvaluator</code> compares typed <code>SettingValue</code> cases instead of storing <code>object</code> payloads, so display/apply/App consumers pattern-match the concrete setting shape directly.</li>
+<li><code>LinkName</code> is the canonical cross-model key. If it is ambiguous within a target kind, compare fails instead of guessing.</li>
+<li><code>DiffTreeBuilder</code> groups those rows under <code>Revit Links</code> by <code>LinkDisplayName</code>, so the main tree shows link groups with native setting leaves.</li>
+</ul>
+<h3 id="apply-and-reset-semantics">Apply and reset semantics</h3>
+<ul>
+<li><code>ApplyRevitLinkSettingChange(...)</code> reads current link overrides, mutates only the selected native setting, and writes the updated <code>RevitLinkGraphicsSettings</code> back through <code>View.SetLinkOverrides(...)</code>.</li>
+<li>Apply resolves Revit-link targets by canonical <code>LinkName</code> only; there is no alternate id-path during snapshot/process apply.</li>
+<li><code>Linked View</code>, <code>Phase</code>, and <code>Phase Filter</code> are remapped by linked-element name during apply, and dependent rows prime the required top-level visibility mode before <code>SetLinkOverrides(...)</code> runs.</li>
+<li>Missing-side selections reset only the selected setting to host/default behavior; they do not use a compare-only fallback path.</li>
+</ul>
+<h3 id="copy">Copy</h3>
+<ul>
+<li>Copy always handles all 11 Revit-link setting kinds from one link target to another, matching the complete set emitted during extraction.</li>
+<li><code>CopyRevitLinkSettings(...)</code> reads and writes <code>RevitLinkGraphicsSettings</code> through typed API members.</li>
+<li><code>Linked View</code>, <code>Phase</code>, and <code>Phase Filter</code> copy by resolving the source linked-element name and finding the same name in the target linked RVT; raw linked-document ids are not reused.</li>
+<li>If the source linked document is unloaded and that name cannot be resolved, copy reuses the raw linked-element id only when source and target reference the same linked model. Cross-link copy fails instead of reusing an unverifiable id.</li>
+<li>The focused Revit-link modal and copy command operate on one concrete template side at a time. When both sides contain the row and no side is already selected, VTC prompts for the target template instead of silently defaulting to Left.</li>
+<li><code>RevitLinkActionSourceResolver</code> first selects the only available side or a viable selected side. It reports no Revit-link value or a genuinely ambiguous two-sided input without presenting UI; App owns the corresponding error or prompt.</li>
+<li>Opening the focused modal from a leaf row scopes back to the full link group, so the modal always shows all 11 setting kinds for one link target.</li>
+</ul>
+<hr>
+<h2 id="removed-design">Removed Design</h2>
+<p>Deleted from the active design:</p>
+<ul>
+<li><code>VtcLinkedFileOverrideData</code></li>
+<li>linked <code>CategoryOverrides</code></li>
+<li>host category override masquerading</li>
+<li>copy flags for unsupported linked-category payloads</li>
+<li>compare-only linked-category UI</li>
+</ul>
+<p>A former in-tree <code>VTC_Enhanced_Design.md</code> design document was superseded by this rewrite and has since been removed; this spec is the live source of truth.</p>
+<hr>
+<h2 id="verification-state">Verification State</h2>
+<p>Library JSON is admitted as one current snapshot shape. Required top-level members and collections must be present, explicit nulls and invalid required nested elements are rejected, and the same validation runs before saving an in-memory snapshot. Saved Revit-link rows require visibility modes from 0 through 2, no mode for linked-view ids, detail levels from 0 through 3, defined discipline values, and no enum payload on other setting kinds. <code>GetSavedTemplates</code> returns an empty list for <code>DirectoryNotFoundException</code> without creating the cache directory. Other enumeration failures raise <code>TemplateStorageException</code> with operation <code>enumerate</code>. <code>TemplateExists</code> returns false for a missing file or cache directory; any other probe failure raises <code>TemplateStorageException</code> (operation <code>probe</code>), so a save is refused instead of overwriting. An existing name is replaced only after the user answers Replace. Without that answer <code>SaveTemplate</code> publishes with overwrite disabled, so a template another process saves under the name after the probe is kept and the save fails with <code>TemplateStorageException</code>.</p>
+<p><code>TemplateStorage</code> alone derives cache file paths from a logical template name. Its list metadata carries only name and modification time; load/delete/existence use the logical name, and rooted or separator-containing names are rejected before path derivation. <code>DiffTreeBuilder</code> is construction-only, while <code>DiffTreeIndex</code> retains the rebuilt roots and owns canonical key/path/selection and Revit-link subtree lookup for all live tree consumers.</p>
+<!-- VERIFIED: 2026-07-26 -->
+<blockquote>
+<p><strong>Sources:</strong> <code>src/Tools/Experimental/VTC/Domain/Template/TemplateSnapshot.cs</code>, <code>src/Tools/Experimental/VTC/Features/Library/Operations/TemplateStorage.cs</code></p>
+</blockquote>
+<ul>
+<li>VTC has dedicated <code>[RevitLocal]</code> fixtures for baseline Revit-link rows, extended Revit-link rows, transient imported-category coverage, and GM/SGT model audits.</li>
+<li>The Local harness opens promoted <code>.rvt</code> fixtures, creates temporary templates, imports a shared CAD asset only inside rollback scope, and leaves the seed models unchanged after the run.</li>
+<li>Current verification uses the repo wrappers for Revit 2026/2027 and the VTC test surface; Revit-hosted runs dispatch through the dbtools-daemon fleet.</li>
+</ul>
+<!-- UNVERIFIED: exact command counts/results in this section are from the 2026-03-06 session run, not a static source file. -->
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

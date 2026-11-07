@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Structural Preview | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Structural Preview | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="structural-preview">Structural Preview</h1>
+
+<p><code>DBTools.Presentation.StructuralPreview</code> is the stable WPF host for the
+structural 3D preview shared by ERFT and SGT. A tool adapter supplies immutable
+scene data and receives pointer events. The host owns the Helix viewport,
+effects manager, camera, navigation, materials, hit testing, tooltip, overlay
+markers and cleanup. Helix and SharpDX are merged into Presentation as internal
+types; no tool assembly or raw view names them. ERFT and SGT register the
+presenter's disposal with their tool-window sessions.</p>
+<p>The component has no Core, App or tool-assembly dependency. Its public scene
+records contain only immutable arrays, <code>System.Numerics</code> values, strings,
+integers and scalar values.</p>
+<h2 id="attach-and-dispose">Attach and dispose</h2>
+<p>Call <code>StructuralPreview3DFactory.Attach</code> on the viewport host dispatcher. The
+<code>ContentControl</code> must be empty. The optional overlay canvas must use the same
+dispatcher. The returned <code>IStructuralPreview3D</code> owns one viewport and one
+effects manager. All presenter methods and disposal are synchronous UI-thread
+operations.</p>
+<p><code>Attach</code> returns a disabled presenter without loading or creating Helix objects
+when <code>StructuralPreview3DOptions.Disabled</code> is <code>true</code>, and returns one with the
+load error as its reason when the Helix libraries cannot be loaded. The disabled presenter still validates and
+copies supplied scene and emphasis data, reports its status reason, returns
+<code>false</code> from projection, and can be disposed repeatedly.</p>
+<p>For an available presenter, <code>Dispose</code> removes viewport, camera, owner-window,
+timer and input handlers; closes the tooltip; removes only the overlay children
+created by this presenter; disposes owned scene elements, viewport and effects
+manager; clears scene data and subscriber events; and clears the host
+content only when that content is still the viewport owned by this presenter.
+Cleanup is synchronous and does not post a dispatcher frame. Disposal clears
+subscriptions before cleanup, so it publishes zero presenter events during or
+after disposal. Repeated disposal is safe.</p>
+<h2 id="scene-data-and-picks">Scene data and picks</h2>
+<p><code>SetScene</code> validates and deep-copies the supplied records and arrays. The
+caller may then release or reuse its own objects. Equal mesh geometry keeps
+existing Helix models; geometry or appearance changes update the rendered
+decorations and materials, while bounds or exterior-normal changes update
+camera state.</p>
+<p>Mesh <code>Opacity</code> supplies the material alpha and overrides the alpha byte in
+<code>Argb</code>. Line sets multiply their ARGB alpha by <code>Opacity</code>. Selection and hover
+colors preserve the mesh opacity.</p>
+<p>Mesh picking is independent of emphasis. A mesh is eligible for a hit only when
+its supplied <code>IsPickable</code> value is <code>true</code>; context meshes can therefore be
+pickable or non-pickable independently of their material role. A floor is
+supplied as scene geometry, normally a context mesh with <code>IsPickable: false</code>.
+Line sets and non-pickable meshes do not produce mesh hits. A missed hit has
+null mesh ID, null context ID and null world point. A hit's mesh and context
+hits are resolved independently: each is the nearest eligible hit for its
+role. <code>MeshId</code> is the nearest member ID, or null when there is no member hit;
+<code>ContextId</code> is the nearest context ID independently. <code>WorldPoint</code>
+is the nearest member hit point when one exists, otherwise the context hit
+point, so a context-only hit has a null mesh ID and a context world point.
+The event also carries WPF screen coordinates relative to the viewport and
+keyboard modifiers.</p>
+<p><code>SetEmphasis</code> accepts one emphasis state per mesh ID. The presenter applies
+selection, segment-selection, sibling, dimmed and hover material policies from
+the selected <code>StructuralPreviewPalette</code>. <code>StructuralPreviewPalette.Sgt</code> and
+<code>.Erft</code> are the adapter presets. They differ in member color boost, surfaces,
+selection and hover colors, and edge and outline settings, and use the same
+renderer.</p>
+<p>The presenter adds a pivot marker to the supplied overlay canvas while
+orbiting. The marker and all generated WPF objects have their data context
+cleared or blocked so tool data contexts do not flow into the stable visual
+tree.</p>
+<h2 id="home-views-and-camera-movement">Home views and camera movement</h2>
+<p>The <code>ExteriorThreeQuarter</code> strategy is the SGT home view. When bounds or the
+exterior normal changes, the session recomputes and stores a raw Home camera.
+Its exact formula is:</p>
+<pre><code class="lang-text">distance = max(2.2 * boundsDiagonal, 8)
+yaw      = 28 degrees
+pitch    = 0.22 downward along the configured up axis
+</code></pre>
+<p>The exterior normal is projected onto the up plane. A missing horizontal
+normal uses negative Y as the stable fallback. The stored Home keeps this exact
+distance. Clamping applies to the displayed camera only. If the user has
+moved the camera, a changed scene clamps the current camera and retains the
+new raw Home for a later reset. Reset clears the moved flag, applies Home, and
+clamps the displayed camera.</p>
+<p>ERFT uses the <code>PreserveAngle</code> strategy. When bounds change,
+the session fits the current view angle and captures that result as Home. The
+fit formula is:</p>
+<pre><code class="lang-text">halfV    = radians(fieldOfView) / 2
+halfH    = atan(tan(halfV) * aspect)
+distance = max(boundsDiagonal / 2 / sin(min(halfV, halfH)), 2) * 1.2
+</code></pre>
+<p>Helix FieldOfView is the vertical angle. The fit keeps the bounds' bounding
+sphere inside both the vertical and the horizontal field of view, so the whole
+scene is visible at the viewport aspect when the fit runs; the distance clamp
+still applies. Scene constraints use the Core bounds-only constants:</p>
+<pre><code class="lang-text">diagonal   = actualDiagonal, or 10 when actualDiagonal &lt;= 1e-6
+min        = clamp(diagonal * 0.0005, 0.005, 0.75)
+max        = clamp(diagonal * 40, min * 2, 50000)
+targetPad  = max(2, diagonal * 6)
+near       = max(0.0005, min * 0.05)
+far        = max(100, max * 2)
+</code></pre>
+<p>When a scene changes mesh geometry without changing these bounds, the
+presenter keeps the stored Home object and only updates its owned render
+models. Adapters must compute bounds from every mesh vertex so a real extent
+change is reported as a bounds change; a bounds change is an intentional Home
+refit under <code>PreserveAngle</code>.</p>
+<p><code>ZoomToFit</code> performs the exact fit. When <code>FitRedefinesHome</code> is enabled, the
+fitted camera becomes Home and the viewport default camera is updated to the
+same pose; otherwise the fit marks the camera as user-moved while preserving
+Home. <code>ResetView</code> restores stored Home. Pan uses screen-space camera axes,
+orbit uses the configured arbitrary up axis around the selected or picked
+pivot, and wheel zoom moves toward the picked world anchor. Gesture
+cancellation occurs on lost capture, window deactivation, unload and disabled
+interaction.</p>
+<p>The viewport's <a href="https://github.com/helix-toolkit/helix-toolkit/blob/v3.1.2/Source/HelixToolkit.Wpf.SharpDX/Controls/Viewport3DX.cs#L1715-L1741">native view cube</a>
+handles its own preview input before scene picking. The presenter keeps the
+default camera synchronized with stored scene Home when a scene is attached;
+an explicit fit also updates it when <code>FitRedefinesHome</code> is enabled.</p>
+<h2 id="input-and-hover">Input and hover</h2>
+<p><code>StructuralPreview3DOptions.ShowTooltips</code> defaults to <code>true</code>. It enables the stable
+presenter's mesh tooltips. When disabled, pointer updates keep the tooltip closed.</p>
+<h2 id="materials-and-lighting">Materials and lighting</h2>
+<p>Adapters choose <code>StructuralPreviewPalette.Sgt</code> or <code>.Erft</code> and can copy the
+record to adjust individual values. A palette supplies member and context
+surfaces, key/fill/rim/ambient light colors, sibling and dimmed policies,
+selection and hover colors, emissive scaling, edge colors and thickness,
+outline mode and pivot colors. <code>IsPickable</code> controls hit testing. A
+non-pickable context mesh remains rendered with its base context material but
+bypasses selection, segment-selection, sibling, dimmed and hover emphasis;
+pickable context meshes can receive context hover, sibling and dimmed states
+but never member selection states.</p>
+<p>The SGT preset uses these alpha rules. Sibling emphasis
+scales diffuse alpha by <code>0.70</code> and retains the source ambient, specular and
+emissive alpha. Dimmed emphasis sets every channel's alpha to
+<code>max(0.05, sourceAlpha * 0.45)</code>. Hovering a sibling restores the base material
+and adds emissive brightness while preserving its source alpha. Hovering a
+dimmed mesh adds emissive brightness and retains the dimmed alpha.</p>
+<p>The default options select the SGT palette and exterior home strategy. ERFT
+selects both its palette and its camera strategy:</p>
+<pre><code class="lang-csharp">var options = new StructuralPreview3DOptions
+{
+    Palette = StructuralPreviewPalette.Erft,
+    HomeView = StructuralPreviewHomeView.PreserveAngle
+};
+</code></pre>
+<h2 id="diagnostics-and-projection">Diagnostics and projection</h2>
+<p><code>Diagnostic</code> reports debug, warning and error messages as plain strings with an
+optional exception. Repeated identical diagnostic messages are suppressed for
+two seconds. An initialization or disabled-path diagnostic is delivered once
+to the first diagnostic subscriber; the reason is also available in <code>Status</code>.
+Event publication takes an invocation-list snapshot and stops
+when a callback disposes the presenter. No presenter event is raised after
+<code>Dispose</code> clears subscriptions.</p>
+<p>On the first render failure, the presenter changes to <code>Unavailable</code>, disables
+interaction, cancels navigation, clears hover state, stops its clamp timer and
+collapses the viewport. It reports that failure as an error diagnostic, subject
+to the two-second diagnostic de-duplication; later render failures are ignored
+while the presenter is unavailable.</p>
+<p><code>TryProjectToViewport</code> returns <code>false</code> when the presenter is unavailable,
+disposed, unloaded, has no render context, receives a non-finite point, has an
+invalid camera or the point is behind the camera. It returns WPF device-
+independent coordinates relative to the viewport on success. Projection
+failures are reported as debug diagnostics and never escape as exceptions.</p>
+<h2 id="public-api">Public API</h2>
+<p>The following declarations are the public API. Rendering records remain in
+<code>DBTools.Presentation.StructuralPreview.Rendering</code>; configuration and events
+remain in <code>DBTools.Presentation.StructuralPreview</code>.</p>
+<pre><code class="lang-csharp">public static class StructuralPreview3DFactory
+{
+    public static IStructuralPreview3D Attach(
+        ContentControl viewportHost, Canvas? overlay, StructuralPreview3DOptions options);
+}
+
+public interface IStructuralPreview3D : IDisposable
+{
+    bool IsAvailable { get; }
+    StructuralPreview3DStatus Status { get; }
+    event EventHandler? StatusChanged;
+    event EventHandler&lt;StructuralPreviewPointerEventArgs&gt;? Clicked;
+    event EventHandler&lt;StructuralPreviewPointerEventArgs&gt;? HoverChanged;
+    event EventHandler&lt;StructuralPreviewDiagnosticEventArgs&gt;? Diagnostic;
+    void SetScene(StructuralScene3D? scene);
+    void SetEmphasis(StructuralEmphasis emphasis);
+    void SetInteractive(bool active);
+    void ResetView();
+    void ZoomToFit();
+    bool TryProjectToViewport(Vector3 world, out Point viewportPoint);
+}
+
+public sealed record StructuralPreview3DOptions
+{
+    public Vector3 UpAxis { get; init; } = Vector3.UnitZ;
+    public double FieldOfView { get; init; } = 45;
+    public int Msaa { get; init; } = 4;
+    public bool EnableSsao { get; init; } = true;
+    public bool ShowViewCube { get; init; } = true;
+    public bool ShowTooltips { get; init; } = true;
+    public StructuralPreviewHomeView HomeView { get; init; } = StructuralPreviewHomeView.ExteriorThreeQuarter;
+    public bool FitRedefinesHome { get; init; }
+    public StructuralPreviewPalette Palette { get; init; } = StructuralPreviewPalette.Sgt;
+    public bool Disabled { get; init; }
+    public string? DisabledReason { get; init; }
+}
+
+public enum StructuralPreviewHomeView
+{
+    ExteriorThreeQuarter,
+    PreserveAngle
+}
+
+public sealed record StructuralPreview3DStatus(
+    StructuralPreview3DState State, string? Reason = null);
+
+public enum StructuralPreview3DState
+{
+    Ready,
+    Unavailable,
+    Disposed
+}
+
+public enum StructuralPreviewDiagnosticLevel
+{
+    Debug,
+    Warning,
+    Error
+}
+
+public sealed class StructuralPreviewDiagnosticEventArgs(
+    StructuralPreviewDiagnosticLevel level,
+    string message,
+    Exception? exception = null) : EventArgs
+{
+    public StructuralPreviewDiagnosticLevel Level { get; } = level;
+    public string Message { get; } = message;
+    public Exception? Exception { get; } = exception;
+}
+
+public sealed class StructuralPreviewPointerEventArgs(
+    string? meshId,
+    string? contextId,
+    Point screenPoint,
+    Vector3? worldPoint,
+    ModifierKeys modifiers) : EventArgs
+{
+    public string? MeshId { get; } = meshId;
+    public string? ContextId { get; } = contextId;
+    public Point ScreenPoint { get; } = screenPoint;
+    public Vector3? WorldPoint { get; } = worldPoint;
+    public ModifierKeys Modifiers { get; } = modifiers;
+}
+
+public enum StructuralPreviewOutlineMode
+{
+    CreaseEdges,
+    AllEdges
+}
+
+public sealed record StructuralPreviewSurface(
+    Vector3 Ambient,
+    Vector3 Specular,
+    float EmissiveFactor,
+    float Shininess = 30);
+</code></pre>
+<p>The palette declaration exposes the following complete public surface:</p>
+<pre><code class="lang-csharp">public sealed record StructuralPreviewPalette
+{
+    public static StructuralPreviewPalette Sgt { get; }
+    public static StructuralPreviewPalette Erft { get; }
+
+    public float MemberColorBoost { get; init; } = 0.18f;
+    public uint BackgroundArgb { get; init; } = 0xFF1E1E28;
+    public Vector4 KeyLightColor { get; init; } = Vector4.One;
+    public Vector4 FillLightColor { get; init; } = new(0.9f, 0.9f, 1f, 1f);
+    public Vector4 RimLightColor { get; init; } = new(0.4f, 0.4f, 0.5f, 1f);
+    public Vector4 AmbientLightColor { get; init; } = new(0.3f, 0.3f, 0.35f, 1f);
+    public StructuralPreviewSurface MemberSurface { get; init; } = new(new Vector3(0.25f), Vector3.Zero, 0.10f, 1f);
+    public StructuralPreviewSurface ContextSurface { get; init; } = new(new Vector3(0.15f), Vector3.Zero, 0f, 30f);
+    public Vector3 SiblingSpecular { get; init; } = new(0.10f);
+    public float SiblingEmissiveScale { get; init; } = 0.5f;
+    public float SiblingShininess { get; init; } = 30f;
+    public StructuralPreviewSurface DimmedSurface { get; init; } = new(new Vector3(0.18f), new Vector3(0.06f), 0f, 30f);
+    public StructuralPreviewSurface SelectionSurface { get; init; } = new(new Vector3(0.25f), new Vector3(0.35f), 0f, 30f);
+    public Vector3 SegmentSpecular { get; init; } = new(0.45f);
+    public float SegmentShininess { get; init; } = 30f;
+    public StructuralPreviewSurface HoverSurface { get; init; } = new(new Vector3(0.25f), new Vector3(0.10f), 0.25f, 30f);
+    public Vector4 SelectionColor { get; init; } = new(0.15f, 0.45f, 0.95f, 1f);
+    public Vector4 SelectedEmissiveColor { get; init; } = new(0.15f, 0.45f, 0.95f, 1f);
+    public Vector4 HoverColor { get; init; } = Vector4.One;
+    public Vector4 SegmentSelectedColor { get; init; } = new(0.996f, 0.769f, 0.145f, 1f);
+    public float SegmentBrightness { get; init; } = 0.20f;
+    public float SiblingOpacity { get; init; } = 0.70f;
+    public float SiblingBrightness { get; init; } = 0.85f;
+    public float DimmedOpacity { get; init; } = 0.45f;
+    public float DimmedBrightness { get; init; } = 0.70f;
+    public float DimmedMinimumOpacity { get; init; } = 0.05f;
+    public float EmissiveTintScale { get; init; } = 0.35f;
+    public float EmissiveTintOffset { get; init; } = 0.12f;
+    public float HoverEmissiveScale { get; init; } = 0.20f;
+    public bool PreserveMemberColorOnSelection { get; init; }
+    public bool PreserveMemberColorOnHover { get; init; }
+    public uint ContextEdgeArgb { get; init; } = 0x994D8099;
+    public uint MemberEdgeArgb { get; init; } = 0x73FFFFFF;
+    public StructuralPreviewOutlineMode SelectionOutlineEdges { get; init; } = StructuralPreviewOutlineMode.CreaseEdges;
+    public uint OutlineArgb { get; init; } = 0xEBFFFFFF;
+    public uint PivotArgb { get; init; } = 0xDCFFFFFF;
+    public uint PivotStrokeArgb { get; init; } = 0xC8000000;
+    public double OutlineThicknessMinPx { get; init; } = 1.5;
+    public double OutlineThicknessMaxPx { get; init; } = 2.5;
+    public double MemberEdgeThicknessPx { get; init; } = 1.5;
+    public double ContextEdgeThicknessPx { get; init; } = 1.0;
+}
+</code></pre>
+<p>Rendering declarations in <code>DBTools.Presentation.StructuralPreview.Rendering</code>:</p>
+<pre><code class="lang-csharp">[StructLayout(LayoutKind.Auto)]
+public readonly record struct StructuralBounds3D(Vector3 Min, Vector3 Max);
+
+public sealed record StructuralScene3D(
+    ImmutableArray&lt;StructuralMesh&gt; Meshes,
+    ImmutableArray&lt;StructuralLineSet&gt; LineSets,
+    StructuralBounds3D Bounds,
+    Vector3 ExteriorNormal);
+
+public sealed record StructuralMesh(
+    string Id,
+    ImmutableArray&lt;Vector3&gt; Positions,
+    ImmutableArray&lt;int&gt; Indices,
+    uint Argb,
+    double Opacity,
+    StructuralMeshRole Role = StructuralMeshRole.Member,
+    bool IsPickable = true,
+    string? Tooltip = null,
+    bool CreaseEdges = false,
+    bool Emissive = false);
+
+public sealed record StructuralLineSet(
+    ImmutableArray&lt;Vector3&gt; Positions,
+    ImmutableArray&lt;int&gt; SegmentIndices,
+    uint Argb,
+    double Opacity = 1,
+    double ThicknessPx = 1);
+
+public enum StructuralMeshRole
+{
+    Member,
+    Context
+}
+
+public enum StructuralMeshEmphasis
+{
+    Normal,
+    Selected,
+    SegmentSelected,
+    Sibling,
+    Dimmed
+}
+
+public sealed record StructuralEmphasis(
+    ImmutableDictionary&lt;string, StructuralMeshEmphasis&gt; ByMeshId,
+    double OutlineThicknessPx = 2.5);
+</code></pre>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/architecture/overview.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,420 +89,168 @@
         <article data-uid="">
 <h1 id="architecture-overview">Architecture Overview</h1>
 
-<!-- STATUS: verified -->
-<!-- Last Updated: 2026-01-26 -->
-<!-- Verified By: docs-verification-20260126 - All source anchors verified against code -->
-<p>DBTools is a modular Revit add-in suite built with modern C#/.NET practices. It provides a collection of productivity tools for structural engineers working in Autodesk Revit.</p>
-<h2 id="high-level-architecture">High-Level Architecture</h2>
-<pre><code class="lang-mermaid">graph TB
-    subgraph Revit[&quot;Revit Host&quot;]
-        RevitAPI[&quot;Revit API&lt;br/&gt;(RevitAPI.dll, RevitAPIUI.dll)&quot;]
-    end
-    
-    subgraph DBTools[&quot;DBTools Add-in&quot;]
-        Loader[&quot;DBTools.Loader&lt;br/&gt;(Entry Point)&quot;]
-        App[&quot;DBTools.App&lt;br/&gt;(DBTools.dll)&quot;]
-        Core[&quot;DBTools.Core&lt;br/&gt;(Core Library)&quot;]
-        Themes[&quot;DBTools.Themes&lt;br/&gt;(WPF Resources)&quot;]
-        
-        subgraph Tools[&quot;Tool Modules (File-linked)&quot;]
-            GM[&quot;GM&quot;]
-            SGT[&quot;SGT&quot;]
-            TDV[&quot;TDV&quot;]
-            Others[&quot;...&quot;]
-        end
-    end
-    
-    Revit --&gt;|&quot;.addin manifest&quot;| Loader
-    Loader --&gt;|&quot;Loads &amp; resolves&quot;| App
-    App --&gt; Core
-    App --&gt; Themes
-    App --&gt;|&quot;Discovers via manifest.yml&quot;| Tools
-    Core --&gt; RevitAPI
-    
-    style Revit fill:#f5f5f5,stroke:#333
-    style DBTools fill:#e3f2fd,stroke:#1946B9
-    style Tools fill:#fff3e0,stroke:#FEC425
+<p>DBTools is a suite of Revit add-in tools. Revit loads one entry assembly,
+<code>DBTools.dll</code>, built from <code>src/DBTools.App</code>. App loads shared infrastructure
+from <code>DBTools.Core.dll</code>, stable WPF types from <code>DBTools.Presentation.dll</code>, and
+each tool from its own assembly in the <code>Tools/</code> directory.</p>
+<pre><code class="lang-mermaid">flowchart TB
+    Revit[Revit Host] --&gt;|DBTools.addin| App[DBTools.dll / App]
+    App --&gt; Core[DBTools.Core.dll]
+    App --&gt; Presentation[DBTools.Presentation.dll]
+    Presentation --&gt; Handy[DBTools.HandyControl.dll]
+    App --&gt;|explicit path: Tools/| Tools[Tool assemblies]
+    Core --&gt; RevitAPI[Revit API]
 </code></pre>
-<h3 id="ascii-diagram-for-reference">ASCII Diagram (for reference)</h3>
-<pre><code>+-----------------------------------------------------------------------------------+
-|                                 Revit Host                                        |
-+-----------------------------------------------------------------------------------+
-        |                                                           |
-        v                                                           v
-+-------------------+                                    +----------------------+
-|  DBTools.Loader   |  &lt;-- Revit .addin manifest         |   Revit API          |
-|  (Entry Point)    |      points here                   |   (RevitAPI.dll,     |
-+-------------------+                                    |   RevitAPIUI.dll)    |
-        |                                                +----------------------+
-        | Loads DBTools.dll, installs                              ^
-        | EmbeddedAssemblyResolver                                 |
-        v                                                          |
-+-------------------+     References      +----------------------+ |
-|   DBTools.App     | -----------------&gt; |    DBTools.Core      |-+
-|   (DBTools.dll)   |                    |    (Core Library)    |
-|                   |                    +----------------------+
-|  - AddinEntry     |                              ^
-|  - Tool Modules   |                              |
-|  - Ribbon UI      |     References               |
-|  - Commands       | -----------------&gt; +----------------------+
-+-------------------+                    |   DBTools.Themes     |
-        |                                |   (WPF Resources)    |
-        | Discovers via manifest.yml     +----------------------+
-        v
-+-------------------+
-|   Tool Modules    |
-|  (File-linked)    |
-|  - GM, SGT, TDV   |
-|  - Settings       |
-|  - Structural/*   |
-+-------------------+
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:17-47</code></p>
-</blockquote>
-<h2 id="project-organization">Project Organization</h2>
-<p>The solution follows a layered architecture with clear separation of concerns:</p>
-<h3 id="core-projects">Core Projects</h3>
+<h2 id="components">Components</h2>
 <table>
 <thead>
 <tr>
 <th>Project</th>
-<th>Purpose</th>
-<th>Target Frameworks</th>
+<th>Assembly</th>
+<th>Responsibility</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>DBTools.Loader</strong></td>
-<td>Revit entry point; loads DBTools.dll and resolves embedded assemblies</td>
-<td>net48, net8.0-windows</td>
+<td><code>src/DBTools.App</code></td>
+<td><code>DBTools.dll</code></td>
+<td>Revit entry point, startup and shutdown, service composition, ribbon, embedded tool manifests</td>
 </tr>
 <tr>
-<td><strong>DBTools.App</strong></td>
-<td>Main application assembly (outputs as <code>DBTools.dll</code>); contains ribbon UI and tool registration</td>
-<td>net48, net8.0-windows</td>
+<td><code>src/DBTools.Core</code></td>
+<td><code>DBTools.Core.dll</code></td>
+<td>Shared execution (call gate, transactions, safe execution), settings, logging, tool registry, manifest loading, tool assembly resolution</td>
 </tr>
 <tr>
-<td><strong>DBTools.Core</strong></td>
-<td>Core library with shared infrastructure (DI, logging, settings, Revit abstractions)</td>
-<td>net48, net8.0-windows</td>
+<td><code>src/DBTools.Presentation</code></td>
+<td><code>DBTools.Presentation.dll</code></td>
+<td>WPF resources, themes, controls and window shells that live for the whole Revit process</td>
 </tr>
 <tr>
-<td><strong>DBTools.Themes</strong></td>
-<td>WPF theme resources and styling (HandyControl)</td>
-<td>net48, net8.0-windows</td>
+<td><code>build/HandyControl</code></td>
+<td><code>DBTools.HandyControl.dll</code></td>
+<td>Renamed build of the vendored HandyControl library</td>
 </tr>
 <tr>
-<td><strong>DBTools.Sandbox</strong></td>
-<td>Standalone WPF app for UI development without Revit</td>
-<td>net48, net8.0-windows</td>
+<td><code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;</code></td>
+<td><code>DBTools.&lt;Tool&gt;.dll</code></td>
+<td>One tool: its module, commands, features and views</td>
+</tr>
+<tr>
+<td><code>src/DBTools.Sandbox</code></td>
+<td>Sandbox executable</td>
+<td>Candidate validator and UI development host that runs without Revit</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/</code> directory structure</p>
-</blockquote>
-<h3 id="tool-projects-file-linked-into-dbtoolsapp">Tool Projects (File-Linked into DBTools.App)</h3>
-<p>Tools are organized under <code>src/Tools/</code> and compiled into the main <code>DBTools.dll</code> assembly via MSBuild file linking:</p>
-<pre><code>Tools/
-+-- Common/
-|   +-- GM/               # Global Mapper
-|   +-- TDV/              # Type Data Viewer
-|   +-- ElevationTags/
-|   +-- 3DElementsFromList/
-+-- Structural/
-|   +-- SGT/              # Structural Grid Tool
-|   +-- FoundationTags/
-|   +-- FramingJoins/
-|   +-- JoistGirderWeight/
-|   +-- OrganizeFoundationTypes/
-|   +-- AnalyticalSnapToLevel/
-+-- Settings/             # Settings management tool
-+-- Testing/
-    +-- ERFT/             # Elevation Reference Framing Tool
-    +-- RecordSet/        # RecordSet file management
-    +-- VTC/              # View Test Coordinator
+<p>Presentation references only WPF and HandyControl. App, Core and the tools may
+reference Presentation. See <a href="project-references.html">Project References</a>.</p>
+<h2 id="product-tree">Product tree</h2>
+<p>Each supported Revit year has one directory:</p>
+<pre><code class="lang-text">&lt;year&gt;/
+├── DBTools.addin
+├── DBTools.dll
+├── DBTools.Core.dll
+├── DBTools.Presentation.dll
+├── DBTools.HandyControl.dll
+└── Tools/
+    └── DBTools.&lt;Tool&gt;.dll        (14 tool assemblies)
 </code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:61-78</code> (file linking configuration)</p>
-</blockquote>
-<p>Tool source files are linked (not copied) into the DBTools.App project:</p>
-<pre><code class="lang-xml">&lt;Compile Include=&quot;..\Tools\**\*.cs&quot;
-         Exclude=&quot;..\Tools\**\Tests\**\*.cs;..\Tools\**\obj\**\*.cs&quot;
-         Link=&quot;Tools\%(RecursiveDir)%(Filename)%(Extension)&quot; /&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:64-66</code></p>
-</blockquote>
-<h2 id="multi-year-revit-support">Multi-Year Revit Support</h2>
-<p>DBTools supports multiple Revit versions through dual target frameworks:</p>
-<table>
-<thead>
-<tr>
-<th>Revit Version</th>
-<th>Target Framework</th>
-<th>Runtime</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Revit 2024</td>
-<td><code>net48</code></td>
-<td>.NET Framework 4.8</td>
-</tr>
-<tr>
-<td>Revit 2025+</td>
-<td><code>net8.0-windows</code></td>
-<td>.NET 8</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>build/Revit.props:2-6</code></p>
-</blockquote>
-<p>The build system auto-detects installed Revit versions and builds for all available years:</p>
-<pre><code class="lang-xml">&lt;DBT_RevitLegacyTFM&gt;net48&lt;/DBT_RevitLegacyTFM&gt;
-&lt;DBT_RevitModernTFM&gt;net8.0-windows&lt;/DBT_RevitModernTFM&gt;
-&lt;DBT_RevitTargetFrameworks&gt;$(DBT_RevitLegacyTFM);$(DBT_RevitModernTFM)&lt;/DBT_RevitTargetFrameworks&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>build/Revit.props:3-5</code></p>
-</blockquote>
-<h2 id="tool-discovery-and-registration">Tool Discovery and Registration</h2>
-<p>DBTools uses a YAML manifest-driven tool discovery system. Each tool declares its module, commands, and UI configuration in a <code>manifest.yml</code> file.</p>
-<h3 id="manifest-structure">Manifest Structure</h3>
-<pre><code class="lang-yaml">id: DBTools.GM
-assembly: DBTools
-moduleType: DBTools.GM.GmToolModule
-order: 0
-sandboxWindows:
-  - id: DBTools.GM.Main
-    displayName: &quot;Global Mapper&quot;
-    group: &quot;Common&quot;
-    windowType: &quot;DBTools.GM.Shell.UI.Views.GmWindow&quot;
-    designTimeViewModelType: &quot;DBTools.GM.Shell.DesignTime.GmShellDesignTimeViewModel&quot;
-tool:
-  ribbonTools:
-    - internalName: DBTools.GM
-      commandType: DBTools.GM.Features.GmCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
-      runProfile: InlineUi
-      displayText: &quot;Global Mapper&quot;
-      iconBaseKey: gm
-      controlKind: PushButton
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/manifest.yml:1-27</code></p>
-</blockquote>
-<h3 id="discovery-flow">Discovery Flow</h3>
-<pre><code class="lang-mermaid">sequenceDiagram
-    participant App as DBTools.App
-    participant Loader as DbtToolManifestLoader
-    participant Catalog as DbtToolModuleCatalog
-    participant Module as DbtToolModule
-    participant DI as IServiceCollection
-    participant Ribbon as RibbonManager
-
-    App-&gt;&gt;Loader: ScanEmbeddedResources()
-    Loader--&gt;&gt;App: List&lt;DbtToolManifest&gt;
-    
-    loop For each manifest
-        App-&gt;&gt;Catalog: CreateModule(manifest)
-        Catalog-&gt;&gt;Module: new() via reflection
-        Module--&gt;&gt;Catalog: DbtToolModule instance
-        
-        App-&gt;&gt;Module: RegisterSettings()
-        App-&gt;&gt;Module: RegisterServices()
-        Module-&gt;&gt;DI: AddScoped&lt;T&gt;()
-        
-        App-&gt;&gt;Module: RegisterHooks()
-        App-&gt;&gt;Ribbon: RegisterRibbonToolsFromManifest()
-    end
-</code></pre>
+<p>The build merges every third-party runtime library into one owner assembly, so
+the directory contains no other DLLs. The same tree is used by the installer,
+hosted test staging, Sandbox and Dev Mode. See
+<a href="assembly-loading.html">Assembly Loading Contract</a> and
+<a href="build-pipeline.html">Build Pipeline</a>.</p>
+<h2 id="load-contexts">Load contexts</h2>
+<p>The installed add-in runs in Revit's default <code>AssemblyLoadContext</code>. For hosted
+tests and Dev Mode, the dbtools-daemon loads the product into its own context
+(<code>ProductLoadContext</code> or <code>DevModeLoadContext</code>). DBTools creates no load context
+of its own. App loads each tool assembly into the context that already holds
+<code>DBTools.dll</code>.</p>
+<h2 id="startup">Startup</h2>
+<p><code>DBTools.App.Addin.AddinEntry</code> implements <code>IExternalApplication</code>.
+<code>OnStartup</code> runs these steps in order:</p>
 <ol>
-<li><strong>Manifest Loading</strong>: <code>DbtToolManifestLoader</code> scans embedded resources for <code>manifest.yml</code> files</li>
-<li><strong>Module Instantiation</strong>: <code>DbtToolModuleCatalog</code> creates <code>DbtToolModule</code> instances via reflection</li>
-<li><strong>Service Registration</strong>: Each module's <code>RegisterServices()</code>, <code>RegisterSettings()</code>, and <code>RegisterHooks()</code> are called</li>
-<li><strong>Ribbon Tool Registration</strong>: <code>RegisterRibbonToolsFromManifest()</code> parses ribbon definitions and registers commands</li>
+<li><strong>Idle check.</strong> If <code>DBTOOLS_DAEMON_REVIT_ROLE</code> is set and the entry assembly
+is in the default load context, the add-in sets the AppContext key
+<code>DBToolsDaemon.IdleAddin:DBTools</code> to the entry assembly's location and
+returns <code>Succeeded</code> without further work. <code>OnShutdown</code> then also returns
+immediately. This lets the daemon run a Revit that has the installed add-in
+while it tests its own copy.</li>
+<li><strong>Callback scope.</strong> <code>AppStartupBoundary</code> (not inlined) enters
+<code>ToolWindowCallbackScope</code>, which suppresses <code>ExecutionContext</code> flow and sets
+contextual reflection to the entry assembly's load context.</li>
+<li><strong>Runtime.</strong> App reads the Revit year from <code>VersionNumber</code>, creates the
+logging host and the service provider, and publishes them through
+<code>AppRuntimeAccessor</code>.</li>
+<li><strong>Theme validation.</strong> <code>ThemeValidator.ValidateOrThrow</code> loads and freezes the
+theme dictionaries and lays out a probe control tree.</li>
+<li><strong>Ribbon.</strong> App composes the ribbon from the embedded manifests.</li>
+<li><strong>Background startup.</strong> App starts the local Revit task host and an
+asynchronous startup task that installs the Revit main-window owner provider
+and attaches tool hooks.</li>
+<li><strong>Publication.</strong> App registers an <code>Idling</code> handler for failed-startup
+cleanup, then the deferred startup handlers (<code>ApplicationInitialized</code> and
+<code>Idling</code>), and publishes the started state.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolModuleCatalog.cs:11-64</code></p>
-</blockquote>
-<h3 id="tool-module-base-class">Tool Module Base Class</h3>
-<p>All tools inherit from <code>DbtToolModule</code>, which provides hooks for:</p>
-<ul>
-<li><code>RegisterSettings()</code> - Bind configuration sections to strongly-typed options</li>
-<li><code>RegisterServices()</code> - Register tool-specific DI services</li>
-<li><code>RegisterSettingsPacks()</code> - Register settings UI definitions</li>
-<li><code>RegisterHooks()</code> - Register event handlers (e.g., DocumentOpened, ViewActivated)</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolModule.cs:9-49</code></p>
-</blockquote>
-<h2 id="dependency-injection-architecture">Dependency Injection Architecture</h2>
-<p>DBTools uses Microsoft.Extensions.DependencyInjection with a two-tier service scope pattern:</p>
-<h3 id="singleton-services-application-lifetime">Singleton Services (Application Lifetime)</h3>
-<ul>
-<li><code>IDbtLoggingHost</code> - Serilog-based logging infrastructure</li>
-<li><code>IConfiguration</code> - Settings from <code>settings.{YEAR}.json</code></li>
-<li><code>DbtToolRegistry</code> - Discovered tool registrations</li>
-<li><code>ISafeExecutor</code> - Centralized error handling</li>
-<li><code>ISettingsProvider</code> - Settings read/write access</li>
-</ul>
-<h3 id="scoped-services-per-command-lifetime">Scoped Services (Per-Command Lifetime)</h3>
-<ul>
-<li><code>IRevitRunScope</code> - Active command execution context</li>
-<li><code>IRevitCallGate</code> - Thread-safe Revit API access</li>
-<li><code>ITransactionRunner</code> - Transaction management</li>
-<li><code>ITransactionGroupService</code> - Transaction grouping</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:68-130</code></p>
-</blockquote>
-<h2 id="assembly-loading-strategy">Assembly Loading Strategy</h2>
-<h3 id="loader-bootstrap">Loader Bootstrap</h3>
-<p>The <code>DBTools.Loader</code> assembly is the Revit entry point. It:</p>
+<p>A failure in steps 3 to 6 cleans up what was created and returns <code>Failed</code>. A
+failure of the background task is cleaned up on the next <code>Idling</code> event.
+Failures that cannot reach the normal log are written to
+<code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code> with BCL APIs only, so this log
+works before Core loads.</p>
+<h2 id="tools-and-commands">Tools and commands</h2>
+<p>Each tool has a <code>manifest.yml</code> that names its assembly, module type, commands
+and availability types. App embeds all manifests. At startup:</p>
 <ol>
-<li>Locates <code>DBTools.dll</code> in the same directory</li>
-<li>Installs <code>EmbeddedAssemblyResolver</code> for runtime dependency resolution</li>
-<li>Pre-loads critical assemblies (Configuration, Serilog) on net48</li>
-<li>Reflectively creates and invokes <code>DBTools.App.AddinEntry</code></li>
+<li><code>ToolModuleCatalog</code> loads and validates the embedded manifests once.</li>
+<li>The App registrar loads each declared assembly with
+<code>ToolAssemblyResolver.LoadAssembly</code>, which loads only
+<code>&lt;entry directory&gt;/Tools/&lt;name&gt;.dll</code>.</li>
+<li>The registrar creates each module, collects its settings, services,
+settings packs and hooks, checks ownership, and merges them into the App
+service collection. Manifests without a module register only ribbon items.</li>
+<li><code>ToolRegistry.MergeFrom</code> validates every incoming tool and hook against
+the existing registrations before it changes anything, so a conflict leaves
+the registry unchanged. Duplicate internal names are rejected.</li>
+<li>The ribbon refers to each command by its assembly location and full type
+name.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:17-47</code></p>
-</blockquote>
-<h3 id="embedded-dependencies">Embedded Dependencies</h3>
-<p>Dependencies are embedded as resources in <code>DBTools.dll</code> to minimize deployment complexity:</p>
-<pre><code class="lang-xml">&lt;EmbeddedResource Include=&quot;%(_EmbedLogicalDistinct.SourcePath)&quot;
-                  LogicalName=&quot;%(_EmbedLogicalDistinct.Identity)&quot; /&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/DBTools.App.csproj:265-266</code></p>
-</blockquote>
-<p>The resolver uses different strategies per framework:</p>
-<table>
-<thead>
-<tr>
-<th>Framework</th>
-<th>Strategy</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>net48</td>
-<td>ILRepack merges most assemblies; ricaun.* embedded as resources</td>
-</tr>
-<tr>
-<td>net8.0</td>
-<td>All dependencies embedded as resources, loaded via <code>AssemblyLoadContext</code></td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:14-96</code></p>
-</blockquote>
-<h3 id="wpf-theme-assemblies">WPF Theme Assemblies</h3>
-<p>WPF resource assemblies that use <code>pack://</code> URIs must be loaded from files because URI resolution requires <code>Assembly.Location</code>.
-In DBTools, this includes <code>DBTools.HandyControl</code> (vendored) and <code>DBTools.Themes</code>.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/AssemblyResolution/EmbeddedAssemblyResolver.cs:260-288</code></p>
-</blockquote>
-<h2 id="build-system-overview">Build System Overview</h2>
-<p>The build uses NUKE (C# build automation) invoked via <code>build.sh</code>:</p>
-<pre><code class="lang-bash"># Fast incremental build (default)
-bash build.sh
-
-# Clean rebuild
-bash build.sh --clean
-
-# Build specific Revit year
-bash build.sh -y 2025 BuildAll
-
-# Common targets
-bash build.sh BuildAll          # Build everything
-bash build.sh BuildApp          # Build DBTools.dll only
-bash build.sh BuildSandbox      # Build UI sandbox
-bash build.sh PromoteToDist     # Stage for deployment
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>build.sh:33-71</code></p>
-</blockquote>
-<p>Key build features:</p>
-<ul>
-<li><strong>Centralized Artifacts</strong>: All outputs go to <code>.artifacts/</code> (not per-project <code>bin/obj</code>)</li>
-<li><strong>Vendored Dependencies</strong>: UI assemblies built via <code>build-vendored-deps.sh</code></li>
-<li><strong>Strict Analysis</strong>: <code>TreatWarningsAsErrors=true</code>, Roslyn analyzers enabled</li>
-<li><strong>Multi-Year</strong>: Builds for all detected Revit installations</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>Directory.Build.props:7-28</code> (centralized artifacts), <code>Directory.Build.props:142-151</code> (strict analysis)</p>
-</blockquote>
-<p>For detailed build pipeline documentation, see <a href="build-pipeline.html">Build Pipeline</a>.</p>
-<h2 id="error-handling-philosophy">Error Handling Philosophy</h2>
-<p>All entrypoints execute within <code>ISafeExecutor</code>, which:</p>
-<ul>
-<li>Catches and logs all exceptions</li>
-<li>Displays user-friendly error dialogs</li>
-<li>Prevents silent failures</li>
-<li>Centralizes error reporting</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.App/Bootstrap/DbtServiceBootstrapper.cs:435-436</code></p>
-</blockquote>
-<p><strong>Non-Negotiable Rules:</strong></p>
-<ul>
-<li>No fallbacks that hide failures</li>
-<li>No silent exception swallowing</li>
-<li>No returning defaults as if nothing failed</li>
-</ul>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="build-pipeline.html">Build Pipeline</a> - Detailed build system reference</li>
-<li><a href="test-pipeline.html">Test Pipeline</a> - Testing infrastructure</li>
-<li><a href="project-references.html">Project References</a> - Dependency relationships</li>
-<li><a href="../projects/core.html">DBTools.Core</a> - Core library documentation</li>
-<li><a href="../projects/loader.html">DBTools.Loader</a> - Revit entry point</li>
-</ul>
-<hr>
-<h2 id="verification-status">Verification Status</h2>
-<table>
-<thead>
-<tr>
-<th>Check</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Source anchors for all claims</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>UNVERIFIED markers where needed</td>
-<td>No (all verified)</td>
-</tr>
-<tr>
-<td>Cross-references added</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Examples tested</td>
-<td>N/A</td>
-</tr>
-<tr>
-<td>No assumptions without evidence</td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Verified by:</strong> docs-run-20260124-020412<br>
-<strong>Date:</strong> 2026-01-24</p>
+<p>When a command runs, <code>CommandPreflight</code> checks, before any run scope exists,
+that its ribbon panel is enabled in Settings, that its availability type
+allows it, and that no active feature warning disables it. Only then does
+<code>CommandContextFactory</code> create the run scope with the command's execution
+profile.</p>
+<p>Settings-only and hook-only tools still have a manifest and a module.</p>
+<h2 id="services-and-scopes">Services and scopes</h2>
+<p>The App service provider holds application-lifetime services: logging,
+settings, hooks, <code>ISafeExecutor</code>, the tool registry and ribbon state. Each
+command run, modeless session or test opens a scope that holds the Revit run
+scope (<code>IRevitRunScope</code>), its <code>IRevitCallGate</code>, <code>ITransactionRunner</code> and
+<code>ITransactionGroupService</code>. Command, availability and window callbacks enter
+<code>ToolWindowCallbackScope</code>.</p>
+<h2 id="source-layout">Source layout</h2>
+<p>Tool source is under <code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;/</code> with namespace root
+<code>DBTools.&lt;Tool&gt;</code>. Folders are named for what they own, for example <code>App/</code>,
+<code>Features/</code>, <code>Domain/</code>, <code>Revit/</code>, <code>Settings/</code>, <code>Assets/</code> and <code>Tests/</code>. A tool
+has only the folders it needs. Generic folders such as <code>Helpers</code>, <code>Models</code> or
+<code>Infrastructure</code> are not used for production code.</p>
+<h2 id="supported-years">Supported years</h2>
+<p>Desktop Revit 2026.5 and later, and Revit 2027, both target
+<code>net10.0-windows</code>. <code>build/Distribution/RevitYearContract.cs</code> defines the
+supported years. APS Design Automation tests use a separate Revit 2026
+<code>net8.0-windows</code> profile.</p>
+<h2 id="build-and-validation">Build and validation</h2>
+<p><code>build.sh</code> (Linux, WSL) and <code>build.ps1</code> (Windows) run <code>build/Build.proj</code>.
+<code>BuildAll</code> builds, validates and publishes the complete two-year
+distribution. <code>BuildApp</code>, <code>BuildTests</code> and <code>test.sh</code> build smaller graphs. See
+<a href="build-pipeline.html">Build Pipeline</a> and <a href="test-pipeline.html">Test Pipeline</a>.</p>
+<p>Distribution validation records the length and SHA-256 of every file in the
+candidate. These hashes identify what was built and tested. They do not
+authenticate assemblies at load time.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/architecture/overview.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

@@ -2,21 +2,21 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>View Template Comparer (VTC) | DB Tools </title>
+      <title>View Template Comparer | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="View Template Comparer (VTC) | DB Tools ">
+      <meta name="title" content="View Template Comparer | DB Tools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/vtc.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,172 +87,142 @@
         </div>
 
         <article data-uid="">
-<h1 id="view-template-comparer-vtc">View Template Comparer (VTC)</h1>
+<h1 id="view-template-comparer">View Template Comparer</h1>
 
-<p>View Template Comparer compares two Revit view templates side-by-side, lets you choose per-setting values, stages category override edits locally, and applies everything through one <strong>Process</strong> action.</p>
-<hr>
-<h2 id="rev2-workflow-current">REV2 Workflow (Current)</h2>
+<p>View Template Comparer (VTC) compares two view templates in the open project, side by side. For each differing setting you choose which template's value to keep. VTC then writes the result to one of the templates or to a new merged template. It can also save templates to a library and load them back.</p>
+<h2 id="synopsis">Synopsis</h2>
+<p>Ribbon: <strong>DB Tools</strong> &gt; <strong>Testing</strong> &gt; <strong>View Template Comparer</strong>.</p>
+<p>The Testing panel is shown when <strong>Enable Testing Tools</strong> is on in the settings (the default). If the project has no view templates, the command shows <code>No view templates found in the document.</code></p>
+<h2 id="usage">Usage</h2>
 <ol>
-<li>Select <strong>Left</strong> and <strong>Right</strong> templates.</li>
-<li>Click value cells to choose which side wins per setting.</li>
-<li>Use per-side edit icons in each category row (pencil on Left/Right cell) or Inspector-side edit buttons to edit a specific side explicitly.</li>
-<li>(Optional) Use <strong>Clear selection</strong> in Inspector to unselect a row without losing staged edits.</li>
-<li>Review pending changes in the <strong>Preview</strong> tab.</li>
-<li>Click <strong>Process</strong>, choose output mode, and confirm.</li>
+<li>Select the <strong>Left</strong> and <strong>Right</strong> templates. The <strong>Swap</strong> button exchanges them.</li>
+<li>Click a value cell in the <strong>Settings Comparison</strong> tree to choose which side wins for that row. The Inspector has <strong>Use Left</strong>, <strong>Use Right</strong> and a clear button for the selected row.</li>
+<li>For a category row, use <strong>Edit Left</strong> or <strong>Edit Right</strong> (in the Inspector, from the row, or from the context menu <strong>Edit Override...</strong>) to stage a local graphic-override edit. A staged edit is marked <strong>Edited</strong>.</li>
+<li>Review the selected rows and eligible staged edits in the <strong>Preview</strong> tab.</li>
+<li>Click <strong>Process</strong> and choose the target.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:563</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:317</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:385</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1297</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1326</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml:332</code></p>
-</blockquote>
-<hr>
-<h2 id="what-process-does">What &quot;Process&quot; Does</h2>
-<p>Process opens a confirmation dialog with a compact preview list and three output modes:</p>
+<h3 id="comparison-tree">Comparison tree</h3>
+<p>The tree has these top-level groups: Template Parameters, Model Categories, Annotation Categories, Analytical Model Categories, Imported Categories, Filters, Filter Overrides, Revit Links, Worksets and Design Options.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Search box</td>
+<td>Filters rows by name.</td>
+</tr>
+<tr>
+<td><strong>Filter</strong></td>
+<td>Limits the rows by configuration (see below).</td>
+</tr>
+<tr>
+<td><strong>Select Left</strong> / <strong>Select Right</strong></td>
+<td>Selects all differing rows shown by the current search and filter, taking the value from that side.</td>
+</tr>
+<tr>
+<td><strong>Wipe</strong></td>
+<td>Clears all selections and conflict state. Filters are kept.</td>
+</tr>
+<tr>
+<td><strong>Reset</strong></td>
+<td>Resets the search, the view filter and the conflict filter.</td>
+</tr>
+<tr>
+<td>Expand/collapse button</td>
+<td>Expands or collapses all groups.</td>
+</tr>
+<tr>
+<td><strong>Show:</strong> All, Conflicts, Success</td>
+<td>After <strong>Process</strong>, shows all rows, only rows that failed to apply, or only rows that applied.</td>
+</tr>
+<tr>
+<td>Context menu</td>
+<td><strong>Select from Left (with children)</strong>, <strong>Select from Right (with children)</strong>, <strong>Clear selection (with children)</strong>, <strong>Edit Override...</strong>, and for Revit links <strong>Open Revit Link Settings...</strong> and <strong>Copy Revit Link Settings To...</strong>.</td>
+</tr>
+</tbody>
+</table>
+<p>A category row or a Filter Overrides row is configured in a template when that template hides it or overrides any of its graphics. A Template Parameters row is configured when the template includes the parameter. The <strong>Filter</strong> modes are:</p>
 <ul>
-<li><strong>Overwrite Left</strong></li>
-<li><strong>Overwrite Right</strong></li>
-<li><strong>Create Merged Template</strong></li>
+<li><strong>Configured</strong> (default): rows configured in either template.</li>
+<li><strong>Configured in Left</strong> and <strong>Configured in Right</strong>: rows configured in that template.</li>
 </ul>
-<p>The dialog enforces validity for merged-template naming and disables the Process button when invalid.
-VTC also disables Process until there is at least one selected row or at least one staged override that is currently eligible to apply.</p>
-<p>For <strong>Create Merged Template</strong>, if you select the side where a keyed item is missing (for example a left-only include/filter/category/workset selected to the right side), that item is removed from the merged template rather than kept from the base side.</p>
-<p>For missing-side selections in <strong>category/workset/linked-file</strong> rows, Create Merged now clears the base-side override state instead of silently keeping it (categories reset to default graphics state, worksets reset to Use Global Setting, linked files reset to By Host View).</p>
-<p>For <strong>Overwrite Left/Right</strong> (and snapshot-style applies), selecting the missing side in a <strong>category/workset/linked-file</strong> row is treated as an explicit <strong>reset to default state</strong> (not a no-op), so base-side overrides are not silently preserved.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:381</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1403</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1702</code></p>
-</blockquote>
-<p>If Process reports conflicts, failed staged category override edits are retained so you can retry without re-entering them. When a failed pending key is no longer present in the rebuilt diff tree, the pending edit still stays in Preview and remains eligible for retry.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcProcessDialogBodyViewModel.cs:13</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcProcessDialogBodyViewModel.cs:70</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml:354</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:591</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1511</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1620</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1773</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1898</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:376</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1395</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/Revit/Services/VtcComparisonService.cs:1694</code></p>
-</blockquote>
-<hr>
-<h2 id="selection--local-override-rules">Selection + Local Override Rules</h2>
-<h3 id="local-override-edits-are-preview-only-until-process">Local override edits are preview-only until Process</h3>
-<p>Category override edits are staged as pending local edits and reflected immediately in left/right displays.
-Inspector now provides explicit <strong>Use Left</strong> / <strong>Use Right</strong> plus <strong>Clear selection</strong> actions.
-Tree rows expose explicit per-side edit entrypoints so edit actions and selection actions are separate.</p>
-<p>For category override rows, the Inspector selection actions are available even when the row itself is not merge-selectable (for example when the templates are currently equal for that category), so you can reselect the edited side after clearing selection.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:87</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1288</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:729</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:317</code></p>
-</blockquote>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1274</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:213</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcDiffTreeNode.cs:230</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:722</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:750</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:317</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1326</code></p>
-</blockquote>
-<h3 id="pending-edits-are-side-coupled">Pending edits are side-coupled</h3>
-<p>A pending override applies only when the current selection side for that key matches the edited side.
-Flipping to the opposite side removes the pending override for safety.
-Clearing selection to <code>None</code> keeps the staged edit locally but makes it ineligible until you reselect the matching side.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Contracts/VtcDataModels.cs:224</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1546</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1839</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1781</code></p>
-</blockquote>
-<h3 id="swaprebuild-clears-pending-local-edits">Swap/rebuild clears pending local edits</h3>
-<p>Changing template pairing, swapping left/right, or rebuilding the comparison clears pending/local edits and shows an explicit notice.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:541</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1391</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1886</code></p>
-</blockquote>
-<hr>
-<h2 id="preview-tab">Preview Tab</h2>
-<p>The Preview tab now uses a full hierarchical TreeView that mirrors the diff hierarchy, but only shows process-targeted writes:</p>
+<p>Rows that are not category, filter-override or template-parameter rows are always shown. <strong>Select Left</strong> and <strong>Select Right</strong> select every differing row that the filter and search show. Under <strong>Configured in Left</strong>, <strong>Select Left</strong> can therefore select a row that both templates hide when only Right overrides its graphics. Processing that row to the right template keeps it hidden and clears those overrides.</p>
+<h3 id="process">Process</h3>
+<p><strong>Process</strong> applies the selected rows and the eligible staged edits in one batch. A staged edit is eligible when its row has a selected side and that side is the edited side, or when its row is not in the current comparison. An edit on a visible row with no selected side, or with the other side selected, is not applied. The dialog asks <strong>Apply changes to:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Overwrite</strong> <code>&lt;Left name&gt;</code></td>
+<td>Writes the selected values into the Left template.</td>
+</tr>
+<tr>
+<td><strong>Overwrite</strong> <code>&lt;Right name&gt;</code></td>
+<td>Writes the selected values into the Right template.</td>
+</tr>
+<tr>
+<td><strong>Create Merged Template</strong></td>
+<td>Creates a new template named in <strong>Template Name:</strong>. The name is required.</td>
+</tr>
+</tbody>
+</table>
+<p>A merged template starts as a copy of the Left template, so settings VTC does not compare, such as the view scale, keep the Left values. Use <strong>Swap</strong> to choose the other base.</p>
+<p>For a row that has a selected side, the target takes that side's value. When the selected side lacks the setting (it is absent there), the row in the target is reset to its default, instead of keeping the base value. This applies to categories, worksets and Revit link settings.</p>
+<p>Each setting is applied in its own sub-transaction. A setting that cannot be applied is reported as a conflict and the others are applied. Any other failure rolls back the whole batch. Overwriting a template is one undo entry. <strong>Create Merged Template</strong> is one undo entry named <code>Create Merged View Template</code>. If it fails, no template remains, so you can retry with the same name.</p>
+<h2 id="imported-categories">Imported categories</h2>
+<p>Imported categories (DWG, DXF and other imports) appear under their own <strong>Imported Categories</strong> group. They use the same compare, edit, preview and process flow as other categories.</p>
+<h2 id="revit-links">Revit links</h2>
+<p>Revit link settings appear under <strong>Revit Links</strong>, grouped by link. Type-level and instance-level link targets are listed separately. VTC lists only the settings that the Revit API can both read and write in the running Revit version:</p>
+<p><code>Visibility Mode</code>, <code>Linked View</code>, <code>Filters</code>, <code>Nested Links</code>, <code>Object Styles</code>, <code>Color Fill</code>, <code>View Range</code>, <code>Phase</code>, <code>Phase Filter</code>, <code>Detail Level</code>, <code>Discipline</code>.</p>
+<p>Links are matched by the canonical link name, not by element id. If a name is ambiguous, VTC stops instead of guessing.</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Open Revit Link Settings...</strong></td>
+<td>Opens <strong>Native Revit Link Settings</strong> for one link target. The window always lists all supported settings of that target, even if you opened it from one row. <strong>Apply to Template</strong> writes the selected settings; it is one undo entry.</td>
+</tr>
+<tr>
+<td><strong>Copy Revit Link Settings To...</strong></td>
+<td>Copies the supported settings to other link targets. <code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> are matched by name in the target linked model. If the name is unavailable because the linked document is unloaded, the raw id is reused only when source and target reference the same linked model. The copy is one undo entry. A target that cannot accept the settings is reported and the others are copied. Any other failure leaves every target unchanged.</td>
+</tr>
+</tbody>
+</table>
+<p>Loading a saved template from the library also remaps <code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> by name in the target linked model. If the saved name is not found there, the setting fails with a not-found error. If the snapshot holds no name (the linked document was unloaded), the stored id is reused.</p>
+<p>When only one template contains the link row, VTC uses that template. When both do and you have not selected a side, VTC asks which template to use.</p>
+<h2 id="library">Library</h2>
+<p>The <strong>Library</strong> tab saves template snapshots to disk and applies them back to a template.</p>
 <ul>
-<li>selected settings,</li>
-<li>pending override edits that are currently eligible for Process,</li>
-<li>and a dedicated section for retained pending overrides whose diff row no longer exists.</li>
+<li><strong>Save Template</strong> &gt; Left Template, Right Template or Merged Template. An optional name field sets the saved name. When blank, the source template name is used.</li>
+<li><strong>Load</strong> applies the selected saved template to the side chosen in <strong>Load to:</strong>. It first asks for confirmation, because it overwrites the template's settings in Revit.</li>
+<li>A delete button removes the selected saved template, and a refresh button reloads the list.</li>
 </ul>
-<p>Selecting a navigable preview leaf jumps to the corresponding diff row.</p>
-<p>Navigation behavior:</p>
+<p>Snapshots are stored under <code>%APPDATA%\DBTools\Cache\VTC\</code>. VTC creates the folder on the first save. Saved names ignore case and surrounding spaces. Saving under an existing name asks <code>Replace saved template 'X'?</code>; Cancel saves nothing. If VTC cannot check the name, or another Revit session saves that name during your save, the save fails and nothing is overwritten. A snapshot that is incomplete or malformed fails to load with a storage error. VTC does not repair or migrate it.</p>
+<p>If a save or delete succeeds but the list cannot refresh, VTC shows a warning that names the template. A save or delete that fails shows an error.</p>
+<h2 id="limitations">Limitations</h2>
 <ul>
-<li>Clears hiding filters (<code>SearchText</code>, <code>ViewFilter=All</code>, <code>ConflictFilter=All</code>)</li>
-<li>Selects the target row</li>
-<li>Expands only the target path and scrolls into view (<code>BringIntoView</code>) without expanding unrelated branches</li>
+<li>VTC compares templates in the open project. It does not compare templates across projects, except through the library.</li>
+<li>Link settings that the Revit API cannot read and write are not shown.</li>
+<li>Create Merged Template copies the Left template, so use <strong>Swap</strong> to base the merge on the other template.</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1217</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:458</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1943</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml.cs:139</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml.cs:153</code></p>
-</blockquote>
-<hr>
-<h2 id="visual-semantics">Visual Semantics</h2>
-<ul>
-<li>Diff meaning is shown by diff backgrounds and diff glyphs.</li>
-<li>Selection meaning is shown with <strong>gold border + checkmark + glow</strong>.</li>
-<li>Manually staged category edits now show an <strong>Edited</strong> badge with side-colored dots in TreeView, Inspector, and Preview.</li>
-<li>Conflict visuals override selection visuals so conflicts stay unambiguous.</li>
-<li>The diff-only <code>+R</code> marker uses a muted neutral color (not gold).</li>
-<li>Hover no longer overlays dark row backgrounds on diff cells; diff tint remains visible and hover emphasis is typography-based.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Resources/VtcDiffStyles.xaml:20</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:276</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1140</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:687</code></p>
-</blockquote>
-<hr>
-<h2 id="bottom-panel-actions">Bottom Panel Actions</h2>
-<p>The window footer uses the standard BottomPanel pattern:</p>
-<ul>
-<li><strong>Close</strong> button</li>
-<li><strong>Process</strong> button (disabled when there are no selections and no process-eligible staged edits)</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1330</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1607</code></p>
-</blockquote>
-<hr>
-<h2 id="library-saveload">Library (Save/Load)</h2>
-<p>VTC supports local cache save/load of full template snapshots.</p>
-<ul>
-<li>Cache path: <code>%APPDATA%/DBTools/Cache/VTC/</code></li>
-<li>Save/Load actions remain in the <strong>Library</strong> tab</li>
-<li>Save menu supports <strong>Left Template</strong>, <strong>Right Template</strong>, and <strong>Merged Template</strong></li>
-<li>The split button is labeled <strong>Save Template ▾</strong> and explicitly calls out the merged-save option in helper text.</li>
-<li><strong>Merged Template</strong> save uses current selections plus eligible staged override edits to write a merged cache model without writing to Revit</li>
-</ul>
-<p>Export/Import/Dump transfer actions are removed from the REV2 UI/workflow.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Testing/VTC/Services/VtcTemplateStorageService.cs:15</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/Services/VtcTemplateStorageService.cs:34</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1279</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/Views/VtcWindow.xaml:1303</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1365</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:1687</code>
-<strong>Source:</strong> <code>src/Tools/Testing/VTC/UI/ViewModels/VtcWindowViewModel.cs:2089</code></p>
-</blockquote>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/vtc.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

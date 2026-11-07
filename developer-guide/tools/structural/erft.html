@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Extreme Roof Framing Tool (ERFT) | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Extreme Roof Framing Tool (ERFT) | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="extreme-roof-framing-tool-erft">Extreme Roof Framing Tool (ERFT)</h1>
+
+<p>ERFT adjusts host structural column and beam offsets to follow a host or linked floor/roof bottom surface.
+It preserves level associations, previews calculated changes, and applies offsets and storage in one transaction.
+See the <a href="erft-spec.html">technical specification</a> for geometry, rounding, storage, and failure contracts.</p>
+<h2 id="use">Use</h2>
+<ol>
+<li>Run <strong>Extreme Roof Framing</strong> on the Testing panel.</li>
+<li>Pick a linked floor or roof. Press Esc to switch to host target selection.</li>
+<li>Pick a host target if needed. Esc at this stage cancels launch.</li>
+<li>Select source columns and beams, then Finish.</li>
+<li>Review the target, comparison rows, tolerance, and preview.</li>
+<li>Apply when the tolerance is valid, at least one row requires modification, and no row has Error status.</li>
+</ol>
+<p>Sources must be point-based structural columns or straight non-brace framing in the host document.
+Material names matching <code>\bconcrete\b</code> case-insensitively exclude members.
+The source set needs a column or a beam that connects to a model column under ERFT's hierarchy rule.
+Unsupported extracted sources fail launch rather than disappearing from the plan.</p>
+<p><strong>Edit ERFT</strong> on contextual Modify tabs restores a selected system's stored plan and settings.
+Missing or incompatible storage fails edit launch. Re-pick hides the window with HideForPick,
+selects another target, and reuses the same shell and preview presenter with the rebuilt plan. Re-applying calculates from current model geometry and offsets.</p>
+<p>During apply, a second Apply or Re-pick request is ignored. Cancel and window close are blocked.
+A successful apply reports its result and closes the window.
+An expected apply failure keeps the window open. A thrown apply exception closes the window and propagates to safe execution.
+Escape clears both comparison-grid selections and does not close the window.
+Cancel has no WPF IsCancel route. Clicking an empty area of either grid with any mouse button clears both selections.
+See the <a href="erft-spec.html#alerts">alert and preview contracts</a> for event severity, ownership, and validation.</p>
+<h2 id="ownership">Ownership</h2>
+<p>Source: <code>src/Tools/Experimental/ERFT/</code>.
+The manifest registers <code>DBTools.ERFT</code>, module <code>DBTools.ERFT.App.Composition.ErftToolModule</code>,
+and command/availability <code>DBTools.ERFT.App.Composition.ErftNewCommand</code>.
+The command uses <code>InlineUi</code>, icon key <code>erft</code>, and order 60 on the Testing panel.</p>
+<table>
+<thead>
+<tr>
+<th>Owner</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>App/Composition</code></td>
+<td>Command, module, registration, contextual ribbon adapter</td>
+</tr>
+<tr>
+<td><code>App/Sessions/WindowSession</code></td>
+<td>Modal shell, alerts, banners, and lifetime</td>
+</tr>
+<tr>
+<td><code>App/ViewModels</code></td>
+<td>Tolerance, row selection, commands, and binding state</td>
+</tr>
+<tr>
+<td><code>App/Views/ErftWindow.xaml</code></td>
+<td>Raw embedded view</td>
+</tr>
+<tr>
+<td><code>Features/Domain</code></td>
+<td>Plan values, target projection, and framing graph</td>
+</tr>
+<tr>
+<td><code>Features/Selection</code></td>
+<td>Source rules, diagnostics, and Revit pickers</td>
+</tr>
+<tr>
+<td><code>Features/Operations</code></td>
+<td>Revit column, beam, target-geometry, and member-profile readers</td>
+</tr>
+<tr>
+<td><code>Features/Planning</code></td>
+<td>Preparation, edit reconstruction, target re-pick, adjustment, and rounding</td>
+</tr>
+<tr>
+<td><code>Features/Execution</code></td>
+<td>Apply orchestration and Revit writer</td>
+</tr>
+<tr>
+<td><code>Features/Persistence</code></td>
+<td>JSON, schemas, and system DataStorage repository</td>
+</tr>
+<tr>
+<td><code>Features/Preview</code></td>
+<td>Domain meshes and stable scene projection</td>
+</tr>
+<tr>
+<td><code>Features/State/AdjustmentPlanStore</code></td>
+<td>Current plan state</td>
+</tr>
+<tr>
+<td><code>Features/Workflow/FramingAdjustmentWorkflow</code></td>
+<td>New/edit/re-pick/apply interaction through feature-owned <code>IWindowSession</code></td>
+</tr>
+</tbody>
+</table>
+<p>Feature decisions remain behind <code>IWindowSession</code> and <code>WindowSessionAction</code>.
+App implements their typed presentation methods. ERFT production has no dependency on another tool.
+A missing active document returns Failed before opening the window.
+The per-run DI scope owns and disposes WindowSession on every exit path. The workflow does not dispose it.
+Normal-close cleanup diagnostics belong to the shared window host.
+ERFT logs failures from its own close-and-retire release path without replacing the caller's primary failure.</p>
+<p>The shell explicitly sets the title Extreme Roof Framing Tool and loads the raw EmbeddedResource
+<code>DBTools.ToolViews.ERFT.ErftWindow.xaml</code>. The view merges its theme directly and uses the stable string-based EnumMatchConverter for rounding radio buttons.</p>
+<h2 id="preview">Preview</h2>
+<p><code>PreviewSceneBuilder</code> creates target and member meshes. <code>PreviewProjector</code> maps them into <code>StructuralScene3D</code> snapshots.
+<code>DBTools.Presentation.StructuralPreview</code> owns device lifetime, camera state, navigation, hit testing,
+hover tooltips, emphasis, outlines, target crease edges, and cleanup.
+<code>DBTools.Presentation.Tools.ERFT.ErftPreviewOptions</code> chooses the preserve-angle camera and fit-as-Home policy.
+The initial look direction is parallel to <code>(0, 20, -10)</code>, with Z up. The camera home angle does not derive from the target mesh.
+Scene bounds include every rendered mesh vertex. Geometry updates within unchanged bounds preserve Home.
+Changed bounds fit the scene at the current angle and capture a new Home.
+Zoom to Fit also replaces Home and the viewport's default camera.
+Re-pick retains the current angle rather than constructing a new camera.
+Hover text uses the themed WPF ToolTip with a 16-pixel cursor offset.</p>
+<p>Member identities use <code>element:&lt;ElementId&gt;</code> and connect preview clicks to comparison rows.
+Targets are non-pickable context. Empty-space clicks clear row selection.
+Target hover does not replace member tooltips. Selected members use cyan emphasis and a 1.6-pixel all-edge outline.
+Target fill opacity is 0.12. Target and member edges use the palette’s cyan-gray color.
+The stable presenter owns lighting and camera bounds constraints. Status remains visible while the scene prepares or degrades.
+Navigation buttons disable when no scene exists.
+Both grids use a final stretch Status column with a minimum width.
+Thrown zoom/reset exceptions log a warning and appear in the preview status line.
+Fit failures log a diagnostic; reset without a Home attempts Zoom to Fit.
+A projection failure clears the rendered scene and shows its cause until the scene changes or the presenter becomes unavailable.
+Without a specific reason, the placeholder reads <code>3D Preview is unavailable: the presenter is unavailable</code>.</p>
+<p>A graphics-device or WPF D3DImage failure permanently disables the presenter for that window.
+StructuralPreviewDevice releases resources once and does not forward Reinitialize to the native effects manager.
+It does not substitute WARP for the D3DImage bridge.
+The placeholder asks the user to update the graphics driver or enable GPU acceleration and reopen the tool.
+Preview navigation disables, but adjustment, Apply, Cancel, and target re-pick remain available outside an active apply.
+Re-pick retains the unavailable presenter and does not retry graphics initialization.</p>
+<p>Profile extraction reports expected unsupported geometry per type.
+The preview can show only the target when no profiles succeed.
+Unexpected geometry, transaction, cleanup, or cancellation faults propagate.
+One Info summary records total/extracted/unsupported counts. Per-type progress is Debug.
+Selection-hook logs suppress per-event start/completion banners and report evaluation changes only when state changes.</p>
+<h2 id="tests">Tests</h2>
+<p>Pure tests cover graph construction, target projection, adjustment/rounding, storage admission, scene projection,
+window selection, close gating, modal lifetime, and injected device creation failure during re-pick and Apply.
+Core tests exercise presenter recovery and resource release without a GPU.
+Presentation's hosted <code>StructuralPreview3DTests</code> covers fit-as-Home through the renderer.</p>
+<p>Hosted <code>FramingAdjustmentEndToEndTests</code> uses <code>gm_test_model.rvt</code> and transient host floors with real beam and column instances.
+It covers seed viability, target extraction, calculation, offset writes, tags, and DataStorage inside rolled-back transaction groups.
+A Revit 2027 regression case checks legacy-schema cleanup on <code>2027/Regression/realtest_model.rvt</code> without saving the model.
+These cases do not establish linked-target coverage.</p>
+<pre><code class="lang-bash">./build.sh BuildSelectedLocalTests --TestProjects DBTools.ERFT.Local.Tests -y 2026
+./test.sh test --tool ERFT --scope local -y 2026 --fixture FramingAdjustmentEndToEndTests
+</code></pre>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

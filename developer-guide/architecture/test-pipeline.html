@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/architecture/test-pipeline.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,734 +89,440 @@
         <article data-uid="">
 <h1 id="test-pipeline">Test Pipeline</h1>
 
-<!-- STATUS: verified -->
-<!-- Last Updated: 2026-03-05 -->
-<!-- Verified By: codex-20260305 - Source anchors verified against code -->
-<p>This document describes the DBTools testing infrastructure, including test categories, execution methods, and shared test utilities.</p>
-<hr>
-<h2 id="overview">Overview</h2>
-<p>DBTools uses a dual-tier testing strategy:</p>
+<p>DBTools tests run through one of two routes:</p>
+<ul>
+<li><code>./test.sh</code> resolves the selected projects, builds them, freezes their inputs
+and runs them locally or submits them to the dbtools-daemon fleet. It accepts
+the shared <code>--tool</code>, <code>--scope</code>, <code>--year</code>, <code>--fixture</code> and filter options and
+writes the receipts that <code>--no-build</code> and CI consume.</li>
+<li>Plain <code>dotnet test</code> on an entry project in <code>testing/Daemon/</code> uses the pinned
+daemon VSTest adapter (<code>DbToolsDaemon.RevitTest.TestAdapter</code>). MSBuild builds
+the selected assemblies, models, includes and per-year sources, and the
+adapter submits them in one request.</li>
+</ul>
+<p>Use one route per invocation. Both read the relay URL from
+<code>DBTOOLS_DAEMON_RELAY_URL</code>; the daemon owns relay credentials, and neither
+route accepts or stores them.</p>
+<h2 id="lanes">Lanes</h2>
+<table>
+<thead>
+<tr>
+<th>Lane</th>
+<th>Marker</th>
+<th>Where it runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pure</td>
+<td>plain <code>[Test]</code></td>
+<td>Without Revit. Locally when possible; otherwise as a daemon PureSuite job on a hidden Windows desktop</td>
+</tr>
+<tr>
+<td>Local</td>
+<td><code>[RevitLocal]</code></td>
+<td>Inside Revit on a daemon worker, for one selected year</td>
+</tr>
+<tr>
+<td>DA</td>
+<td><code>[RevitDA]</code></td>
+<td>On the invoking host, as an HTTP client of APS Design Automation; never through the daemon</td>
+</tr>
+<tr>
+<td>DIST</td>
+<td></td>
+<td>The Windows distribution acceptance suite, always a daemon PureSuite job</td>
+</tr>
+<tr>
+<td>BUILD</td>
+<td></td>
+<td>Linux-native build and distribution contract suites</td>
+</tr>
+</tbody>
+</table>
+<p>Local tests exercise the real ribbon, WPF and add-in lifecycle in Revit.</p>
+<p>The DA lane builds the Revit 2026 Sentinel WorkItem test project and runs it
+with <code>dotnet test</code>. A run takes 5 to 12 minutes and spends APS cloud credits.
+It requires <code>APS_CLIENT_ID</code> and <code>APS_CLIENT_SECRET</code> and fails, rather than
+skips, when either is missing. <code>APS_BUCKET</code> selects the OSS bucket (default
+<code>dbtools-tests</code>). Run the network-free tests of that project with
+<code>-f 'TestCategory!=RevitDA'</code>. See
+<a href="../developing/testing-tools.html#aps-design-automation-sentinel">APS Design Automation Sentinel</a>.</p>
+<h2 id="test.sh">test.sh</h2>
+<h3 id="synopsis">Synopsis</h3>
+<pre><code class="lang-text">./test.sh &lt;verb&gt; [options]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Verb</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test</code></td>
+<td>Build the selected tests and run or submit them</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>List the statically discovered tests for the selection</td>
+</tr>
+<tr>
+<td><code>validate-request</code></td>
+<td>Resolve selectors and projects without building or submitting</td>
+</tr>
+<tr>
+<td><code>submit</code></td>
+<td>Build and submit a Local daemon job; rejects the <code>pure</code> and <code>da</code> scopes</td>
+</tr>
+<tr>
+<td><code>rerun --request &lt;id&gt;</code></td>
+<td>Rerun the failures of an accepted daemon request from its submitted bytes, without building</td>
+</tr>
+<tr>
+<td><code>build</code></td>
+<td>Run <code>build.sh</code></td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>--scope</code>, the scope is <code>pure</code>. <code>rerun</code> replays the recorded request
+and rejects <code>--scope</code>. <code>test.sh</code> passes nothing through to <code>dotnet</code>: <code>--</code> is
+rejected; use <code>--filter</code>, <code>--fqn</code>, <code>--fixture</code> or <code>--compile-only</code>. An unknown
+option is an error. Run <code>./test.sh --help</code> for the complete option list.</p>
+<h3 id="selection">Selection</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--tool TOOL[,TOOL]</code></td>
+<td><code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>DA-SENTINEL</code>, <code>DIST</code>, or a tool key such as <code>GM</code></td>
+</tr>
+<tr>
+<td><code>--scope SCOPE[,SCOPE]</code></td>
+<td><code>pure</code>, <code>local</code>, <code>da</code> or <code>all</code></td>
+</tr>
+<tr>
+<td><code>-y</code>, <code>--year YEAR</code>; <code>--years 2026,2027</code></td>
+<td>Revit years for hosted execution</td>
+</tr>
+<tr>
+<td><code>--project PATH[,PATH]</code></td>
+<td>Repository-relative <code>.csproj</code> paths with forward slashes; narrows the tool and scope selection and cannot bypass it</td>
+</tr>
+<tr>
+<td><code>--fixture NAME</code></td>
+<td>Fixture class; repeatable</td>
+</tr>
+<tr>
+<td><code>-f</code>, <code>--filter FILTER</code></td>
+<td>VSTest filter for Pure tests; exact or prefix FQN form for daemon jobs</td>
+</tr>
+<tr>
+<td><code>--fqn FQN</code></td>
+<td>Exact test name; repeatable; exclusive with <code>--filter</code> and <code>--fixture</code></td>
+</tr>
+<tr>
+<td><code>--changed-since REV</code></td>
+<td>Select test owners affected since a revision; unknown inputs select all</td>
+</tr>
+</tbody>
+</table>
+<p><code>test.sh list --projects</code> prints the sorted <code>scope&lt;TAB&gt;project</code> rows and is
+the source of truth for what a request selects. It evaluates project
+membership, explicit <code>Compile</code> <code>Include</code>, <code>Exclude</code> and <code>Remove</code> items,
+disabled default items, NUnit fixture attributes and the selected tool, scope
+and year. The same index resolves fixtures and exact FQNs. A fixture must
+resolve to one compiled owner class. An unknown fixture or project, an unreadable project or source file, a
+project the selected tool and scope cannot reach, or an explicit scope with no
+resolved project exits with status 2 before any build or submission.</p>
+<p>An exact <code>FullyQualifiedName=&lt;FQN&gt;</code> filter becomes an exact daemon selector, and
+a prefix filter becomes a prefix selector. A hosted filter that cannot be
+mapped exits with status 2 instead of selecting the whole assembly.</p>
+<h3 id="years">Years</h3>
+<p>Pure requests have no year. They reject <code>--year</code>, <code>--years</code>, <code>--keep-open</code> and
+<code>--isolation</code>. Local requests take <code>-y</code> or <code>--year</code>; <code>--scope all</code> applies the
+year only to the hosted part. DA always builds Revit 2026: a DA-only request
+rejects other years, and a combined request must include 2026. A two-year Local
+selection makes one daemon request per year, each with its own product tree
+and report.</p>
+<h3 id="daemon-options">Daemon options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--machine MACHINE</code></td>
+<td>Pin a worker. <code>DBTOOLS_DAEMON_MACHINE_ID</code> sets a default pin. Without a pin the daemon chooses (Auto)</td>
+</tr>
+<tr>
+<td><code>--relay URL</code></td>
+<td>Relay URL; default <code>DBTOOLS_DAEMON_RELAY_URL</code></td>
+</tr>
+<tr>
+<td><code>--queue-timeout HH:MM:SS</code></td>
+<td>Maximum wait for a claim, including the Revit lease for hosted runs</td>
+</tr>
+<tr>
+<td><code>--execution-timeout HH:MM:SS</code></td>
+<td>Maximum execution time after the lease</td>
+</tr>
+<tr>
+<td><code>--isolation MODE</code>, <code>--keep-open</code></td>
+<td>Hosted isolation mode; leave Revit open</td>
+</tr>
+<tr>
+<td><code>--result-json PATH</code></td>
+<td>Write the validated daemon terminal report by atomic replacement</td>
+</tr>
+<tr>
+<td><code>--include PATH</code></td>
+<td>Add a file or directory to the submitted bundle; repeatable</td>
+</tr>
+<tr>
+<td><code>--compile-only</code> (<code>--build-only</code>)</td>
+<td>Build and write the receipt; run nothing</td>
+</tr>
+<tr>
+<td><code>--no-build</code></td>
+<td>Consume a matching receipt; reject stale or missing outputs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="environment">Environment</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DBT_PURE_CONCURRENCY</code></td>
+<td>Maximum concurrent Pure daemon submissions (default 2)</td>
+</tr>
+<tr>
+<td><code>DBT_MSBUILD_MAX_CPU_COUNT</code></td>
+<td>Maximum graph build parallelism (default 2)</td>
+</tr>
+<tr>
+<td><code>DBT_BUILD_SERVERS</code></td>
+<td><code>1</code> (default): scoped compiler and MSBuild servers; <code>0</code>: none</td>
+</tr>
+<tr>
+<td><code>DBT_TEST_INPUT_CACHE_ROOT</code></td>
+<td>Root of the frozen test input cache</td>
+</tr>
+<tr>
+<td><code>DBTOOLS_DAEMON_CLI</code></td>
+<td>Daemon CLI command (default <code>dbtools-daemon-cli</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="examples">Examples</h3>
+<pre><code class="lang-bash">./test.sh list --tool GM --scope all
+./test.sh test --tool APP --scope pure
+./test.sh test --tool GM,RecordSet --scope pure
+./test.sh test --tool GM --scope pure --fixture DuplicateDetectionEngineTests
+./test.sh test --filter 'FullyQualifiedName=DBTools.GM.Tests.AdapterTests.SomeTest'
+./test.sh test --tool BUILD --scope pure
+./test.sh test --tool APP --scope local -y 2026 --fixture RibbonCompositionTests
+./test.sh validate-request --tool GM --scope local -y 2026 \
+  --queue-timeout 00:05:00 --execution-timeout 00:30:00
+./test.sh test --scope pure --compile-only
+./test.sh test --scope pure --no-build
+./test.sh rerun --request REQUEST_ID
+</code></pre>
+<h2 id="execution">Execution</h2>
+<h3 id="pure-routing">Pure routing</h3>
+<p><code>test.sh</code> checks each selected Pure assembly for its <code>.deps.json</code>,
+<code>.runtimeconfig.json</code> and the output-local <code>NUnit3.TestAdapter.dll</code>, then
+routes it:</p>
+<ul>
+<li>to the daemon if it is the DIST suite or a machine is pinned;</li>
+<li>to the daemon if it targets Windows and the host is not Windows;</li>
+<li>to the daemon if the host lacks <code>Microsoft.WindowsDesktop.App</code>; a missing
+other framework is an error;</li>
+<li>otherwise to local VSTest.</li>
+</ul>
+<p>Local projects, including the Linux BUILD and Distribution suites, run one
+after another; daemon submissions run concurrently.
+A local project that runs zero tests fails. With a filter expression, the run
+fails only when no selected project runs a test. Linux-native BUILD
+projects and <code>*.Portable.Pure.Tests</code> projects are skipped on Windows with a
+notice.</p>
+<h3 id="inputs-and-receipts">Inputs and receipts</h3>
+<p>For a selected lane and year, the MSBuild graph returns the test assembly,
+target framework, model items and product-tree includes in one pass. Before
+any submission, <code>test.sh</code> freezes the assemblies, runtime closure, product-tree
+includes, models and companions into the content-addressed test input cache,
+so a later build cannot change the submitted files. A normal exit removes the
+per-run directory.</p>
+<p><code>--compile-only</code> writes a receipt bound to the source identity, the selected
+projects, the graph inputs and the output hashes. <code>--no-build</code> verifies all of
+these and refuses stale or missing files. CI resolves the selectors once with
+<code>./test.sh list --projects</code>, compiles each selected scope with
+<code>--compile-only</code>, transfers the receipt and the recorded input closure, and
+runs them with <code>--no-build</code>. The consumer never rebuilds. Linux BUILD and DIST
+jobs do not depend on the Windows transfer.</p>
+<h3 id="results">Results</h3>
+<p>The daemon terminal JSON is the result. A successful run must report a
+positive executed count; a report of zero tests fails. A distinctive nonzero
+daemon exit status is kept even when the terminal JSON is missing or
+malformed. Independent scopes in one request continue after a failure, but
+<code>test.sh</code> returns the first nonzero status and never reports a failed run as
+passed.</p>
+<h3 id="dist">DIST</h3>
+<p>DIST is a closed surface. It requires <code>--tool DIST</code> alone, <code>--scope pure</code>,
+<code>--filter FullyQualifiedName=DBTools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidate</code>,
+<code>--result-json PATH</code>, and exactly one <code>--include</code> that names a
+<code>validate-dist-&lt;sha256&gt;.zip</code> archive (see <code>PackageSandboxValidationInput</code> in
+<a href="build-pipeline.html">Build Pipeline</a>). It rejects <code>--fixture</code> and <code>--machine</code>.</p>
+<h2 id="dotnet-test-with-the-daemon-adapter">dotnet test with the daemon adapter</h2>
+<pre><code class="lang-bash">: &quot;${DBTOOLS_DAEMON_RELAY_URL:?Set the daemon relay URL}&quot;
+
+# One hosted test for Revit 2026; the entry builds the per-year sources.
+DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/GM.Hosted.Entry.csproj \
+  --filter &quot;FullyQualifiedName~FamilyDeepScanTests.GM_DeepScan_Smoke&quot;
+
+# Pure tests on a hidden daemon desktop.
+dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj \
+  --filter &quot;FullyQualifiedName~UIStateCacheTests.SetAsync_WritesTheStableCamelCaseGoldenFormat&quot;
+</code></pre>
+<p><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code> builds the Local tests of
+that owner for both years (<code>Hosted2026.proj</code>, <code>Hosted2027.proj</code>).
+<code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code> selects every
+<code>DBTools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner. After the build, the
+entry writes <code>dbtools-daemon.runsettings</code> from <code>Hosted.runsettings</code> or
+<code>Pure.runsettings</code> with the literal sources, models and includes. The hosted
+settings default to years <code>2026,2027</code>, isolated execution and a 30-minute
+timeout, and treat a run with no tests as an error.</p>
+<h2 id="product-staging">Product staging</h2>
+<p>Each Local or hosted test for a year receives the same product tree that the
+installer uses:</p>
+<pre><code class="lang-text">product/&lt;year&gt;/
+├── DBTools.addin
+├── DBTools.dll
+├── DBTools.Core.dll
+├── DBTools.Presentation.dll
+├── DBTools.HandyControl.dll
+└── Tools/DBTools.&lt;Tool&gt;.dll
+</code></pre>
+<p>The tree keeps its relative paths. Test assemblies and NUnit and adapter
+dependencies are separate inputs. App loads tools from <code>Tools/</code> by explicit
+path into the context that holds it, so <code>ProductLoadContext</code> and
+<code>DevModeLoadContext</code> receive the same identities as the staged tree. Test
+support installs no resolver for product assemblies.</p>
+<h2 id="test-projects">Test projects</h2>
+<p>Test projects are next to their production owners:</p>
+<pre><code class="lang-text">src/DBTools.App/Tests/DBTools.App.{Pure,Local}.Tests.csproj
+src/DBTools.Core/Tests/DBTools.Core.{Pure,Local}.Tests.csproj
+src/DBTools.Sandbox/Tests/DBTools.Sandbox.Pure.Tests.csproj
+src/Tools/&lt;Category&gt;/&lt;Tool&gt;/Tests/DBTools.&lt;Tool&gt;.{Pure,Local}.Tests.csproj
+testing/DBTools.Build.Tests/                  build and distribution contracts (Linux)
+testing/DBTools.Distribution.Tests/           portable archive contracts (Linux)
+testing/DBTools.Distribution.Windows.Tests/   DIST suite
+testing/RevitTestModels/                      test models by year and tool
+</code></pre>
+<p>A project has both a <code>.Pure.Tests</code> and a <code>.Local.Tests</code> project only when both
+kinds of test exist.</p>
+<ul>
+<li><strong>Pure projects</strong> list their source files explicitly and reference their
+normal production owners. Shared props give every Pure project
+<code>$(DBT_PureRevitYear)</code> (2026) and static graph restore, and pass that year
+on owner references, so a plain <code>dotnet build</code> or <code>dotnet test</code> of one
+project needs no properties. Revit is compile-only in Pure tests: a test
+must not load Revit-typed members or scan owner types outside the loadable
+set.</li>
+<li><strong>Local projects</strong> disable default compile items and include only hosted
+fixtures.</li>
+<li><strong>Presentation behavior tests</strong> are under Presentation; the Core Pure
+projects link the fixtures they can run without Revit. Tests that need a real
+WPF window run in a Windows-capable lane.</li>
+</ul>
+<h3 id="portable-pure-projects">Portable Pure projects</h3>
+<p>Core and SGT define an optional <code>$(DBT_PortableTargetFramework)</code>. Their
+<code>*.Portable.Pure.Tests</code> projects build against that framework and run on Linux;
+CI and Windows <code>test.sh</code> route them to Linux. To make a project portable:</p>
 <ol>
-<li><strong>Headless Tests</strong> - Run via <code>dotnet test</code> without Revit, validating build artifacts and cloud integrations</li>
-<li><strong>Revit Integration Tests</strong> - Run inside a live Revit process using the <code>ricaun.RevitTest</code> adapter</li>
+<li>declare desktop and portable <code>TargetFrameworks</code>;</li>
+<li>condition <code>DBT_RevitHostIdentity</code>, <code>UseWPF</code> and the Presentation
+<code>ProjectReference</code> on the desktop framework, and keep Revit references under
+the desktop host identity condition;</li>
+<li>set <code>DBT_UsesMergedAssemblies=false</code> in portable consumers.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1-6</code></p>
-</blockquote>
-<hr>
-<h2 id="test-categories">Test Categories</h2>
-<h3 id="category-system">Category System</h3>
-<p>Tests are categorized using NUnit's <code>[Category]</code> attribute to enable selective execution:</p>
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Description</th>
-<th>DA-Compatible</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>RequiresRevitUI</code></td>
-<td>Needs UIApplication, UIDocument, TaskDialog, or STA thread</td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>RequiresActiveDocument</code></td>
-<td>Needs an open Revit document with elements</td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>Local</code></td>
-<td>Runs only in local Revit environment</td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>Slow</code></td>
-<td>Takes &gt;5 seconds, may be excluded from quick runs</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td><code>Integration</code></td>
-<td>Requires external dependencies (network, cloud)</td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/TestCategories.cs:14-42</code></p>
-</blockquote>
-<h3 id="da-vs-local-execution">DA vs Local Execution</h3>
+<p><code>build/MSBuild/Portable.targets</code> excludes App, Revit, Views, DesignTime and
+XAML inputs. Portable images use ordinary NuGet dependencies, have no content
+version and add no staged runtime files. Core uses an explicit list of source
+files for its portable build.</p>
+<h2 id="test-models">Test models</h2>
+<p>Hosted projects declare <code>RevitTestModel</code> items relative to
+<code>testing/RevitTestModels</code>:</p>
+<pre><code class="lang-text">testing/RevitTestModels/
+├── 2026/GM/gm_test_model.rvt
+├── 2026/SGT/sgt_test_model.rvt
+├── 2026/SGT/_LinkedModels/sgt_test_linked_model.rvt
+├── 2026/Regression/realtest_model.rvt
+├── 2027/...                                  (same layout)
+├── GM/SharedParameters/shared_parameters.txt
+└── VTC/vtc_import_layers.dxf
+</code></pre>
+<p>Model files and explicit non-RVT inputs keep their relative paths in the daemon
+stage. Hosted fixtures find them under <code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code>; Pure
+fixtures use the repository root in <code>DBT_TEST_REPO_ROOT</code>. <code>TestPathResolver</code>
+reads the root on every call, so a hosted job never sees the model root of a
+previous job. A fixture may open a temporary copy of a model, but the daemon
+owns the active document and the worker lifecycle. Do not resolve models from
+a worker checkout or an <code>%APPDATA%</code> cache; there is no <code>dbtools.testparams.json</code>.</p>
+<h2 id="test-support">Test support</h2>
+<p><code>testing/TestSupport</code> holds shared test infrastructure and doubles for true
+externals. Tool-specific doubles are under <code>testing/TestSupport/&lt;Tool&gt;</code> and are
+linked as source by the matching test projects; they are not a separate
+assembly.</p>
 <ul>
-<li><strong>DA (Design Automation):</strong> Filter out UI-dependent tests:
-<pre><code class="lang-bash">dotnet test --filter &quot;Category!=RequiresRevitUI&amp;Category!=RequiresActiveDocument&quot;
-</code></pre>
-</li>
-<li><strong>Local:</strong> Run all tests inside Revit</li>
+<li><code>Revit/RevitHost.cs</code> initializes the year, the App runtime and the product
+Revit call gate before the test body, and supplies the real <code>UIApplication</code>
+through an ambient scope that does not carry API access across an <code>await</code>.
+It owns the scheduler unless a fixture holds a longer lease. Forced-queue
+tests call the real external-event handler synchronously to model a later
+API turn; one daemon NUnit callback contains no second native turn.</li>
+<li><code>Wpf/WpfTestRuntimeBootstrap.cs</code> registers pack URI support, installs the
+shared window owner, validates themes in the runtime assembly's contextual
+reflection scope, and releases only its own provider at teardown. It adds no
+<code>Resolving</code> handlers and does not force Presentation or HandyControl into the
+default context.</li>
+<li><code>Logging/TestLoggingBridge.cs</code> uses production logging when Revit provides it
+and a console and file host otherwise.</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/TestCategories.cs:10-12</code></p>
-</blockquote>
-<hr>
-<h2 id="test-project-organization">Test Project Organization</h2>
-<h3 id="directory-structure">Directory Structure</h3>
-<pre><code>testing/
-  DBTools.BuildArtifacts.Tests/   # Headless artifact validation
-  DBTools.DA.Tests/               # Design Automation tests (cloud/headless)
-  TestSupport/                    # Shared test infrastructure
-    GM/                           # GM-specific test doubles
-    SGT/                          # SGT-specific test doubles
-    TestHost/                     # Revit host integration
-  RevitTestModels/                # Test .rvt files by year
-    2024/GM/, 2024/SGT/
-    2025/GM/, 2025/SGT/
-    2026/GM/, 2026/SGT/
-
-src/Tools/
-  Common/GM/Tests/                # GM integration tests
-  Structural/SGT/Tests/           # SGT integration tests
-  Testing/VTC/Tests/              # VTC tests
-  Common/TDV/Tests/               # TDV tests
-</code></pre>
-<h3 id="headless-test-projects">Headless Test Projects</h3>
-<h4 id="dbtoolsbuildartifactstests">DBTools.BuildArtifacts.Tests</h4>
-<p>Validates build output without Revit:</p>
-<ul>
-<li>Assembly existence and validity per Revit year</li>
-<li>Target framework correctness (net48 for 2024, net8.0 for 2025+)</li>
-<li>Forbidden reference detection (RevitAPI, AdWindows)</li>
-<li>Namespace presence verification</li>
-<li>Embedded XAML resource validation</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/DBTools.BuildArtifacts.Tests/AssemblyManifestTests.cs:14-20</code></p>
-</blockquote>
-<p><strong>Run command:</strong></p>
-<pre><code class="lang-bash">dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj -c Release
-</code></pre>
-<h4 id="dbtoolsdatests">DBTools.DA.Tests</h4>
-<p>Design Automation and APS integration tests:</p>
-<ul>
-<li>Links APS test files from tool directories (e.g., <code>GM/Tests/APS/</code>)</li>
-<li>Uses shared test utilities via <code>&lt;Compile Include&gt;</code> links</li>
-<li>Runs against Autodesk cloud services</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/DBTools.DA.Tests/DBTools.DA.Tests.csproj:43-48</code></p>
-</blockquote>
-<p><strong>Run command:</strong></p>
-<pre><code class="lang-bash">dotnet test testing/DBTools.DA.Tests/DBTools.DA.Tests.csproj -c Release
-</code></pre>
-<p><strong>Configuration:</strong>
-Uses <code>da.runsettings</code> for APS bucket configuration:</p>
-<pre><code class="lang-xml">&lt;TestRunParameters&gt;
-  &lt;Parameter name=&quot;APS_BUCKET&quot; value=&quot;dbtools-tests&quot; /&gt;
-  &lt;Parameter name=&quot;APS_REGION&quot; value=&quot;US&quot; /&gt;
-&lt;/TestRunParameters&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/da.runsettings:1-8</code></p>
-</blockquote>
-<h3 id="tool-specific-test-projects">Tool-Specific Test Projects</h3>
-<p>Each tool has its own test project under <code>src/Tools/*/Tests/</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Project</th>
-<th>Target Frameworks</th>
-<th>Revit Years</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DBTools.GM.Tests</code></td>
-<td>net48, net8.0-windows</td>
-<td>2024, 2025, 2026</td>
-</tr>
-<tr>
-<td><code>DBTools.SGT.Tests</code></td>
-<td>net48, net8.0-windows</td>
-<td>2024, 2025, 2026</td>
-</tr>
-<tr>
-<td><code>DBTools.TDV.Tests</code></td>
-<td>net48, net8.0-windows</td>
-<td>2024, 2025, 2026</td>
-</tr>
-<tr>
-<td><code>DBTools.VTC.Tests</code></td>
-<td>net48, net8.0-windows</td>
-<td>2024, 2025, 2026</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:4</code>, <code>src/Tools/Structural/SGT/Tests/DBTools.SGT.Tests.csproj:4</code></p>
-</blockquote>
-<p>Key dependencies:</p>
-<ul>
-<li><code>ricaun.RevitTest.TestAdapter</code> - Revit test execution</li>
-<li><code>ricaun.Revit.UI.Tasks</code> - UI task scheduling</li>
-<li>NUnit 3 with test adapter</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Tests/DBTools.GM.Tests.csproj:35-44</code></p>
-</blockquote>
-<hr>
-<h2 id="test-runner-invoke-revit-testssh">Test Runner: invoke-revit-tests.sh</h2>
-<p>The primary test runner script for Revit integration tests.</p>
-<h3 id="prerequisites">Prerequisites</h3>
-<p><strong>Required:</strong> <code>gum</code> (interactive terminal UI tool)</p>
-<pre><code class="lang-bash"># Install via Homebrew (macOS/Linux)
-brew install gum
-
-# Or Debian/Ubuntu
-sudo apt install gum
-
-# Or Go
-go install github.com/charmbracelet/gum@latest
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:8-17</code></p>
-</blockquote>
-<h3 id="basic-usage">Basic Usage</h3>
-<pre><code class="lang-bash"># Run all GM tests with smart mode (recommended)
-bash invoke-revit-tests.sh --smart --tool GM
-
-# Run SGT tests for Revit 2025
-bash invoke-revit-tests.sh --smart --tool SGT -y 2025
-
-# Run specific test by filter
-bash invoke-revit-tests.sh -f &quot;FullyQualifiedName~SomeTestName&quot;
-
-# Run specific fixture
-bash invoke-revit-tests.sh --smart --fixture GmAdapterTests
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:121-160</code>, <code>invoke-revit-tests.sh:649-663</code></p>
-</blockquote>
-<h3 id="command-line-options">Command-Line Options</h3>
-<h4 id="test-execution">Test Execution</h4>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Description</th>
-<th>Default</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-y, --year YEAR</code></td>
-<td>Revit year: 2024, 2025, or 2026</td>
-<td>2026</td>
-</tr>
-<tr>
-<td><code>--debug, -d</code></td>
-<td>Use Debug configuration</td>
-<td>Auto-detect</td>
-</tr>
-<tr>
-<td><code>--release, -r</code></td>
-<td>Use Release configuration</td>
-<td>Auto-detect</td>
-</tr>
-<tr>
-<td><code>-f, --filter &quot;...&quot;</code></td>
-<td>VSTest filter (must include FullyQualifiedName)</td>
-<td>None</td>
-</tr>
-<tr>
-<td><code>-v, --verbosity N</code></td>
-<td>0=quiet, 1=normal, 2=verbose</td>
-<td>2</td>
-</tr>
-<tr>
-<td><code>--timeout-minutes N</code></td>
-<td>Revit test timeout</td>
-<td>4</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:125-152</code></p>
-</blockquote>
-<h4 id="revit-instance-modes">Revit Instance Modes</h4>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Behavior</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--close</code></td>
-<td>Open a fresh isolated Revit test instance and close it after tests (default)</td>
-</tr>
-<tr>
-<td><code>--reuse</code></td>
-<td>Rejected for isolated worktree runs</td>
-</tr>
-<tr>
-<td><code>--persist</code></td>
-<td>Rejected for isolated worktree runs</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:356</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:1132</code></p>
-</blockquote>
-<h4 id="smart-mode-recommended">Smart Mode (Recommended)</h4>
-<pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool GM
-</code></pre>
-<p>Smart mode checks if the build has changed since the last successful test, warns if so,
-and always uses <code>--close</code> mode to prevent leaked Revit instances. For isolated launches,
-the runner now stages a stable worktree-local payload under <code>.artifacts/revit-test-host/&lt;year&gt;/payload</code>
-and temporarily rewrites the single <code>DBTools.Loader.dll</code> AppLoader entry to point at that stable path for the run.
-Because the path stays fixed across runs, Revit trust decisions are reusable and the repeated &quot;Always Load&quot;
-prompt no longer appears.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:153</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:190</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:1056</code></p>
-</blockquote>
-<h4 id="toolfixture-shortcuts">Tool/Fixture Shortcuts</h4>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--tool TOOL</code></td>
-<td>Run tests for GM, SGT, TDV, or VTC</td>
-</tr>
-<tr>
-<td><code>--fixture FIXTURE</code></td>
-<td>Run tests for specific fixture class</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:129-131</code>, <code>invoke-revit-tests.sh:651-663</code></p>
-</blockquote>
-<h3 id="running-single-tests">Running Single Tests</h3>
-<p><strong>Recommended (via test runner):</strong></p>
-<pre><code class="lang-bash"># Exact match
-bash invoke-revit-tests.sh --smart -y 2026 -f &quot;FullyQualifiedName=DBTools.GM.Tests.GmAdapterTests.SomeTest&quot;
-
-# Partial match (contains)
-bash invoke-revit-tests.sh --smart -f &quot;FullyQualifiedName~SomeTestName&quot;
-</code></pre>
-<p><strong>Headless projects only:</strong></p>
-<pre><code class="lang-bash">dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj \
-  -c Release --filter &quot;FullyQualifiedName~Metadata&quot;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:691-697</code>, <code>AGENTS.md</code></p>
-</blockquote>
-<h3 id="quiet-output-and-run-bundles">Quiet Output and Run Bundles</h3>
-<p>Test execution is quiet by default in the terminal. The runner writes the full <code>vstest</code>
-console stream to a per-run bundle on disk, then prints only the compact summary, failed
-test names, and artifact paths to the terminal.</p>
-<p>Each run creates <code>.artifacts/revit-test-runs/&lt;timestamp&gt;-&lt;year&gt;-&lt;tool-or-filter&gt;/</code> with:</p>
-<ul>
-<li><code>console.log</code> - full raw <code>vstest</code> console output</li>
-<li><code>results.trx</code> - structured test results from the TRX logger</li>
-<li><code>vstest.diag.log</code> - test platform diagnostics</li>
-<li><code>summary.json</code> - counts, exit code, duration, failed tests, and artifact paths</li>
-<li><code>failures.md</code> - aggregated failure report for bulk triage</li>
-<li><code>failed/*.md</code> - one artifact per failed test with captured failure details</li>
-</ul>
-<p>This layout is designed for bulk triage loops: run the full tool suite once, read
-<code>failures.md</code>, apply production-first fixes under the <code>test-audit</code> rule, rebuild once,
-and rerun the full suite.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:97-117</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:960-969</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:1008-1015</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:1041-1283</code></p>
-</blockquote>
-<hr>
-<h2 id="test-discovery">Test Discovery</h2>
-<p>The runner includes built-in test discovery that scans source files on every invocation
-(no cached registry file):</p>
-<pre><code class="lang-bash"># List all available tests
-bash invoke-revit-tests.sh --discover
-
-# Show test count summary
-bash invoke-revit-tests.sh --discover --summary
-
-# Filter by tool
-bash invoke-revit-tests.sh --discover --tool GM
-
-# Show only DA-compatible tests
-bash invoke-revit-tests.sh --discover --da-only
-
-# Show only local-only tests
-bash invoke-revit-tests.sh --discover --local-only
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:397-467</code></p>
-</blockquote>
-<hr>
-<h2 id="test-history">Test History</h2>
-<p>The runner tracks test execution history and stores the latest bundle paths for each filter:</p>
-<pre><code class="lang-bash"># Show test run history
-bash invoke-revit-tests.sh --history
-
-# Show tests not run in last N days
-bash invoke-revit-tests.sh --show-stale 7
-
-# Show tests that failed on last run
-bash invoke-revit-tests.sh --show-failed
-
-# Show error details for failed tests
-bash invoke-revit-tests.sh --get-errors &quot;GM&quot;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:148-152</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:472-560</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:563-634</code></p>
-</blockquote>
-<p>History is stored at: <code>.artifacts/test-history.json</code></p>
-<p><code>--get-errors &quot;PATTERN&quot;</code> replays the structured <code>failures.md</code> report from the latest
-matching failed run instead of showing only a short snippet.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:58-60</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:532-551</code></p>
-</blockquote>
-<hr>
-<h2 id="parallel-agent-safety">Parallel Agent Safety</h2>
-<p>Multiple agents are prevented from running tests for the same Revit year simultaneously
-via per-year file locks (<code>.artifacts/.revit-locks/revit-{YEAR}.lock</code>). No explicit session
-management is needed — the locking is automatic.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:1144</code></p>
-</blockquote>
-<hr>
-<h2 id="testsupport-infrastructure">TestSupport Infrastructure</h2>
-<p>Shared test utilities in <code>testing/TestSupport/</code>:</p>
-<h3 id="common-test-doubles">Common Test Doubles</h3>
-<p>Located in <code>CommonTestDoubles.cs</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Class</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>RecordingNotifier</code></td>
-<td>Records error/success banner invocations</td>
-</tr>
-<tr>
-<td><code>RecordingOverlay</code></td>
-<td>Records progress overlay method calls</td>
-</tr>
-<tr>
-<td><code>InlineExecutor</code></td>
-<td>Runs actions inline (no async dispatch)</td>
-</tr>
-<tr>
-<td><code>InlineTransactionRunner</code></td>
-<td>Executes without Revit transactions</td>
-</tr>
-<tr>
-<td><code>InlineTransactionGroupService</code></td>
-<td>Executes without transaction groups</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/CommonTestDoubles.cs:15-339</code></p>
-</blockquote>
-<h3 id="test-host-integration">Test Host Integration</h3>
-<p><strong>RevitHost</strong> (<code>TestHost/RevitHost.cs</code>):</p>
-<ul>
-<li>Manages Revit context for async test execution</li>
-<li>Handles inline vs queued execution modes</li>
-<li>Integrates with <code>RevitTestTaskBinder</code></li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/TestHost/RevitHost.cs:12-109</code></p>
-</blockquote>
-<p><strong>RevitAmbientScope</strong> (<code>TestHost/RevitAmbientScope.cs</code>):</p>
-<ul>
-<li>Provides ambient UIApplication access during tests</li>
-</ul>
-<h3 id="test-path-resolution">Test Path Resolution</h3>
-<p><strong>TestPathResolver</strong> (<code>TestPathResolver.cs</code>):</p>
-<ul>
-<li>Resolves test model paths from <code>dbtools.testparams.json</code></li>
-<li>Walks up from assembly location to find <code>.artifacts/dbtools.testparams.json</code></li>
-<li>Falls back to <code>%APPDATA%/DBTools/dbtools.testparams.json</code> (legacy)</li>
-<li><code>invoke-revit-tests.sh</code> writes the canonical file to <code>.artifacts/</code> and mirrors it to
-<code>%APPDATA%/DBTools/</code> so RevitTest temp-assembly runs can still resolve models</li>
-</ul>
-<pre><code class="lang-csharp">// Get model path
-var path = TestPathResolver.ResolveTestModelPath(&quot;2026&quot;, &quot;GM&quot;, &quot;gm_test_model.rvt&quot;);
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/TestPathResolver.cs:10-66</code>
-<strong>Source:</strong> <code>invoke-revit-tests.sh:867-956</code></p>
-</blockquote>
-<h3 id="test-logging">Test Logging</h3>
-<p><strong>TestLoggingBridge</strong> (<code>TestLoggingBridge.cs</code>):</p>
-<ul>
-<li>Centralizes test logging setup</li>
-<li>Bridges to production logging when Revit is running</li>
-<li>Falls back to console mirroring in standalone mode</li>
-</ul>
-<pre><code class="lang-csharp">[OneTimeSetUp]
-public void GlobalSetup()
-{
-    TestLoggingBridge.Initialize();
-}
-
-[OneTimeTearDown]
-public void GlobalTeardown()
-{
-    TestLoggingBridge.Shutdown();
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/TestSupport/TestLoggingBridge.cs:14-143</code></p>
-</blockquote>
-<h3 id="tool-specific-test-doubles">Tool-Specific Test Doubles</h3>
-<p><strong>GM (<code>TestSupport/GM/</code>):</strong></p>
-<ul>
-<li><code>GmTestDataBuilder</code> - Builds test data for GM</li>
-<li><code>GmRealisticTestDoubles</code> - Production-like test doubles</li>
-<li><code>GmShellViewModelTestFactory</code> - Creates shell ViewModels for testing</li>
-</ul>
-<p><strong>SGT (<code>TestSupport/SGT/</code>):</strong></p>
-<ul>
-<li><code>SgtTestDataBuilder</code> - Builds test data for SGT</li>
-<li><code>SgtRealisticTestDoubles</code> - Production-like test doubles</li>
-<li><code>InMemorySgtUiStateStore</code> - In-memory UI state store</li>
-</ul>
-<hr>
-<h2 id="test-fixture-base-classes">Test Fixture Base Classes</h2>
-<h3 id="gmtestfixture">GmTestFixture</h3>
-<p>Base class for GM integration tests:</p>
-<pre><code class="lang-csharp">[NonParallelizable]
-public abstract class GmTestFixture
-{
-    protected UIApplication UiApp { get; private set; }
-    protected Document? Doc { get; private set; }
-    protected IRevitCallGate? Gate { get; private set; }
-    protected ITransactionRunner? TxRunner { get; private set; }
-
-    [OneTimeSetUp]
-    public virtual void GlobalSetup(UIApplication app)
-    {
-        // Opens gm_test_model.rvt
-        // Initializes call gate and transaction runner
-    }
-}
-</code></pre>
-<p>Features:</p>
-<ul>
-<li>Opens tool-specific test model automatically</li>
-<li>Provides <code>ResolveTypeIds()</code>, <code>ResolveStyleIds()</code>, <code>ResolveMaterialIds()</code> helpers</li>
-<li>Manages document lifecycle</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Common/GM/Tests/GMTestFixture.cs:14-128</code></p>
-</blockquote>
-<hr>
-<h2 id="test-models">Test Models</h2>
-<p>Located in <code>testing/RevitTestModels/</code>:</p>
-<pre><code>RevitTestModels/
-  model_info.txt
-  2024/
-    GM/gm_test_model.rvt
-    SGT/sgt_test_model.rvt
-    SGT/_LinkedModels/sgt_test_linked_model.rvt
-  2025/
-    GM/gm_test_model.rvt
-    SGT/sgt_test_model.rvt
-    SGT/_LinkedModels/sgt_test_linked_model.rvt
-  2026/
-    GM/gm_test_model.rvt
-    SGT/sgt_test_model.rvt
-    SGT/_LinkedModels/sgt_test_linked_model.rvt
-</code></pre>
-<p>Each year has its own model versions for forward compatibility testing.</p>
-<hr>
-<h2 id="configuration-files">Configuration Files</h2>
-<h3 id="runsettings">.runsettings</h3>
-<p><strong>Revit Tests:</strong> Generated at runtime by <code>invoke-revit-tests.sh</code>:</p>
-<pre><code class="lang-xml">&lt;RunSettings&gt;
-  &lt;NUnit&gt;
-    &lt;Version&gt;2026&lt;/Version&gt;
-    &lt;Language&gt;ENU&lt;/Language&gt;
-    &lt;Open&gt;true&lt;/Open&gt;
-    &lt;Close&gt;false&lt;/Close&gt;
-    &lt;Verbosity&gt;2&lt;/Verbosity&gt;
-    &lt;Timeout&gt;4&lt;/Timeout&gt;
-  &lt;/NUnit&gt;
-&lt;/RunSettings&gt;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:867-937</code></p>
-</blockquote>
-<p><strong>DA Tests:</strong> <code>testing/da.runsettings</code> for APS configuration.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>testing/da.runsettings:1-8</code></p>
-</blockquote>
-<h3 id="test-parameters-dbtoolstestparamsjson">Test Parameters (dbtools.testparams.json)</h3>
-<p>Written to <code>.artifacts/dbtools.testparams.json</code> and mirrored to
-<code>%APPDATA%/DBTools/dbtools.testparams.json</code> so both repo-local and temp-hosted RevitTest
-executions can resolve the same model root:</p>
-<pre><code class="lang-json">{
-  &quot;ModelsDirectory&quot;: &quot;C:\\...\\csharp\\testing\\RevitTestModels&quot;,
-  &quot;Year&quot;: 2026
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:939-956</code></p>
-</blockquote>
-<hr>
-<h2 id="build-integration">Build Integration</h2>
-<p>Tests depend on artifacts from <code>build.sh</code>:</p>
-<pre><code class="lang-bash"># Build all (required before running tests)
-bash build.sh BuildAll
-
-# Build tests specifically
-bash build.sh BuildTests
-</code></pre>
-<p>The test runner validates artifact freshness:</p>
-<ul>
-<li>Checks <code>.artifacts/metadata/build.json</code> for source fingerprint</li>
-<li>Fails if artifacts are stale relative to source</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>invoke-revit-tests.sh:733-841</code></p>
-</blockquote>
-<hr>
-<h2 id="guardrails-from-agentsmd">Guardrails (from AGENTS.md)</h2>
-<h3 id="prime-directive">Prime Directive</h3>
-<blockquote>
-<p>When a test fails, investigate and fix <strong>PRODUCTION CODE</strong> first. Do not change tests or infrastructure to simulate missing production behavior.</p>
-</blockquote>
-<h3 id="forbidden-test-patterns">Forbidden Test Patterns</h3>
-<ul>
-<li>Use test doubles only for TRUE externals (Revit API, filesystem, network)</li>
-<li>Never mock your own services/orchestrators</li>
-<li>Never assert only that mocks were called</li>
-<li>Every test must assert at least one real outcome</li>
-</ul>
-<h3 id="legitimate-vs-illegitimate-stubbing">Legitimate vs Illegitimate Stubbing</h3>
-<p><strong>Legitimate (external):</strong></p>
-<ul>
-<li>Revit API</li>
-<li>File system</li>
-<li>Network</li>
-<li>Time/Random</li>
-</ul>
-<p><strong>Illegitimate (your code):</strong></p>
-<ul>
-<li>Your own services</li>
-<li>Orchestrators/handlers</li>
-<li>Anything in <code>src/</code> you wrote</li>
-</ul>
-<hr>
-<h2 id="quick-reference">Quick Reference</h2>
-<table>
-<thead>
-<tr>
-<th>Task</th>
-<th>Command</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Run GM tests (smart mode)</td>
-<td><code>bash invoke-revit-tests.sh --smart --tool GM</code></td>
-</tr>
-<tr>
-<td>Run SGT tests for 2025</td>
-<td><code>bash invoke-revit-tests.sh --smart --tool SGT -y 2025</code></td>
-</tr>
-<tr>
-<td>Run single test</td>
-<td><code>bash invoke-revit-tests.sh --smart -f &quot;FullyQualifiedName~TestName&quot;</code></td>
-</tr>
-<tr>
-<td>Run headless artifact tests</td>
-<td><code>dotnet test testing/DBTools.BuildArtifacts.Tests/ -c Release</code></td>
-</tr>
-<tr>
-<td>Run DA tests</td>
-<td><code>dotnet test testing/DBTools.DA.Tests/ -c Release</code></td>
-</tr>
-<tr>
-<td>List all tests</td>
-<td><code>bash invoke-revit-tests.sh --discover</code></td>
-</tr>
-<tr>
-<td>Show failed tests</td>
-<td><code>bash invoke-revit-tests.sh --show-failed</code></td>
-</tr>
-<tr>
-<td>Build before tests</td>
-<td><code>bash build.sh BuildAll</code></td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="build-pipeline.html">Build Pipeline</a> - Build system and artifact generation</li>
-<li><a href="overview.html">Architecture Overview</a> - High-level system architecture</li>
-<li><a href="project-references.html">Project References</a> - Project structure and dependencies</li>
-</ul>
-<hr>
-<h2 id="verification-status">Verification Status</h2>
-<table>
-<thead>
-<tr>
-<th>Check</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Source anchors for all claims</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>UNVERIFIED markers where needed</td>
-<td>No (all verified)</td>
-</tr>
-<tr>
-<td>Cross-references added</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Examples tested</td>
-<td>N/A</td>
-</tr>
-<tr>
-<td>No assumptions without evidence</td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Verified by:</strong> docs-run-20260124-020412<br>
-<strong>Date:</strong> 2026-01-24</p>
+<p>Hosted fixtures release only their own runtime, Revit task, owner handle and
+window resources. Cleanup reports both the primary failure and any cleanup
+failure.</p>
+<h2 id="writing-tests">Writing tests</h2>
+<p>When a test fails, investigate the production code first. Use test doubles only
+for true external boundaries such as Revit, the file system, the network and
+the clock; do not replace DBTools services or orchestration to make an
+assertion pass. Each behavior test asserts a real outcome. Keep a fixture in its
+owner project and lane. A fixture with several independent checks records each
+failure, attempts safe cleanup and reports them together.</p>
+<p>The build and distribution suites read already-built product metadata and
+reject a stale source snapshot. Source, build and test changes alter the
+snapshot; documentation and transient artifacts do not.</p>
+<p>See <a href="build-pipeline.html">Build Pipeline</a>, <a href="assembly-loading.html">Assembly Loading Contract</a>
+and <a href="sandbox-validator.html">Sandbox Validator</a>.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/architecture/test-pipeline.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

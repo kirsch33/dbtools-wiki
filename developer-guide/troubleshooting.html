@@ -2,21 +2,21 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Troubleshooting Guide | DB Tools </title>
+      <title>Troubleshooting | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Troubleshooting Guide | DB Tools ">
+      <meta name="title" content="Troubleshooting | DB Tools ">
       
       
       <link rel="icon" href="../images/favicon.ico">
       <link rel="stylesheet" href="../public/docfx.min.css">
-      <link rel="stylesheet" href="../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../toc.html">
       <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/troubleshooting.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../public/main.js?v=20260125" defer></script>
+      <script src="../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,638 +87,320 @@
         </div>
 
         <article data-uid="">
-<h1 id="troubleshooting-guide">Troubleshooting Guide</h1>
+<h1 id="troubleshooting">Troubleshooting</h1>
 
-<p>This guide covers common issues encountered when building, running, and debugging DBTools.</p>
-<hr>
-<h2 id="build-issues">Build Issues</h2>
-<h3 id="msbuild-errors">MSBuild Errors</h3>
-<h4 id="error-dbt0001---build-must-be-run-through-buildsh">Error: <code>DBT0001</code> - Build must be run through build.sh</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>error DBT0001: Raw 'dotnet build' from CLI is not supported. Use bash build.sh instead.
+<p>This page lists common build, runtime and tool errors, and how to read the
+DBTools logs. For a reported failure, read the logs in
+<code>%APPDATA%\DBTools\Logs\</code> first.</p>
+<h2 id="build">Build</h2>
+<h3 id="choosing-a-build-command">Choosing a build command</h3>
+<p>Build one project or test project with plain MSBuild:</p>
+<pre><code class="lang-bash">dotnet build path/to/project.csproj -c Release
 </code></pre>
-<p><strong>Cause:</strong> The build system enforces that all builds go through the repository's build entrypoint to ensure proper configuration, vendored dependency staging, and multi-year target handling.</p>
-<p><strong>Solution:</strong> Always use the build script:</p>
-<pre><code class="lang-bash"># Standard incremental build
-bash build.sh
-
-# Clean and rebuild
-bash build.sh --clean
-
-# Build specific Revit year
-bash build.sh -y 2025 BuildAll
-
-# Build only the app
-bash build.sh BuildApp
+<p>This computes content versions, restores only the selected year and stages the
+project's runtime inputs. It does not validate or publish a distribution.
+<code>./build.sh BuildAll</code> builds, validates and publishes the complete
+distribution for every supported year, including the Dev Mode preflight and
+manifest checks. <code>BuildAll</code> compiles no tests; use <code>./build.sh BuildTests</code> or a
+selected-test target. See <a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
+<h3 id="python-3.10-or-later-is-required">Python 3.10 or later is required</h3>
+<pre><code class="lang-text">Python 3.10 or later is required. Install it with: sudo apt-get install python3
 </code></pre>
-<hr>
-<h4 id="error-windows-dotnetexe-not-found">Error: Windows dotnet.exe not found</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>Windows dotnet.exe not found at: /mnt/c/Program Files/dotnet/dotnet.exe
+<p>On Linux and WSL, <code>build/DotNet/sdk.sh</code> uses Python to verify and install the
+pinned SDK when the private SDK root is incomplete; <code>test.sh</code> also uses it for
+test discovery. Install Python and rerun the command:</p>
+<pre><code class="lang-bash">sudo apt-get update &amp;&amp; sudo apt-get install -y python3
+bash build/DotNet/sdk.sh
 </code></pre>
-<p><strong>Cause:</strong> The build script runs Windows <code>dotnet.exe</code> from WSL. The .NET SDK must be installed on the Windows host.</p>
-<p><strong>Solution:</strong></p>
-<ol>
-<li>Install .NET 8 SDK on Windows from <a href="https://dotnet.microsoft.com/download">dotnet.microsoft.com</a></li>
-<li>Verify installation: <code>&quot;/mnt/c/Program Files/dotnet/dotnet.exe&quot; --version</code></li>
-<li>If installed to a non-default location, set the path in <code>build.sh</code></li>
-</ol>
-<hr>
-<h3 id="missing-dependencies">Missing Dependencies</h3>
-<h4 id="vendored-ui-assemblies-missing">Vendored UI Assemblies Missing</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>Vendored UI assemblies missing under .artifacts/vendor; building them now...
+<p>On Windows, <code>build.ps1</code> installs and verifies the SDK without Python.</p>
+<h3 id="dbtoolsdaemon.protocol-package-missing-or-mismatched">DbToolsDaemon.Protocol package missing or mismatched</h3>
+<p><code>BuildAll</code> requires the <code>DbToolsDaemon.Protocol</code> package version pinned in
+<code>build/Distribution/protocol-package-lock.json</code>, with the SHA-256 recorded
+there. The Validation Runner loads the package after the build tasks verify it.
+If the package is missing or its bytes differ from the lock, obtain the pinned
+package and update the lock. <code>sourceKind</code> is <code>github-release</code> for a published
+release, or <code>local-candidate</code> for an approved local candidate with its
+<code>candidate-&lt;version&gt;</code> tag, daemon commit, and copies of the bundle README and
+<code>SHA256SUMS</code>. Do not point the build at a daemon checkout or bypass the check.</p>
+<p><code>BuildAll</code> does not need the daemon CLI or an installed Revit. The DIST suite
+and hosted Revit tests use the daemon CLI.</p>
+<h3 id="dev-mode-preflight-fails">Dev Mode preflight fails</h3>
+<p><code>ValidateDistributionCandidate</code> runs the Dev Mode policy on each year and prints:</p>
+<pre><code class="lang-text">Revit &lt;year&gt; Dev Mode preflight: &lt;n&gt; failures, &lt;m&gt; warnings; outcome=&lt;x&gt;
 </code></pre>
-<p>Or build failures referencing <code>DBTools.HandyControl</code>.</p>
-<p><strong>Cause:</strong> The vendored UI library (HandyControl) must be built with the <code>DBTools.*</code> namespace before the main build.</p>
-<p><strong>Solution:</strong></p>
-<pre><code class="lang-bash"># Automatic (build.sh runs this if needed)
-bash build.sh
-
-# Manual rebuild of vendored deps
-bash build-vendored-deps.sh
+<p>Both years must pass. A <code>CollectibleThreadStatic</code> warning counts as a failure.
+A failed policy, boundary, graph, identity or candidate-byte check needs a
+source fix and a new build.</p>
+<h3 id="handycontrol-output-missing">HandyControl output missing</h3>
+<p>A missing vendor import, resource or <code>DBTools.HandyControl</code> output means the
+<code>vendor/HandyControl</code> submodule is not initialized. <code>build.sh</code> and <code>build.ps1</code>
+initialize it automatically, which requires a Git checkout and network access:</p>
+<pre><code class="lang-bash">git submodule update --init --recursive vendor/HandyControl
+./build.sh BuildAll
 </code></pre>
-<p><strong>Expected output location:</strong> <code>.artifacts/vendor/</code></p>
-<ul>
-<li><code>handycontrol/net48/DBTools.HandyControl.dll</code></li>
-<li><code>handycontrol/net8.0-windows/DBTools.HandyControl.dll</code></li>
-</ul>
-<hr>
-<h4 id="assembly-load-failures">Assembly Load Failures</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>InvalidOperationException: Failed to load tool assembly 'DBTools.GM'.
+<p>The output is
+<code>.artifacts/vendor/&lt;Configuration&gt;/handycontrol/net10.0-windows/DBTools.HandyControl.dll</code>.</p>
+<h3 id="revit-backup-files-in-test-models">Revit backup files in test models</h3>
+<p>Revit writes backup copies (<code>*.0001.rvt</code>, <code>*.00001.rvt</code>) when it saves a model.
+Under <code>testing/RevitTestModels/</code> these files are ignored by Git. The build does
+not delete them; remove them by hand when you no longer need them.</p>
+<h2 id="runtime">Runtime</h2>
+<h3 id="tool-assembly-fails-to-load">Tool assembly fails to load</h3>
+<pre><code class="lang-text">InvalidOperationException: Failed to load tool assembly 'DBTools.GM' from the declared Tools path '&lt;path&gt;' in ALC rooted at 'DBTools'.
 </code></pre>
-<p><strong>Cause:</strong> With file-linking architecture, tool assemblies (GM, TDV, SGT, VTC) are compiled into <code>DBTools.dll</code>. This error indicates the main assembly wasn't built correctly.</p>
-<p><strong>Solution:</strong></p>
-<ol>
-<li>Run a clean build: <code>bash build.sh --clean</code></li>
-<li>Verify build output exists in <code>.artifacts/bin/</code></li>
-<li>Check that the Revit add-in is loading the correct version</li>
-</ol>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Tools/DbtToolAssemblyLoader.cs"><code>DbtToolAssemblyLoader.cs:10</code></a></p>
-<hr>
-<h4 id="revit-test-model-backup-files-0001rvt-00001rvt">Revit Test Model Backup Files (<code>*.0001.rvt</code>, <code>*.00001.rvt</code>)</h4>
-<p><strong>Symptom:</strong></p>
+<p>Related errors from <code>ToolAssemblyResolver</code>:</p>
 <ul>
-<li>Backup RVT files appear under <code>testing/RevitTestModels/</code> after saving test models in Revit.</li>
+<li><code>Tool assembly '&lt;name&gt;' was not found at the declared Tools path '&lt;path&gt;'.</code></li>
+<li><code>Tool assembly path '&lt;path&gt;' declares simple name '&lt;x&gt;', expected '&lt;name&gt;'.</code></li>
+<li><code>Tool assembly '&lt;name&gt;' is already loaded from '&lt;path&gt;', but the declared Tools path is '&lt;path&gt;'.</code></li>
 </ul>
-<p><strong>Cause:</strong></p>
+<p>App loads each tool from <code>Tools/&lt;name&gt;.dll</code> beside <code>DBTools.dll</code>. Check that
+the year directory has the complete product tree (see
+<a href="architecture/assembly-loading.html">Assembly Loading Contract</a>) and that the
+manifest's assembly name matches the file. Rebuild with <code>./build.sh BuildAll</code>.</p>
+<h3 id="assembly-already-loaded-during-dev-mode-reload">&quot;Assembly already loaded&quot; during Dev Mode reload</h3>
+<p>Revit shows a popup about an assembly that is already loaded during or after
+<code>BuildAll</code>, while the dbtools-daemon Dev Mode driver watches the distribution.
+Causes:</p>
 <ul>
-<li>Revit always writes backup copies when saving <code>.rvt</code> models.</li>
+<li>The driver watches the multi-year root <code>.artifacts/dist/Release</code> instead of
+one year directory.</li>
+<li>A reload starts while promotion replaces the files.</li>
+<li>DBTools code loaded or resolved a <code>DBTools.*</code> assembly or type outside the
+driver's collectible <code>AssemblyLoadContext</code> (for example through an
+<code>AppDomain</code>-wide scan or <code>Assembly.Load</code>), so the context cannot unload.</li>
 </ul>
-<p><strong>Current behavior (by design):</strong></p>
-<ol>
-<li>Backup-pattern RVTs under <code>testing/RevitTestModels/</code> are git-ignored.</li>
-<li>Build orchestration deletes these backup RVTs during cleanup phases.</li>
-</ol>
-<p><strong>Notes:</strong></p>
-<ul>
-<li>You do not need to manually keep these files out of commits.</li>
-<li>Cleanup runs during <code>PreBuildCleanup</code>, <code>FinalizeRepo</code>, and <code>EnsureCleanBuildServers</code>.</li>
-</ul>
-<p><strong>Source:</strong> <code>build/Build.cs:216</code><br>
-<strong>Source:</strong> <code>build/Build.cs:438</code><br>
-<strong>Source:</strong> <code>build/Build.cs:719</code><br>
-<strong>Source:</strong> <code>build/Build.cs:748</code><br>
-<strong>Source:</strong> <code>.gitignore:95</code></p>
-<hr>
-<h2 id="runtime-issues">Runtime Issues</h2>
-<h3 id="apploader-hot-reload-popup-assembly-already-loaded">AppLoader Hot-Reload Popup: &quot;Assembly already loaded&quot;</h3>
-<p><strong>Symptom:</strong></p>
-<ul>
-<li>Revit 2025/2026 shows a popup about an already-loaded assembly during or right after <code>BuildAll</code>.</li>
-<li>This is commonly triggered while AppLoader is watching the dist folder and files are being copied.</li>
-</ul>
-<p><strong>Likely causes:</strong></p>
-<ul>
-<li>AppLoader is watching a multi-year root (<code>.artifacts/dist/Release</code>) instead of a single-year folder.</li>
-<li>A reload is triggered while the output is being replaced (even with atomic per-file replacement, multiple file updates can still trigger reload attempts).</li>
-<li>Revit 2025+ (net8): DBTools code loaded or resolved a <code>DBTools.*</code> assembly/type outside AppLoader's collectible <code>AssemblyLoadContext</code> (e.g., process-wide <code>AppDomain</code> scans or <code>Assembly.Load(...)</code>), preventing full unload and causing AppLoader's reload to fail with &quot;already loaded&quot;.</li>
-</ul>
-<p><strong>Required setup:</strong></p>
-<ol>
-<li>Point AppLoader to one year folder only:
-<ul>
-<li><code>.artifacts/dist/Release/2025</code> or</li>
-<li><code>.artifacts/dist/Release/2026</code></li>
-</ul>
-</li>
-<li>Build only the running year while Revit is open:
-<ul>
-<li><code>bash build.sh -y 2026 BuildAll</code> (or <code>-y 2025</code>)</li>
-</ul>
-</li>
-<li>Use the repository build pipeline so dist promotion uses atomic file replacement semantics.</li>
-</ol>
-<p><strong>Notes:</strong></p>
-<ul>
-<li>Revit 2024 (<code>net48</code>) does not support unload/reload semantics (assemblies cannot be unloaded). DBTools can still be loaded via AppLoader for Revit 2024, but you must restart Revit to pick up a new build.</li>
-<li>Revit 2025+ (<code>net8</code>) is the supported hot-reload path.</li>
-</ul>
-<p><strong>Source:</strong> <code>build/Build.cs:555-599</code><br>
-<strong>Source:</strong> <code>build/ArtifactManagement.cs:50-76</code><br>
-<strong>Source:</strong> <code>build/BuildHelpers.cs:188-295</code><br>
-<strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:17</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtToolAssemblyLoader.cs:39</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtTypeResolver.cs:35</code><br>
-<strong>Source:</strong> <code>src/DBTools.App/Bootstrap/AppBootstrapper.cs:331</code></p>
-<h3 id="apploader-revit-2024-dbtools-doesnt-load--no-logs">AppLoader (Revit 2024): DBTools doesn't load / no logs</h3>
-<p><strong>Symptom:</strong></p>
-<ul>
-<li>AppLoader is installed and visible in Revit 2024, but DBTools never shows up (no ribbon buttons) and no DBTools logs are created.</li>
-</ul>
-<p><strong>Checklist:</strong></p>
-<ol>
-<li>Confirm AppLoader is pointing at a <strong>single-year</strong> folder (for Revit 2024: <code>.artifacts/dist/Release/2024</code>) and the application entry is enabled.</li>
-<li>Confirm AppLoader actually executed its load command in that session:
-<ul>
-<li>In the Revit journal, you should see an entry similar to <code>Execute external command ... CommandAddIn</code>.</li>
-<li>If that entry is missing, DBTools will not be loaded in that session.</li>
-</ul>
-</li>
-<li>If AppLoader did attempt to load DBTools but it still didn't start, check loader diagnostics (written only on loader exceptions):
-<ul>
-<li><code>%TEMP%\\DBTools.Loader.diag.log</code></li>
-<li><code>%APPDATA%\\DBTools\\Logs\\DBTools.Loader.diag.log</code></li>
-</ul>
-</li>
-<li>If Revit 2024 was already running during a rebuild/dist promotion: hot-reload is not supported on net48; restart Revit 2024 to pick up the new build.
-<ul>
-<li>For the dev/AppLoader loop, DBTools.Loader treats AppLoader net48 reload attempts as a no-op after a successful startup to avoid duplicate initialization errors.</li>
-</ul>
-</li>
-</ol>
-<p><strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:18</code><br>
-<strong>Source:</strong> <code>src/DBTools.Loader/Addin/AddinEntry.cs:38</code></p>
-<h3 id="theme-validation-failures">Theme Validation Failures</h3>
-<p>Theme validation runs at startup to catch XAML resource issues early. Failures here indicate broken theme dictionaries or missing resources.</p>
-<h4 id="theme-dictionary-merge-failed">Theme Dictionary Merge Failed</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>InvalidOperationException: Theme dictionary merge failed at 'pack://application:,,,/DBTools.Themes;component/Themes/App.Brushes.xaml'.
+<p>Point the driver directly at one year directory, <code>.artifacts/dist/Release/2026</code>
+or <code>.artifacts/dist/Release/2027</code>, never at a copy, and publish with
+<code>./build.sh BuildAll</code>. Promotion keeps each unchanged file as the same file
+(a hard link), so Windows Defender does not scan it again. A copied directory is
+a set of new files that Defender scans again, which can add tens of seconds to
+each Dev Mode inspection.</p>
+<p>The supported desktop years are Revit 2026.5 and later, and Revit 2027; the
+distribution and reference metadata use the year keys 2026 and 2027. A candidate
+for any other year is rejected; there is no fallback framework.</p>
+<h3 id="theme-validation">Theme validation</h3>
+<p>Startup validates the theme with <code>ThemeValidator.ValidateOrThrow</code>; a failure
+stops startup. In a Revit-hosted test run, read the daemon job's startup
+failure output instead of waiting for a dialog.</p>
+<h4 id="theme-dictionary-merge-failed">Theme dictionary merge failed</h4>
+<pre><code class="lang-text">InvalidOperationException: Theme dictionary merge failed at '/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml'.
 </code></pre>
-<p><strong>Cause:</strong> A XAML resource dictionary failed to load. Common causes:</p>
-<ul>
-<li>Missing assembly reference</li>
-<li>Broken StaticResource chain</li>
-<li>Syntax error in XAML</li>
-</ul>
-<p><strong>Solution:</strong></p>
-<ol>
-<li>Verify <code>DBTools.Themes.dll</code> exists alongside <code>DBTools.dll</code></li>
-<li>Check build output for XAML compilation errors</li>
-<li>If modifying themes, validate XAML syntax in Visual Studio</li>
-</ol>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:69</code></a></p>
-<hr>
-<h4 id="theme-resource-freeze-failed">Theme Resource Freeze Failed</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>InvalidOperationException: Theme resource freeze failed for key 'PrimaryBrush' in 'App.Brushes.xaml'.
+<p>A resource dictionary did not load: a missing assembly reference, a broken
+<code>StaticResource</code> chain or invalid XAML. Rebuild with <code>./build.sh BuildAll</code> and
+check that the year directory contains <code>DBTools.Presentation.dll</code> and
+<code>DBTools.HandyControl.dll</code> from the same build.</p>
+<h4 id="theme-resource-freeze-failed">Theme resource freeze failed</h4>
+<pre><code class="lang-text">InvalidOperationException: Theme resource freeze failed for key '&lt;key&gt;' in '&lt;source&gt;'.
 </code></pre>
-<p><strong>Cause:</strong> A Freezable resource (brush, geometry) could not be frozen. This typically indicates the resource has unresolved bindings or dynamic references.</p>
-<p><strong>Solution:</strong></p>
-<ol>
-<li>Check the resource definition in the XAML file</li>
-<li>Ensure all referenced colors/values are static</li>
-<li>Remove any bindings from Freezable resources</li>
-</ol>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:161</code></a></p>
-<hr>
-<h4 id="theme-contract-mismatch">Theme Contract Mismatch</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>InvalidOperationException: Theme merged dictionary contract mismatch: expected 9 dictionaries but found 8 in 'App.Theme.xaml'.
+<p>A <code>Freezable</code> resource (brush, geometry) cannot be frozen, usually because it
+has a binding or a dynamic reference. Make its values static.</p>
+<h4 id="theme-merged-dictionary-contract-mismatch">Theme merged dictionary contract mismatch</h4>
+<pre><code class="lang-text">InvalidOperationException: Theme merged dictionary contract mismatch: expected 9 dictionaries but found 8 in '&lt;root&gt;'.
+InvalidOperationException: Theme merged dictionary contract mismatch at index &lt;i&gt;: expected '&lt;uri&gt;' but found '&lt;uri&gt;'.
 </code></pre>
-<p><strong>Cause:</strong> The theme root dictionary doesn't match the expected structure. This catches accidental removal or reordering of theme dictionaries.</p>
-<p><strong>Expected merged dictionaries (in order):</strong></p>
-<ol>
-<li><code>DBTools.HandyControl/Themes/SkinDark.xaml</code></li>
-<li><code>DBTools.HandyControl/Themes/Theme.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.Tokens.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.Brushes.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.Converters.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.Controls.Base.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.DataGrid.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.Menus.xaml</code></li>
-<li><code>DBTools.Themes/Themes/App.Components.xaml</code></li>
-</ol>
-<p><strong>Solution:</strong> Ensure <code>App.Theme.xaml</code> contains all dictionaries in the correct order.</p>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Theming/DbtThemeValidator.cs"><code>DbtThemeValidator.cs:191</code></a></p>
-<hr>
-<h3 id="revit-api-errors">Revit API Errors</h3>
-<h4 id="revitcontextunavailableexception">RevitContextUnavailableException</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>RevitContextUnavailableException: No UIApplication in current gate scope.
+<p><code>Resources/Theme.xaml</code> must merge these dictionaries in this order:
+HandyControl <code>Themes/SkinDark.xaml</code>, HandyControl <code>Themes/Theme.xaml</code>, then
+<code>Tokens.xaml</code>, <code>Brushes.xaml</code>, <code>Converters.xaml</code>, <code>Controls.xaml</code>,
+<code>DataGrid.xaml</code>, <code>Menus.xaml</code> and <code>Components.xaml</code>. See
+<a href="architecture/theme-system.html#theme-dictionaries">Theme System</a>.</p>
+<h3 id="revit-api-context-errors">Revit API context errors</h3>
+<pre><code class="lang-text">ContextUnavailableException: No UIApplication in current gate scope.
+InvalidOperationException: ActiveUIDocument is null.
 </code></pre>
-<p>Or:</p>
-<pre><code>RevitContextUnavailableException: ActiveUIDocument is required but was not available.
+<p>Code used the Revit API outside a valid API context, for example from a
+modeless window without the call gate, after the document closed, or during
+shutdown. Run Revit API work through <code>IRevitCallGate.RunAsync</code>, check that a
+document is open, and handle cancellation when a document closes.</p>
+<h3 id="wpf-dispatcher-errors">WPF Dispatcher errors</h3>
+<pre><code class="lang-text">InvalidOperationException: No WPF Dispatcher is available (Application.Current is null and no Revit window dispatcher could be resolved).
+InvalidOperationException: WPF Dispatcher is shutting down.
 </code></pre>
-<p><strong>Cause:</strong> Code attempted to access Revit API objects outside of a valid Revit context. This happens when:</p>
-<ul>
-<li>A modeless window tries to access Revit without using the call gate</li>
-<li>An async operation continues after the document was closed</li>
-<li>Code runs during Revit shutdown</li>
-</ul>
-<p><strong>Solution:</strong></p>
-<ol>
-<li>Ensure Revit API calls are wrapped in <code>IRevitCallGate.RunAsync()</code></li>
-<li>Check for document availability before operations</li>
-<li>Handle cancellation when documents close</li>
-</ol>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Revit/Execution/RevitContextUnavailableException.cs"><code>RevitContextUnavailableException.cs:6</code></a></p>
-<hr>
-<h4 id="wpf-dispatcher-issues">WPF Dispatcher Issues</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>InvalidOperationException: No WPF Dispatcher is available (Application.Current is null and no Revit window dispatcher could be resolved).
+<p>UI work ran during early startup or late shutdown, when no dispatcher is
+available. Check for a dispatcher and for <code>Dispatcher.HasShutdownStarted</code>
+before UI work, and use <code>BeginInvoke</code> where the caller need not wait.</p>
+<h3 id="unhandled-ui-exception-from-a-window-command">Unhandled UI exception from a window command</h3>
+<p>A WPF command that calls <code>ISafeExecutor.RunAsync</code> and lets the exception
+propagate into an <code>AsyncRelayCommand</code> raises a Dispatcher unhandled exception,
+which the Dev Mode driver host can also show. In window commands, use
+<code>ISafeExecutor.RunWithoutThrowingAsync</code>: it logs and notifies but does not
+rethrow. Use <code>RunAsync</code> where the caller must receive the exception.</p>
+<h3 id="xamlparseexception-on-a-read-only-binding">XamlParseException on a read-only binding</h3>
+<pre><code class="lang-text">System.Windows.Markup.XamlParseException: A TwoWay or OneWayToSource binding cannot work on the read-only property '&lt;name&gt;' ...
 </code></pre>
-<p>Or:</p>
-<pre><code>InvalidOperationException: WPF Dispatcher is shutting down.
-</code></pre>
-<p><strong>Cause:</strong> WPF UI operations attempted when no dispatcher is available, typically during early startup or late shutdown.</p>
-<p><strong>Solution:</strong></p>
-<ol>
-<li>Use <code>WpfUiThread.TryGetDispatcher()</code> and check for null</li>
-<li>Check <code>dispatcher.HasShutdownStarted</code> before operations</li>
-<li>Use <code>BeginInvoke</code> instead of <code>Invoke</code> for non-blocking operations</li>
-</ol>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/UI/Windows/WpfUiThread.cs"><code>WpfUiThread.cs:21</code></a></p>
-<hr>
-<h2 id="tool-specific-issues">Tool-Specific Issues</h2>
-<h3 id="generic-model-tool-gm">Generic Model Tool (GM)</h3>
-<h4 id="gmkernelbuildexception">GmKernelBuildException</h4>
+<p><code>Run.Text</code> binds <code>TwoWay</code> by default. Binding it to a get-only property fails
+when the window loads. Set <code>Mode=OneWay</code>, or bind a <code>TextBlock.Text</code> instead.
+Raw VTC XAML uses <code>OneTime</code> bindings for immutable record values.</p>
+<h3 id="contextual-ribbon-layout-changes">Contextual ribbon layout changes</h3>
+<p>A contextual ribbon injector that modifies Revit's contextual tabs eagerly (for
+example the Multi-Select tab) or inserts at index 0 shifts the native buttons.
+Inject only when the selection contains matching elements, append panels and
+buttons with <code>Add</code>, and remove them when the selection no longer matches. Core's
+<code>ContextualRibbonInjector</code> follows these rules.</p>
+<h3 id="other-startup-and-manifest-errors">Other startup and manifest errors</h3>
 <table>
 <thead>
 <tr>
-<th>Error Code</th>
 <th>Message</th>
-<th>Solution</th>
+<th>Cause</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>1001</code></td>
-<td>Failed to resolve family or type names</td>
-<td>Check that all referenced families exist in the project</td>
+<td><code>AppRuntime not initialized.</code></td>
+<td>Code ran before App startup completed or after shutdown</td>
 </tr>
 <tr>
-<td><code>1003</code></td>
-<td>Shared parameter deserialization failed</td>
-<td>Check shared parameter file integrity</td>
+<td><code>Manifest '&lt;id&gt;' is missing required 'panel' field.</code> (and other <code>missing required</code> messages)</td>
+<td>Invalid <code>manifest.yml</code></td>
 </tr>
 <tr>
-<td><code>1004</code></td>
-<td>Usage data collection failed</td>
-<td>Ensure document is fully loaded before scanning</td>
+<td><code>Tool module type '&lt;type&gt;' not found in assembly '&lt;assembly&gt;'.</code></td>
+<td>The manifest module type or assembly name is wrong</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Source:</strong> <a href="../../../src/Tools/Common/GM/Domain/KernelExceptions.cs"><code>KernelExceptions.cs:6</code></a></p>
-<hr>
-<h4 id="gminvalidmappingexception">GmInvalidMappingException</h4>
+<h2 id="tools">Tools</h2>
+<h3 id="transfer-drafting-views-tdv">Transfer Drafting Views (TDV)</h3>
+<p><code>TransferException</code> carries a <code>TransferErrorCode</code>:</p>
 <table>
 <thead>
 <tr>
-<th>Error Code</th>
-<th>Message</th>
-<th>Solution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>2001</code></td>
-<td>Operation metadata missing</td>
-<td>Ensure mapping configuration is complete</td>
-</tr>
-<tr>
-<td><code>2002</code></td>
-<td>Target type creation failed</td>
-<td>Check family loading and type creation permissions</td>
-</tr>
-<tr>
-<td><code>2003</code></td>
-<td>Shared parameter bind failed</td>
-<td>Verify parameter definitions exist</td>
-</tr>
-<tr>
-<td><code>2004</code></td>
-<td>Shared parameter embed failed</td>
-<td>Check parameter embedding permissions</td>
-</tr>
-<tr>
-<td><code>2005</code></td>
-<td>Replacement operation failed</td>
-<td>Validate replacement targets exist</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h4 id="gmsnapshotloadexception">GmSnapshotLoadException</h4>
-<table>
-<thead>
-<tr>
-<th>Error Code</th>
-<th>Message</th>
-<th>Solution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>4001</code></td>
-<td>Snapshot deserialization failed</td>
-<td>Re-export snapshot; file may be corrupt</td>
-</tr>
-<tr>
-<td><code>4002</code></td>
-<td>Snapshot checksum mismatch</td>
-<td>Re-export snapshot; data integrity issue</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h3 id="transfer-drafting-views-tool-tdv">Transfer Drafting Views Tool (TDV)</h3>
-<table>
-<thead>
-<tr>
-<th>Error Code</th>
-<th>Message</th>
-<th>Solution</th>
+<th>Code</th>
+<th>Meaning</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>DestinationTypeMissing</code></td>
-<td>Destination view type not found</td>
-<td>Create matching view type in destination</td>
+<td>The destination has no matching drafting view type</td>
+<td>Create the view type in the destination</td>
 </tr>
 <tr>
 <td><code>SourceTypeNameUnavailable</code></td>
-<td>Source view type name not available</td>
-<td>Check source view is a valid drafting view</td>
+<td>The source view type name cannot be read</td>
+<td>Check that the source is a valid drafting view</td>
 </tr>
 <tr>
 <td><code>CreateViewFailed</code></td>
-<td>Failed to create destination view</td>
-<td>Verify write permissions and view limits</td>
+<td>The destination view could not be created</td>
+<td>Check write access and view limits</td>
 </tr>
 <tr>
 <td><code>CopyElementsFailed</code></td>
-<td>Failed to copy view elements</td>
-<td>Check element validity and target view</td>
+<td>The view elements could not be copied</td>
+<td>Check the elements and the target view</td>
 </tr>
 <tr>
 <td><code>OverridesFailed</code></td>
-<td>Failed to copy view overrides</td>
-<td>Some overrides may not be transferable</td>
+<td>The view overrides could not be copied</td>
+<td>Some overrides cannot be transferred</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Source:</strong> <a href="../../../src/Tools/Common/TDV/Contracts/TdvPerViewErrorCode.cs"><code>TdvPerViewErrorCode.cs:3</code></a></p>
-<hr>
-<h3 id="view-template-comparer-vtc">View Template Comparer (VTC)</h3>
-<h4 id="vtc-body-template-resource-not-found">VTC Body Template Resource Not Found</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>System.IO.IOException: Cannot locate resource 'ui/resources/vtcbodytemplates.xaml'.
+<h3 id="view-template-comparer-vtc-raw-xaml-resource-not-found">View Template Comparer (VTC): raw XAML resource not found</h3>
+<pre><code class="lang-text">System.IO.FileNotFoundException: Embedded tool XAML resource 'DBTools.ToolViews.VTC.AlertBodyTemplates.xaml' was not found.
 </code></pre>
-<p><strong>Cause:</strong> VTC body templates are loaded through a <code>pack://application</code> URI, but tool XAML is file-linked into <code>DBTools.dll</code> under <code>Tools/...</code> paths. Using <code>UI/Resources/...</code> fails to resolve the compiled BAML resource.</p>
-<p><strong>Solution:</strong> Ensure VTC template registration points to:
-<code>pack://application:,,,/{assembly};component/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml</code></p>
-<p><strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/Features/VtcCommandHandler.cs"><code>VtcCommandHandler.cs:132</code></a><br>
-<strong>Source:</strong> <a href="../../../src/DBTools.App/DBTools.App.csproj"><code>DBTools.App.csproj:69</code></a></p>
-<h4 id="vtc-process-crash-read-only-binding-in-process-dialog">VTC Process Crash: Read-Only Binding in Process Dialog</h4>
-<p><strong>Symptom:</strong></p>
-<pre><code>System.Windows.Markup.XamlParseException: A TwoWay or OneWayToSource binding cannot work on the read-only property 'SelectionCount' ...
+<p>The VTC alert body templates are an <code>EmbeddedResource</code> with the logical name
+<code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code>, read with
+<code>ToolWindowXaml.ReadEmbeddedResource</code>. Check the item and its <code>LogicalName</code> in
+<code>DBTools.VTC.csproj</code>. The shared VTC dictionaries are in
+<code>src/DBTools.Presentation/Tools/VTC</code>.</p>
+<h2 id="logs">Logs</h2>
+<h3 id="log-files">Log files</h3>
+<p>Logs are written to <code>%APPDATA%\DBTools\Logs\</code>. File names use Eastern time:</p>
+<pre><code class="lang-text">dbtools-&lt;RevitYear&gt;-&lt;InstanceId&gt;-&lt;Timestamp&gt;-&lt;Nonce&gt;.log
+dbtools-&lt;RevitYear&gt;-&lt;InstanceId&gt;-&lt;Timestamp&gt;-&lt;Nonce&gt;-manual-&lt;ManualTimestamp&gt;.log
 </code></pre>
-<p><strong>Cause:</strong> Process dialog counter <code>Run.Text</code> bindings targeted read-only VM properties (<code>SelectionCount</code>, <code>PendingOverrideCount</code>) without explicit OneWay mode, allowing WPF to attempt an invalid source update path.</p>
-<p><strong>Solution:</strong> Bind read-only Process counters explicitly with <code>Mode=OneWay</code>.</p>
-<p><strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/UI/ViewModels/VtcProcessDialogBodyViewModel.cs"><code>VtcProcessDialogBodyViewModel.cs:37</code></a><br>
-<strong>Source:</strong> <a href="../../../src/Tools/Testing/VTC/UI/Resources/VtcBodyTemplates.xaml"><code>VtcBodyTemplates.xaml:354</code></a></p>
-<hr>
-<h2 id="debugging">Debugging</h2>
-<h3 id="enabling-debug-mode">Enabling Debug Mode</h3>
-<p>Debug mode provides detailed logging and surfaces the logger window on errors.</p>
-<p><strong>Methods to enable:</strong></p>
-<ol>
-<li><strong>Programmatically:</strong> <code>debugModeService.SetEnabled(true)</code></li>
-<li><strong>On error:</strong> Debug mode auto-enables when <code>ISafeExecutor</code> catches an exception</li>
-<li><strong>Via Logger Window:</strong> Toggle the debug checkbox in the logger window toolbar</li>
-</ol>
-<p><strong>Effects of debug mode:</strong></p>
+<p>The second form is written after <strong>Start New Log File</strong> in the logger window.
+Example: <code>dbtools-2026-ABC123-20260124-143022345-a1b2c3d4.log</code>.</p>
+<p>Startup cleans up old files: at most 50 files across all instances, at most 14
+days old, and at most 100 MB in total while more than one file remains (the
+newest file is kept even if it alone is larger).</p>
+<p>Failures that occur before logging starts are written to
+<code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code>.</p>
+<h3 id="debug-mode">Debug mode</h3>
+<p>Debug mode lowers the minimum log level from <code>Information</code> to <code>Debug</code>, shows
+the logger window and flushes the log buffer every 120 ms instead of 600 ms.
+It is off at every startup and is not saved. It turns on when:</p>
 <ul>
-<li>Log level changes from <code>Information</code> to <code>Debug</code></li>
-<li>Logger window becomes visible</li>
-<li>Hook execution start/completion lines for high-frequency background hooks are suppressed</li>
-<li>Diagnostic output is summarized at <code>Debug</code>, with deep probe/transaction detail moved to <code>Trace</code></li>
-<li>More detailed stack traces in logs</li>
-<li>Faster log buffer flush (120ms vs 600ms)</li>
+<li>you enable it in the Settings window or open the logger window;</li>
+<li>an <code>Error</code>-level entry is logged and the logger window can be shown. An error
+logged before the Revit main window exists opens the window once deferred
+startup can show it.</li>
 </ul>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:460</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtHookHost.cs:153</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Revit/UI/ContextualRibbonInjectorBase.cs:293</code><br>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:152</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</code></p>
-<hr>
-<h3 id="log-file-locations">Log File Locations</h3>
-<p>Log files are written to the user's local app data directory:</p>
-<pre><code>%LOCALAPPDATA%\DBTools\Logs\
+<p>Closing the logger window turns debug mode off.</p>
+<h3 id="logger-window">Logger window</h3>
+<p>The title is <code>DB Tools Log - Revit &lt;Year&gt; [&lt;InstanceId&gt;]</code>. The window is a
+modeless utility window. The logger host applies pin mode changes centrally:
+a change that keeps the owner mode only updates <code>Topmost</code>, and a change of
+owner mode closes and recreates the window. Code must not change the owner of
+the live window directly. The window provides:</p>
+<ul>
+<li>level filters for <code>INFO</code>, <code>WARN</code>, <code>ERROR</code> and <code>DEBUG</code>, and a text search;</li>
+<li><strong>Copy All</strong> and <strong>Export</strong>, which save every retained entry in arrival
+order regardless of the filters. Export writes
+<code>DBToolsLog_&lt;yyyyMMdd_hhmmss&gt;&lt;AM|PM&gt;.txt</code>;</li>
+<li>auto-scroll, which follows new entries. Scrolling up pauses it until you
+scroll back to the bottom or until a new entry arrives after 15 s idle;
+turning it off keeps it off;</li>
+<li><strong>Start New Log File</strong> (in the danger menu), which starts a new file, clears
+the window and logs a confirmation with the same instance ID. If closing the
+previous file fails, the new file stays active and a warning is logged.</li>
+</ul>
+<h3 id="correlation-ids-and-execution-phases">Correlation IDs and execution phases</h3>
+<p><code>ISafeExecutor</code> gives every operation a GUID correlation ID and logs its phases:</p>
+<pre><code class="lang-text">[Start] GM Apply starting (CorrelationId=...)
+[Complete] GM Apply completed in 1234ms (CorrelationId=...)
 </code></pre>
-<p><strong>Log file naming pattern:</strong></p>
-<pre><code>dbtools-{RevitYear}-{InstanceId}-{Timestamp}-{Nonce}.log
-</code></pre>
-<p>Example: <code>dbtools-2025-ABC123-20260124-143022345-a1b2c3d4.log</code></p>
-<p>When the logger window's <strong>Start New Log File</strong> action is used, a manual suffix is appended:</p>
-<pre><code>dbtools-{RevitYear}-{InstanceId}-{Timestamp}-{Nonce}-manual-{ManualTimestamp}.log
-</code></pre>
-<p>Example: <code>dbtools-2025-ABC123-20260206-123412845-a1b2c3d4-manual-20260206-123412pm.log</code></p>
-<p><strong>Log retention policy:</strong></p>
-<ul>
-<li>Maximum 50 files across all instances</li>
-<li>Maximum 14 days retention</li>
-<li>Maximum 100 MB total size</li>
-<li>Automatic cleanup on startup</li>
-</ul>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Logging/Features/LoggingConstants.cs"><code>LoggingConstants.cs:120</code></a>, <a href="../../../src/DBTools.Core/Logging/Features/DbtLoggingHost.cs"><code>DbtLoggingHost.cs:111</code></a>, <a href="../../../src/DBTools.Core/Logging/Features/DbtLoggingHost.cs"><code>DbtLoggingHost.cs:150</code></a></p>
-<hr>
-<h3 id="using-the-logger-window">Using the Logger Window</h3>
-<p>The logger window provides real-time log viewing with filtering capabilities.</p>
-<p><strong>Features:</strong></p>
-<ul>
-<li><strong>Level filtering:</strong> Toggle INFO, WARN, ERROR, DEBUG visibility</li>
-<li><strong>Search:</strong> Filter logs by text content</li>
-<li><strong>Export:</strong> Save filtered logs to a file</li>
-<li><strong>Auto-scroll:</strong> Automatically scroll to new entries</li>
-<li><strong>Correlation IDs:</strong> Track related log entries across operations</li>
-<li><strong>Start New Log File:</strong> Danger-menu action that switches file logging to a new file, clears the logger UI, and posts a single confirmation entry while keeping the same instance ID/session context</li>
-</ul>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Logging/Shell/LoggerWindow.xaml"><code>LoggerWindow.xaml:360</code></a>, <a href="../../../src/DBTools.Core/Logging/Shell/LoggerWindowViewModel.cs"><code>LoggerWindowViewModel.cs:561</code></a>, <a href="../../../src/DBTools.Core/Logging/Features/DbtLoggingHost.cs"><code>DbtLoggingHost.cs:156</code></a></p>
-<p><strong>Window title format:</strong></p>
-<pre><code>DB Tools Log - Revit {Year} [{InstanceId}]
-</code></pre>
-<p><strong>Opening the logger window:</strong></p>
-<ul>
-<li>Automatically opens when debug mode is enabled</li>
-<li>Automatically opens when an unhandled error occurs</li>
-<li>Can be opened via tools menu (if available)</li>
-</ul>
-<hr>
-<h3 id="understanding-correlation-ids">Understanding Correlation IDs</h3>
-<p>Every operation executed through <code>ISafeExecutor</code> is assigned a correlation ID (GUID). This ID appears in all related log entries:</p>
-<pre><code>[Start] GM Apply starting (CorrelationId=abc123...)
-... operation logs ...
-[Complete] GM Apply completed in 1234ms (CorrelationId=abc123...)
-</code></pre>
-<p>Use the correlation ID to:</p>
-<ul>
-<li>Filter related log entries</li>
-<li>Track operation duration</li>
-<li>Correlate errors with their triggering operations</li>
-</ul>
-<hr>
-<h2 id="common-error-messages">Common Error Messages</h2>
-<h3 id="quick-reference-table">Quick Reference Table</h3>
-<table>
-<thead>
-<tr>
-<th>Error Message</th>
-<th>Category</th>
-<th>Solution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DBT0001: Raw 'dotnet build' not supported</code></td>
-<td>Build</td>
-<td>Use <code>bash build.sh</code></td>
-</tr>
-<tr>
-<td><code>Theme dictionary merge failed</code></td>
-<td>Theme</td>
-<td>Rebuild themes, check XAML syntax</td>
-</tr>
-<tr>
-<td><code>Theme resource freeze failed</code></td>
-<td>Theme</td>
-<td>Remove bindings from Freezable resources</td>
-</tr>
-<tr>
-<td><code>Failed to load tool assembly</code></td>
-<td>Assembly</td>
-<td>Clean rebuild: <code>build.sh --clean</code></td>
-</tr>
-<tr>
-<td><code>No UIApplication in current gate scope</code></td>
-<td>Revit API</td>
-<td>Wrap calls in <code>IRevitCallGate.RunAsync()</code></td>
-</tr>
-<tr>
-<td><code>ActiveUIDocument is required</code></td>
-<td>Revit API</td>
-<td>Check document is open before operations</td>
-</tr>
-<tr>
-<td><code>WPF Dispatcher is shutting down</code></td>
-<td>UI</td>
-<td>Check dispatcher state before UI operations</td>
-</tr>
-<tr>
-<td><code>AppRuntime not initialized</code></td>
-<td>Runtime</td>
-<td>Ensure add-in is fully loaded</td>
-</tr>
-<tr>
-<td><code>Manifest missing required field</code></td>
-<td>Manifest</td>
-<td>Check tool manifest YAML syntax</td>
-</tr>
-<tr>
-<td><code>Tool module type not found</code></td>
-<td>Assembly</td>
-<td>Verify assembly name in manifest</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h3 id="contextual-ribbon-layout-shifts-buttonspanels-move">Contextual Ribbon Layout Shifts (buttons/panels move)</h3>
-<p><strong>Symptom:</strong></p>
-<ul>
-<li>A Revit contextual modify tab layout changes unexpectedly while using DBTools (e.g., native actions appear “shifted”).</li>
-</ul>
-<p><strong>Cause:</strong></p>
-<ul>
-<li>A contextual ribbon injector can mutate Revit’s contextual tabs even when the current selection does not contain tool-owned elements (for example, injecting into “Multi-Select” tabs eagerly and/or inserting panels/buttons at index <code>0</code>).</li>
-</ul>
-<p><strong>Fix:</strong></p>
-<ul>
-<li>Inject lazily (only when the selection contains matching elements).</li>
-<li>Append panels/buttons (use <code>Add</code>) rather than forcing index-<code>0</code> insertion.</li>
-<li>Remove injected panels when the selection no longer matches.</li>
-</ul>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/UI/ContextualRibbonInjectorBase.cs:335</code><br>
-<strong>Source:</strong> <code>src/Tools/Testing/ERFT/Features/Commands/ErftContextualRibbonInjector.cs:194</code></p>
-<h3 id="isafeexecutor-error-phases">ISafeExecutor Error Phases</h3>
-<p>All tool entrypoints run through <code>ISafeExecutor</code>, which logs structured execution phases:</p>
 <table>
 <thead>
 <tr>
 <th>Phase</th>
-<th>Log Level</th>
+<th>Level</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>[Start]</code></td>
-<td>Info</td>
-<td>Operation beginning</td>
+<td>Information</td>
+<td>The operation started</td>
 </tr>
 <tr>
 <td><code>[Complete]</code></td>
-<td>Info</td>
-<td>Operation finished successfully</td>
+<td>Information</td>
+<td>The operation finished</td>
 </tr>
 <tr>
 <td><code>[Cancel]</code></td>
 <td>Warning</td>
-<td>Operation was cancelled</td>
+<td>The operation was cancelled</td>
 </tr>
 <tr>
 <td><code>[Error]</code></td>
 <td>Error</td>
-<td>Operation failed with exception</td>
+<td>The operation failed</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Source:</strong> <a href="../../../src/DBTools.Core/Execution/SafeExecutor.cs"><code>SafeExecutor.cs:12</code></a></p>
-<h3 id="wpf-unhandled-ui-exception--apploader-popups">WPF &quot;Unhandled UI exception&quot; / AppLoader popups</h3>
-<p>If a WPF window command uses <code>ISafeExecutor.RunAsync(...)</code> and then rethrows into an <code>AsyncRelayCommand</code>, the exception can surface as a WPF Dispatcher unhandled exception (and may be shown by external loaders/hot-reload hosts).</p>
-<p><strong>Fix (WPF commands):</strong> set <code>SafeExecuteOptions.ThrowOnError = false</code> (and optionally <code>ThrowOnCancel = false</code>) so <code>ISafeExecutor</code> logs + notifies, but does not rethrow into the Dispatcher.</p>
-<p><strong>Also watch for XAML binding defaults:</strong> WPF <code>Run.Text</code> bindings can default to <strong>TwoWay</strong>. If a <code>Run.Text=&quot;{Binding SomeReadOnlyProperty}&quot;</code> binds to a get-only property, the window can fail to load with a <code>XamlParseException</code> on the Revit UI thread.</p>
-<p><strong>Fix (XAML):</strong> avoid <code>Run.Text</code> bindings for read-only properties, or explicitly set <code>Mode=OneWay</code> / bind via a <code>TextBlock.Text</code> <code>MultiBinding</code> instead.</p>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Execution/SafeExecutor.cs:612</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Notifications/Shell/NotificationBannerWindow.xaml:1</code></p>
-<hr>
-<h2 id="getting-help">Getting Help</h2>
-<h3 id="diagnostic-information-to-collect">Diagnostic Information to Collect</h3>
-<p>When reporting issues, gather:</p>
+<p>Search for the correlation ID to find every entry of one operation and its
+duration.</p>
+<h2 id="reporting-a-problem">Reporting a problem</h2>
+<p>Include:</p>
 <ol>
-<li><strong>Log file</strong> from <code>%APPDATA%\\DBTools\\Logs\\</code></li>
-<li><strong>Revit version</strong> (year and build number)</li>
-<li><strong>DBTools version</strong> (from add-in manifest)</li>
-<li><strong>Correlation ID</strong> from the error log</li>
-<li><strong>Steps to reproduce</strong> the issue</li>
-<li><strong>Screenshot</strong> of any error dialogs</li>
+<li>the log file from <code>%APPDATA%\DBTools\Logs\</code>, or a logger window export;</li>
+<li>the Revit version (year and build number);</li>
+<li>the DBTools version;</li>
+<li>the correlation ID of the failed operation;</li>
+<li>the steps to reproduce;</li>
+<li>a screenshot of any error dialog.</li>
 </ol>
-<h3 id="log-export">Log Export</h3>
-<p>Use the logger window's export feature to save filtered logs:</p>
-<ol>
-<li>Open logger window (enable debug mode if needed)</li>
-<li>Apply any relevant filters</li>
-<li>Click Export button</li>
-<li>Save to file with timestamp</li>
-</ol>
-<p>Export filename pattern: <code>DBToolsLog_{Timestamp}.txt</code></p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/troubleshooting.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

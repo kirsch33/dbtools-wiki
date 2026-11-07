@@ -2,21 +2,21 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Joist Girder Weight Tool | DB Tools </title>
+      <title>Joist Girder Weight | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Joist Girder Weight Tool | DB Tools ">
+      <meta name="title" content="Joist Girder Weight | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/joist-girder-weight.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../../public/main.js?v=20260125" defer></script>
+      <script src="../../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,437 +87,234 @@
         </div>
 
         <article data-uid="">
-<h1 id="joist-girder-weight-tool">Joist Girder Weight Tool</h1>
+<h1 id="joist-girder-weight">Joist Girder Weight</h1>
 
-<p>Automatically estimates and updates weight parameters for joist girder elements in Revit structural models.</p>
-<h2 id="overview">Overview</h2>
-<p>The Joist Girder Weight tool provides automated weight estimation for steel joist girders using moment-based structural engineering calculations. It calculates weight per linear foot based on the number of joists, point loads, span length, and girder depth, then writes the result to the element's <code>Wt</code> parameter.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightCalculator.cs:9-74</code></p>
-</blockquote>
-<p>The tool operates in two modes:</p>
-<ol>
-<li><strong>Manual</strong> - User-initiated command via ribbon button</li>
-<li><strong>Automatic</strong> - Triggered on view activation when auto-update is enabled</li>
-</ol>
-<h2 id="features">Features</h2>
-<h3 id="weight-calculation">Weight Calculation</h3>
-<p>The calculator uses moment-based weight estimation derived from structural engineering principles:</p>
-<ol>
-<li><strong>Panel Spacing Calculation</strong> - Girder length divided by number of joists</li>
-<li><strong>Maximum Moment Calculation</strong> - Based on total reaction and span, with adjustments for even/odd panel counts</li>
-<li><strong>Section Modulus Estimation</strong> - Uses engineering constants for chord and web member sizing</li>
-<li><strong>Weight Aggregation</strong> - Combines top chord, bottom chord, and web weights</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightCalculator.cs:20-74</code></p>
-</blockquote>
-<h4 id="engineering-constants">Engineering Constants</h4>
-<p>The calculation employs the following constants:</p>
-<table>
-<thead>
-<tr>
-<th>Constant</th>
-<th>Value</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Allowable Stress</td>
-<td>50.0 ksi</td>
-<td>Design stress limit</td>
-</tr>
-<tr>
-<td>Section Modulus Factor</td>
-<td>0.28356</td>
-<td>Geometric section factor</td>
-</tr>
-<tr>
-<td>Depth Efficiency Factor</td>
-<td>0.95</td>
-<td>Effective depth ratio</td>
-</tr>
-<tr>
-<td>Top Chord Factor</td>
-<td>1.06</td>
-<td>Top chord sizing multiplier</td>
-</tr>
-<tr>
-<td>Bottom Chord Factor</td>
-<td>1.13</td>
-<td>Bottom chord sizing multiplier</td>
-</tr>
-<tr>
-<td>Web Member Factor</td>
-<td>0.7</td>
-<td>Web element sizing multiplier</td>
-</tr>
-<tr>
-<td>Connection Factor</td>
-<td>0.6</td>
-<td>Joint efficiency factor</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightCalculator.cs:51-58</code></p>
-</blockquote>
-<h3 id="multi-parameter-support">Multi-Parameter Support</h3>
-<p>The estimator supports:</p>
-<ol>
-<li>fixed aliases for joist count/length/depth inputs, and</li>
-<li>settings-driven regex matching for load parameter names.</li>
-</ol>
-<p>Default load regex pattern:</p>
-<pre><code class="lang-regex">^(?:Panel Point Load|(?:Dead|Live) Load(?: - User Defined)?)$
+<p>Joist Girder Weight estimates pounds per linear foot and writes the result to a writable Double parameter named <code>Wt</code>.
+It scans structural framing in the active document. The ribbon command runs manually.
+A view-activation task runs automatically when enabled.</p>
+<h2 id="inputs">Inputs</h2>
+<p>The configured regex tests the family name. It tests the type name only when the family name is blank.
+The default family pattern is:</p>
+<pre><code class="lang-regex">^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
 </code></pre>
-<p>This matches: <code>Panel Point Load</code>, <code>Dead Load</code>, <code>Dead Load - User Defined</code>, <code>Live Load</code>, <code>Live Load - User Defined</code>.</p>
-<p>When multiple parameters match:</p>
-<ul>
-<li>one populated <code>Point Load</code> / <code>Panel Point Load</code> / <code>Total Load</code> value is treated as authoritative</li>
-<li>otherwise, one <code>Dead Load</code> plus one <code>Live Load</code> are summed</li>
-<li>multiple populated parameters within the same classifier group are rejected as ambiguous</li>
-</ul>
-<p>Instance parameters take priority over type parameters for same-named params to avoid double-counting.</p>
-<p>Point load values are normalized to <strong>kips</strong> before calculation:</p>
-<ul>
-<li>Force-typed parameters (<code>SpecTypeId.Force</code>) are converted from internal units to <code>UnitTypeId.Kips</code></li>
-<li>Unitless numeric parameters are treated as kips</li>
-<li>Text parameters are parsed as kips and may include units like <code>10 kips</code>, <code>10000 lb</code>, or <code>45 kN</code></li>
-</ul>
+<p>It matches <code>G Joist Girder</code>, <code>BG Joist Girder</code>, <code>VG Joist Girder</code>, and <code>Vulcraft Joist Girder</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Input Group</th>
-<th>Supported Resolution</th>
+<th>Input</th>
+<th>Resolution</th>
+<th>Constraint</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Number of Joists</td>
-<td>Fixed aliases: <code>Number of Joists</code>, <code>SpaceNum</code>, <code>Number of Equal Spaces</code></td>
+<td>Number of joists</td>
+<td><code>Number of Joists</code>, <code>SpaceNum</code>, <code>Number of Equal Spaces</code></td>
+<td>Greater than 1</td>
 </tr>
 <tr>
-<td>Point Load</td>
-<td>Regex pattern list from <code>Tools.JoistGirderWeight.LoadParameterPatterns</code></td>
-</tr>
-<tr>
-<td>Length</td>
-<td>Fixed aliases: <code>Cut Length</code>, <code>Length</code></td>
+<td>Span</td>
+<td><code>Cut Length</code>, <code>Length</code></td>
+<td>Positive internal feet</td>
 </tr>
 <tr>
 <td>Depth</td>
-<td>Fixed alias: <code>Depth</code></td>
+<td><code>Depth</code></td>
+<td>Positive internal feet</td>
+</tr>
+<tr>
+<td>Load</td>
+<td>Total/point load, or dead plus live load</td>
+<td>Nonnegative kips</td>
 </tr>
 <tr>
 <td>Output</td>
-<td><code>Wt</code> (required, writable)</td>
+<td><code>Wt</code></td>
+<td>Writable Double on the instance or type</td>
 </tr>
 </tbody>
 </table>
-<p>Parameters are resolved in priority order; instance parameters are preferred over type parameters.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderLoadParser.cs</code></p>
-</blockquote>
-<h3 id="element-filtering">Element Filtering</h3>
-<p>The tool targets structural framing elements using settings-driven regex family matching.</p>
-<p>Default family regex:</p>
-<pre><code class="lang-regex">^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
+<p>Numeric aliases are checked in the listed order, with instance then type lookup for each name.
+Load resolution prefers instance parameters over same-named type parameters.
+It rejects multiple populated matches in any Total, Dead, or Live group, even when a Total value exists.
+One Total value takes precedence over Dead plus Live. Without Total, exactly one Dead and one Live are required.</p>
+<p>Force-typed Double values convert from Revit internal units to kips.
+Unitless numeric values are kips. Text uses invariant numeric parsing and accepts these units:</p>
+<table>
+<thead>
+<tr>
+<th>Units</th>
+<th>Conversion to kips</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Omitted, <code>k</code>, <code>kip</code>, <code>kips</code></td>
+<td>Unchanged</td>
+</tr>
+<tr>
+<td><code>lb</code>, <code>lbs</code>, <code>lbf</code>, <code>pound</code>, <code>pounds</code></td>
+<td>Divide by 1000</td>
+</tr>
+<tr>
+<td><code>kN</code>, case-insensitive</td>
+<td>Multiply by <code>0.2248089431</code></td>
+</tr>
+</tbody>
+</table>
+<p>Examples are <code>10</code>, <code>10 kips</code>, <code>10000 lb</code>, and <code>45 kN</code>.
+Blank, negative, malformed, or unsupported-unit text produces an input issue.</p>
+<h2 id="formula">Formula</h2>
+<p><code>Features/JoistGirder/JoistGirderWeightEvaluator.EstimateWeight(n, load, lengthFeet, depthFeet)</code> returns lb/ft.
+The calculation converts length and depth to inches.</p>
+<pre><code class="lang-text">panelSpacing = lengthInches / n
+numberOfPanels = n - 1
+totalReaction = loadKips * numberOfPanels / 2
+maxMoment = totalReaction * lengthInches / 2
 </code></pre>
-<p>This matches:</p>
-<ul>
-<li><code>G Joist Girder</code></li>
-<li><code>BG Joist Girder</code></li>
-<li><code>VG Joist Girder</code></li>
-<li><code>Vulcraft Joist Girder</code></li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs</code></p>
-</blockquote>
-<h3 id="auto-update-on-view-activation">Auto-Update on View Activation</h3>
-<p>When enabled, the tool automatically updates joist girder weights whenever a view is activated. This is controlled by the <code>AutoUpdateEnabled</code> setting.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Hooks/JoistGirderViewActivatedTask.cs:19-44</code></p>
-</blockquote>
-<h2 id="architecture">Architecture</h2>
-<h3 id="component-structure">Component Structure</h3>
-<pre><code>JoistGirderWeight/
-├── Features/
-│   ├── JoistGirderWeightCalculator.cs    # Pure calculation logic (no Revit dependencies)
-│   ├── JoistGirderWeightEstimator.cs     # Revit integration and parameter handling
-│   └── UpdateJoistGirderWeightsCommand.cs # Ribbon command implementation
-├── Hooks/
-│   └── JoistGirderViewActivatedTask.cs   # Auto-update on view change
-├── Settings/
-│   └── JoistGirderWeightSettings.cs      # Configuration model
-├── Assets/
-│   └── joist_girder_icon.png             # Ribbon button icon
-├── JoistGirderWeightToolModule.cs        # DI and module registration
-└── manifest.yml                          # Tool manifest
+<p>For even <code>n</code>, subtract <code>loadKips * panelSpacing * i</code> for integer steps starting at 1 while <code>i &lt; numberOfPanels / 2</code>.
+For odd <code>n</code>, subtract <code>loadKips * (panelSpacing / 2 + panelSpacing * j)</code> starting at 0 while <code>j &lt; numberOfPanels / 2</code>.</p>
+<pre><code class="lang-text">effectiveDepth = depthInches * 0.95
+chordForce = maxMoment / effectiveDepth
+requiredArea = chordForce / (50.0 * 0.6)
+topChordWeight = requiredArea * lengthInches * 0.28356 * 1.06
+bottomChordWeight = topChordWeight * 1.13
+webWeight = topChordWeight * 0.7
+weightPoundsPerFoot = (topChordWeight + bottomChordWeight + webWeight) / lengthFeet
 </code></pre>
-<h3 id="key-classes">Key Classes</h3>
-<h4 id="joistgirderweightcalculator">JoistGirderWeightCalculator</h4>
-<p>Pure static calculation class with no Revit dependencies, enabling unit testing without Revit runtime.</p>
-<pre><code class="lang-csharp">public static class JoistGirderWeightCalculator
-{
-    public static double EstimateWeight(
-        double numberOfJoists, 
-        double pointLoad, 
-        double lengthFeet, 
-        double depthFeet);
-    
-    public static bool ValidateInputs(
-        double numberOfJoists, 
-        double pointLoad, 
-        double lengthFeet, 
-        double depthFeet);
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightCalculator.cs:9-92</code></p>
-</blockquote>
-<h4 id="joistgirderweightestimator">JoistGirderWeightEstimator</h4>
-<p>Orchestrates the update process:</p>
-<ol>
-<li>Collects joist girder elements from the document</li>
-<li>Validates parameters and computes weights (outside transaction)</li>
-<li>Applies updates within a single transaction</li>
-<li>Reports success/failure counts</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs:13-111</code></p>
-</blockquote>
-<h4 id="updatejoistgirderweightscommand">UpdateJoistGirderWeightsCommand</h4>
-<p>The ribbon command entry point. Displays an alert with the update count upon completion.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/UpdateJoistGirderWeightsCommand.cs:15-42</code></p>
-</blockquote>
-<h3 id="error-handling">Error Handling</h3>
-<p>The tool follows the no-fallback, no-silent-failure principle:</p>
-<ul>
-<li><strong>Pre-validation</strong>: All elements are validated before the transaction starts</li>
-<li><strong>Partial updates</strong>: If some elements fail validation, valid ones are updated and a warning is logged</li>
-<li><strong>Complete failure</strong>: If no elements can be updated, an <code>InvalidOperationException</code> is thrown with a sample error</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightEstimator.cs:84-97</code></p>
-</blockquote>
+<p><code>50.0</code> is the stress constant in ksi. <code>0.28356</code> is steel density in lb/in³.
+The remaining constants are depth, connection, and member multipliers.
+This is one estimation formula. It does not select manufacturer sections or validate SJI load tables.</p>
+<h2 id="update-and-failure-behavior">Update and failure behavior</h2>
+<p><code>JoistGirderWeightUpdater</code> validates candidates and computes weights before opening a transaction.
+Invalid candidates become skipped items. Valid candidates share <code>Auto Update Joist Girder Weights</code>.
+An unexpected transaction or setter exception propagates and rolls back that transaction.
+The updater calls <code>Parameter.Set</code> without checking its Boolean result.</p>
+<p>The returned summary contains Candidates, Updated, Skipped, and up to five sample issues.
+Zero candidates returns an empty summary. All-invalid candidates return skipped counts.
+The manual workflow displays an Info toast when nothing updates, Warning for mixed updated/skipped results,
+and Success when all candidates update. Configuration exceptions produce a ten-second Warning toast.</p>
+<p>Automatic execution catches configuration exceptions, sets the configured warning, and shows a banner.
+Other runtime faults propagate to Core's view-activation handling.
+Warning <code>core.structural.joist_girder</code> disables <code>DBTools.UpdateJoistGirderWeights</code> and automatic updates.</p>
 <h2 id="settings">Settings</h2>
-<h3 id="configuration-schema">Configuration Schema</h3>
-<pre><code class="lang-yaml"># tools.json or per-user settings
-Tools:
-  JoistGirderWeight:
-    AutoUpdateEnabled: true
-    FamilyNamePattern: &quot;^(?:(?:[BV]?G)|Vulcraft) Joist Girder$&quot;
-    DeadLoadPattern: &quot;(?:^DL$|Dead\\s*Load)&quot;
-    LiveLoadPattern: &quot;(?:^LL$|Live\\s*Load)&quot;
-    TotalLoadPattern: &quot;(?:Point\\s*Load|Total\\s*Load)&quot;
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Settings/JoistGirderWeightSettings.cs</code></p>
-</blockquote>
-<h3 id="settings-properties">Settings Properties</h3>
+<p>Configuration section: <code>Tools.JoistGirderWeight</code>.
+Pack key: <code>structural.joist_girder_weight</code>, titled <strong>Joist Girder Weights</strong>.</p>
 <table>
 <thead>
 <tr>
 <th>Property</th>
-<th>Type</th>
-<th>Default</th>
-<th>Description</th>
+<th>Persisted default</th>
+<th>Effective default</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>AutoUpdateEnabled</code></td>
-<td><code>bool</code></td>
 <td><code>true</code></td>
-<td>Whether to auto-update weights on view activation</td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>FamilyNamePattern</code></td>
-<td><code>string</code></td>
-<td>See above</td>
-<td>Regex pattern for joist girder family/type matching</td>
+<td>Empty string</td>
+<td>Family pattern above</td>
 </tr>
 <tr>
 <td><code>DeadLoadPattern</code></td>
-<td><code>string</code></td>
-<td>See above</td>
-<td>Regex pattern for dead load parameters</td>
+<td>Empty string</td>
+<td><code>(?:^DL$\|Dead\s*Load)</code></td>
 </tr>
 <tr>
 <td><code>LiveLoadPattern</code></td>
-<td><code>string</code></td>
-<td>See above</td>
-<td>Regex pattern for live load parameters</td>
+<td>Empty string</td>
+<td><code>(?:^LL$\|Live\s*Load)</code></td>
 </tr>
 <tr>
 <td><code>TotalLoadPattern</code></td>
-<td><code>string</code></td>
-<td>See above</td>
-<td>Regex pattern for total/point load parameters</td>
+<td>Empty string</td>
+<td><code>(?:Point\s*Load\|Total\s*Load)</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="warning-system">Warning System</h3>
-<p>When a warning is active:</p>
-<ul>
-<li><code>HasWarning</code> is set to <code>true</code></li>
-<li><code>AutoUpdateEnabled</code> is forced to <code>false</code></li>
-<li>The <code>UpdateJoistGirderWeights</code> command is disabled in the ribbon</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/JoistGirderWeightToolModule.cs:49-68</code></p>
-</blockquote>
-<h2 id="manifest">Manifest</h2>
-<pre><code class="lang-yaml">id: DBTools.Structural.JoistGirderWeight
-assembly: DBTools
-moduleType: DBTools.Structural.JoistGirderWeight.JoistGirderWeightToolModule
-order: 0
-tool:
-  settings:
-    configSection: Tools.JoistGirderWeight
-  settingsPacks:
-    - key: structural.joist_girder_weight
-      title: &quot;Joist Girder Weights&quot;
-      warnings:
-        - id: core.structural.joist_girder
-          title: &quot;Joist Girder Weights Disabled&quot;
-          message: &quot;Joist girder weight updates are disabled due to a warning...&quot;
-          disableTools:
-            - DBTools.UpdateJoistGirderWeights
-  ribbonTools:
-    - internalName: DBTools.UpdateJoistGirderWeights
-      commandType: DBTools.Structural.JoistGirderWeight.UpdateJoistGirderWeightsCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
-      runProfile: InlineUi
-      displayText: &quot;Update Joist\nGirder Weights&quot;
-      iconBaseKey: joist_girder
-      tooltip: &quot;Update joist girder weights&quot;
-      controlKind: PushButton
-      order: 30
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/manifest.yml:1-27</code></p>
-</blockquote>
-<h3 id="ribbon-configuration">Ribbon Configuration</h3>
+<p>For example, the Total pattern matches <code>Point Load</code>, <code>Panel Point Load</code>, <code>Total Load</code>, and <code>Total Load - User Defined</code>.
+<code>Features/DefaultPatterns</code> owns defaults. <code>Settings/SettingsPackContext</code> derives from
+<code>SettingsPackAutoUpdateContext&lt;JoistGirderWeightSettings&gt;</code> and owns pattern editing,
+empty-value defaulting, regex validation, snapshots, and baseline comparison.
+The Core base owns the toggle, warning, pending-change, and notification state.</p>
+<h2 id="ownership-and-registration">Ownership and registration</h2>
+<p>Source: <code>src/Tools/Structural/JoistGirderWeight/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Property</th>
-<th>Value</th>
+<th>Owner</th>
+<th>Responsibility</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Display Text</td>
-<td>&quot;Update Joist\nGirder Weights&quot;</td>
+<td><code>App/Composition/JoistGirderWeightToolModule</code></td>
+<td>Module, settings pack, hooks, and warning registration</td>
 </tr>
 <tr>
-<td>Icon Key</td>
-<td><code>joist_girder</code></td>
+<td><code>App/Composition/ServiceCollectionExtensions</code></td>
+<td>Dependency registration</td>
 </tr>
 <tr>
-<td>Availability</td>
-<td>Document-dependent</td>
+<td><code>App/Composition/UpdateJoistGirderWeightsCommand</code></td>
+<td>Manual command</td>
 </tr>
 <tr>
-<td>Run Profile</td>
-<td><code>InlineUi</code></td>
+<td><code>Features/Workflow/WeightUpdateWorkflow</code></td>
+<td>Settings retrieval, update, completion/configuration banners</td>
 </tr>
 <tr>
-<td>Order</td>
-<td>30</td>
+<td><code>Features/AutoUpdate/AutoUpdateTask</code></td>
+<td>View-activation execution</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/JoistGirderClassifier</code></td>
+<td>Family and load-name classification</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/JoistGirderWeightUpdater</code></td>
+<td>Revit collection, validation, and writes</td>
+</tr>
+<tr>
+<td><code>Features/Load/Operations/ElementLoadReader</code></td>
+<td>Parameter and unit resolution</td>
+</tr>
+<tr>
+<td><code>Features/Load/LoadParser</code></td>
+<td>Text parsing</td>
+</tr>
+<tr>
+<td><code>Features/Load/LoadResolutionEvaluator</code></td>
+<td>Load group ambiguity and precedence</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/JoistGirderWeightEvaluator</code></td>
+<td>Pure formula</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/Settings/Views/JoistGirderWeightSettingsView.xaml</code></td>
+<td>Settings view</td>
 </tr>
 </tbody>
 </table>
-<h2 id="input-validation">Input Validation</h2>
-<h3 id="required-constraints">Required Constraints</h3>
-<table>
-<thead>
-<tr>
-<th>Parameter</th>
-<th>Constraint</th>
-<th>Rationale</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Number of Joists</td>
-<td>&gt; 1</td>
-<td>At least 2 joists required to create panel points</td>
-</tr>
-<tr>
-<td>Point Load</td>
-<td>&gt;= 0</td>
-<td>Negative loads are physically invalid</td>
-</tr>
-<tr>
-<td>Length</td>
-<td>&gt; 0</td>
-<td>Zero/negative span is invalid</td>
-</tr>
-<tr>
-<td>Depth</td>
-<td>&gt; 0</td>
-<td>Zero/negative depth is invalid</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Features/JoistGirderWeightCalculator.cs:84-91</code></p>
-</blockquote>
-<h3 id="validation-methods">Validation Methods</h3>
-<pre><code class="lang-csharp">// Throws ArgumentOutOfRangeException for invalid inputs
-double weight = JoistGirderWeightCalculator.EstimateWeight(n, load, length, depth);
-
-// Returns bool for pre-validation
-bool isValid = JoistGirderWeightCalculator.ValidateInputs(n, load, length, depth);
+<p><code>manifest.yml</code> registers assembly <code>DBTools.JoistGirderWeight</code> and module
+<code>DBTools.JoistGirderWeight.App.Composition.JoistGirderWeightToolModule</code>.
+The command uses <code>InlineUi</code>, icon key <code>joist_girder</code>, and ribbon order 30.
+The asset is <code>Assets/joist_girder_icon.png</code>.</p>
+<h2 id="tests">Tests</h2>
+<p>Pure tests cover the evaluator, classifier, patterns, load parsing and resolution, and settings context.
+Hosted updater and workflow tests use real Revit parameters and roll back model changes.
+The workflow fixture supplies a WPF owner for banners and closes its own windows after each test.</p>
+<pre><code class="lang-bash">./test.sh test --tool JoistGirderWeight --scope local -y 2026
 </code></pre>
-<h2 id="testing">Testing</h2>
-<p>The calculator has comprehensive unit test coverage (56 tests) covering:</p>
-<ul>
-<li>Valid input scenarios</li>
-<li>Scaling behavior (load, length, depth relationships)</li>
-<li>Invalid input handling</li>
-<li>Edge cases (overflow, underflow, fractional values)</li>
-<li>Input validation</li>
-<li>Determinism/consistency</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/JoistGirderWeight/Tests/JoistGirderWeightCalculatorTests.cs</code></p>
-</blockquote>
-<h3 id="running-tests">Running Tests</h3>
-<pre><code class="lang-bash"># Build tests
-bash build.sh BuildTests
-
-# Run calculator tests (headless, no Revit required)
-dotnet test testing/DBTools.BuildArtifacts.Tests \
-  --filter &quot;FullyQualifiedName~JoistGirderWeightCalculator&quot;
-</code></pre>
-<h2 id="usage-notes">Usage Notes</h2>
-<h3 id="family-requirements">Family Requirements</h3>
-<p>For the tool to work correctly, joist girder families must:</p>
-<ol>
-<li>Belong to the <code>Structural Framing</code> category</li>
-<li>Have &quot;joist girder&quot; in the family name or type name</li>
-<li>Include at least one parameter from each input group</li>
-<li>Have a writable <code>Wt</code> parameter (Double storage type)</li>
-</ol>
-<h3 id="known-limitations">Known Limitations</h3>
-<ul>
-<li><strong>Estimation only</strong>: Results are engineering estimates, not certified designs</li>
-<li><strong>Single formula</strong>: Uses one calculation method regardless of manufacturer specifications</li>
-<li><strong>No SJI validation</strong>: Does not validate against Steel Joist Institute load tables</li>
-</ul>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/joist-girder-weight.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

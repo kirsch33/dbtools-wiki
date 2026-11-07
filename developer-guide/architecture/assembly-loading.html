@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Assembly Loading Contract | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Assembly Loading Contract | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="assembly-loading-contract">Assembly Loading Contract</h1>
+
+<p>The installed add-in loads in Revit's default <code>AssemblyLoadContext</code>. Hosted
+tests and Dev Mode load the product into a context that the dbtools-daemon
+creates. In every host, App loads each tool assembly by explicit path into the
+context that holds <code>DBTools.dll</code>. DBTools creates no load context, embeds no
+runtime payload, generates no command bridges and ships no runtime manifest.</p>
+<h2 id="installed-layout">Installed layout</h2>
+<p>Each supported year has one directory of ordinary files:</p>
+<pre><code class="lang-text">&lt;year&gt;/
+├── DBTools.addin
+├── DBTools.dll
+├── DBTools.Core.dll
+├── DBTools.Presentation.dll
+├── DBTools.HandyControl.dll
+└── Tools/
+    ├── DBTools.AnalyticalSnapToLevel.dll
+    ├── DBTools.DialogSuppression.dll
+    ├── DBTools.ElevationTags.dll
+    ├── DBTools.ERFT.dll
+    ├── DBTools.FoundationTags.dll
+    ├── DBTools.FramingJoins.dll
+    ├── DBTools.GM.dll
+    ├── DBTools.JoistGirderWeight.dll
+    ├── DBTools.OrganizeFoundationTypes.dll
+    ├── DBTools.RecordSet.dll
+    ├── DBTools.SGT.dll
+    ├── DBTools.Settings.dll
+    ├── DBTools.TDV.dll
+    └── DBTools.VTC.dll
+</code></pre>
+<p><code>DBTools.addin</code> names <code>DBTools.dll</code> and the class
+<code>DBTools.App.Addin.AddinEntry</code>. <code>DBTools.dll</code> contains the entry point and host
+infrastructure and no tool code. WPF needs the physical location of
+Presentation and HandyControl, so they stay at the top level.</p>
+<h2 id="merged-libraries">Merged libraries</h2>
+<p>Every third-party runtime library is merged into one owner assembly; no
+third-party DLL is staged. <code>build/Merging/AssemblyMerges.props</code> declares the
+merges:</p>
+<ul>
+<li>App owns <code>ricaun.Revit.UI.0.9.0</code>.</li>
+<li>Core owns the manifest and YAML parser, MVVM, functional, tessellation,
+dependency injection, logging, options and primitives libraries, and
+<code>Serilog.Extensions.Logging</code>.</li>
+<li>Presentation owns the Helix and SharpDX closure, Serilog, and the public
+dependency injection and logging abstractions.</li>
+</ul>
+<p>Serilog is in Presentation, which is never reloaded, because its thread-static
+state must not enter a collectible load context (dotnet/runtime#134928).</p>
+<p>A declaration's <code>Include</code> is the assembly name. The optional <code>PackageId</code> names
+a NuGet package whose name differs; ricaun uses <code>PackageId=&quot;ricaun.Revit.UI&quot;</code>
+because its assembly name contains a version.</p>
+<p>MSBuild passes each merge its inputs as items: the resolved runtime asset of a
+package, or the output of a project. The merge copies its evaluated reference
+files into a temporary reference directory. ILRepack searches only that
+directory and resolves framework identities only from those files, so other
+package or compiler-output files and the runtimes installed on the build host
+cannot change the result. MSBuild <code>Inputs</code> and <code>Outputs</code>, including the owner's
+<code>project.assets.json</code>, decide when a merge reruns. The task deletes its
+temporary files afterwards.</p>
+<h3 id="app-host-references">App host references</h3>
+<p>The pinned <code>ricaun.Revit.UI.0.9.0</code> assembly references Revit <code>27.0.4</code>, also
+when App is compiled for Revit 2026. The App merge therefore binds these host
+references to the exact identities of the selected year during the final Cecil
+normalization:</p>
+<pre><code class="lang-text">RevitAPI;RevitAPIUI;AdWindows;UIFramework
+</code></pre>
+<p>Only App does this. <code>MergeReferenceGuard</code> then resolves every <code>TypeRef</code>,
+<code>MemberRef</code> and attribute type name with Cecil against the selected year's
+evaluated references. It rejects a missing type or member, a referenced version
+higher than the evaluated one, and any reference to an assembly that a merge
+removed. The Nice3point <code>UIFramework</code> reference is part of the Revit reference
+metadata used for this check; it is not shipped.</p>
+<h2 id="entry-and-idle-acknowledgement">Entry and idle acknowledgement</h2>
+<p><code>AddinEntry</code> has a public parameterless constructor for Revit. <code>OnStartup</code>
+first calls <code>AddinIdle.TryAcknowledge</code>. If <code>DBTOOLS_DAEMON_REVIT_ROLE</code> is set
+to any nonempty value and the entry assembly is in exactly
+<code>AssemblyLoadContext.Default</code>, it sets the AppContext data
+<code>DBToolsDaemon.IdleAddin:DBTools</code> to the entry assembly's file location and
+returns <code>Succeeded</code> before any runtime, ribbon, logging or tool work.
+<code>OnShutdown</code> returns <code>Succeeded</code> immediately for that instance.</p>
+<p>Otherwise startup enters <code>AppStartupBoundary</code>, a non-inlined method, which
+starts the App lifecycle inside <code>ToolWindowCallbackScope</code>. Startup, shutdown
+and ribbon failures that cannot reach the normal log are written to
+<code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code> with BCL APIs only.</p>
+<h2 id="tool-resolution">Tool resolution</h2>
+<p><code>ToolAssemblyResolver.LoadAssembly(rootAssembly, assemblyName)</code> loads a
+manifest-declared assembly. The name must be a simple name without <code>.dll</code> or
+path characters. If it equals the root assembly's name, the root is returned.
+Otherwise the resolver:</p>
+<ol>
+<li>requires a file-backed root assembly;</li>
+<li>resolves <code>&lt;root directory&gt;/Tools/&lt;assemblyName&gt;.dll</code> and requires the file;</li>
+<li>reads the file's assembly name and requires the declared simple name;</li>
+<li>returns an assembly of that name already loaded in the root's context, if
+its full identity and location match the file; a different identity or
+location is an error;</li>
+<li>otherwise loads the file with that context's <code>LoadFromAssemblyPath</code>.</li>
+</ol>
+<p>The resolver does not search other contexts, install an AppDomain resolver or
+create a load context.</p>
+<p>The ribbon registers each command by its assembly location, full class name
+and availability type name. Availability is implemented by the command's own
+assembly. Command and availability callbacks enter <code>ToolWindowCallbackScope</code>,
+which suppresses <code>ExecutionContext</code> flow and sets contextual reflection to the
+command's load context.</p>
+<h2 id="hosted-tests-and-dev-mode">Hosted tests and Dev Mode</h2>
+<p>The daemon creates <code>ProductLoadContext</code> for hosted tests and
+<code>DevModeLoadContext</code> for Dev Mode. App loads each declared tool from <code>Tools/</code>
+into that context; Dev Mode does not probe other subfolders. Presentation and
+HandyControl stay loaded for the life of the process. App, Core and the tool
+assemblies can be reloaded, as the host decides.</p>
+<h2 id="sandbox">Sandbox</h2>
+<p>Sandbox runs one new process in the default context for each candidate year. Its
+entry point uses only BCL types: it validates the candidate, loads the top-level
+product files and the <code>Tools/</code> assemblies from their paths, and then starts WPF
+through a non-inlined method. The process exits after validation, so no
+candidate assembly remains loaded for the next year. See
+<a href="sandbox-validator.html">Sandbox Validator</a>.</p>
+<h2 id="distribution-hashes">Distribution hashes</h2>
+<p>Distribution validation checks the exact relative file set, PE identities,
+source-derived versions, first-party reference identities, file lengths and
+SHA-256 hashes. The hashes identify the staged candidate. Nothing checks them
+when an assembly loads.</p>
+<p>See <a href="build-pipeline.html">Build Pipeline</a>, <a href="project-references.html">Project References</a>
+and <a href="../../user-guide/installation.html">Installation</a>.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/elevation-tags.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,213 +89,113 @@
         <article data-uid="">
 <h1 id="elevation-tags">Elevation Tags</h1>
 
-<p>Elevation Tags keeps your spot elevation tags perfectly aligned and consistently positioned across all your floor, structural, and ceiling plan views. Whether you're documenting finished floor levels or ceiling heights, this tool eliminates the tedious manual adjustment of tag positions.</p>
-<hr>
-<h2 id="what-is-elevation-tags">What is Elevation Tags?</h2>
-<p>Elevation Tags is an alignment tool that automatically positions spot elevation tags in your plan views. Instead of manually nudging each tag to maintain consistent text placement, Elevation Tags handles this automatically—either when you open a view or with a single button click.</p>
-<p>The tool works with spot elevation tags in floor plans, structural plans, and ceiling plans, ensuring that tag text appears in a uniform position relative to the tag's origin point.</p>
-<hr>
-<h2 id="when-to-use">When to Use</h2>
+<p>Elevation Tags places the label of each matching spot elevation at a uniform position beside its leader end. The elevation text is re-measured and positioned from the tag type's font, text width and the view scale. The tool runs on demand from the ribbon and, optionally, each time you open a plan view.</p>
+<h2 id="synopsis">Synopsis</h2>
+<p>Ribbon: <strong>DB Tools</strong> &gt; <strong>Common</strong> &gt; <strong>Align Elevation Tags</strong>.</p>
+<p>The button is enabled when a view is active. It processes the active view only.</p>
+<p>Supported views: floor plans, structural plans (engineering plans) and ceiling plans. In any other view type the command shows the warning banner <code>Elevation Tags supports Floor Plans, Structural Plans, and Ceiling Plans only. Active view type: &lt;type&gt;.</code> and changes nothing.</p>
+<h2 id="usage">Usage</h2>
+<ol>
+<li>Open a floor, structural or ceiling plan.</li>
+<li>Click <strong>Align Elevation Tags</strong>.</li>
+<li>Read the banner.</li>
+</ol>
+<p>With <strong>Auto-Update Enabled</strong> on, the same alignment runs each time a supported plan view becomes active. Automatic runs show no banner. Failures go to the log.</p>
+<h2 id="what-is-aligned">What is aligned</h2>
+<p>A spot elevation is processed when all of these hold:</p>
+<ul>
+<li>one of its names matches a tag name pattern (see Settings);</li>
+<li>it has a leader;</li>
+<li>the elevation base of its type is not <code>Relative</code>.</li>
+</ul>
+<p>For each processed spot the tool computes the label position from the leader end, then applies the per-type offsets. It moves the label only when the new X or Y position differs from the current one after rounding both to two decimals (feet). Spots that already sit at the target position are not counted as updated.</p>
+<p>For a type whose elevation base is <code>Project Base Point</code>, the displayed elevation is measured from the project base point when the project base point and survey point are at different positions.</p>
+<h2 id="settings">Settings</h2>
+<p>Open <strong>DB Tools</strong> &gt; <strong>Settings</strong> and select the <strong>Elevation Tags</strong> pack.</p>
 <table>
 <thead>
 <tr>
-<th>Scenario</th>
-<th>How Elevation Tags Helps</th>
+<th>Setting</th>
+<th>Default</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Opening an existing floor plan</td>
-<td>Tags automatically align when the view activates</td>
+<td>Auto-Update Enabled</td>
+<td>On</td>
+<td>Align tags when a supported plan view is activated.</td>
 </tr>
 <tr>
-<td>After placing multiple spot elevations</td>
-<td>Run manual alignment to position all tags consistently</td>
+<td>Tag Name Patterns (Regex)</td>
+<td><code>^DB Elevation Tag - (?:Concrete\|Steel\|Wall) Label$</code></td>
+<td>Up to 3 regular expressions. A spot is processed when any pattern matches any of its names. Matching is case-insensitive.</td>
 </tr>
 <tr>
-<td>Receiving a model from another team</td>
-<td>Quickly standardize tag positions across all views</td>
+<td>Along Leader</td>
+<td>0</td>
+<td>Moves the label away from the leader end (positive) or toward it (negative), along the horizontal direction of the label.</td>
 </tr>
 <tr>
-<td>Preparing sheets for printing</td>
-<td>Ensure all elevation tags look professional and uniform</td>
-</tr>
-<tr>
-<td>After moving elements that tags reference</td>
-<td>Re-align tags that may have shifted</td>
+<td>Perpendicular</td>
+<td>0</td>
+<td>Moves the label away from the leader line (positive) or toward it (negative), vertically.</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h2 id="quick-start">Quick Start</h2>
-<ol>
-<li><strong>Open a floor plan, structural plan, or ceiling plan view</strong> in Revit</li>
-<li>If auto-update is enabled, tags align automatically when the view opens</li>
-<li>To manually align tags, click <strong>Align Elevation Tags</strong> on the DB Tools ribbon</li>
-<li>All matching elevation tags in the current view will snap to their aligned positions</li>
-</ol>
-<hr>
-<h2 id="user-interface">User Interface</h2>
-<h3 id="ribbon-button">Ribbon Button</h3>
-<p>The <strong>Align Elevation Tags</strong> button is located on the DB Tools ribbon tab. Click this button to immediately align all elevation tags in the current view.</p>
-<h3 id="settings-panel">Settings Panel</h3>
-<p>Access Elevation Tags settings through the DB Tools settings panel. Here you can configure:</p>
+<p>A spot is tested against these names: the spot name, the spot dimension type name and its family name, and the name and family name of the type's marker symbol. Because spot elevations are a system family, the patterns match the type and marker symbol names, not only loaded family names.</p>
+<p>When the pattern list is empty, the default pattern is used. A pattern that is not a valid regular expression is skipped and logged.</p>
+<p>The two offsets are stored per spot elevation type. The settings pack has a type selector (previous and next buttons) and a live preview that shows the label, the tag origin and the leader end for the selected type with the current offsets. The offsets are in paper inches. The tool multiplies them by the view scale divided by 12 to get model units.</p>
+<p>Settings are stored per user and Revit year in <code>%APPDATA%\DBTools\settings.&lt;year&gt;.json</code>. They apply to every project.</p>
+<h2 id="result">Result</h2>
+<p>The command runs one Revit transaction on the active view. The banner shows one of these messages:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Aligned N elevation tag(s).</code></td>
+<td>Success</td>
+</tr>
+<tr>
+<td><code>Aligned N elevation tag(s); M could not be updated. See the DB Tools log.</code></td>
+<td>Warning</td>
+</tr>
+<tr>
+<td><code>M elevation tag(s) could not be updated. See the DB Tools log.</code></td>
+<td>Warning</td>
+</tr>
+<tr>
+<td><code>No spot elevation tags were found in the active view.</code></td>
+<td>Info</td>
+</tr>
+<tr>
+<td><code>No spot elevation tags matched Tag Name Patterns. Check Elevation Tags settings.</code></td>
+<td>Info</td>
+</tr>
+<tr>
+<td><code>No matching elevation tags needed changes. Spot elevations without a leader are skipped.</code></td>
+<td>Info</td>
+</tr>
+</tbody>
+</table>
+<p>A failure on one tag does not stop the others. A spot whose names cannot be read counts as failed.</p>
+<p>Press <code>Ctrl+Z</code> to undo a manual run.</p>
+<h2 id="limitations">Limitations</h2>
 <ul>
-<li>Whether tags align automatically when views open</li>
-<li>Which tag families the tool should process</li>
-<li>Leader-relative offset nudges</li>
-<li>A live preview that updates as you edit the settings</li>
+<li>Only the active view is processed. There is no multi-view command; auto-update covers each view as you open it.</li>
+<li>Linked models are not processed.</li>
+<li>Spots without a leader and spots on a <code>Relative</code> elevation base are skipped. The last info message does not say which of the two causes applies.</li>
+<li>The text width is measured with the Windows font engine and the tag type's font. Arial is used when the type defines no font.</li>
 </ul>
-<hr>
-<h2 id="settings">Settings</h2>
-<h3 id="auto-update-enabled">Auto-Update Enabled</h3>
-<p><strong>Default:</strong> On</p>
-<p>When enabled, Elevation Tags automatically aligns tags whenever you open or switch to a floor plan, structural plan, or ceiling plan view. Turn this off if you prefer to align tags only when you click the ribbon button.</p>
-<h3 id="tag-name-patterns">Tag Name Patterns</h3>
-<p><strong>Default:</strong> <code>^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$</code></p>
-<p>Specifies which tag families Elevation Tags should process. You can configure up to three patterns to match your tag family names. Only tags matching these patterns will be aligned; other spot elevation tags remain untouched.</p>
-<p><strong>Examples:</strong></p>
-<ul>
-<li>Match <code>DB Elevation Tag - Concrete Label</code></li>
-<li>Match <code>DB Elevation Tag - Steel Label</code></li>
-<li>Match <code>DB Elevation Tag - Wall Label</code></li>
-</ul>
-<blockquote>
-<p><strong>Note:</strong> Spot Elevations are a Revit system family. Tag Name Patterns are matched against the Spot Elevation type naming (and its configured marker symbol naming), not just loaded family names.</p>
-</blockquote>
-<h3 id="along-leader-offset">Along Leader Offset</h3>
-<p><strong>Default:</strong> 0</p>
-<p>Moves the label farther from or closer to the leader endpoint along the leader direction. Positive values move the label farther away from the endpoint.</p>
-<h3 id="perpendicular-offset">Perpendicular Offset</h3>
-<p><strong>Default:</strong> 0</p>
-<p>Moves the label away from or toward the leader line while preserving the tag type's own above/below behavior. Positive values move the label farther away from the leader.</p>
-<h3 id="live-preview">Live Preview</h3>
-<p>The settings pack includes a compact live preview so you can see how the Along Leader and Perpendicular nudges will affect a sample tag before running the tool in Revit.</p>
-<hr>
-<h2 id="workflows">Workflows</h2>
-<h3 id="aligning-tags-in-a-single-view">Aligning Tags in a Single View</h3>
-<ol>
-<li>Open the floor plan, structural plan, or ceiling plan you want to process</li>
-<li>Click <strong>Align Elevation Tags</strong> on the DB Tools ribbon</li>
-<li>All matching tags in the view align to their configured positions</li>
-<li>Review the results and adjust settings if needed</li>
-</ol>
-<h3 id="setting-up-automatic-alignment">Setting Up Automatic Alignment</h3>
-<ol>
-<li>Open DB Tools settings</li>
-<li>Navigate to Elevation Tags settings</li>
-<li>Ensure <strong>Auto-Update Enabled</strong> is turned on</li>
-<li>Configure your preferred tag patterns and positioning</li>
-<li>Close settings—tags will now align automatically when you open plan views</li>
-</ol>
-<h3 id="configuring-tag-patterns-for-your-project">Configuring Tag Patterns for Your Project</h3>
-<ol>
-<li>Note the exact names of the elevation tag families you use</li>
-<li>Open Elevation Tags settings</li>
-<li>Enter patterns that match your tag family names</li>
-<li>Test by opening a view with those tags</li>
-<li>Adjust patterns if some tags aren't being processed</li>
-</ol>
-<h3 id="adjusting-tag-positioning">Adjusting Tag Positioning</h3>
-<ol>
-<li>Open a view with elevation tags</li>
-<li>Run <strong>Align Elevation Tags</strong> to see current positioning</li>
-<li>If label spacing needs adjustment, open settings</li>
-<li>Adjust <strong>Along Leader Offset</strong> and <strong>Perpendicular Offset</strong> while watching the live preview</li>
-<li>Save settings</li>
-<li>Run alignment again to see the updated positions</li>
-</ol>
-<hr>
-<h2 id="tips--best-practices">Tips &amp; Best Practices</h2>
-<ul>
-<li><p><strong>Standardize tag families</strong> — Use consistent tag family names across your project so a single pattern can match them all</p>
-</li>
-<li><p><strong>Test patterns in one view first</strong> — Before enabling auto-update, manually run alignment in a test view to verify your patterns match the correct tags</p>
-</li>
-<li><p><strong>Use auto-update for active projects</strong> — Enable automatic alignment during active documentation phases to keep tags tidy as you work</p>
-</li>
-<li><p><strong>Disable for legacy projects</strong> — Turn off auto-update when working in older models where you don't want to change existing tag positions</p>
-</li>
-<li><p><strong>Coordinate with your team</strong> — Ensure everyone uses the same Elevation Tags settings for consistent results across the project</p>
-</li>
-<li><p><strong>Check ceiling plans too</strong> — Elevation Tags works in floor, structural, and ceiling plans, so configure settings that work for all supported view types</p>
-</li>
-</ul>
-<hr>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="tags-arent-aligning">Tags aren't aligning</h3>
-<p><strong>Possible causes:</strong></p>
-<ul>
-<li>Tag family name doesn't match any configured patterns</li>
-<li>You're not in a floor plan, structural plan, or ceiling plan view</li>
-<li>The tags are a different family type than expected</li>
-</ul>
-<p><strong>Solutions:</strong></p>
-<ul>
-<li>Check your tag family names in the Project Browser</li>
-<li>Verify your tag patterns include the families you're using</li>
-<li>Ensure you're in a supported view type</li>
-</ul>
-<h3 id="some-tags-align-but-others-dont">Some tags align but others don't</h3>
-<p><strong>Possible causes:</strong></p>
-<ul>
-<li>Multiple tag families with different names</li>
-<li>Pattern only matches some of your tags</li>
-</ul>
-<p><strong>Solutions:</strong></p>
-<ul>
-<li>Review all elevation tag families in your project</li>
-<li>Add additional patterns to cover all tag families</li>
-<li>Use a broader pattern that matches multiple families</li>
-</ul>
-<h3 id="tags-are-positioned-incorrectly">Tags are positioned incorrectly</h3>
-<p><strong>Possible causes:</strong></p>
-<ul>
-<li>Offset values need adjustment</li>
-<li>The tag type's own text location differs from your expected family setup</li>
-</ul>
-<p><strong>Solutions:</strong></p>
-<ul>
-<li>Adjust Along Leader and Perpendicular Offset values</li>
-<li>Run alignment again to see updated positions</li>
-</ul>
-<h3 id="auto-update-isnt-working">Auto-update isn't working</h3>
-<p><strong>Possible causes:</strong></p>
-<ul>
-<li>Auto-Update Enabled is turned off</li>
-<li>Opening a view type that isn't supported</li>
-</ul>
-<p><strong>Solutions:</strong></p>
-<ul>
-<li>Check that Auto-Update Enabled is on in settings</li>
-<li>Verify you're opening floor, structural, or ceiling plans</li>
-</ul>
-<h3 id="getting-too-many-alignment-notifications">Getting too many alignment notifications</h3>
-<p><strong>Solution:</strong></p>
-<ul>
-<li>Warnings can be disabled through the DB Tools warning system if alignment notifications become distracting</li>
-</ul>
-<hr>
-<h2 id="faq">FAQ</h2>
-<p><strong>Q: Which view types does Elevation Tags support?</strong></p>
-<p>A: Elevation Tags works in floor plans, structural plans, and ceiling plans. It does not process tags in sections, elevations, 3D views, or other view types.</p>
-<p><strong>Q: Will this affect tags I don't want to change?</strong></p>
-<p>A: No. Only tags matching your configured patterns are processed. Other spot elevation tags remain exactly where they are.</p>
-<p><strong>Q: Can I use different settings for different projects?</strong></p>
-<p>A: Settings are stored per-user, so they apply across all projects. If you need different settings for different projects, you'll need to adjust them when switching projects.</p>
-<p><strong>Q: What happens if I undo after alignment?</strong></p>
-<p>A: Tag alignment changes can be undone using Revit's standard Undo command (Ctrl+Z).</p>
-<p><strong>Q: Does this work with linked models?</strong></p>
-<p>A: No. Elevation Tags only processes tags in the current active model, not in linked Revit files.</p>
-<p><strong>Q: Can I align tags in multiple views at once?</strong></p>
-<p>A: The manual command aligns tags in the current view only. However, with auto-update enabled, tags will align as you open each view.</p>
-<p><strong>Q: How do I know which tags were aligned?</strong></p>
-<p>A: The tool processes all matching tags in the view silently. If you need to verify, compare tag positions before and after running the command.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/elevation-tags.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

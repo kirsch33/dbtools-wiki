@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../images/favicon.ico">
       <link rel="stylesheet" href="../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/sgt.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../public/main.js?v=20260125" defer></script>
+      <script src="../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,6 +89,7 @@
         <article data-uid="">
 <h1 id="super-girt-tool-sgt">Super Girt Tool (SGT)</h1>
 
+<!-- VERIFIED: 2026-03-06 -->
 <p>The Super Girt Tool automates the placement of horizontal girts and opening framing (headers, sills, and jambs) on foundation walls. Instead of manually placing each structural member one at a time, SGT lets you configure an entire wall's worth of girts in one operation.</p>
 <hr>
 <h2 id="when-to-use-it">When to Use It</h2>
@@ -155,7 +156,7 @@
 </tr>
 <tr>
 <td><strong>Layer</strong></td>
-<td>Which wall layer to align girts to (for compound walls with multiple layers)</td>
+<td>Which wall layer to align girts to (for compound walls with multiple layers). The list shows the analyzed wall's layers and follows the current plan, even when the preview cannot update.</td>
 </tr>
 </tbody>
 </table>
@@ -204,16 +205,10 @@
 </tbody>
 </table>
 <p><strong>Add Row</strong>: Type an elevation in the &quot;Add&quot; field and click &quot;Add&quot; to create a new girt row.</p>
-<p><strong>Segmented girts:</strong> Auto-segmented girts show a chevron in the first column. Click it to open the <strong>Segment Flyout</strong>, where you can edit Type/Rotation/Y/Z/Flip (and delete) per segment. Selecting a segment in the flyout highlights it in the preview so it’s clear which segment you’re editing. The flyout opens to the right of the chevron and centers vertically in the window; resizing primarily expands the <strong>Type</strong> field. The background behind the flyout is lightly dimmed so the preview remains visible.</p>
-<blockquote>
-<p><strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:470<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1910<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1996<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/GirtRowViewModel.cs:67</p>
-</blockquote>
+<p><strong>Segmented girts:</strong> Auto-segmented girts show a chevron in the first column. Click it to open the <strong>MemberSegment Flyout</strong>, where you can edit Type/Rotation/Y/Z/Flip (and delete) per segment. Selecting a segment in the flyout highlights it in the preview so it’s clear which segment you’re editing. The flyout opens to the right of the chevron and centers vertically in the window; resizing primarily expands the <strong>Type</strong> field. The background behind the flyout is lightly dimmed so the preview remains visible. The chevron now follows the materialized segmented plan state: if opening analysis or later opening edits split a girt into multiple segments, the chevron appears; if recomputation collapses that group back to one segment, the chevron is removed. While another field is invalid, flyout edits are refused and nothing is lost (see the rule under <a href="#openings-section">Openings Section</a>).</p>
+<!-- UNVERIFIED: pending build/manual validation after segmentation recompute refactor -->
 <h3 id="openings-section">Openings Section</h3>
-<p>This section shows detected openings (in Linked mode) or manually added openings (in Foundation mode).</p>
+<p>This section shows detected openings in Linked mode and also lets you add manual openings. In host foundation mode, SGT ignores physical/Revit wall openings entirely, so the grid is manual-only.</p>
 <table>
 <thead>
 <tr>
@@ -231,8 +226,8 @@
 <td>Horizontal position along the wall</td>
 </tr>
 <tr>
-<td><strong>Center Elevation</strong></td>
-<td>Vertical center of the opening</td>
+<td><strong>Bottom Elevation</strong></td>
+<td>Vertical position of the opening bottom</td>
 </tr>
 <tr>
 <td><strong>Width</strong></td>
@@ -260,14 +255,10 @@
 </tr>
 </tbody>
 </table>
-<p>Use the chevron on each opening row to open the <strong>Segment Flyout</strong> for opening members. The flyout shows role-level fields (Type/Rotation/Y/Z/Flip) and (when segmented) per-segment child rows for that role. Selecting a segment highlights it in the preview. The flyout opens to the right of the chevron, centered vertically in the window, with the same resizing rules as the girt segment flyout.</p>
-<blockquote>
-<p><strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:760<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1910<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:2048<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/Panes/SegmentFlyoutViewModel.cs:14</p>
-</blockquote>
+<p>Use the chevron on each opening row to open the <strong>MemberSegment Flyout</strong> for opening members. The flyout shows role-level fields (Type/Rotation/Y/Z/Flip) and (when segmented) per-segment child rows for that role. Selecting a segment highlights it in the preview. The flyout opens to the right of the chevron, centered vertically in the window, with the same resizing rules as the girt segment flyout. While another field is invalid, segment edits in this flyout are refused (see below).</p>
+<p>Parent-level opening edits are <strong>draft-scoped</strong>. While you are editing <code>Center Along</code>, <code>Bottom Elevation</code>, <code>Width</code>, <code>Height</code>, or the parent role checkboxes, SGT keeps the last committed plan/preview visible. Leaving the row or pressing <code>Enter</code> commits one sync/re-segmentation/preview refresh; <code>Esc</code> cancels the draft (see the exception below). If you enable an opening role and then change that role's Type/Rotation/Y/Z/Flip before leaving the row, SGT preserves those explicit settings on commit instead of snapping the role back to seed defaults. If the row is still invalid, SGT keeps that row in edit mode and leaves the last committed plan/preview intact until you fix the highlighted fields or cancel the edit. When linked-wall analysis finds no openings, SGT now shows a neutral info banner instead of an error banner.</p>
+<p>The opening commit, segment flyout edits and preview canvas edits (snap, gap, delete, merge) each save your other unsaved field edits with them, in one step: for example a wall offset you typed just before clicking another opening row, or a field you changed while the 3D preview was still building. While any wall setup, girt or opening field is invalid, SGT refuses such an edit and writes nothing: the opening row stays in edit with its values, the gap editor stays open with the typed gap, also when the preview redraws, until you press <code>Enter</code> again or <code>Esc</code>, a refused flyout choice shows the saved value again, your other unsaved field edits stay, and the preview status says why (<strong>Fix invalid fields</strong>, <strong>Fix invalid rows</strong> or <strong>Preview blocked</strong>). Undo reverts a canvas snap, typed gap change, delete or merge; typed gap undo restores its prior override, while saved field edits stay. An accepted typed gap clears any existing redo action. Deleting girt rows in the grid, the invalid row included, is never refused; the next sync renumbers the segment group the deleted row left, and a group left with one row becomes a plain girt. If SGT writes the window while the opening row is still in edit (you fix the other field, or make another edit), that row's draft is written too, so <code>Esc</code> can no longer fully cancel it: the row shows its old values again, but the plan keeps the draft and a later refresh can bring it back (known issue).</p>
+<p>A successful linked-wall detection with no openings clears stale detected rows and keeps manual openings. In Change Review, saved live openings missing from a successful observation require an Accept, Keep or Ignore decision; an incomplete observation remains Unreadable and cannot become a deletion.</p>
 <h3 id="bulk-edit-flyout">Bulk Edit Flyout</h3>
 <p>Double-click a row in either grid to open the <strong>Bulk Edit</strong> flyout. The flyout is an <strong>in-window overlay</strong> (not a detached WPF <code>Popup</code>), so it stays bound to the SGT window during minimize/restore and does not float above other apps.</p>
 <ul>
@@ -275,17 +266,11 @@
 <li><strong>Flip Facing</strong>: Tri-state; indeterminate means “don’t apply Flip” for this bulk operation.</li>
 <li><strong>Apply (N)</strong>: <code>N</code> is the number of active fields that will be applied (Type/Rotation/Y/Z/Flip).</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1410<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1414<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:697<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/Panes/BulkEditPaneViewModel.cs:772</p>
-</blockquote>
 <h3 id="preview-panel-right-side">Preview Panel (Right Side)</h3>
 <p>Shows a live preview of what will be placed:</p>
 <ul>
 <li><strong>Elevation</strong> - Front view showing girts and openings</li>
-<li><strong>Section</strong> - Cross-section view showing member profiles</li>
+<li><strong>Section</strong> - Cross-section view showing horizontal member profiles and clipped jamb bands</li>
 <li><strong>3D</strong> - Interactive 3D view you can orbit and zoom</li>
 </ul>
 <p>The <strong>Role Palette</strong> shows what each color represents:</p>
@@ -296,20 +281,12 @@
 <li>Purple = Left Jambs</li>
 <li>Cyan = Right Jambs</li>
 </ul>
-<p>Preview controls (mode selector, zoom-to-fit, reset view) are overlaid in the top-right of the preview. In elevation/section mode, the legend shows segment types and role colors. In 3D, switching into the preview automatically jumps to the stable exterior “home” camera, and <strong>Reset view</strong> returns to that same camera (3/4 view + slight downward pitch), including for mirrored/rotated links. Wheel zoom now uses a looser near/far clamp (close inspection without an abrupt hard wall), and camera constraints use a relaxed leash that settles after interaction. Pan/orbit always stop on mouse-up and also cancel if the window deactivates.</p>
+<p>Preview controls (mode selector, zoom-to-fit, reset view) are overlaid in the top-right of the preview. In elevation/section mode, the legend shows segment types and role colors. Section preview now keeps jambs visible whenever the clip range crosses their opening edge, drawing them as vertical depth bands that match placed geometry while girts/headers/sills continue to use resolved section profiles. In 3D, switching into the preview automatically jumps to the stable exterior “home” camera, and <strong>Reset view</strong> returns to that same camera (3/4 view + slight downward pitch), including for mirrored/rotated links. Wheel zoom now uses a looser near/far clamp (close inspection without an abrupt hard wall), and camera constraints use a relaxed leash that settles after interaction. Pan/orbit always stop on mouse-up and also cancel if the window deactivates.</p>
 <p><strong>3D click-to-inspect:</strong> Click any element in the 3D preview to select it (highlights in gold) and display a tooltip showing the role and section name. Selection commits on mouse-up when the gesture was a click (not a drag-pan). Clicking a wall layer shows a tooltip with layer info without clearing the current selection. Clicking empty space clears the selection and hides the tooltip. When a specific segment is selected, sibling segments from the same member are shown with a mild dim while unrelated elements are fully dimmed.</p>
-<blockquote>
-<p><strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1051<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:228<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Navigation3D.cs:16<br>
-<strong>Source:</strong> src/Tools/Common/UI/Navigation/HelixRevitNavigation.cs:19<br>
-<strong>Source:</strong> src/Tools/Common/UI/Navigation/HelixRevitNavigation.cs:47<br>
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:680</p>
-</blockquote>
 <p><strong>Preview editing notes:</strong></p>
 <ul>
-<li>Drag/snap edits from elevation preview handles (girt extents/segments and jamb/header/sill extents) now participate in the SGT window's <strong>Undo</strong>/<strong>Redo</strong> buttons.</li>
+<li>Drag/snap edits from elevation preview handles (girt extents/segments and jamb/header/sill extents) now participate in the SGT window's <strong>Undo</strong>/<strong>Redo</strong> buttons. Undo and Redo restore the plan, so they also replace unsaved field edits, an invalid field included.</li>
+<li>Typed gap edits in the 2D gap editor also participate in <strong>Undo</strong>/<strong>Redo</strong>. An accepted typed change clears any redo action from an earlier edit.</li>
 <li>Drag/snap edits are <strong>association-locked</strong>: handles snap only to valid associations (other elements, grids, or wall edges). They do not create arbitrary free-along points.</li>
 <li>A drag only commits when you are inside snap threshold on an accepted target; until then, preview border/guide feedback stays in the invalid state.</li>
 <li>Snap guides now render continuously while dragging: dim bands for available targets plus an active guide line (cyan when valid, red when invalid).</li>
@@ -317,53 +294,35 @@
 <li>For segmented opening members, jamb/header/sill endpoint handles are created per segment; dragging one endpoint updates that specific segment's extent association.</li>
 <li>For bisected girts, only the true outer endpoints move member extents (first-left/start and last-right/end). Other segment endpoints edit opening-edge gaps.</li>
 <li>Interior bisected endpoints commit by opening-edge identity (opening key + edge side), so mirrored/rotated links do not move the opposite endpoint.</li>
+<li>A girt's outer endpoints snap only to opening edges that can bound them. An opening's lower edge is the edge nearer the wall start; its higher edge is the edge nearer the wall end. The start snaps to the higher edge of an opening that crosses the girt, the end to the lower edge, or the start to the lower edge and the end to the higher edge of one opening for a girt inside that opening. An edge of an opening the girt bypasses is offered too: snapping to it clears that bypass. An edge that would leave the girt no span of 6&quot; (0.5 ft) or longer is not offered. A snap to an edge that cannot bound that end is rejected with <code>GirtSnap/BoundaryInvalid</code>, and a snap that leaves no usable span with <code>GirtSnap/NoUsableSpan</code>.</li>
 <li>When a girt endpoint is snapped to a new association, any explicit gap override for the touched endpoint/edge is cleared so geometry-aware defaults apply for the new association.</li>
+<li>A girt end on a wall edge or grid that lies exactly on the edge of an opening the girt stops at gets that edge's jamb gap, in the preview and in the placed girt alike. A gap override you set for that end replaces it.</li>
 <li>When you <strong>merge adjacent girt segments</strong>, any opening-member extents that targeted either segment are automatically re-targeted to the merged segment key, so snap-to-girt semantics remain stable after merges.</li>
 <li>If re-segmentation recomputation yields fewer than 2 segments, SGT collapses the segment group back into a single standalone row and shows a banner summarizing how many groups were collapsed.</li>
 <li>If geometry-aware gap computation fails (missing profile or transform failure), SGT reports an error. Re-run Analyze to refresh warmup data.</li>
+<li>A gap handle on an opening you just deleted can stay on the canvas until the preview redraws; double-clicking it then shows a &quot;Gap edit failed&quot; banner instead of a gap editor (known issue).</li>
 <li>Gap override fields reject <code>NaN</code> / <code>Infinity</code> values (negative values are allowed); invalid overrides surface as plan validation failures before placement.</li>
-<li>Rows intentionally anchored to opposite edges of the same opening remain placeable as opening-internal spans (they are not rejected as zero-span subtraction artifacts).</li>
-<li>Opening-edge snaps are available against all eligible opening edges in the active preview, not only the currently selected opening row.</li>
+<li>Placement validation failures remain explicit before commit and are reported without being converted into generic placement exceptions; unexpected Revit placement faults surface through the tool error boundary with their original cause.</li>
+<li>A girt segment that cannot be placed reports its own failure, with the same text on Place and Update; for example, a girt family without Start/End Extension parameters reports Writer/ExtensionParamMissing when an end gap needs them. A missing opening framing type reports Plan/EligibleOpeningTypesMissing, not an orientation failure.</li>
+<li>A girt whose start is on an opening's lower edge and whose end is on the same opening's higher edge spans inside that opening; every other girt is split at each opening it crosses unless it bypasses that opening. Girt pieces shorter than 6&quot; (0.5 ft), such as a narrow pier between two close openings, are left out.</li>
+<li>Jamb, header and sill handles, and girt segment handles other than the girt's own start and end, are offered all eligible opening edges in the active preview, not only the currently selected opening row. A girt's outer endpoints follow the boundary rule above.</li>
+<li>An opening splits every girt it crosses even when all of its framing roles are turned off.</li>
+<li>When the opening or grid a girt end was attached to is removed, or that opening no longer crosses the girt (for example after an opening edit or a shortened wall), SGT moves that end to the nearest opening edge that is at least 6&quot; (0.5 ft) from the girt's other end, or to the wall edge when there is none, and clears that end's gap override. A gap override you set for the opening edge it moves to is kept. The banner states how many ends moved (&quot;Re-anchored N girt end(s) to the nearest opening or wall edge.&quot;). When two segments of one girt then overlap, SGT merges them into the first segment and the banner also states &quot;Merged N overlapping girt segment(s) into their neighbors.&quot;</li>
+<li>A header or sill split position beyond the wall fails Place/Update with a message that names the opening.</li>
 <li>Grid markers in elevation preview now use a white bubble (white fill, black outline) with centered black label text for dark-theme readability.</li>
 <li>When multiple handles overlap, press <strong>Tab</strong> to cycle candidates; <strong>Enter</strong> confirms the highlighted handle and <strong>Esc</strong> cancels.</li>
 <li>Right-click on a segmented opening member now opens a segment-specific context menu (delete that segment only). Row-level delete actions appear only when you open the row menu itself.</li>
 <li>Deleting the last segment of a single opening role removes that role; the opening row itself remains until all roles for that opening are removed.</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:130</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:681</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:958</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Snapping.cs:359</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:577</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:980</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:395</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:524</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1472</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1961</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:394</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1908</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1536</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1209</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:2899</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:271</code></p>
-</blockquote>
-<h3 id="debug-log-volume-2026-02-09">Debug Log Volume (2026-02-09)</h3>
-<p>When Debug mode is enabled, SGT now favors summary diagnostics over per-probe noise:</p>
+<h3 id="debug-log-volume-2026-03-08">Debug Log Volume (2026-03-08)</h3>
+<p>When Debug mode is enabled, SGT now favors condensed summaries instead of per-probe noise:</p>
 <ul>
 <li>Step 1/2/3 preflight summaries report total/success/failure counts.</li>
-<li>Step 2 opening detection/merge logs are summarized, with only small opening samples.</li>
-<li>Orientation logs keep concise per-role summaries in Debug; deep probe diagnostics moved to Trace.</li>
+<li>Step 2 opening detection/merge logs stay summarized, with small opening samples instead of one line per internal probe.</li>
+<li>Orientation logging keeps concise per-role <code>Debug</code> summaries; detailed probe attempts are folded into those summary diagnostics instead of being emitted separately.</li>
+<li>Temporary probe transactions log only when they captured diagnostics, and blocking probe failures still surface as warnings/errors.</li>
 </ul>
-<p>This keeps long SGT sessions readable while preserving deep diagnostics when Trace logging is enabled.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs:151</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/PlanBuilder.Helpers.cs:565</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:310</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:384</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:481</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:828</code></p>
-</blockquote>
+<p>This keeps long manual sessions readable while preserving the main breadcrumbs needed for parity triage.</p>
 <h3 id="bottom-bar">Bottom Bar</h3>
 <table>
 <thead>
@@ -418,7 +377,7 @@
 <li><p><strong>Configure openings (if any)</strong></p>
 <ul>
 <li>Linked walls: Openings are auto-detected</li>
-<li>Foundation walls: Click &quot;Add Opening&quot; to manually define openings</li>
+<li>Foundation walls: Click &quot;Add Opening&quot; to manually define openings; SGT ignores any physical/Revit wall openings on the host wall in this mode</li>
 <li>Check/uncheck the boxes for which framing members you want</li>
 </ul>
 </li>
@@ -442,6 +401,12 @@
 <li>Type the new elevation (e.g., &quot;7'-6&quot;&quot;)</li>
 <li>Press Enter - the preview updates automatically</li>
 </ol>
+<p>Elevation and offset fields accept invariant decimal feet (<code>7.5</code>), feet marked
+with an apostrophe (<code>7'</code>), feet plus quoted inches (<code>7'-6&quot;</code> or
+<code>7'-6 1/2&quot;</code>), and quoted inches (<code>18&quot;</code>, <code>6.5&quot;</code>, or <code>6 1/2&quot;</code>). Spaces may
+surround the marks, hyphen, and fraction slash. One leading <code>+</code> or <code>-</code> applies
+to the entire value. Named units (<code>ft</code>, <code>in</code>, metric units), localized commas,
+exponents, component signs, unquoted fractions, and trailing text are rejected.</p>
 <p><strong>To add a new girt at a specific elevation:</strong></p>
 <ol>
 <li>Find the &quot;Add&quot; field at the bottom of the Girt Elevations section</li>
@@ -469,6 +434,7 @@
 </ul>
 <h3 id="configuring-opening-framing">Configuring Opening Framing</h3>
 <p>For each opening, you control which framing members are created:</p>
+<p>Opening members (header, sill, and jambs) use Channel or HSS types only. Zee and L-Angle types are girt-only and are not offered for opening roles.</p>
 <table>
 <thead>
 <tr>
@@ -507,15 +473,57 @@
 <li>Make changes as needed</li>
 <li>Click &quot;Update&quot; to apply changes, or &quot;Remove&quot; to delete everything</li>
 </ol>
-<p>During edit/update, SGT now follows this behavior:</p>
+<p>During edit/update:</p>
 <ul>
-<li>Reconciliation actions (Sync / Move to resolve / Convert to Manual / Delete / Skip Role) are applied from the current detected wall openings, so the UI refreshes against live host conditions before you continue editing.</li>
-<li>Update tries to move existing members in place first. If any move fails, SGT shows a warning prompt that lets you retry by deleting and recreating affected members using the same data.</li>
+<li>Opening rows show Live or Manual source. Editing a live opening's position or size makes it Manual. Its distance from the wall start stays fixed when the wall length changes.</li>
+<li>A completed session creates one <strong>Super Girt Tool</strong> Undo entry. Cancel, an error, or a Dev Mode reload rolls back the session's model edits.</li>
+<li>Update tries to move existing members in place first. If any required existing member cannot be matched or moved, Update stops with an error instead of retrying through delete/recreate.</li>
+<li>Place and Update set each girt's Start/End Extension from its end gaps (0 where the girt has no gap), so placed girts match the preview. A family default extension is replaced at the next Place or Update. An extension typed on a placed SGT girt is replaced at its next Update. If Update must change an extension whose parameter is missing or read-only, the Update fails and rolls back its model changes.</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:398</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CommandsAndBulk.cs:440</code></p>
-</blockquote>
+<h3 id="change-review">Change Review</h3>
+<p>When an edited wall or opening differs from the stored observation, SGT opens
+<strong>Change Review</strong> before it writes the proposed update. Each row shows its
+source opening name (or <strong>Manual opening</strong> when a detached manual row has no
+name), its source, status, and decision. Change effects appear in the details
+pane for the selected row. Along-wall ranges appear in placement validation
+messages when an opening is outside the effective wall bounds. Choose one of
+the decisions shown by the row:</p>
+<ul>
+<li><strong>Accept</strong> adopts the current live observation and applies its framing on the
+next Update.</li>
+<li><strong>Keep</strong> keeps the placed/manual geometry and framing configuration for this
+session.</li>
+<li><strong>Ignore</strong> leaves the existing framing untouched and asks about the item again
+on a later review. An opening you edited in this session returns to its placed
+geometry and framing. A manual opening that was never placed stays unframed;
+choose <strong>Keep</strong> on a later review in the same session to frame it again.
+Update does not save an ignored manual opening that was never placed.</li>
+</ul>
+<p>The review also lists wall and layer changes, remembered decisions, accepted
+removals waiting for Update, and girt ends that will be re-anchored. A missing
+live opening can be paired with a current opening by choosing <strong>Same as</strong> and
+clicking <strong>Pair</strong>. <strong>Unpair</strong> restores the previous pairing and
+its draft row. <strong>Locate</strong> selects the source element when it is available.</p>
+<p><strong>Relink</strong> starts a wall pick for a system whose wall reference has changed.
+The selected wall is analyzed and the review draft is rebuilt before any
+decision is saved. <strong>Delete System</strong> removes the stored system and its placed
+members. <strong>Deconstruct</strong> removes the stored system and SGT tags while keeping
+the placed members in the model. These operations run inside the same session
+transaction group, so Cancel, an error, or forced retirement rolls them back.</p>
+<p>Review <strong>Confirm</strong> saves the detached plan and decision ledger inside the
+current SGT session. It does not place or update Revit members by itself; use
+<strong>Update</strong> after confirming. <strong>Cancel</strong> closes the review without saving its
+decisions. The main window's <strong>Cancel — Close without placing anything</strong> rolls
+back all model and storage writes made during the window, including a review
+confirmation. A successful window close assimilates the session as one
+<strong>Super Girt Tool</strong> Undo entry.</p>
+<p>An unreadable current SGT payload fails with a typed storage error. If an owned
+storage entity or element tag uses an unsupported schema or format version, the
+session purges that entity and its SGT tags inside the same transaction group.
+It also purges current-schema tags that point to a system that no longer exists.
+A successful close keeps the purge; Cancel, an error, or forced retirement
+restores it. Native framing is not deleted. Re-place the system after an
+unsupported-data message.</p>
 <h3 id="previewplaced-alignment-notes">Preview/Placed Alignment Notes</h3>
 <p>Recent parity fixes align preview and placement behavior for linked walls and opening framing:</p>
 <ul>
@@ -539,15 +547,17 @@
 </li>
 <li><p>Opening-edge trimming now applies gap-only cutbacks in both preview segmentation and final placement, removing oversized girt-to-jamb gaps; geometry-aware bisection gaps use calibrated profile transforms so cutbacks align with placed output for nested families.</p>
 </li>
-<li><p>Preview now uses calibrated orientation metadata to decide whether Y or Z justification controls flange/web offset, reducing jamb orientation/depth mismatch between preview and placed elements.</p>
+<li><p>Preview no longer reconstructs member transform/sign/depth semantics locally; Elevation, Section, and 3D all consume the same final resolved contract used by placement.</p>
+</li>
+<li><p>Opening-member preview meshes now enumerate the same materialized segment-contract list used by placement, so segment order/index stay aligned across elevation, section, 3D, and placed components.</p>
 </li>
 <li><p>Preview profile transforms now run with the same operation order as placement (<code>rotation</code> then <code>Flip Facing</code> then justification), improving jamb rotation/depth parity in linked-wall previews.</p>
 </li>
 <li><p>Opening members now resolve orientation semantics in role-first order (role metadata first, then type fallback), improving left/right/head/sill consistency for shared types.</p>
 </li>
-<li><p>3D opening members now use the same role-based projection contract as 2D previews, so head/sill/jamb profile orientation stays consistent across preview modes.</p>
+<li><p>3D opening members now use the same final resolved contract path as 2D previews, so head/sill/jamb profile orientation stays consistent across preview modes.</p>
 </li>
-<li><p>Elevation, Section, and 3D now all use one shared semantics helper: profile transforms preserve analyzer-resolved <code>yTargetsFlange</code> for all roles, and depth/secondary projection follows that analyzer mapping consistently for every role.</p>
+<li><p>Elevation, Section, and 3D now all read the same final line, basis, and loop data, so preview modes stay synchronized without preview-only orientation helpers.</p>
 </li>
 <li><p>3D debug logging now includes projection mapping for left/right jamb, header, and sill previews to make WW/WS mismatch diagnosis faster.</p>
 </li>
@@ -591,60 +601,6 @@
 </li>
 </ul>
 <p>If preview still appears wrong after editing row settings, re-run Analyze to refresh wall/opening direction context before placing.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:200</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:24</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:296</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:398</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:17</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:583</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:885</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:292</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:309</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:36</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:2278</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1354</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:73</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:99</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/PreviewVisualTokens.cs:1</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:55</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:63</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:66</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:176</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:208</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Navigation3D.cs:177</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:184</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1520</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:95</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:561</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1021</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1861</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1565</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:39</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:155</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:400</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:523</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1035</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1406</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:832</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:902</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1384</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1426</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAdapter.cs:423</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:170</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:539</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:243</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:443</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:115</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:226</code></p>
-</blockquote>
 <hr>
 <h2 id="settings-explained">Settings Explained</h2>
 <h3 id="offset">Offset</h3>
@@ -654,6 +610,8 @@
 <li><strong>Positive values</strong> = Girts are offset outward from the wall</li>
 <li><strong>Negative values</strong> = Girts are offset inward into the wall</li>
 </ul>
+<p>Use the same signed input grammar described under <strong>Adjusting Girt Elevations</strong>;
+the sign belongs at the start of the complete value (for example, <code>-6 1/2&quot;</code>).</p>
 <h3 id="layer-compound-walls">Layer (Compound Walls)</h3>
 <p>For walls with multiple layers (e.g., concrete + insulation + finish), the Layer dropdown lets you choose which layer surface the girts align to:</p>
 <ul>
@@ -752,7 +710,7 @@
 <ul>
 <li>No girt rows configured</li>
 <li>All opening checkboxes are unchecked</li>
-<li>Analysis failed silently</li>
+<li>Analysis failed</li>
 </ul>
 <p><strong>Fix:</strong></p>
 <ol>
@@ -784,11 +742,13 @@
 <li>Change the Rotation value (try 0, 90, 180, 270)</li>
 <li>Adjust Y-Just and Z-Just if the member position is off</li>
 </ol>
-<p><strong>Note (2026-02-07):</strong></p>
+<p><strong>Note (2026-03-06):</strong></p>
 <ul>
-<li>Preview also applies WW/WS secondary-axis parity correction in Elevation, Section, and 3D when transform/projection semantics differ for horizontal roles.</li>
-<li>If one wall direction looks correct but an orthogonal wall direction looks inverted in preview, rebuild via <code>bash build.sh BuildAll</code> to ensure current preview binaries are loaded.</li>
+<li>Preview parity on WW/WS walls now comes from the same final resolved contract used by placement.</li>
+<li>If preview still looks wrong after editing row settings, rerun Analyze or reopen the tool so the current wall/opening runtime state is rebuilt before placing.</li>
+<li>Manual validation and the exhaustive Revit-hosted parity harness now agree again when Revit is loading the correct loader/dev-driver payload.</li>
 </ul>
+<!-- UNVERIFIED: recorded from current validated branch state, not rechecked after this docs pass -->
 <h3 id="cant-edit-existing-sgt-system">Can't edit existing SGT system</h3>
 <p><strong>Cause:</strong> You may have selected non-SGT members, or members from a different system.</p>
 <p><strong>Fix:</strong></p>
@@ -813,12 +773,14 @@
 <p>A: Yes! Each row is independent. You can use C10X15.3 at 0'-0&quot;, C8X11.5 at 5'-0&quot;, etc.</p>
 <p><strong>Q: What happens if I change the wall after placing girts?</strong></p>
 <p>A: The girts don't automatically update. You'll need to use Edit mode to adjust or remove and re-place.</p>
+<p><strong>Q: Edit mode says the stored SGT data is incompatible. What do I do?</strong></p>
+<p>A: The stored runtime payload no longer matches the current SGT data shape. Remove and re-place the SGT system so DB Tools can write a fresh compatible runtime payload.</p>
 <p><strong>Q: Can I place girts on only part of a wall?</strong></p>
 <p>A: Yes, use the Left Extent and Right Extent options to limit girts to a portion of the wall length.</p>
 <p><strong>Q: Do girts automatically avoid openings?</strong></p>
 <p>A: Yes. When you place girts, they automatically segment around openings with proper gaps.</p>
 <p><strong>Q: What's the minimum girt length?</strong></p>
-<p>A: Girts must be at least 6&quot; (0.5 ft) long. Shorter segments are rejected.</p>
+<p>A: Girt pieces must be at least 6&quot; (0.5 ft) long. Shorter pieces (for example a narrow pier between two close openings) are left out of the preview and placement, and a girt with no piece of 6&quot; or longer cannot be placed.</p>
 <p><strong>Q: Can I use SGT on curved walls?</strong></p>
 <p>A: SGT is designed for straight walls. Curved walls are not currently supported.</p>
 <p><strong>Q: How do I delete all SGT members from a wall?</strong></p>
@@ -835,7 +797,6 @@
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/user-guide/tools/sgt.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

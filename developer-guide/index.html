@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../images/favicon.ico">
       <link rel="stylesheet" href="../public/docfx.min.css">
-      <link rel="stylesheet" href="../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../toc.html">
       <meta name="docfx:tocrel" content="toc.html">
       
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/index.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../public/main.js?v=20260125" defer></script>
+      <script src="../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,125 +89,113 @@
         <article data-uid="">
 <h1 id="developer-guide">Developer Guide</h1>
 
-<p>Welcome to the DB Tools Developer Guide. This documentation is intended for developers working on the DBTools codebase or building integrations.</p>
-<h2 id="quick-navigation">Quick Navigation</h2>
+<p>This guide describes how DBTools is built, structured and tested, and how to
+develop its tools.</p>
 <table>
 <thead>
 <tr>
 <th>Section</th>
-<th>Description</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><a href="architecture/overview.html">Architecture</a></td>
-<td>System design, build pipeline, project structure</td>
+<td>Components, startup, build and test pipelines, assembly loading, themes</td>
 </tr>
 <tr>
 <td><a href="projects/core.html">Projects</a></td>
-<td>Deep dives into each project</td>
+<td>The Core, App, Sandbox and Presentation projects</td>
 </tr>
 <tr>
 <td><a href="tools/common/gm.html">Tools (Technical)</a></td>
-<td>Internal tool implementation details</td>
+<td>Implementation of each tool</td>
 </tr>
 <tr>
 <td><a href="developing/new-tool-guide.html">Developing</a></td>
-<td>Guides for creating new tools</td>
+<td>Creating tools, settings packs, hooks, warnings, Sandbox integration, testing</td>
+</tr>
+<tr>
+<td><a href="troubleshooting.html">Troubleshooting</a></td>
+<td>Common errors and the logs</td>
 </tr>
 </tbody>
 </table>
-<h2 id="getting-started">Getting Started</h2>
-<h3 id="prerequisites">Prerequisites</h3>
+<h2 id="requirements">Requirements</h2>
 <ul>
-<li>Visual Studio 2022 or later</li>
-<li>.NET SDK 8.0+</li>
-<li>Revit 2024, 2025, or 2026</li>
+<li>the .NET SDK pinned in <code>global.json</code>; <code>build.sh</code> and <code>build.ps1</code> install it
+when it is missing;</li>
+<li>Python 3.10 or later on Linux and WSL;</li>
+<li>Desktop Revit 2026.5 or later, or Revit 2027, to run the add-in. Building does
+not need Revit.</li>
 </ul>
-<h3 id="building">Building</h3>
-<pre><code class="lang-bash"># From repository root
-bash build.sh
-
-# Or for a specific Revit year
-bash build.sh -y 2025 BuildAll
+<h2 id="building">Building</h2>
+<pre><code class="lang-bash">./build.sh                                     # BuildAll: build, validate and publish both years
+./build.sh BuildApp -y 2026                    # product assemblies for one year
+./build.sh AssembleDistributionCandidate -y 2026
+pwsh -NoProfile -File build.ps1 BuildAll       # native Windows
 </code></pre>
-<h3 id="testing">Testing</h3>
-<pre><code class="lang-bash"># Run Revit integration tests
-bash invoke-revit-tests.sh --smart --tool GM
-
-# Run headless tests
-dotnet test testing/DBTools.BuildArtifacts.Tests/DBTools.BuildArtifacts.Tests.csproj -c Release
+<p><code>BuildAll</code>, <code>ValidateDistributionCandidate</code>, <code>PromoteToDist</code>, <code>BuildBundle</code> and
+<code>BuildInstaller</code> always build every supported year; a <code>-y</code> that omits one
+fails. See
+<a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
+<h2 id="testing">Testing</h2>
+<pre><code class="lang-bash">./test.sh test --tool GM --scope pure                        # one tool, without Revit
+./test.sh test --tool APP --scope local -y 2026              # in Revit, through the daemon
+./test.sh test --filter &quot;FullyQualifiedName~SomeTestName&quot;
+./test.sh test --scope all
 </code></pre>
-<h2 id="architecture-overview">Architecture Overview</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│                         Revit                                │
-├─────────────────────────────────────────────────────────────┤
-│                    DBTools.Loader                            │
-│                 (Revit Add-in Entry Point)                   │
-├─────────────────────────────────────────────────────────────┤
-│                     DBTools.App                              │
-│              (Application Shell, Ribbon UI)                  │
-├──────────────┬──────────────┬──────────────┬────────────────┤
-│    GM Tool   │   SGT Tool   │  Other Tools │   Settings     │
-├──────────────┴──────────────┴──────────────┴────────────────┤
-│                     DBTools.Core                             │
-│         (Shared Infrastructure, Transactions, UI)            │
-├─────────────────────────────────────────────────────────────┤
-│                    DBTools.Themes                            │
-│                  (UI Theming System)                         │
-└─────────────────────────────────────────────────────────────┘
+<p>Revit-hosted tests run on the dbtools-daemon fleet. See
+<a href="architecture/test-pipeline.html">Test Pipeline</a>.</p>
+<h2 id="architecture">Architecture</h2>
+<pre><code class="lang-text">Revit
+ └─ DBTools.addin → DBTools.dll (App: entry, lifecycle, ribbon)
+     ├─ DBTools.Core.dll (execution, transactions, settings, logging, tool registry)
+     ├─ DBTools.Presentation.dll (stable WPF resources and shells)
+     │   └─ DBTools.HandyControl.dll
+     └─ Tools/DBTools.&lt;Tool&gt;.dll (one assembly per tool)
 </code></pre>
-<h2 id="key-concepts">Key Concepts</h2>
-<h3 id="manifest-driven-tools">Manifest-Driven Tools</h3>
-<p>Each tool declares its configuration via <code>manifest.yml</code>:</p>
 <ul>
-<li>Ribbon button definitions</li>
-<li>Command types and availability</li>
-<li>Settings schemas</li>
-<li>Sandbox windows for validation</li>
+<li><strong>Manifests.</strong> Each tool declares its assembly, module, ribbon commands,
+availability types, settings and Sandbox windows in <code>manifest.yml</code>. App embeds
+all manifests and loads each declared tool from <code>Tools/</code> by explicit path.</li>
+<li><strong>Product tree.</strong> Each supported year is one directory with <code>DBTools.addin</code>,
+the four top-level assemblies and <code>Tools/</code>. Third-party libraries are merged
+into their owner assemblies.</li>
+<li><strong>Window-scoped themes.</strong> Each window merges the theme into its own
+resources, not into <code>Application.Resources</code>, so DBTools does not change other
+add-ins.</li>
 </ul>
-<h3 id="single-dll-deployment">Single-DLL Deployment</h3>
-<p>All tool code compiles into <code>DBTools.dll</code> via MSBuild file-linking. Dependencies are embedded as resources and extracted at runtime.</p>
-<h3 id="window-scoped-theming">Window-Scoped Theming</h3>
-<p>WPF themes apply at window level (not application level) to avoid conflicts with other Revit add-ins.</p>
-<h2 id="documentation-sections">Documentation Sections</h2>
-<h3 id="architecture"><a href="architecture/overview.html">Architecture</a></h3>
+<p>See <a href="architecture/overview.html">Architecture Overview</a>.</p>
+<h2 id="writing-documentation">Writing documentation</h2>
+<p>The wiki is built with DocFX from <code>wiki/</code>. Write developer and user pages in
+the style of Unix reference documentation (Debian and GNU manuals, man pages):</p>
 <ul>
-<li><a href="architecture/overview.html">System Overview</a></li>
-<li><a href="architecture/build-pipeline.html">Build Pipeline</a></li>
-<li><a href="architecture/test-pipeline.html">Test Pipeline</a></li>
-<li><a href="architecture/project-references.html">Project References</a></li>
-<li><a href="architecture/ilrepack-embedding.html">ILRepack &amp; Embedding</a></li>
-<li><a href="architecture/sandbox-validator.html">Sandbox Validator</a></li>
-<li><a href="architecture/theme-system.html">Theme System</a></li>
+<li>State what a component is, what it does, how it works, how to use it and its
+limits. Put the main point first.</li>
+<li>Use plain declarative sentences in the present tense and the active voice;
+use the imperative in procedures.</li>
+<li>Use the names the code uses, one term per concept. Use lists for steps and
+parallel items, tables for tabular data, and code blocks for commands, paths
+and literal values. Document commands as a synopsis, options and examples.</li>
+<li>Describe the current behavior only. Leave out change history, status and
+verification notes, dates, issue numbers, and the vocabulary of the process
+that produced a change. Keep a history note only for a migration step or
+compatibility break the reader needs.</li>
+<li>Leave out filler, hedging and repeated summaries. State each real
+limitation once, where it applies.</li>
+<li>Verify every technical claim against the current code, scripts and
+configuration before you write or keep it.</li>
 </ul>
-<h3 id="projects"><a href="projects/core.html">Projects</a></h3>
-<ul>
-<li><a href="projects/core.html">DBTools.Core</a></li>
-<li><a href="projects/app.html">DBTools.App</a></li>
-<li><a href="projects/loader.html">DBTools.Loader</a></li>
-<li><a href="projects/sandbox.html">DBTools.Sandbox</a></li>
-<li><a href="projects/themes.html">DBTools.Themes</a></li>
-</ul>
-<h3 id="tools-technical"><a href="tools/toc.html">Tools (Technical)</a></h3>
-<p>Internal implementation details for each tool.</p>
-<h3 id="developing"><a href="developing/new-tool-guide.html">Developing</a></h3>
-<ul>
-<li><a href="developing/new-tool-guide.html">Creating New Tools</a></li>
-<li><a href="developing/modularity.html">Leveraging Modularity</a></li>
-<li><a href="developing/settings-packs.html">Settings Packs</a> <em>(coming soon)</em></li>
-<li><a href="developing/feature-warnings.html">Feature Warnings</a> <em>(coming soon)</em></li>
-<li><a href="developing/hooks.html">Hooks</a> <em>(coming soon)</em></li>
-<li><a href="developing/sandbox-integration.html">Sandbox Integration</a> <em>(coming soon)</em></li>
-<li><a href="developing/testing-tools.html">Testing Tools</a> <em>(coming soon)</em></li>
-</ul>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<p>See <a href="troubleshooting.html">Troubleshooting</a> for common issues and solutions.</p>
+<p>The same rules apply to source comments, CLI help and messages. A comment
+explains a reason, an invariant or a non-obvious API behavior, not what the
+code already says. CLI help uses man-page form: a synopsis, then one line per
+option with its default. An error message names what failed, the relevant
+value or path and, where useful, what to do.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/index.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

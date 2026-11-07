@@ -9,14 +9,14 @@
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
       <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/sgt.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../../public/main.js?v=20260125" defer></script>
+      <script src="../../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,1001 +89,449 @@
         <article data-uid="">
 <h1 id="sgt-super-girt-tool">SGT (Super Girt Tool)</h1>
 
-<h2 id="overview">Overview</h2>
-<p>The Super Girt Tool (SGT) is a Revit add-in for placing and managing structural steel girts and opening framing members (jambs, headers, sills) on foundation walls. It supports both host document walls and walls in linked Revit models.</p>
-<p>See also: <a href="sgt-spec.html">Specification (Internal)</a></p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/manifest.yml:7-8</code></p>
-</blockquote>
-<p><strong>Location</strong>: <code>src/Tools/Structural/SGT/</code></p>
-<p><strong>Tool ID</strong>: <code>DBTools.SGT</code></p>
-<p><strong>Ribbon Location</strong>: Structural group, order 40</p>
-<h2 id="features">Features</h2>
-<h3 id="core-functionality">Core Functionality</h3>
-<table>
-<thead>
-<tr>
-<th>Feature</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Wall Selection</strong></td>
-<td>Select linked walls or host foundation walls for girt placement</td>
-</tr>
-<tr>
-<td><strong>Girt Placement</strong></td>
-<td>Auto-seed girts at configurable elevations with smart spacing</td>
-</tr>
-<tr>
-<td><strong>Opening Framing</strong></td>
-<td>Automatic detection and framing of openings (jambs, headers, sills)</td>
-</tr>
-<tr>
-<td><strong>Live Preview</strong></td>
-<td>Real-time 2D elevation and 3D preview of proposed framing</td>
-</tr>
-<tr>
-<td><strong>Extent Control</strong></td>
-<td>Configure girt extents by wall length, grids, openings, or manual distances</td>
-</tr>
-<tr>
-<td><strong>Edit Mode</strong></td>
-<td>Modify previously placed SGT systems with host-change reconciliation</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtNewCommand.cs:36-39</code></p>
-</blockquote>
-<h3 id="contextual-edit-launch">Contextual Edit Launch</h3>
-<p>The contextual <code>Edit SGT Wall</code> flow pre-creates its <code>ExternalEvent</code> during API-safe injector lifecycle work (<code>InitializeAsync</code> / <code>RefreshAsync</code>) and only calls <code>Raise()</code> from the ribbon click handler. This avoids Revit invalid-context failures when ribbon callbacks run outside standard API execution.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:59</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:106</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Commands/ContextualRibbonInjector.cs:424</code></p>
-</blockquote>
-<h3 id="execution-logging-density-2026-02-09">Execution Logging Density (2026-02-09)</h3>
-<p>SGT debug logging was reduced to emphasize actionable summaries over high-frequency event/probe noise:</p>
-<ul>
-<li>Hook executor start/completion logs are suppressed for background contextual/view hook refresh paths.</li>
-<li>Analyze Step 1/2/3 now emits compact preflight summaries (<code>[SGT.PreflightSummary]</code>) and opening summaries.</li>
-<li>Orientation analysis keeps one <code>Debug</code> summary per solved/failed role (<code>[SGT.Orientation.Summary]</code>), while detailed probe diagnostics are <code>Trace</code>.</li>
-<li>Temp transaction lifecycle logs (<code>[SGT.TempTx.*]</code>) and per-member placement diagnostics are now <code>Trace</code>, with warnings/errors preserved.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Tools/DbtHookHost.cs:153</code><br>
-<strong>Source:</strong> <code>src/DBTools.Core/Revit/UI/ContextualRibbonInjectorBase.cs:293</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs:151</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/PlanBuilder.Helpers.cs:565</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:310</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:481</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:828</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:431</code></p>
-</blockquote>
-<h3 id="supported-wall-types">Supported Wall Types</h3>
-<ul>
-<li><strong>Linked Walls</strong>: Walls from Revit link instances (any function)</li>
-<li><strong>Host Foundation Walls</strong>: Foundation walls in the host document (WallFunction.Foundation)</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Commands/SgtNewCommand.cs:96-99</code></p>
-</blockquote>
-<h3 id="supported-framing-types">Supported Framing Types</h3>
-<p>The tool supports structural framing families filtered by shape:</p>
-<table>
-<thead>
-<tr>
-<th>Shape Category</th>
-<th>Girts</th>
-<th>Opening Members</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>C Shapes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Default: C10X15.3</td>
-</tr>
-<tr>
-<td>MC Shapes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Miscellaneous channels</td>
-</tr>
-<tr>
-<td>Z Shapes</td>
-<td>Yes</td>
-<td><strong>No</strong></td>
-<td>Intentionally excluded for openings</td>
-</tr>
-<tr>
-<td>Angle Shapes</td>
-<td>Yes</td>
-<td><strong>No</strong></td>
-<td>Girt-only; short leg seats elevation and long leg seats exterior plane</td>
-</tr>
-<tr>
-<td>HSS (Tube)</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Square + rectangular role-aware seating/orientation mapping</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilySymbolClassifier.cs:158</code></p>
-</blockquote>
-<h2 id="architecture">Architecture</h2>
-<p>SGT follows a domain-driven MVVM architecture with clear separation between UI, domain logic, and Revit API interactions.</p>
-<pre><code>src/Tools/Structural/SGT/
-+-- Features/            # Feature-specific code
-|   +-- AnalyzeWall/     # Wall analysis services
-|   +-- Commands/        # Revit external commands
-|   +-- Girts/           # Girt management services
-|   +-- Openings/        # Opening detection
-|   +-- Orientation/     # Family orientation analysis
-|   +-- Place/           # Placement orchestration
-|   +-- Preview/         # 2D/3D preview rendering
-|   +-- Reconcile/       # Host-change reconciliation
-+-- Shell/               # UI layer
-|   +-- Composition/     # DI registration
-|   +-- DesignTime/      # Design-time ViewModels
-|   +-- UI/              # Views and ViewModels
-+-- Shared/              # Cross-feature services
-    +-- Contracts/       # Interfaces and DTOs
-    +-- Extents/         # Extent resolution
-    +-- Hydration/       # Domain hydration
-    +-- Kernel/          # Core domain
-    |   +-- Domain/      # Domain entities (SgtPlan, SgtWall, etc.)
-    |   +-- Geometry/    # Geometry utilities
-    |   +-- State/       # State management
-    |   +-- Units/       # Unit conversion service
-    +-- PreviewModels/   # Preview data models
-    +-- Revit/           # Revit adapters
-    +-- UiModels/        # UI-bound row items (SgtGirtRowItem, etc.)
+<!-- STATUS: verified -->
+<!-- Last Updated: 2026-10-11 -->
+<!-- Verified By: SGT_Session 08-18-26-0136pm -->
+<p>SGT is the structural wall-framing tool registered as <code>DBTools.SGT</code>. Its source is organized by runtime owner, not by the former <code>Shell/</code> and <code>Shared/</code> convenience buckets.</p>
+<h2 id="test-lanes">Test lanes</h2>
+<p><code>StartupTargetResolverTests</code> is Revit-local. The host-free
+<code>OpeningSynchronizationControllerTests</code>, <code>PreviewRefreshCoordinatorTests</code>, and
+<code>BulkEditFlyoutViewModelTests</code> suites run in the Pure lane beside
+<code>OpeningMemberExtentSnapTargetResolverTests</code>; none occupies an <code>Integration/Revit</code>
+path or depends on a hosted-runner category merely for routing.</p>
+<h2 id="owner-layout">Owner Layout</h2>
+<pre><code class="lang-text">src/Tools/Structural/SGT/
++-- App/
+|   +-- Composition/
+|   +-- Converters/
+|   +-- DesignTime/
+|   +-- Persistence/
+|   +-- Resources/
+|   +-- Sessions/
+|   |   +-- TransactionGroup/
+|   |   +-- ViewModels/
+|   |   +-- WindowSession/Revit/
+|   |   +-- Workflow/
+|   +-- Startup/
+|   +-- State/
+|   |   +-- PlanSynchronization/
+|   +-- ViewModels/
+|   +-- Views/
++-- Domain/
+|   +-- Defaults/
+|   +-- FamilyResolution/
+|   +-- Geometry/
+|   +-- Identity/
+|   +-- MemberResolution/
+|   +-- Openings/
+|   |   +-- Roles/
+|   +-- Orientation/
+|   +-- PlanEditing/
+|   +-- PlanStore/
+|   +-- Plans/
+|   |   +-- Projection/
+|   +-- Wall/
+|   +-- WallTarget/
++-- Features/
+|   +-- BulkEdit/
+|   +-- Openings/
+|   +-- Orientation/
+|   +-- Placement/
+|   |   +-- Domain/
+|   |   +-- Execution/
+|   |   +-- Girt/
+|   |   +-- Orientation/
+|   |   +-- Planning/
+|   |   +-- Operations/ModelWrite/
+|   |   +-- Revit/
+|   |   |   +-- ModelWrite/
+|   |   +-- Workflow/
+|   +-- Preview/
+|   |   +-- DesignTime/
+|   |   +-- Domain/
+|   |   +-- Editing/MemberResolution/Segmentation/
+|   |   +-- Geometry/
+|   |   +-- Handle/
+|   |   +-- HitTesting/OpeningMember/
+|   |   +-- Planning/
+|   |   +-- Refresh/
+|   |   +-- Rendering/
+|   |   |   +-- Scene3D/
+|   |   +-- Selection/
+|   |   +-- Snap/
+|   |   +-- ViewModels/
+|   |   +-- Views/{Geometry,Handle,HitTesting,Rendering,Selection,Snap,View2D,Viewport}/
+|   +-- WallAnalysis/
+|       +-- Domain/
+|       +-- Revit/
+|           +-- Geometry/
+|           +-- Planning/
++-- Persistence/
+|   +-- Revit/
++-- Revit/
++-- Tests/
++-- DBTools.SGT.csproj
++-- manifest.yml
 </code></pre>
-<h3 id="key-design-patterns">Key Design Patterns</h3>
-<h4 id="single-source-of-truth-ssot">Single Source of Truth (SSOT)</h4>
-<p>The <code>SgtPlan</code> object serves as the single source of truth for all SGT operations. It contains:</p>
+<p>The feature owners are <code>Openings</code>, <code>Orientation</code>, <code>Placement</code>, <code>Preview</code>, <code>WallAnalysis</code>, and <code>BulkEdit</code>. Preview-owned editing lives under <code>Features/Preview/Editing</code>.</p>
+<p>The remaining top-level owners have distinct responsibilities:</p>
 <ul>
-<li>Wall geometry and context (host/linked)</li>
-<li>Girt row configurations</li>
-<li>Opening row configurations</li>
-<li>Eligible framing types</li>
-<li>Pre-computed orientation data</li>
-<li>Grid positions</li>
+<li><code>App/</code> owns command/window composition, modal sessions, startup, the live plan-store implementation and UI refresh coordinator, UI-only persistence, whole-window XAML hosting, view models, converters, and design-time binding shapes. <code>AddAppStateServices</code> is the App-state registration entrypoint; <code>WindowSessionBuilder</code> directly composes the one window session, and its runtime state remains private to the window view model.</li>
+<li><code>Domain/</code> owns the required-target <code>Plan</code> aggregate, its <code>IPlanStore</code> port, <code>PlanBaselineSnapshot</code>, plan editing/projection, pure default/family resolution, and Revit-free wall/opening/orientation semantics. It has no dependency on <code>App/</code>, <code>Features/</code>, <code>Persistence/</code>, CommunityToolkit, or <code>ObservableCollection</code>.</li>
+<li><code>Persistence/</code> owns <code>ISystemRepository</code>, the private storage transport, current-contract admission and serialization mapping, and the Revit-backed <code>SystemRepository</code> under <code>Persistence/Revit</code>. It has no dependency on <code>App/</code>.</li>
+<li><code>Revit/</code> owns cross-feature Revit adapters that are not naturally owned by one feature.</li>
+<li><code>Features/</code> owns feature-specific contracts, workflows, row mutation, observable UI items/collections, and Revit adapters. Features do not reference <code>App/</code>.</li>
 </ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Kernel/Domain/SgtPlan.cs:10-14</code></p>
-</blockquote>
-<h4 id="plan-store-pattern">Plan Store Pattern</h4>
-<p>The <code>ISgtPlanStore</code> interface provides centralized plan state management with change notifications:</p>
-<pre><code class="lang-csharp">public interface ISgtPlanStore
-{
-    SgtPlan? Plan { get; }
-    event EventHandler&lt;PlanChangedEventArgs&gt;? PlanChanged;
-    void SetPlan(SgtPlan plan);
-    void Clear();
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Contracts/ISgtPlanStore.cs</code></p>
-</blockquote>
-<h4 id="orchestrator-pattern">Orchestrator Pattern</h4>
-<p>The <code>SgtOrchestrator</code> coordinates validation, domain object creation, and placement/update operations:</p>
-<ol>
-<li><strong>Validate</strong> - Check plan integrity and extent resolution</li>
-<li><strong>Build Domain</strong> - Create <code>SgtWall</code> with <code>SgtMember</code> and <code>SgtOpening</code> aggregates</li>
-<li><strong>Hydrate</strong> - Resolve segments and connectivity</li>
-<li><strong>Persist</strong> - Write to Revit document via <code>ISgtDomainWriter</code></li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Place/Logic/SgtOrchestrator.cs:17-40</code></p>
-</blockquote>
-<h2 id="ui-components">UI Components</h2>
-<h3 id="main-window">Main Window</h3>
-<p><strong>Class</strong>: <code>ShellWindow</code> (WPF Window)<br>
-<strong>ViewModel</strong>: <code>ShellWindowViewModel</code></p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1</code></p>
-</blockquote>
-<p>The main window is a 1600x950 modal dialog with three main regions:</p>
-<ol>
-<li><p><strong>Left Panel</strong>: Configuration</p>
+<p>The generated <a href="../../../../src/Tools/Structural/SGT/MAP.md">SGT MAP</a> is the current tracked folder and manifest-type index.</p>
+<h2 id="application-boundary">Application Boundary</h2>
+<p><code>manifest.yml</code> binds the runtime front door in lockstep:</p>
 <ul>
-<li>Scope controls (wall offset, layer selection)</li>
-<li>Girts expander with DataGrid + Segment Flyout (per-segment editing)</li>
-<li>Openings expander with DataGrid + Segment Flyout (role + per-segment editing)</li>
-<li>Bulk edit flyout (in-window overlay)</li>
+<li>module: <code>DBTools.SGT.App.Composition.SgtToolModule</code></li>
+<li>command: <code>DBTools.SGT.App.Composition.SgtCommand</code></li>
+<li>window: <code>DBTools.SGT.App.Views.SgtWindow</code></li>
+<li>design-time view model: <code>DBTools.SGT.App.DesignTime.SgtWindowDesignTimeViewModel</code> (live Sandbox window consumer)</li>
 </ul>
-</li>
-<li><p><strong>Center Splitter</strong>: Resizable divider</p>
-</li>
-<li><p><strong>Right Panel</strong>: Preview</p>
-<ul>
-<li>2D elevation view</li>
-<li>3D view (using HelixToolkit)</li>
-<li>Overlay preview mode/zoom controls</li>
-</ul>
-</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:392</code></p>
-</blockquote>
-<h3 id="girt-grid-columns">Girt Grid Columns</h3>
+<p><code>App/Views/SgtWindow.xaml</code>, <code>PreviewView.xaml</code>, <code>OpeningView.xaml</code>, and <code>GirtView.xaml</code> are raw <code>EmbeddedResource</code> views. The stable <code>ToolWindowFactory</code> owns the modal shell; <code>SgtWindow</code> is a payload composition object that supplies the view model, composes the three child raw elements, attaches the preview presenter, and releases the view graph through the host session. The payload contains no XAML code-behind or WPF-derived view type. The compiled design-time resource page was retired, while <code>SgtWindowDesignTimeViewModel</code> and <code>SgtWindowSamplePopulator</code> remain as the live Sandbox window's manifest-selected design-time model. <code>FeetInchesConverter</code> was removed because no runtime consumer remains. There is no <code>ShellWindow</code> compatibility type or namespace forwarder.</p>
+<p>The Sandbox creates the raw <code>SgtWindow</code> shell through its manifest entry and then invokes the stable
+<code>ISgtSandboxViewComposer</code> callback implemented by <code>SgtWindowDesignTimeViewModel</code>. The tool's
+<code>SgtWindowRawViewComposer</code> is shared by that callback and the live window, so the sample receives the
+same Girt, Openings, and Preview fragments, stable preview input behavior, and session-owned cleanup.
+The callback is declared in Presentation rather than Core because Sandbox and the candidate tool may use distinct host contexts while Presentation remains
+the stable WPF owner.</p>
+<p>Revit-hosted window tests use modeless <code>Window.Show()</code> with a bounded <code>DispatcherDrain</code>.
+<code>SgtWindowSessionTests</code> drives the real run scope through <code>RunWindowFlowAsync</code> and keeps
+transaction rollback, plan-target, preview, DataContext, and overlay-cleanup assertions.
+Windows Pure <code>WindowSessionLifecycleTests</code> uses the real modal host and watchdog. It proves
+same-window re-entry after a pick without depending on another <code>ContentRendered</code> event.</p>
+<p><code>App/Sessions/WindowSession/WindowSessionLifecycle.cs</code> owns the lifecycle states, close intent,
+startup outcome, and finalization result. Its synchronous modal driver always returns a completed
+task because both production Revit command callers block immediately. A relink hides the window,
+executes the synchronous picker, then re-enters <code>ShowDialog</code> in the same command frame. One owned
+ContextIdle callback resumes target analysis after the window is visible. The driver rejects a
+modal return before the pick or shown handshake completes. It never posts modal re-entry.</p>
+<p><code>WindowSessionStartupAnalysis</code> observes the current initial-analysis or target-analysis producer.
+A completed producer delivers inline. A pending producer delivers through one owned dispatcher
+operation while the modal frame remains active. Closing during analysis cancels analysis and keeps
+the window and transaction group alive until its outcome arrives. Retirement revokes the producer
+callbacks and aborts the operation. No custom awaiter, scheduler, or nested task chain owns shutdown.</p>
+<p>Forced retirement clears commit intent, releases payload resources, and publishes cancellation.
+If the synchronous picker is still on the stack, cancellation publication and transaction rollback
+wait until it returns; no target analysis or banner runs afterward. Ordinary Closed cleanup remains
+a distinct state and preserves an accepted commit. Native window and dispatcher references are
+captured before registration retirement. Transaction operations must complete through the inline
+Revit call gate, before the command returns.</p>
+<p><code>App/Sessions/WindowSession/Revit/SgtWindowSession.cs</code> supplies Revit picking and startup,
+window resource effects, and error-boundary integration to the lifecycle owner. Its <code>RunModalFlowAsync</code>
+is the production entry point. New/edit launch flows use a closed <code>WindowSessionLaunchRequest</code>:
+<code>New</code> requires a concrete <code>WallTarget</code>, and <code>Edit</code> requires a nondefault <code>SystemId</code>. The builder
+requires an inline Revit call gate and rolls back construction failures with ordered cleanup.
+The command consumes only completed lifecycle tasks. Cosmetic UI-state persistence has its own
+context-free observer and never delays transaction finalization.</p>
+<p>Native X/Alt+F4 close reuses the WPF close already in progress. An active analysis delays close until its outcome settles. An accepted <code>Closed</code> releases mandatory preview/window resources and then finalizes the single owned <strong>Super Girt Tool</strong> transaction group inline. Successful close intent plus a healthy, successful session assimilates the group; Cancel, errors and forced retirement roll it back. SGT refuses an already-modifiable document at launch. A programmatic close that throws or returns without <code>Closed</code> rolls back once and leaves a close-only retry available to X, Alt+F4 and Cancel. The retry never finalizes again. No transaction is committed outside the session group.</p>
+<p>The view model owns queued plan, preview, and render dispatcher operations. Disposal stops both refresh coordinators, drops the pending plan snapshot, and aborts queued callbacks before cancelling in-flight analysis. Late preview results cannot publish to a retired view. Girt/opening projection still publishes validation flags, but those derived notifications do not queue another UI edit; segment group display refresh uses the same suppression. This prevents invalid rows or refreshed group labels from feeding a perpetual preview queue.</p>
+<p>Each analysis run owns its cancellation source until its <code>finally</code> completes. A newer run or view-model disposal cancels active work without disposing that source early. An idle source is cancelled and disposed immediately when replaced. Cancelled or superseded results cannot publish a plan or resume preview-mode changes after an asynchronous wait. A disposed view model creates no replacement idle source.</p>
+<p>Model commit requires an explicit successful startup/model outcome and a healthy transaction group. UI-state persistence contains only cosmetic layout and bulk-edit preferences (expanded panels, column widths, and bulk defaults), so it is best-effort and does not gate model commit. Neither OK nor Cancel waits for cosmetic disk I/O. A successful model commit with a still-pending save logs that preferences are being saved in the background without showing a banner. An already-failed save reports a warning through the Revit/default-owner notifier after the accepted close. A <code>finally</code> block always attaches the context-free disk-task observer, including when transaction finalization throws. The deferred observer logs a later disk failure but does not touch the retired window. A Cancel path releases the transaction and window first, then observes the save task without changing its Cancelled outcome. Mandatory preview/window cleanup failures select rollback before assimilation. Synchronous transaction, cleanup, and finalization failures propagate; cosmetic save failures do not change a definite model commit. This cosmetic-save policy supersedes the pre-commit persistence gate introduced in <code>7e0c558faa</code>. <code>WindowInitializer</code> attaches the exact per-window Core boundary, while <code>WindowErrorBoundaryRegistry</code> owns the dispatcher subscription and routes DBTools-owned failures (thrown from or passing through an assembly named exactly <code>DBTools</code> or starting with <code>DBTools.</code>, which covers <code>DBTools.HandyControl</code> and the Helix merged into <code>DBTools.Presentation</code>; another add-in's raw HandyControl or Helix copy never qualifies) to the most recently attached active window, or the most recently attached window when none is active. The selected <code>WindowErrorBoundary</code> remains the sole classifier, presenter, and handled-state owner. <code>SgtWindowSession</code> subscribes to its exact boundary; a missing host fails session construction rather than entering a pending, global, or timing-dependent route. When Core routes and handles a failure on that SGT window, the session records the original exception and any presentation failure, requests rollback closure while preserving the modal frame, completes all owned cleanup, deterministically unsubscribes, and then propagates the original failure ahead of cleanup or modal-assertion failures through the command safe-execution boundary. Foreign dispatcher exceptions are neither handled nor signalled by Core, and SGT does not attach a competing dispatcher handler.</p>
+<p>A direct <code>ShowDialog</code> failure before <code>ContentRendered</code> cannot have started analysis, so rollback, preview/window release, and transaction finalization are attempted synchronously on the current Revit UI thread before only context-free persistence can remain. Broken modal-continuation invariants are collected as finalization failures without short-circuiting mandatory rollback or owned cleanup. When the modal frame is already absent, the session records that invariant and does not knowingly await incomplete dispatcher-affine startup work; transaction admission downgrades an invalid modal lifetime to rollback and continues every safe owned cleanup step. UI-state persistence observes late failures without retaining the retired session and logs them without posting UI work after retirement. Opening-member snap endpoints are explicit: header/sill use <code>Start</code> or <code>End</code>, while jambs use <code>Top</code> or <code>Bottom</code>; the resolver rejects any mismatched role/endpoint request before resolving a target or creating an edit. <code>WallGeometry</code> is a Revit-free Domain contract for validated construction, point/face/center projection, and inclusive physical bounds. The safe-execution boundary owns user-facing reporting. No forwarding <code>StartSession</code> entrypoint, competing SGT dispatcher exception subscription, or window-owned fallback lifecycle remains.</p>
+<h2 id="feature-boundaries">Feature Boundaries</h2>
+<h3 id="placement">Placement</h3>
+<p><code>Features/Placement/Domain</code> contains pure command-state values/evaluation, preflight/readiness rules, gaps, validation, and placement-only domain projections. <code>Features/Placement/ViewModels/PlacementCommandStateProjector.cs</code> adapts the live girt/opening view models into those pure inputs and applies their validation state. <code>Features/Placement/Planning</code> creates placement projections from the domain plan; <code>Features/Placement/Operations/ModelWrite</code> owns the inward writer port, write context, contract catalog, and opening target; <code>Persistence/ElementTagSchema</code> holds the element-tag schema constants; <code>Features/Placement/Revit/ModelWrite</code> implements model mutation. App/session workflow owns command-level analysis orchestration through <code>App/Sessions/Workflow/AnalysisSessionWorkflow</code>; Revit-backed wall analysis and plan construction live under <code>Features/WallAnalysis/{Domain,Revit/Planning}</code>. Placement has no dependency on WallAnalysis. The <code>ModelWrite</code> name identifies the external model-write boundary.</p>
+<p>Recoverable plan rejections use <code>SpecFailure</code> results at the opening-segment, preview girt-snap, member-segment hydration, and placement-projection boundaries. Their UI callers show the exact typed rejection and do not publish a plan or preview change. Argument defects, cancellation, and unexpected projection/runtime faults remain exceptions and propagate unchanged through the established safe-execution boundary. Revit transaction/model-write owners may still use <code>SpecFailureException</code> where exception unwinding is required to roll back; callers must not translate unrelated runtime faults into ordinary validation results.</p>
+<p>Plan admission rejects invalid updates with <code>SpecFailureException</code> carrying <code>PlanValidationFailed</code> and the validation details. Parent opening persistence and segment mutation translate only that code into their existing failure results. Rejection preserves the committed plan and version. Parent edits remain suppressed until a successful retry or cancellation. Rejected segment add, delete, and property changes show the typed failure in both the banner and preview status without requesting a refresh. Unrelated exceptions still propagate.</p>
+<p>UI-to-plan synchronization reads the committed layer directly when the UI selection is absent. It constructs the girt projection at its consumer and lets opening persistence own opening projection. Segment lookup and deletion use canonical opening rows through the existing row resolver; no synchronization or segment context wrapper duplicates those owners.</p>
+<p><code>PlacementElementTagStore</code> owns element admission for contextual selection, update, removal, and deconstruction. An owned element must have the structural-framing category, a valid SGT schema entity, the exact <code>SGT</code> marker, and a nonblank system ID. Updates collect admitted instances once per transaction and decode each tag into a role-and-identity index. Each target consumes its matching entry. Unmatched admitted instances are retired only after all requested walls are processed. Wrong-marker elements remain outside SGT ownership even when their stored system ID matches.</p>
+<p><code>PlacementWorkflow</code> retains the command's <code>SafeExecutionResult</code> and returns one placement/removal outcome. Successful commands request successful close. A failed or cancelled model write requests rollback close. Declining removal confirmation leaves the window open because no write began. <code>Revit/CommittedWrite/CommittedWrite</code> maps Revit refusals and non-committed transaction status to <code>Transaction/NotCommitted</code> while retaining the original cause. Each command uses ordinary transactions inside the existing session group.</p>
+<p>Placement-owned dialog ports are <code>IDangerConfirmationDialog</code> and <code>IUpdateSummaryDialog</code> under <code>Features/Placement/Workflow</code>. <code>App/Sessions/WindowSession/WindowSessionDialogs.cs</code> implements them. Placement does not depend on an App-owned dialog contract.</p>
+<h3 id="change-review-and-physical-acceptance">Change Review and physical acceptance</h3>
+<p><code>Features/ChangeReview</code> owns the detached review candidate, row decisions,
+target precedence, decision ledger, relink pairing, and the raw dialog. The
+dialog is loaded as an embedded raw XAML view by the tool-window host; it has no
+payload <code>x:Class</code> or code-behind. <code>Accept</code>, <code>Keep</code>, and <code>Ignore</code> are the only
+decision terms exposed to users and code. Opening labels use source name and
+along-wall range; the canonical opening key remains an internal identity only.</p>
+<p><code>ChangeReviewWorkflow</code> synchronizes the accepted plan before capturing its
+revision, reads one live snapshot, and analyzes a confirmed candidate before
+publishing it. A review Confirm writes only the detached plan/ledger state. The
+later Place or Update command owns model writes and updates <code>Placed</code> from the
+actual write result. A successful review can therefore be followed by several
+ordinary model commands while the same session <code>TransactionGroup</code> remains open.</p>
+<p>The session lifecycle owns the review child and any relink picker. It retires a
+child in <code>finally</code>, closes the child before hiding the parent for a pick, and
+resumes the same synchronous modal driver after the picker returns. Normal
+window Cancel, native close, command failure, and forced retirement roll back
+the one session group. Only a successful window close assimilates it, producing
+one Revit Undo entry named <strong>Super Girt Tool</strong>. No review or placement command
+starts an outside transaction group.</p>
+<p>The current RevitLocal acceptance map is deliberately explicit:</p>
 <table>
 <thead>
 <tr>
-<th>Column</th>
-<th>Property</th>
-<th>Description</th>
+<th>Contract</th>
+<th>Kept real fixture</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Elevation</td>
-<td><code>ElevationText</code></td>
-<td>Vertical position (feet-inches format)</td>
+<td>Place creates physical members, tags, and storage</td>
+<td><code>WallSystemWriterTests.PlaceAsync_RealProjection_PersistsTagsCountsAndProgressInOneTransaction</code></td>
 </tr>
 <tr>
-<td>Girt Type</td>
-<td><code>GirtTypeId</code></td>
-<td>Family type selection</td>
+<td>Delete System removes owned members/storage and keeps a copied foreign tag</td>
+<td><code>PreviewPlacementParityTests.DeleteSystem_DeletesStorageAndPlacedElements</code></td>
 </tr>
 <tr>
-<td>Rotation</td>
-<td><code>Rotation</code></td>
-<td>Cross-section rotation (0/90/180/270)</td>
+<td>Deconstruct removes SGT associations while retaining native framing</td>
+<td><code>PreviewPlacementParityTests.DeconstructSystem_DeletesStorageAndTags_PreservesPlacedElements</code></td>
 </tr>
 <tr>
-<td>Y Justification</td>
-<td><code>YJustification</code></td>
-<td>Lateral positioning</td>
+<td>Update keeps held opening members and does not adopt a copied identity</td>
+<td><code>WallSystemWriter.Updates_HeldOpeningLeavesFramingUntouchedAndNeverAdoptsCopiedIdentity</code></td>
 </tr>
 <tr>
-<td>Z Justification</td>
-<td><code>ZJustification</code></td>
-<td>Vertical positioning</td>
+<td>Update preserves matches and retires unmatched tagged instances</td>
+<td><code>WallSystemWriter.Updates_UpdateAsync_PreservesMatchesAndDeletesUnmatchedTaggedInstance</code></td>
 </tr>
 <tr>
-<td>Flip</td>
-<td><code>FlipFacing</code></td>
-<td>Mirror orientation (Facing flip)</td>
+<td>Persisted configuration is reloaded while current wall geometry is reanalyzed</td>
+<td><code>PreviewPlacementParityTests.Persisted_system_edit_plan_preserves_configuration_and_reanalyzes_desired_geometry</code></td>
+</tr>
+<tr>
+<td>Unsupported owned storage is purged and restored by group rollback</td>
+<td><code>WallSystemWriterTests.PurgeUnsupportedAsync_removes_only_owned_opaque_entities_inside_the_session_group</code></td>
+</tr>
+<tr>
+<td>Accepted opening removal re-anchors physical placement consistently with preview</td>
+<td><code>PreviewPlacementParityTests.Removing_an_opening_reanchors_girt_ends_and_placement_matches_preview</code></td>
+</tr>
+<tr>
+<td>Review ledger and inner physical Update commit or roll back with session OK/Cancel</td>
+<td><code>SgtWindowSessionTests.Real_change_review_confirm_and_inner_update_follow_session_close</code></td>
 </tr>
 </tbody>
 </table>
-<p>Segmented girt groups use the Segment Flyout. The chevron appears only on the group leader (<code>ShowSegmentGroupExpander</code>) and opens an in-window flyout overlay containing per-segment edit rows (Type/Rotation/Y/Z/Flip + delete). The flyout opens anchored to the chevron (clamped inside the window) and resets to a consistent default size/position on each open; when resized, extra width should go to the <strong>Type</strong> column while the rest of the row controls keep their relative alignment/gaps.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:470</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1910</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1996</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/GirtRowViewModel.cs:67</code></p>
-</blockquote>
-<h3 id="opening-grid-columns">Opening Grid Columns</h3>
-<p>Each opening row supports four framing roles with independent configuration:</p>
+<p>The Confirm proof injects only the child-dialog boundary: the production
+workflow, repository, analysis, placement executor, elements, tags, and session
+transaction group remain real. It performs the ledger write from Confirm and a
+physical Update before requesting either Cancel or OK. Revit does not expose an
+Undo-stack enumeration API, so the exact <strong>Super Girt Tool</strong> dropdown label and
+single-entry check remain operator evidence. The relink pairing and
+occupied-target case is released only when the B17 active-review picker is
+present. Missing linked/central-model inputs remain unexecuted release inputs;
+they are never replaced with fake transaction or Undo-history counters.</p>
+<h3 id="preview">Preview</h3>
+<p><code>Features/Preview/Domain</code> owns preview scene, palette, wall, girt, opening, grid, and computed segment-assignment state. <code>Features/Preview/Rendering/Scene3D</code> builds plain SGT mesh values; <code>Features/Preview/Views/Rendering/Scene3D/StructuralPreviewSceneAdapter</code> maps them to stable <code>IStructuralPreview3D</code> snapshot DTOs. WPF renderers and canvas layout live under <code>Features/Preview/Views</code>. The stable Presentation viewport owns Helix, camera navigation, fit/reset, hit testing, hover, and selection materials; SGT payload code has no Helix reference. <code>PreviewPresenterBehavior</code> retains 2D elevation/section drawing, handles, snapping, context menus, and row selection, while forwarding 3D scene and emphasis updates through the stable API. <code>SgtWindow</code> composes <code>PreviewView.xaml</code> into the stable host and retires the presenter before transaction finalization. Placement view models do not store Preview domain objects. Preview edits mutate the Domain plan and request FromPlan projection instead of mirroring state into Placement rows. <code>PreviewServiceCollectionExtensions.cs</code> registers the feature, and the App window-session builder binds it into the modal runtime. Preview edit workflows live under <code>Features/Preview/Editing/MemberResolution/Segmentation</code>; reusable plan-edit calculations live under <code>Domain/PlanEditing</code>.</p>
+<p><code>StructuralPreviewSceneAdapter</code> is the sole boundary from payload scene metadata to stable Presentation DTOs. Mesh IDs preserve source row, role, and segment identity so click selection, hover tooltips, sibling dimming, segment emphasis, and wall-context materials remain deterministic. SGT disables the stable viewport's own tooltip popup so the payload <code>PreviewView</code> overlay remains the sole user-visible tooltip surface; stable pointer events still feed payload formatting, including wall-only click tooltips and wall-hover clearing. Wall meshes remain pickable context hits but never select rows; member hits retain precedence when both are present. The adapter also emits the legacy transparent floor plane and clamps overlay thickness to the former minimum. Scene bounds and exterior normal preserve the previous home camera orientation; the stable presenter owns orbit/pan/zoom/fit and camera persistence for the lifetime of the hosted view.</p>
+<p><code>Features/Preview/Refresh/PreviewProjectionService</code> projects an explicit <code>Plan</code> without changing that plan or its store. App owns segmentation reconciliation for <code>UiEdit</code> and <code>PlanMutation</code>. A changed plan refreshes the UI and queues <code>RenderOnly</code> before any preview publication. <code>RenderOnly</code> reads the committed plan without reconciliation. <code>PreviewRenderingService</code> owns scene construction and its cache, not plan state. <code>PlanSynchronizationWallSetupProjection</code> projects the Layer selector items from the accepted plan; the preview projection does not own them.</p>
+<p><code>PreviewRefreshCoordinator</code> owns monotonic request, completion, and success sequences. Only <code>Applied</code> advances success. <code>Blocked</code> completes without success. <code>Deferred</code> completes without success and the coordinator queues one <code>RenderOnly</code> successor; readiness waits for it. Disabled previews, rejected UI synchronization, missing plans, canceled builds, and failed builds cannot satisfy publication readiness. A UI-dispatch rejection fails the attempted sequence and preserves any newer request for dispatch.</p>
+<p>The production presenter acknowledges a scene only after the available viewport applies the scene, emphasis or reset, and selection highlight. Missing subscribers, unavailable presenters, and contained rendering failures return <code>Blocked</code>; failures clear the scene cache so a later refresh can retry. When the runtime presenter attaches after the view enters 3D mode, it invalidates the prior publication key and requests one render-only refresh through the scene event. A reused view model therefore redelivers its cached scene to the new presenter instead of treating the old delivery as current. App records a scene cache key only after publication succeeds. A matching cache hit can satisfy readiness without another publication. A cached but unpublished scene forces a new build. Cache clearing and failed publication invalidate this evidence. Analysis switches to elevation only after preview readiness succeeds.</p>
+<p><strong>Preview ownership rule (Option C).</strong> <code>Features/Preview</code> owns preview state, projection (<code>PreviewProjectionService</code>), rendering (<code>PreviewRenderingService</code> and <code>Scene3D</code>), editing workflows (<code>Features/Preview/Editing</code>), and refresh scheduling and coalescing (<code>PreviewRefreshCoordinator</code>). App owns refresh execution: <code>SgtWindowViewModel.UpdatePreviewAsync</code> synchronizes every pane through <code>PlanSynchronizationCoordinator</code> inside the window's analysis lifetime. App also owns the WPF presenter, <code>PreviewPresenterBehavior</code>, because it routes into the girt and opening grid surfaces through <code>WindowSessionSurfaceCoordinator</code>. The <code>Func&lt;PreviewRefreshMode, int, Task&lt;PreviewUpdateOutcome&gt;&gt;</code> that App passes to <code>PreviewRefreshCoordinator</code> is work injection into a scheduler, not an ownership inversion. Moving either App part into Features needs a Features-to-App reference or a delegate carrier back to the window, and it deletes no code. Do not move them unless a change removes those App dependencies.</p>
+<p>The stable Presentation viewport owns SGT's 3D gesture session, including orbit,
+pan, zoom, fit/reset, hit testing, hover, camera persistence, and selection
+materials. SGT supplies only plain scene snapshots and emphasis updates through
+<code>IStructuralPreview3D</code>. The stable SGT preview input behavior owns the raw
+2D canvas and zoom/reset button subscriptions; the payload keeps elevation,
+section, snapping, handle editing, and context-menu decisions behind its input
+surface. Unwiring releases the stable behaviors before the payload presenter and
+scene adapter are retired.</p>
+<p>The 3D viewport installs at ContextIdle after Loaded so the shell can paint first.
+Entering 3D restores the home camera; ordinary scene updates preserve a user-adjusted
+camera. The raw preview retains the role palette legend, DirectX failure panel,
+and Sandbox fallback panel. Unavailable status is shown only in 3D mode. Each raw
+fragment resolves its static theme resources through the same dispatcher-owned
+<code>SgtThemeResourceExtension</code> instance.</p>
+<p>Opening parent-row edits remain a DataGrid transaction: the stable
+<code>SgtDataGridRowEditGateBehavior</code> defers row completion at Send priority while the
+payload gate validates and commits or cancels the Opening edit session. Add Opening
+requests use the stable parent-edit helper after the view is loaded, and the same
+helper captures/restores named Opening column widths around UI-state persistence. The
+gate owns and aborts pending dispatcher completions before release, and the payload
+window owns deferred parent-edit and width-restore callbacks through the session; stale
+opening rows are ignored after a replacement or retirement.
+Completion requires a canonical GUID opening key and valid
+geometry, including when every framing role is disabled. Invalid input keeps the row in edit mode and
+does not raise <code>ParentRowCommitted</code>.</p>
+<p><code>SgtWindowInteractionBehavior</code> caches the two DataGrids and flyout roots after the raw
+view is loaded. Its logical/visual traversal deduplicates shared WPF nodes and walks
+ContentElement parents safely, including PopupRoot-to-Popup traversal for dropdown scrollbars. Bulk and segment flyout positioning keeps its Render and
+ContextIdle operations owned by the releasable behavior, clamps open cards after a
+window resize, resets the segment card to its 680-pixel default before population, and
+preserves the original drag/resize and zero-distance behavior. ComboBox, text, button,
+toggle, and DataGrid input is excluded from click-away dismissal; an active bulk edit is
+required before outside dismissal. The modal scrim is found by its name, <code>FlyoutModalScrim</code>.
+The Pure and hosted flyout lifecycle proofs supply a complete <code>ISgtWindowDragInput</code>: coordinates,
+capture ownership, capture acquisition, and release. Raising routed mouse events does not
+guarantee native mouse capture. Supplying coordinates alone leaves that proof dependent on Windows
+desktop input. <code>SgtWindowDragInput</code> delegates to WPF for normal operation. Hosted Revit jobs
+always use a hidden private desktop, which receives no mouse or keyboard input.
+The hosted preview gesture proof uses the same interface through
+<code>PreviewPresenterBehavior.SetDragInputSource</code>. The presenter retains that source across
+disable/enable transitions. Its default source preserves WPF coordinates and capture.
+These tests assert capture ownership through the supplied input and retain the production
+handler, cursor, selection, rendering, and zoom assertions.
+The raw view root's <code>PreviewMouseDown</code> tunnel dismisses active bulk edit when the source is
+outside the bulk card and the excluded controls. The scrim's <code>MouseLeftButtonDown</code>
+then closes the segment flyout first if it is active; otherwise it closes the bulk
+flyout. It marks the event handled only when it closes one of those flyouts. A right click
+can take the tunnel path but does not run the scrim's left-button handler.
+The scrim covers the full client surface, including the 16-DIP band outside the main
+content grid; the floating cards retain their previous inset. Hosted input coverage uses
+layout hit-testing and directly raised routed events. The Flip-cell proof raises the
+preview tunnel on the realized grid, which promotes the direct left-button event at each
+route node without <code>InputManager</code> retargeting. The scrim proof separately raises the
+preview and left-button bubble routes from the same hit. Neither proof needs a physical
+mouse target or double-click interval waits. The Ctrl proof sets and restores the test
+thread's keyboard state without injecting keyboard input.
+The shell dismisses only an active segment flyout on native non-client mouse-down
+messages for the title bar, resize frame, and system areas. Bulk edit and its flyout
+remain unchanged, so dragging the window cannot discard or hide the active bulk selection.
+This differs from the client scrim's two-phase dismissal described above. It is an intentional
+SGT extension beyond pre-conversion behavior: the pre-conversion <code>SgtWindow.Lifecycle.cs</code> handled only the
+window's client-routed <code>PreviewMouseDown</code> and the scrim's client <code>MouseLeftButtonDown</code>,
+so those native areas were previously outside the click-away path. The stable
+<code>SgtWindowInteractionBehavior</code> attaches a session-owned <code>HwndSourceHook</code>, leaves the
+native message unhandled, and detaches it with the window lifecycle so caption move,
+resize, system-menu, and close behavior remain native.
+The stable <code>SgtWindowInteractionBehavior</code> owns the Girt flip-cell root-level preview
+gesture before generic DataGrid selection runs. It preserves left-click checkbox toggling
+and row selection, including Shift bypass, Ctrl toggle, and deselection of an already
+selected row; segment expander double-clicks remain outside bulk-row activation.
+The opening segment TreeView uses the SGT-specific <code>SgtTreeViewSelectedItemBehavior</code>.
+It forwards only the TreeView's actual <code>SelectedItemChanged</code> value, so ComboBox and other
+embedded editor input cannot synthesize a different yellow selection. Its releasable state
+is retired with the raw shell; the shared TreeView behavior remains unchanged.
+The Sandbox design sample implements the same stable interaction surface, so its sample
+rows and flyout drag/resize use the shared behavior lifecycle.</p>
+<h3 id="openings-orientation-wallanalysis-and-bulkedit">Openings, Orientation, WallAnalysis, and BulkEdit</h3>
+<p>Opening keys are canonical GUID-N strings and survive source changes. <code>OpeningLiveReference</code> and <code>WallTargetReference</code> carry owning-document UniqueIds plus the host link-instance UniqueId where needed. <code>OpeningRuntimeIdIndex</code> assigns keys ordinal IDs 1..n within each projection; it never derives those IDs from key bits or Revit ElementIds.</p>
+<p>Opening rows own along start/end distances in feet. <code>OpeningGeometryResolver</code> derives the normalized runtime frame from those distances and the current wall length, so a manual opening does not stretch with the wall. A local geometry edit converts Live to Manual while preserving its live reference and source name. Held and Unframed rows are read-only and show <code>(awaiting review)</code> or <code>(not framed)</code> respectively. Only Unframed excludes an opening from girt boundaries and opening members; disabling all roles still splits girts. <code>OpeningRoleRules.ApplySeedDefaultsForEnabledRoles</code> is the shared seeding core: geometry changes remove roles that cease to apply, seed newly applicable roles, and preserve still-applicable overrides and user-disabled roles.</p>
+<p><code>GeometryFingerprint.Compare</code> owns wall/opening change tolerances (0.01 ft and 1 inch), including type, layer material/function, frame, reflection and framing-mode changes. Live geometry captures material names from the owning document; no wall identity is stored in <code>WallGeometryContext</code>.</p>
 <ul>
-<li><strong>Left Jamb</strong>: Vertical member at opening left edge</li>
-<li><strong>Right Jamb</strong>: Vertical member at opening right edge</li>
-<li><strong>Header</strong>: Horizontal member at opening top</li>
-<li><strong>Sill</strong>: Horizontal member at opening bottom (optional)</li>
+<li><code>Openings</code> owns Revit opening queries, editable-row mutation/sync/projection, and opening pane view models; stable opening identities, ranges, contracts, and feet geometry live beside <code>EditableOpeningRow</code> in <code>Domain/Openings</code>.</li>
+<li>Opening bounds accept only complete finite source candidates. Complete cut-face bounds replace every fallback; otherwise solid bounds seed the result, width replaces solid horizontal bounds before profile union, and vertical precedence is profile, parameters, then solid. Absent geometry, solids, cut generators, or profile loops may fall through to the next source, but traversal, symbol-geometry, triangulation, transform, and non-finite-vertex faults retain their original exception identity and stack. If any supported insert exhausts every bounds source, the query returns one typed <code>OpeningQuery/Incomplete</code> failure and no partial opening list. Wall-context failures remain typed unchanged, and opening-row recovery recognizes the exact <code>UI/PlanMissing</code> code rather than exception message text.</li>
+<li><code>Orientation/Revit/Analysis</code> owns the Revit-backed family-orientation analyzer and solver inputs; <code>Orientation/Analysis</code> retains portable rotation math and solver results, while shared orientation value semantics remain in <code>Domain/Orientation</code>.</li>
+<li><code>WallAnalysis</code> owns its inward plan-builder contract plus Revit geometry extraction, calibration, profile warming, seeding, and plan construction under <code>WallAnalysis/{Domain,Revit/{Geometry,Planning}}</code>; <code>WallContextResolver</code> admits only a closed <code>WallTarget</code>, produces <code>ResolvedWallContext</code>, and that resolved context is the sole host/link input to the one production <code>WallGeometryBuilder</code> assembly path. Calibration checks cancellation before argument validation or cache access; argument defects throw, typed <code>SpecFailureException</code> failures become calibration results, and only successes are cached. Family calibration is a per-family preflight: it logs a failed family and continues, and each type of that family then carries the typed failure, with family and type names, as a per-role orientation failure. The orientation analyzer throws <code>SpecFailureException</code> for expected family incompatibilities and <code>WallAnalysisFramingTypeAnalyzer</code> converts them per role. Host and linked frame construction share one typed frame-failure boundary in <code>WallGeometryBuilder</code>. Cancellation, rollback failures, and invariant defects propagate. <code>Tests/Support/WallGeometryFixtureBuilder</code> is fixture-only. App owns command/session orchestration.</li>
+<li>New and edit analysis both pass <code>PlanAdmissionValidator</code> before returning success. Edit analysis preserves the stored configuration and analyzes the selected wall's current geometry. The lifecycle owns startup and any target pick.</li>
+<li><code>PlanSeedingStep</code> is the sole initial seeding owner. App feedback reports the projected girt and opening counts without adding rows or synchronizing UI values into the plan. Non-foundation plans retain the no-openings notice. Analysis still waits for preview completion before switching to elevation mode.</li>
+<li>When every profile fails, <code>ProfileLoopsAllFailed</code> retains up to five type IDs and their causes in numeric ID order. The detail also reports how many failures were omitted. Per-type logs and partial-success profile warnings remain available.</li>
+<li><code>BulkEdit</code> owns the in-window bulk-edit flyout workflow, centered on <code>BulkEditFlyoutViewModel</code> and its partial family. A failed apply attempts restoration of every captured girt and selected opening-role snapshot in request order, then propagates the apply failure first followed by every restoration failure.</li>
 </ul>
+<p>Placement owns <code>GirtTypeItem</code>, <code>GirtTypeCatalog</code>, and <code>GirtPaneViewModel.GirtTypeDisplay</code> for the girt grid. Opening, bulk, and preview selectors use immutable <code>FramingTypeOption</code> values directly. The shared combo-box item style is also used by the girt grid; it binds <code>IsSelectable</code> and shows <code>ProfileWarningText</code>. Selection setters also refuse unavailable types. Placement preflight checks opening member profiles before placement.</p>
+<p><code>SmartDefaultsResolver</code>, <code>SmartDefaultsInput</code>, <code>TypeDrivenDefaultsInput</code>, and <code>FamilyResolutionInput</code> are pure inward contracts. Girt and opening rows apply resolved values through their own feature methods; Domain never imports or mutates feature view models.</p>
+<p>WallAnalysis may consume Placement planning/model-write contracts needed to construct an executable plan, but Placement does not import WallAnalysis. App/session composition depends on both and owns the command-level analysis lifecycle, so the former feature-to-feature cycle is directional.</p>
+<!-- VERIFIED: 2026-07-28 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Kernel/Domain/OpeningRoleRules.cs</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/SgtWindow.xaml:608</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/DBTools.SGT.csproj:68</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Sessions/Workflow/AnalysisSessionWorkflow.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/Preview/Presenter/PreviewPresenterBehavior.Input.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Views/Rendering/Scene3D/StructuralPreviewSceneAdapter.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Openings/Domain/OpeningBoundsCandidateComposer.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Openings/Revit/Query/OpeningQuery.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Openings/Revit/Query/OpeningQueryGeometryCollector.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/BulkEdit/ViewModels/BulkEditFlyoutViewModel.cs:7-87</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/BulkEdit/Target/BulkEditTargetLifecycle.cs:8-130</code></p>
 </blockquote>
-<p>Opening member segments are edited via the Segment Flyout (opened from the chevron in the first column). The flyout shows role-level fields and, when segmented, per-segment child nodes for that role. It uses the same anchored-open and resize semantics as the girt segment flyout.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:760</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1910</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:2048</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs:790</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/SegmentFlyoutViewModel.cs:14</code></p>
-</blockquote>
-<h3 id="preview-modes">Preview Modes</h3>
-<table>
-<thead>
-<tr>
-<th>Mode</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Elevation</td>
-<td>2D front elevation view with girts and openings</td>
-</tr>
-<tr>
-<td>Section</td>
-<td>2D section view of member profiles</td>
-</tr>
-<tr>
-<td>3D</td>
-<td>Interactive 3D view with wall layers and framing</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewMode.cs:4-9</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1051</code></p>
-</blockquote>
-<h2 id="services">Services</h2>
-<h3 id="dependency-injection">Dependency Injection</h3>
-<p>All SGT services are registered via <code>SgtServiceCollectionExtensions.AddSgt()</code>:</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Composition/SgtServiceCollectionExtensions.cs:29-83</code></p>
-</blockquote>
-<h4 id="core-services">Core Services</h4>
-<table>
-<thead>
-<tr>
-<th>Service</th>
-<th>Lifetime</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ISgtPlanStore</code></td>
-<td>Singleton</td>
-<td>Plan state management</td>
-</tr>
-<tr>
-<td><code>IUnitService</code></td>
-<td>Singleton</td>
-<td>Unit conversion</td>
-</tr>
-<tr>
-<td><code>SgtValidationService</code></td>
-<td>Singleton</td>
-<td>Plan validation</td>
-</tr>
-<tr>
-<td><code>ISgtSystemRepository</code></td>
-<td>Scoped</td>
-<td>Extensible storage access</td>
-</tr>
-<tr>
-<td><code>SgtPersistenceService</code></td>
-<td>Scoped</td>
-<td>Plan persistence</td>
-</tr>
-</tbody>
-</table>
-<h4 id="feature-services">Feature Services</h4>
-<table>
-<thead>
-<tr>
-<th>Service</th>
-<th>Lifetime</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>RevitOpeningQuery</code></td>
-<td>Scoped</td>
-<td>Opening detection from walls</td>
-</tr>
-<tr>
-<td><code>FamilyCalibrationService</code></td>
-<td>Scoped</td>
-<td>Family profile extraction</td>
-</tr>
-<tr>
-<td><code>WallGeometryService</code></td>
-<td>Scoped</td>
-<td>Wall geometry analysis</td>
-</tr>
-<tr>
-<td><code>SgtOrientationAdapter</code></td>
-<td>Scoped</td>
-<td>Family orientation computation</td>
-</tr>
-<tr>
-<td><code>IExtentResolver</code></td>
-<td>Singleton</td>
-<td>Extent position resolution</td>
-</tr>
-<tr>
-<td><code>SegmentResolutionService</code></td>
-<td>Singleton</td>
-<td>Girt segment computation</td>
-</tr>
-<tr>
-<td><code>SgtAutoSeedingService</code></td>
-<td>Singleton</td>
-<td>Initial girt elevation seeding</td>
-</tr>
-</tbody>
-</table>
-<h4 id="placement-services">Placement Services</h4>
-<table>
-<thead>
-<tr>
-<th>Service</th>
-<th>Lifetime</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ISgtPlanBuilder</code></td>
-<td>Transient</td>
-<td>Build plan from wall context</td>
-</tr>
-<tr>
-<td><code>ISgtDomainWriter</code></td>
-<td>Transient</td>
-<td>Write domain objects to Revit</td>
-</tr>
-<tr>
-<td><code>SgtOrchestrator</code></td>
-<td>Transient</td>
-<td>Coordinate placement flow</td>
-</tr>
-</tbody>
-</table>
-<h3 id="smart-defaults-service">Smart Defaults Service</h3>
-<p>The <code>SgtSmartDefaultsService</code> applies automatic orientation defaults based on family analysis:</p>
-<pre><code class="lang-csharp">// For girts
-SgtSmartDefaultsService.ApplySmartDefaultsForGirt(row, plan);
-
-// For opening roles
-SgtSmartDefaultsService.TryApplySmartDefaultsForOpeningRole(row, role, plan);
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Girts/Services/SgtSmartDefaultsService.cs:43-70</code></p>
-</blockquote>
-<h3 id="host-change-reconciliation">Host Change Reconciliation</h3>
-<p>When editing an existing SGT system, the tool detects changes to the host wall:</p>
+<h2 id="domain-and-fidelity-names">Domain and Fidelity Names</h2>
+<p>The current vocabulary and owner boundaries are used directly at all call sites:</p>
+<ul>
+<li><code>GirtTypeItem</code> under <code>Features/Placement/Girt/ViewModels</code> for the girt grid; other type selectors use <code>FramingTypeOption</code></li>
+<li><code>RangeMath</code> under <code>Domain/Geometry</code></li>
+<li><code>CurveParameter</code> rejects NaN at creation and interpolation boundaries. <code>Lerp</code> clamps finite out-of-range values and infinities to the selected endpoints.</li>
+<li><code>GirtPlanRow</code> and <code>GirtRowLookup</code> under <code>Domain/Girt</code>; the row keeps only plan-member state and its <code>MemberKey</code>/<code>ParentMemberKey</code> identity.</li>
+<li><code>GirtRowViewModel</code> under <code>Features/Placement/Girt/ViewModels</code>; <code>MemberId</code> is its UI correlation only, and pane selection remains presentation state.</li>
+<li><code>Plan</code>, its store lifecycle contracts, baseline, and sandbox under <code>Domain/Plans</code>; <code>PlanProjectionMapper</code> is the one editable-row/runtime conversion boundary.</li>
+<li><code>WallFramingMode</code>, <code>WallFace</code>, and <code>WallExecutionContext</code> (with its builder/input) under <code>Domain/Wall</code></li>
+<li><code>WallLayer</code>, <code>WallLayerCollection</code>, and <code>WallLayerFunction</code> as separate files under <code>Domain/Geometry</code></li>
+<li><code>MemberResolutionRuntimeProjection</code> under <code>Domain/MemberResolution/Runtime</code>, with plan-to-domain adaptation in <code>Domain/Plans/Projection/MemberResolutionRuntimeProjector</code></li>
+<li><code>OpeningJambExtentResolver</code> under <code>Domain/Openings/JambExtent</code>, with editable-row adaptation in <code>Features/Openings/Domain/JambExtent/EditableOpeningJambExtentResolver</code></li>
+</ul>
+<p>No compatibility aliases preserve old paths or the former generic type item, <code>SymbolId</code> UI-item property, <code>SgtMath</code>, or <code>SgtPlacementMode</code> names.</p>
+<h2 id="persistence">Persistence</h2>
+<p><code>PlanBaselineSnapshot</code> stores user configuration. <code>PlacedSystem</code> owns the last successful wall/opening geometry and element identities; <code>ItemDecisionLedger</code> owns review decisions and provisional target/pairing overrides. Startup resolves the effective target but retains Placed geometry until Change Review accepts a live observation. <code>Domain/Plans/Projection/PlanBaselineMapper.cs</code> captures settings and rehydrates the editable desired plan (girt rows from stored settings, opening rows and wall from Placed) without importing Persistence. <code>SystemStorageMapper</code> owns the generated-JSON transport: format 3, required version, strict enums and rejection of unknown fields. Unsupported payloads are purged inside the session group; there is no historical payload reader or migration. The current <code>DBTools_SGT_SystemV2</code> schema retains its established GUID because placed systems already persist under that identity. The repository validates its field contract before reading or writing; unsupported older owned schema identities are purged inside the session group. <code>ISystemRepository</code> and <code>Persistence/Revit/SystemRepository.cs</code> own Revit Extensible Storage. <code>App/Persistence</code> holds only cosmetic UI state.</p>
+<p><code>WallFramingMode</code> is the single placement-mode value carried by <code>Plan</code>, its baseline, hashing, and every domain/feature projection. The existing <code>plan.foundationMode</code> boolean remains only as the serialized wire shape, and <code>FoundationModeEnabled</code> remains only as the checkbox shape; <code>SystemStorageMapper</code> and plan synchronization convert those boundary flags immediately rather than carrying parallel booleans through the runtime.</p>
+<p>Invalid stored data is treated as incompatible current data. Revit family, type, instance, wall, link, and opening identities use <code>long</code> through their runtime and storage contracts. This includes selected framing types, orientation/profile maps, calibration keys, UI selections, and placement update records. JSON property names remain unchanged. Ordinary numeric deserialization accepts both existing 32-bit integer tokens and identities above <code>Int32.MaxValue</code>, without a schema-version switch or bespoke legacy reader.</p>
+<p>Counts, collection indexes, rotations, enum values, and manual-opening surrogate IDs remain <code>int</code>. Calibrated geometry face IDs also remain <code>int</code> because they match Revit's <code>Face.Id</code>, not document element identities. SGT has no parameterless or compatibility constructors, schema-version shims, or aliases. Repository enumeration fails with contextual logging instead of returning partial system-id results.</p>
+<p><code>Domain/Id/SystemId</code> is the required identity through the live plan, edit analysis, Change Review, placement projection, and placement workflow. <code>App/Composition/ContextualEdit/ContextualEditHook.cs</code> is the sole edit-launch text ingress: it parses the selected persisted tag once and retains the existing fail-closed invalid-id diagnostic. <code>Guid</code> is unwrapped only at <code>ISystemRepository</code>, <code>IWallSystemWriter</code>, and genuine Revit tag/storage boundaries; persisted tag and schema text shapes are unchanged.</p>
+<p><code>App/Persistence/UIStateStore</code> classifies absence from the actual file read, including a missing parent directory. Cancellation and access failures propagate rather than becoming missing state. Malformed JSON remains a named load failure. The UI coordinator reports load failures before applying defaults, so current UI values remain unchanged.</p>
+<h2 id="live-plan-admission-and-synchronization">Live Plan Admission and Synchronization</h2>
+<p>Every <code>Plan</code> and <code>PlanBaselineSnapshot</code> has a required <code>WallTarget</code>. Host wall IDs, linked wall IDs, and link-instance IDs remain 64-bit through persistence, Revit lookup, hashing, opening identity, placement, and preview projections. Real opening element IDs and compound-wall material IDs also remain 64-bit through opening query/key resolution and material-name lookup; manual-opening surrogate IDs and layer indexes remain <code>int</code>. <code>Plan.Clone()</code> detaches each mutable collection consumed by UI projection: editable girt/opening rows, runtime member/opening definitions, baseline lists, type options, layer snapshots, orientation/profile maps, grid collections, and execution context. Shared leaf values are immutable.</p>
+<p><code>PlanStore</code> owns a detached accepted plan. Initialization copies its input before preparing or stamping it. Reads and notifications return detached snapshots. <code>Update</code> is the write boundary: rejected changes and mutator exceptions preserve content and version, while no-op updates publish no event. Accepted updates advance once and detach the callback's candidate before storage, so a retained mutator reference cannot change accepted state. Notifications occur outside the write lock. Shared wall-layer collections expose read-only storage.</p>
+<p>Member segment replacement materializes and filters candidates before replacing the current segments. Empty or all-short input, and enumeration failure, preserve the prior segment set. Replacement from the member's own segment view remains valid.</p>
+<p>Plan-change admission uses one lock and one latest-pending slot:</p>
 <ol>
-<li><strong>Diff Detection</strong>: Compare stored vs current wall geometry</li>
-<li><strong>Missing Wall Handling</strong>: Options for re-link or delete</li>
-<li><strong>Opening Actions</strong>: Sync/Move decisions now read current detected openings (manual <code>M:</code> openings still read editable plan rows)</li>
-<li><strong>Manual-to-Real Mapping</strong>: Force-sync maps manual openings to <code>DetectedOpenings</code>, not stored opening snapshots</li>
-<li><strong>Update Move Policy</strong>: Update runs move-first; move failures can be surfaced to UI and retried as delete/recreate</li>
+<li>Enqueue clones the accepted plan and assigns a monotonic request revision.</li>
+<li>An arrival while a dispatcher callback is already scheduled replaces the pending snapshot; the existing callback applies the latest revision.</li>
+<li>The apply turn clears the pending slot and marks itself applying before projecting.</li>
+<li>An arrival during apply fills the pending slot without recursing; completion schedules exactly one later <code>Dispatcher.BeginInvoke</code> turn.</li>
 </ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:398</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/WriteContext.cs:1</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/DomainWriter.Updates.cs:369</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CommandsAndBulk.cs:440</code></p>
-</blockquote>
-<h3 id="elevation-drag-undoredo-coverage-2026-02-07">Elevation Drag Undo/Redo Coverage (2026-02-07)</h3>
-<p>Elevation preview drag/snap edits now record real do/undo command actions (not no-op redo stubs), and all snap edit paths share command-stack behavior:</p>
-<ol>
-<li><strong>Girt extents</strong> (left/right) now execute as command-driven <code>do/undo</code> mutations so redo re-applies snapped extents.</li>
-<li><strong>Opening member extents</strong> (jamb/header/sill endpoint snaps) now push undo/redo commands by cloning/restoring role config state.</li>
-<li><strong>Opening geometry is non-interactive in preview</strong>: opening edges/rectangles are not draggable; preview handle edits apply only to girt and opening-member elements.</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:130</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:681</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:395</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:977</code></p>
-</blockquote>
-<h3 id="tab-cycling-for-overlapping-handles-2026-02-15">Tab Cycling for Overlapping Handles (2026-02-15)</h3>
-<p>When multiple handles overlap in the elevation preview, Tab/Shift+Tab cycles nearby candidates, Enter confirms the highlighted handle, and Esc cancels the cycle. Candidates reset when the cursor moves beyond the cycle radius.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:980</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:354</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:138</code></p>
-</blockquote>
-<h3 id="snap-association-lock-rule-2026-02-07">Snap Association Lock Rule (2026-02-07)</h3>
-<p>Elevation preview drag interactions are now documented and enforced as association-locked operations:</p>
-<ol>
-<li><strong>No arbitrary drag targets</strong> are produced by snapping (<code>FreeAlong</code> quantized fallback is not used in drag/snap flow).</li>
-<li><strong>Nearest valid association is always resolved</strong> (grid, wall edge, opening edge, or enabled vertical target like girt/wall top/wall bottom).</li>
-<li><strong>Drag commit requires an accepted snapped target</strong> (<code>Snapped=true</code> + handle-specific target compatibility). Unsnapped nearest associations are preview-only and do not commit.</li>
-<li><strong>Snap feedback is explicit during drag</strong>: all valid targets render as guide bands and the active guide/connection line is cyan when accepted and red when not accepted.</li>
-<li><strong>Manual Along extents remain explicit form input behavior</strong>, not drag/snap output.</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Snapping.cs:359</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code></p>
-</blockquote>
-<h3 id="segment-endpoint-routing--span-guard-2026-02-16">Segment Endpoint Routing + Span Guard (2026-02-16)</h3>
-<p>Segment endpoint drag routing was hardened for bisected members:</p>
-<ol>
-<li><strong>Only true outer boundaries update girt extents</strong>: first-segment left endpoint updates start extent, last-segment right endpoint updates end extent.</li>
-<li><strong>Other segment endpoints remain opening-edge gap edits</strong> using opening-side metadata, avoiding opposite-end extent movement for bisected girts.</li>
-<li><strong>Extent snaps now reject no-span outcomes</strong> before commit when opening subtraction would leave no valid segment.</li>
-<li><strong>Opening-edge snap targets are global</strong> in elevation preview (not filtered to the selected opening row), so all eligible opening edges remain reachable during drag.</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1189</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:130</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Snapping.cs:18</code></p>
-</blockquote>
-<h3 id="opening-segment-context-menu--delete-lifecycle-2026-02-16">Opening Segment Context Menu + Delete Lifecycle (2026-02-16)</h3>
-<p>Opening-segment interaction routing and deletion lifecycle were hardened:</p>
-<ol>
-<li><strong>Selected-opening right-click routing now prefers segment geometry</strong> with wider member-band/radius hit testing so segmented jamb/header/sill regions resolve reliably.</li>
-<li><strong>Segment hits now open segment-only context menus</strong> (<code>Delete &lt;Role&gt; Segment N</code>) and do not include row-level <code>Delete Selected</code>, preventing accidental opening-row deletes from segment clicks.</li>
-<li><strong>Deleting the last segment now removes only that opening role first</strong>; the opening row is removed only when no roles remain on that opening.</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1472</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1961</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:394</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:634</code></p>
-</blockquote>
-<h3 id="opening-bypass--auto-join-contract-2026-02-12">Opening Bypass + Auto-Join Contract (2026-02-12)</h3>
-<p>Drag/snap behavior for bisected girts now includes an explicit opening-bypass contract:</p>
-<ol>
-<li><strong>Endpoint reassociation normalizes gap state</strong>: changing a girt endpoint association forces the touched endpoint gap override to <code>0.0</code>, removes stale opening-edge map keys from the prior association, and seeds <code>0.0</code> for the new opening-edge map key when applicable.</li>
-<li><strong>Interior opposite-edge snap auto-joins across opening</strong>: when an interior segment endpoint snaps to the opposite edge of the same opening, SGT auto-joins by adding the opening key to the row bypass set and removing opening-edge gap overrides for that opening.</li>
-<li><strong>Bypass state drives preview + placement segmentation</strong>: bypassed openings are excluded from preview bisection and placement-time opening subtraction, yielding a single continuous member across that opening until the row is snapped back to that opening edge.</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:204</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1795</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1843</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1861</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1565</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:39</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:155</code></p>
-</blockquote>
-<h3 id="preview-horizontal-transformprojection--segment-endpoint-ownership-2026-02-07">Preview Horizontal Transform/Projection + Segment Endpoint Ownership (2026-02-07)</h3>
-<p>Two WW/WS preview parity defects were hardened:</p>
-<ol>
-<li><strong>Preview transform/projection semantics</strong> now use one coherent contract for all roles: profile transform is pure math (flip/rotation/justification) in member-local UV, and projection into depth/secondary respects analyzer-resolved <code>yTargetsFlange</code> for every role (no role forcing). This is required for families whose section axes are swapped (e.g., <code>C Shapes</code> resolving <code>yTargetsFlange=false</code>).</li>
-<li><strong>Segment interior endpoint snapping</strong> commits by opening-edge identity (opening key + edge side) for all accepted snaps, so mirrored/rotated cases do not move the opposite endpoint due to transient segment indexing/topology.</li>
-<li><strong>Opening-internal spans are placeable by contract</strong>: when a row anchors to opposite edges of the same opening, that opening is preserved for that row during span validation/hydration so placement does not fail with no-segment subtraction errors.</li>
-<li><strong>Opening-role secondary-axis orientation is deterministic in both elevation and 3D</strong>: preview uses the same transformed profile loops + analyzer-resolved projection mapping directly (no centroid-based post-correction path).</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:66</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:292</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:858</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:561</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:31</code></p>
-</blockquote>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:39</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:89</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:195</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:293</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:774</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:284</code></p>
-</blockquote>
-<h3 id="elevation-grid-marker-bubble-contrast-2026-02-07">Elevation Grid Marker Bubble Contrast (2026-02-07)</h3>
-<p>Grid markers in elevation preview now render as a white-filled circle with black stroke and centered black text to preserve readability on dark themes.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:577</code></p>
-</blockquote>
-<h3 id="previewplacement-coordinate-parity-2026-02-06">Preview/Placement Coordinate Parity (2026-02-06)</h3>
-<p>To remove mismatch between preview and placed members (especially for linked walls and opening jambs), SGT now shares the same direction/orientation semantics across analysis, preview, and placement:</p>
-<ol>
-<li><strong>Opening T mapping now respects linked frame inversion</strong><br>
-Step 2 compares host-space wall curve direction against <code>WallGeometry.Direction</code> and flips opening <code>T0/T1</code> when the frames are reversed.</li>
-<li><strong>3D preview now uses the shared depth-plane helper</strong><br>
-Preview layer offset and wall offset now resolve with the same helper used by placement.</li>
-<li><strong>3D section basis now uses canonical orientation rules</strong><br>
-Jamb/horizontal role transforms are built from exterior normal + axis cross products with consistent sign behavior.</li>
-<li><strong>Opening role orientation now honors per-role Flip setting in placement path</strong></li>
-<li><strong>Opening-edge cutbacks now use gap-only trimming (no jamb face inset)</strong><br>
-Placement and preview segmentation both apply the same opening-edge gap value, eliminating oversized girt-to-jamb trims. Geometry-aware per-side bisection gaps now compute member extents from the same calibrated profile transforms used by preview/placement parity.</li>
-<li><strong>Preview justification axis mapping now uses analyzer metadata</strong><br>
-<code>OrientationResult.YTargetsFlange</code> now propagates into preview rendering so Y/Z justifications target the same flange/web axes as placement behavior.</li>
-<li><strong>Elevation/Section/3D now consume one shared preview semantics helper</strong><br>
-Justification deltas and orientation-map lookup are centralized and reused by all preview modes.</li>
-<li><strong>Preview profile transform ordering now matches placement math</strong><br>
-Preview applies transforms as <code>FlipFacing</code> (mirror in family-local UV) → <code>rotation</code> → Y/Z justification, matching Revit's Facing reference-plane semantics and reducing jamb rotation/depth drift on linked walls.</li>
-<li><strong>Opening orientation is strict: Step 2 must populate every role used</strong>
-<code>ResolveYTargetsFlangeForOpening</code> requires exact role-specific opening orientation data. There is no type-level majority-vote fallback and no girt-orientation fallback. If Step 2 did not populate orientation for a role, the pipeline throws <code>[SpecFail/Preview/OrientationMissing]</code>.</li>
-<li><strong>3D/Elevation/Section profile transform + projection now use one shared preview semantics helper with explicit role contracts</strong><br>
-Transform semantics are analyzer-driven for all roles (<code>yTargetsFlange</code> preserved) and projection respects analyzer mapping for all roles: <code>Y-&gt;Flange</code> =&gt; <code>depth=U,secondary=V</code>, <code>Y-&gt;Web</code> =&gt; <code>depth=V,secondary=U</code>.</li>
-<li><strong>Step 3 now stores exact Y/Z pair deltas per rotation for preview/gap parity</strong>
-Warmup records one 16-slot justification table per rotation/flip state instead of reconstructing mixed Y/Z choices from separable axis deltas. This keeps nested/transformed framing families aligned with Revit's true placement behavior.</li>
-<li><strong>3D opening diagnostics now include projection mapping for all opening roles</strong><br>
-Left/Right jamb, Header, and Sill debug entries now log the resolved projection mapping and anchor geometry for faster root-cause triage.</li>
-<li><strong>Orientation analyzer probing is role-aware for rotated links</strong><br>
-Step 2 keeps canonical probes (<code>0/90/180/270</code>) for horizontal roles, and applies wall-azimuth residual compensation only for jamb roles during temporary orientation probing. Stored orientation outputs remain canonical quarter-turn values.</li>
-<li><strong>Vertical preview/gap sign resolution now uses per-rotation jamb calibration</strong>
-Horizontal roles still use canonical sign calibration, but jamb preview and geometry-aware gap ordering now read the vertical basis/sign payload for the selected canonical rotation. This fixes perpendicular and off-axis wall cases without introducing preview-only azimuth compensation.</li>
-<li><strong>Linked opening T mapping now follows frame-swap direction only</strong><br>
-Opening T mapping now uses the wall frame swap outcome directly (<code>dirDot &lt; 0</code>) and no longer applies an additional mirrored-link XOR branch. This prevents mirrored+rotated linked walls from inverting opening side placement.</li>
-<li><strong>Step 2 orientation seating is reflection-aware for mirrored links</strong><br>
-Analyzer Y/Z seating now applies a mirrored-aware flange-side rule when evaluating structural-plane seating: non-mirrored links require positive signed side, mirrored links require negative signed side, and web seating remains side-agnostic. This prevents mirrored-link runs from rejecting all girt types during orientation analysis.</li>
-<li><strong>HSS role mapping is now explicit in Step 2</strong><br>
-Square HSS uses symmetric seating candidates (all non-endcap faces, no mirrored-side bias). Rectangular HSS now persists deep/shallow calibrated face-id sets and uses role-aware set assignment: horizontal roles seat deep faces at the exterior plane and shallow faces at the elevation/opening plane, while jamb roles invert that mapping so deep faces stay opening-edge-seated.</li>
-<li><strong>ANGLE/Z shape contracts are now hard-enforced during analysis</strong><br>
-ANGLE calibration stores short-leg and long-leg face IDs (short=web-like, long=flange-like) and girt Y/Z solving filters to those faces. Z-shape girt validation now resolves flange pairs from aligned section faces and enforces exterior flange-down + interior flange-up ordering.</li>
-<li><strong>Web seating mode is now explicit and deterministic in Step 2</strong><br>
-Analyzer resolves web-seat distance mode through a shape/role policy hook: open-section horizontals (<code>Channel</code> girt/head/sill, <code>Z</code> girt, <code>Angle</code> girt) use edge-contact web seating, while HSS profiles and jamb roles use face-coplanar web seating. This restores girt orientation pass behavior without relaxing closed-section seating gates.</li>
-<li><strong>Non-HSS mapping no longer carries inferred HSS kind</strong><br>
-Step 2 now forces <code>hssKind=Unknown</code> for non-HSS shapes before role mapping, preventing non-HSS branch contamination from type-name fallback parsing.</li>
-<li><strong>Step 2 rejects non-finite Y/Z metrics before ranking</strong><br>
-Candidate and pair evaluations now drop <code>NaN</code>/<code>Infinity</code> metrics, emit explicit rejection diagnostics, and include <code>candidates</code>, <code>finiteCandidates</code>, and <code>rejectedNonFinite</code> counts in fail-fast reasons for deterministic fatal-step triage.</li>
-<li><strong>Opening-role web seating planes now anchor to wall-frame origin</strong><br>
-Head/Sill/Jamb web seating planes are created from wall-frame origin for deterministic opening-role Y/Z seating, eliminating origin-induced role drift across rotated/mirrored linked walls.</li>
-<li><strong>Temp probe transactions now emit structured failure metadata and deterministic probe outcomes</strong><br>
-Temp probe transactions (<code>Calibration</code>, <code>Orientation Probe</code>, <code>Warm Member Profile</code>) remain rollback-only with independent work/rollback exception capture, but transaction-mode probes now capture failure-preprocessor metadata (<code>blocking</code>, <code>warnings</code>, <code>lastResult</code>, <code>forbidden</code>) through <code>RunWithMetadata(...)</code>. Step 1/2/3 consumers now convert blocking metadata into explicit symbol/type failures (forbidden vs generic temp failure), preventing silent probe success when Revit reports blocking failures only through failure processing.</li>
-<li><strong>Post-analyze overlay hides only after the first Elevation frame paints</strong><br>
-After successful plan hydration (<code>_planStore.Initialize</code> + <code>RefreshFromPlan</code> + <code>AnalysisComplete</code>), SGT forces Elevation mode, requests a preview refresh, and keeps the overlay visible until the Elevation preview has painted at least one frame (paint barrier). Failed/canceled analyzes skip this path; a Background safety refresh is still scheduled once the overlay is gone.</li>
-<li><strong>Face traversal now resolves one geometry source per pass</strong><br>
-Face traversal prefers instance geometry and falls back to symbol geometry only when instance geometry is unavailable, preventing mixed stale/fresh candidate sets from double traversal.</li>
-<li><strong>Square-HSS Y/Z probing now re-fetches candidate faces per iteration</strong><br>
-The Y/Z solver no longer reuses a pre-loop <code>hssFaces</code> snapshot. Symmetric HSS candidates are reloaded after each justification update/regenerate pass.</li>
-<li><strong>Y/Z solver diagnostics and face-selection guards are now stronger</strong><br>
-Step 2 now emits per-pair <code>[SGT.Orientation.YZ.PairProbe]</code> diagnostics, deduplicates <code>GetFacesByIds</code> results by persistent face id, and uses <code>Acceptance.SeatingTol</code> (not <code>1e-6</code>) for signed-side filtering.</li>
-<li><strong>Preview jamb side ownership now uses frame-mapped opening T values directly</strong>
-Since Step 2 already maps opening <code>T0/T1</code> by frame direction, preview no longer applies a second mirrored/frame-swap remap when selecting jamb sides. Elevation rendering, elevation handle/hit-test routing, and 3D endpoint generation bind <code>OpeningRole.LeftJamb</code> = screen-left = <code>max(T0,T1)</code> (higher T) and <code>OpeningRole.RightJamb</code> = screen-right = <code>min(T0,T1)</code> (lower T) directly.</li>
-<li><strong>Entering 3D preview (and 3D Reset View) now uses a stable exterior “home” camera for mirrored/rotated links</strong>
-The 3D presenter derives a stable exterior normal from the wall frame, then resets the camera to an exterior 3/4 view with a slight downward pitch (instead of accidentally landing on an interior-facing view due to reflection/rotation transforms).</li>
-<li><strong><code>OpeningRoleMapping</code> is the authoritative physical↔visual role boundary</strong>
-<code>Role.JambLeft</code> (physical, −BasisX) maps to <code>OpeningRole.RightJamb</code> (visual, screen-right). <code>Role.JambRight</code> (physical, +BasisX) maps to <code>OpeningRole.LeftJamb</code> (visual, screen-left). All cross-enum bridges go through <code>OpeningRoleMapping.ToOpeningRole()</code> / <code>ToPhysicalRole()</code>. No ad-hoc inline Role↔OpeningRole mappings are permitted.</li>
-</ol>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/OpeningRoleMapping.cs</code></p>
-</blockquote>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:200</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:446</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/WallGeometryContext.cs</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/WallGeometryService.cs</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAdapter.cs:423</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:170</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:539</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:42</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:516</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:296</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:398</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1801</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:17</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:36</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs:101</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:743</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:1358</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:804</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:421</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:874</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:1600</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:389</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:583</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1035</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1406</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:885</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:292</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:309</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:415</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:243</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:443</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:408</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:88</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:356</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:832</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:902</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1384</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1426</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:210</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:228</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Viewport3D.cs:36</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:64</code></p>
-</blockquote>
-<h3 id="3d-preview-end-cap-tessellation-2026-02-21">3D Preview End-Cap Tessellation (2026-02-21)</h3>
-<p>SGT 3D preview now tessellates member end caps from the transformed section loops using <strong>EvenOdd</strong> fill across all contours (supports concave profiles and hollow sections). Caps use dedicated vertices (not shared with the side-wall extrusion) so lighting doesn’t smooth across the cap seam.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Geometry/SectionCapTriangulator.cs:18</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:670</code></p>
-</blockquote>
-<h3 id="3d-preview-rendering--navigation-refresh-2026-03-04">3D Preview Rendering + Navigation Refresh (2026-03-04)</h3>
-<p><strong>Lighting:</strong> Deterministic four-light rig (front key, skylight, uplight, stronger ambient) keeps channel/Z concavities readable in dark theme without flattening the scene.</p>
-<p><strong>Materials:</strong> Steel diffuse colors are boosted toward white for readability, with tighter/brighter highlights (<code>Specular=0.8</code>, <code>Shininess=64</code>) and zero emissive noise; wall materials remain unboosted with zero specular.</p>
-<p><strong>Edge lines:</strong> Crease overlays stay fixed-size and non-hit-testable; wall edges use blueprint cyan-gray and steel edges use luminous white with thicker steel lines (<code>1.5</code>).</p>
-<p><strong>Wall visibility:</strong> Layered and fallback wall fills are now wireframe-first context (<code>0.02</code> unselected, <code>0.10</code> selected) so the wall no longer fogs steel geometry.</p>
-<p><strong>Navigation reliability:</strong> 3D interactions now cancel cleanly on <code>LostMouseCapture</code> / window deactivation / missing-button move paths, and click-to-inspect resolves on mouse-up (click-only, not pan-drag).</p>
-<p><strong>Zoom/constraint feel:</strong> Shared <code>HelixRevitNavigation</code> now uses a loose constraint profile and a relaxed wheel clamp envelope for close inspection without abrupt hard stops.</p>
-<p><strong>Segment highlight:</strong> 3-tier visual hierarchy remains — selected segment (gold #FEC425 emissive), sibling segments (mild 85% dim), everything else (full dim). <code>SegmentSelectionKey</code> pushed from 3D click for precise highlighting.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:66</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:176</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/Preview3DRenderer.cs:208</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:24</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Navigation3D.cs:16</code>
-<strong>Source:</strong> <code>src/Tools/Common/UI/Navigation/HelixRevitNavigation.cs:19</code></p>
-</blockquote>
-<h3 id="flyout-positioning--scrim-2026-03-03">Flyout Positioning &amp; Scrim (2026-03-03)</h3>
-<p>Both segment and bulk-edit flyouts now center vertically in the window (horizontal position unchanged — right of trigger). The flyout modal scrim uses a lighter 40% opacity (#66000000) instead of the global 60% default, keeping the preview visible behind the flyout.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml</code></p>
-</blockquote>
-<h2 id="configuration">Configuration</h2>
-<h3 id="manifest">Manifest</h3>
-<pre><code class="lang-yaml">id: DBTools.SGT
-assembly: DBTools
-moduleType: DBTools.SGT.SgtToolModule
-order: 0
-sandboxWindows:
-  - id: DBTools.SGT.Main
-    displayName: &quot;Super Girt Tool&quot;
-    group: &quot;Structural&quot;
-    windowType: &quot;DBTools.SGT.Shell.UI.Views.SgtWindow&quot;
-    designTimeViewModelType: &quot;DBTools.SGT.Shell.DesignTime.SgtWindowDesignTimeViewModel&quot;
-tool:
-  ribbonTools:
-    - internalName: DBTools.SGT
-      commandType: DBTools.SGT.Features.Commands.SgtNewCommand
-      availabilityType: DBTools.App.Tools.Availability.DbtDocumentAvailability
-      runProfile: InlineUi
-      displayText: &quot;Super Girt Tool&quot;
-      iconBaseKey: sgt
-      tooltip: &quot;Launch Super Girt Tool&quot;
-      controlKind: PushButton
-      order: 40
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/manifest.yml:1-21</code></p>
-</blockquote>
-<h3 id="ui-state-persistence">UI State Persistence</h3>
-<p>The <code>ISgtUiStateStore</code> persists user preferences:</p>
+<p>The coordinator neither frame-pumps nor drops a busy arrival. Its request revision is the refresh-admission identity; <code>Plan.Version</code> remains plan data and diagnostic context, and no last-refreshed-plan-version cache participates in admission. If applying one snapshot fails while a newer snapshot is pending, it still attempts that pending dispatch. A failure of both operations is reported primary-first, and the failed dispatch resets admission so a later plan change can schedule normally.</p>
+<p><code>PlanSynchronizationCoordinator.TryApplyPartialEdit</code> owns every UI-originated partial plan write: the opening parent-row commit, the girt segment flyout, the opening segment flyout rows, the <code>PreviewEditingWorkflow</code> entry points (snap, typed gap, segment delete, merge) and jamb segment add and delete. Each such write, and <code>SyncPlanFromUI</code> (the UIEdit preview pass, Place and Update, Change Review), refreshes every pane from the written plan before it returns: it applies the refresh its own write queued (<code>ApplyPendingPlanRefreshOnUI</code>, inside the same <code>ApplyPlanRefresh</code> batch as every other plan refresh), so no queued preview pass or later write projects stale pane rows over the accepted edit, and a field typed after the write keeps its text. Before it projects, the coordinator applies a refresh still queued by a plan written outside it (Undo or Redo of a Preview-only edit, <code>PlanStore.Initialize</code>); it then projects the whole UI (<code>TryProjectPlanFromUI</code>) and writes the edit on top of that projection as one plan version: unsaved valid drafts are written with it, for example a wall offset pushed on LostFocus whose Background sync has not run when a Send-priority opening commit arrives, or an edit made while a 3D scene build runs. While any field is invalid it writes nothing, records no Undo entry and shows the status of a blocked sync (<strong>Fix invalid fields</strong>, <strong>Fix invalid rows</strong> or <strong>Preview blocked</strong>). Only such an outside write still refreshes at Background: a field typed after it and before its refresh takes the refreshed value. Each writer builds its change from a detached copy of the projection: a <code>PreviewEditOutcome</code> is a pair of plan changes that <code>PreviewEditingWorkflow</code> writes once through the coordinator and then records, so Undo and Redo replay only that change on the stored plan, and the drafts written with it stay; a rejected opening segment edit aborts the write. Deleting girt rows is a grid draft with no plan write and is never refused; <code>GirtProjectionMapper.ApplyProjectedRowsToPlan</code> normalizes every segment group in the projection with <code>SegmentGroupRenumberer</code>, so the next sync leaves no gap in the order, no parent key of a deleted row and no group of one row. Accepted typed gap edits enter the same history; undo and redo restore the prior raw override, and each accepted typed edit clears any redo branch. The 2D preview's gap editor (<code>PreviewView2DGapEditor</code>) survives redraws: <code>PreviewView2DState.ClearCanvas</code> is the only canvas clear and keeps an open editor, its anchor is re-placed under the current pan and zoom, and keys typed in it are its own. Undo and Redo bypass the admission by design: they replace the plan, and so every pane's fields. A refused type change (girt segment flyout, or an unavailable type in the girt grid) reports through <code>GirtPaneViewModel.ShowRefusedTypeChange</code> and sets no blocker. Only a girt grid row that keeps a rejected type, or an extent validation fault, sets the girt-pane blocker; the next girt row edit, a row add or delete, a bulk repair of that row or a plan refresh clears it.</p>
+<p><code>EndpointAssociationOpeningEdgeSide</code> is the sole live opening-edge semantic type across extents, member gaps, preview editing, and persistence transport. <code>Domain/Extents/OpeningEdge</code> owns the closed <code>OpeningEdgeExtent</code>, <code>DualOpeningEdgeExtent</code>, and <code>OpeningEdgeEndpoint</code> family: named wall, fixed-distance, grid, and neighbor-opening variants preserve the current persisted extent fields without a positional public factory. Strings exist only where a UI label or serialized composite key actually requires text; no plan/UI row stores a second string edge representation.</p>
+<p>Preview girt segmentation carries <code>MemberSpanEndpointKind</code> directly from endpoint selection through both ordinary and opening-edge gap resolution; boolean conversion is not a gap-operation boundary.</p>
+<h3 id="girt-segment-boundaries-and-endpoint-anchors">Girt segment boundaries and endpoint anchors</h3>
+<p><code>Domain/Girt/SegmentBoundary/GirtSegmentBoundarySet</code> is the single source of truth for where a girt may start, end and split. For a girt at elevation <code>z</code>, an opening blocks it when the opening spans <code>z</code> (inclusive, 1e-6 ft tolerance), is framed, is not bypassed by the row, is not the row's interior opening, and keeps a nonzero width after its span is clamped to the wall. Start-capable boundaries are the wall start and each blocking opening's higher edge; end-capable boundaries are each blocking opening's lower edge and the wall end. The row's interior opening adds its lower edge as start-capable and its higher edge as end-capable. <code>GirtSegmentBoundarySet.Split</code> is the only girt segment computation, and it omits every span shorter than <code>MemberRules.MinimumLength</code> (0.5 ft). Its callers are plan-row segmentation (<code>GirtSegmentationReconciler</code>), preview (<code>PreviewGirtSegmentBuilder</code>), placement (<code>MemberSegmentResolver.ResolveGirtSegments</code>), the usable-span check (<code>MemberResolutionExtentsProjection.HasUsableGirtSpan</code>) and the girt snap offer (<code>GirtExtentSnapPlanEditor.ResolveBoundaryEdges</code>). <code>MemberSegmentResolver</code> is an internal static girt-only resolver; <code>WallHydrator</code> resolves every member through it and rejects a non-girt member with <code>MemberSegment/RoleUnsupported</code>.</p>
+<p><code>GirtSegmentBoundarySource</code> supplies the wall length, openings, grid positions and the framing predicate. <code>FromOpenings</code> holds the only production predicate, which frames every opening: an opening with every framing role disabled still splits girts. <code>FromPlan</code> builds the source from plan rows (segmentation, the resolver and the snap editor); <code>MemberResolutionExtentsProjection.GirtBoundaries</code> builds it from runtime opening definitions (preview, placement and the usable-span check). <code>TryResolveT</code> clamps an opening edge to the wall exactly as the boundary set does.</p>
+<p><code>GirtSegmentationReconciler</code> splits each segment group from its first sibling's start to its last sibling's end (clamped to the wall) and reuses row identities by overlap. The first and last child keep the group's outer anchors and endpoint gaps, also when <code>Split</code> omits an outer pier shorter than the minimum length; only the ends between two children become opening-edge anchors. A group with one span collapses to one row; a group with no span keeps its rows as authored, and placement reports them. An interior row is its own row: it leaves the segment group it sat in, and <code>SegmentGroupRenumberer.RenumberSegmentGroup</code> normalizes the rows that remain (a group of one row dissolves).</p>
+<p><code>Domain/Girt/EndpointAnchor/GirtEndpointAnchor</code> is the stored anchor of one girt endpoint and the only reader of stored girt anchors. Its kinds are <code>Wall</code> (stored as <code>ExtentKind.FullLength</code>), <code>Grid</code>, and <code>OpeningEdge</code> (opening key + <code>Left</code>, the lower-T edge, or <code>Right</code>, the higher-T edge). Girt endpoints never use <code>ExtentKind.MemberEdge</code>; that kind remains only for opening-member (jamb, header, sill) segments. An opening-edge endpoint keeps its user gap only in <code>OpeningEdgeGapOverridesFeet[&quot;&lt;key&gt;:&lt;Left|Right&gt;&quot;]</code>; otherwise its gap is derived live from the jamb at that edge and elevation (<code>GirtGapResolver.GetDefaultOpeningEdgeGapFeet</code>), and it is 0 when there is no jamb. <code>GirtGapResolver.GetOpeningEdgeGapFeet</code> is that one rule; preview, the gap editor and placement all call it. When the plan cannot resolve a gap handle's gap (for example the edge of an opening deleted before the preview redraws), <code>PreviewEditingWorkflow.TryGetMemberGapFeet</code> shows a <code>Gap edit failed</code> banner and no gap editor opens. <code>StartGapOverrideFeet</code> and <code>EndGapOverrideFeet</code> apply only to <code>Wall</code> and <code>Grid</code> anchors. The gap of such an end has one rule, <code>GirtGapResolver.GetEndpointGapFeet</code>, which preview (<code>MemberGapResolver.GetEffectiveEndpointGapFeet</code>), the gap editor and placement (<code>GirtEndpointGapEvaluator.ComputeEndpointCutbackFeet</code>) all call: the endpoint gap override when set; otherwise, when the end lies within 1e-4 T of an edge that can bound it (a start on the higher edge, an end on the lower edge of a boundary opening in the girt's own boundary set), the gap derived from that edge's jamb; otherwise 0. <code>GirtPlanRow.SetAnchor</code> clears the endpoint gap when it writes an opening edge, and <code>GirtPlanRow.ReplaceAnchor</code> (snap edits, merges) also clears the gap entries of the old and new edges. <code>GirtPlanRow.Reanchor</code> (the resolver) clears the endpoint gap and the lost edge's entry and keeps the entry of the edge it moves to. <code>GirtPlanRow.AbsorbPayload</code> is the one rule for taking in a merged row's payload: bypass lists are united and gap entries are added, and on a key conflict the receiving row's entry wins. The resolver merge (the survivor receives), the preview segment merge (the kept row receives) and the segmentation group proxy (the first sibling receives) use it. Interior intent is derived, not stored: a row whose start is the lower edge and whose end is the higher edge of one opening it does not bypass spans that opening (<code>GirtEndpointAnchor.FindInteriorOpeningKey</code>, exposed as <code>GirtPlanRow.InteriorOpeningKey</code>).</p>
+<p><code>GirtEndpointAnchorResolver.Resolve</code> is the only re-anchoring rule. <code>MemberSegmentationReconciler.Recompute</code> runs it after opening-role normalization and before opening and girt segmentation. Recompute runs on each UI-edit or plan-mutation preview refresh, after committed opening edits, and in <code>PreparePlacementPlan</code> before Place/Update preflight; a render-only preview draws the plan as stored. An endpoint is lost when its grid is gone (<code>GridRemoved</code>), its opening is gone (<code>OpeningRemoved</code>), or its opening edge is not capable for that end in the row's boundary set (<code>OpeningNotBoundary</code>, for example when the opening no longer spans the girt, lies outside a shortened wall, or is bypassed by the row). A lost end takes the row's other end as reference: a start moves to the nearest start-capable boundary at or before <code>reference − minimum length</code>, an end to the nearest end-capable boundary at or after <code>reference + minimum length</code>, and the wall ends are the fallback. When both ends are lost, the start moves to the wall start and the end to the first end-capable boundary at or after the minimum length. The re-anchored end loses its endpoint gap and the gap entry of its lost edge; the edge it moves to keeps its gap entry. Bypass keys and opening-edge gap entries of openings that are no longer in the plan are removed. Siblings of one segment group that now overlap merge into the earlier sibling: the survivor keeps its member key, each side keeps the outermost anchor that was not re-anchored (with its gap), bypass lists and gap entries are united with <code>GirtPlanRow.AbsorbPayload</code>, opening-member targets that named an absorbed row are rewritten to the survivor, and the group is normalized with <code>SegmentGroupRenumberer</code>. Segmentation then re-splits the plan and reuses identities by overlap. <code>PlanSynchronizationCoordinator.NotifySegmentedStateRecompute</code> reports <code>MemberSegmentationSummary.ReanchoredGirtEndpoints</code> (&quot;Re-anchored N girt end(s) to the nearest opening or wall edge.&quot;) and <code>MergedGirtRows</code> (&quot;Merged N overlapping girt segment(s) into their neighbors.&quot;).</p>
+<p><code>GirtExtentSnapPlanEditor.Create</code> accepts an opening edge for a girt's start or end only when <code>IsBoundaryCapable</code> finds it capable for that end in the boundary set of the edited row (<code>GirtSnap/BoundaryInvalid</code> otherwise). The snap removes that opening from the row's bypass list, and a start on the lower edge of the opening whose higher edge is the end makes that opening interior. An edit that leaves no span of the minimum length fails with <code>GirtSnap/NoUsableSpan</code>. <code>Create</code> and <code>ResolveBoundaryEdges</code> apply the same plan-side test (<code>IsBoundaryCapable</code>, then <code>HasUsableSpanAfterEdit</code> over <code>GirtSegmentBoundarySource.FromPlan</code>), so <code>ResolveBoundaryEdges</code> offers exactly the edges <code>Create</code> accepts; an edit whose other end does not resolve is rejected with <code>GirtSnap/NoUsableSpan</code>, and <code>PreviewEditingWorkflow.ResolveGirtSnapEdges</code> routes each drag handle: a handle on the row's own start or end gets that end's accepted set, and any other segment handle is unrestricted. The snap index has no free-along target.</p>
+<p>Runtime resolution reports an opening-member split-label position more than 0.01 ft outside the wall through <code>RuntimeHorizontalPositionResolution.OutOfRangeResult</code>: clamped T for rendering, <code>OutOfRange = true</code>, and a <code>SplitOutOfRange</code> reason. Non-finite split text is invalid (<code>MemberEdgeInvalid</code>). A header or sill split label outside the wall fails placement with <code>Extents/PositionResolutionFailed</code>, while preview can draw the clamped member. Grid positions are clamped to the wall. Stored girt endpoints accept only Wall, Grid, or OpeningEdge; runtime <code>AlongExtent</code> still represents a resolved Wall↔Grid span.</p>
+<p>Wall-analysis progress uses <code>(string message, double? progress01)</code> end to end. Non-null values are normalized to <code>[0,1]</code>; <code>null</code> denotes indeterminate progress. Framing orientation analysis returns one <code>FramingTypeOrientationAnalysisResult</code> data value; it never transports orientation records through progress. Profile warm-state extraction uses the caller-provided logger rather than creating global runtime logging state.</p>
+<h2 id="test-tiers">Test Tiers</h2>
+<!-- VERIFIED: 2026-07-10 -->
+<p>SGT tests mirror production owners under <code>Tests/</code>:</p>
 <ul>
-<li>Expander states (Girts, Openings)</li>
-<li>Preview mode selection</li>
-<li>Column visibility</li>
+<li>Every pure fixture folder and namespace mirrors its actual production SUT directory; test-owned helpers and their fixtures live under <code>Tests/Support</code> instead of inventing a production owner.</li>
+<li>Fixture names identify the current subject (<code>OrientationConverterTests</code>,
+<code>PlanProjectionMapperTests</code>, <code>OpeningProjectorTests</code>, and
+<code>MemberSegmentationReconcilerTests</code>) rather than a retired implementation
+role. Preview scene-key coverage mirrors the Domain cache-key owner.</li>
+<li><code>DBTools.SGT.csproj</code> declares desktop and portable targets. Shared <code>build/MSBuild/Portable.targets</code> removes App, Revit, Views, DesignTime, and XAML inputs from the portable target; SGT has no sandbox compilation profile or production-source links.</li>
+<li><code>DBTools.SGT.Portable.Pure.Tests.csproj</code> references portable SGT directly and owns domain/features, plan-store, persistence, review-workflow, and preview-status cases. <code>DBTools.SGT.Pure.Tests.csproj</code> references normal desktop SGT for WPF/session cases. Both keep tests beside the owner.</li>
+<li>Raw embedded XAML remains a desktop resource because the stable window host composes these views. The presenter maps stable Presentation status into portable readiness/reason values; the desktop review callback binds <code>IChangeReviewDialogHost</code> to the dialog constructor alongside its cancellation/relink port.</li>
+<li><code>DBTools.SGT.Local.Tests.csproj</code> owns <code>[RevitLocal]</code> fixtures and modeless Revit integration coverage. Actual modal execution belongs to Windows Pure.</li>
+<li><code>Tests/Integration/Revit/App/Views/SgtWindowHostedTests.cs</code> constructs the raw
+<code>SgtWindow</code> through <code>ToolWindowFactory</code> and verifies the modal shell dimensions,
+root composition, and named Girt/Openings/Preview hosts before releasing the
+session. <code>SgtWindowSessionTests</code> retains failure-order and startup-task
+assertions without opening a modal dialog. Windows Pure <code>WindowSessionLifecycleTests</code>
+covers pending picks after <code>HideForPick</code>; the runner re-enters after each pick
+completes, before the continuing target analysis finishes.</li>
 </ul>
+<p>The SGT staged model, linked document and wall IDs, opening/geometry baselines, plan-build
+outcomes, and preview projections are required repository-controlled truth. Missing or
+unexpected state fails with the requested baseline, observed result, resolved model path,
+and Revit year. Per-case rollback and fixture document/<code>UIDocument</code>/logging cleanup are
+part of the assertion contract and cannot be reduced to log-only diagnostics.
+The launch-composition smoke likewise treats startup-analysis completion, UI-state save,
+preview/stable-viewport cleanup, transaction-group rollback, window close,
+handler/view-model release, and run-scope disposal as ordered failure-bearing cleanup rather
+than evidence inferred from a <code>Close()</code> call; the active Autodesk document remains daemon-owned.
+The separate
+WPF construction smoke explicitly releases the view model it directly attaches; production
+window/session disposal has one owner and no <code>OnClosing</code>/<code>OnClosed</code> fallback branch.</p>
+<p><code>PreviewPlacementParityTests.Persisted_system_edit_plan_preserves_configuration_and_reanalyzes_current_wall</code>
+round-trips nested girt, left-jamb, opening-key, and offset selections through
+the registered repository, moves the linked wall after saving its baseline,
+then invokes the registered edit-plan builder. The test requires the live wall
+elevation to differ from storage and verifies the edit plan uses current geometry
+while preserving the stored configuration. The transaction group rolls back both
+the storage write and the link movement after the assertion.</p>
+<!-- VERIFIED: 2026-09-25 -->
 <blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Settings/ISgtUiStateStore.cs</code></p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Tests/DBTools.SGT.Pure.Tests.csproj</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/DBTools.SGT.csproj</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Tests/Integration/Revit/App/Views/SgtWindowHostedTests.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Tests/Integration/Revit/App/Sessions/WindowSession/Revit/SgtWindowSessionTests.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Tests/Integration/Revit/Features/Placement/PreviewPlacementParityTests.cs:581-714</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/MAP.md</code></p>
 </blockquote>
-<h2 id="domain-model">Domain Model</h2>
-<h3 id="key-domain-entities">Key Domain Entities</h3>
-<h4 id="sgtplan">SgtPlan</h4>
-<p>The central data structure containing all configuration:</p>
-<pre><code class="lang-csharp">public sealed class SgtPlan
-{
-    // Wall context
-    public int? HostWallId { get; init; }
-    public int? LinkedWallId { get; init; }
-    public int? LinkInstanceId { get; init; }
-    public WallGeometry? WallGeometry { get; set; }
-    
-    // Girt configuration
-    public List&lt;SgtGirtRow&gt; GirtRows { get; init; }
-    public int SelectedGirtTypeId { get; set; }
-    
-    // Opening configuration
-    public List&lt;SgtOpeningRow&gt; OpeningRows { get; set; }
-    public IReadOnlyList&lt;OpeningDetectionData&gt; DetectedOpenings { get; set; }
-    
-    // Options
-    public int DepthPlaneLayerIndex { get; set; }
-    public double WallOffsetFeet { get; set; }
-    public bool FoundationMode { get; set; }
-}
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Kernel/Domain/SgtPlan.cs:15-811</code></p>
-</blockquote>
-<h4 id="extent-types">Extent Types</h4>
-<p>Girts support multiple extent modes:</p>
-<table>
-<thead>
-<tr>
-<th>Extent Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>FullLengthExtent</code></td>
-<td>Wall start to wall end</td>
-</tr>
-<tr>
-<td><code>AlongExtent</code></td>
-<td>Fixed distances from wall start</td>
-</tr>
-<tr>
-<td><code>GridExtent</code></td>
-<td>Between named grid lines with offsets</td>
-</tr>
-<tr>
-<td><code>OpeningEdgeExtent</code></td>
-<td>Relative to opening edges</td>
-</tr>
-<tr>
-<td><code>DualOpeningEdgeExtent</code></td>
-<td>Between two opening edges</td>
-</tr>
-<tr>
-<td><code>MemberEdgeExtent</code></td>
-<td>Terminates at a segmented-member boundary (<code>OpeningKey:Role</code>)</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shared/Kernel/Domain/</code> (multiple files)</p>
-</blockquote>
-<h3 id="auto-segmentation-rev2-2026-02-11">Auto-Segmentation (REV2, 2026-02-11)</h3>
-<p>REV2 Phases 1-5 are now implemented end-to-end for both horizontal girt segmentation and vertical jamb segmentation.</p>
-<ul>
-<li>Horizontal segmentation remains persisted as first-class <code>GirtRow</code> siblings using <code>SegmentGroupId</code>/<code>SegmentOrder</code>/<code>ParentUiKey</code>, with recursive re-segmentation support when extending an already segmented child.</li>
-<li>Vertical segmentation is modeled on <code>OpeningRoleConfig</code> via <code>SegmentedConfigs</code> plus <code>JambSegmentGroupId</code>/<code>JambSegmentOrder</code>; opening-role callsites iterate <code>OpeningRow.GetEffectiveConfigs(role)</code> while parent <code>TypeId</code> remains the role enable flag.</li>
-<li>Vertical auto-bisection now triggers from jamb extent snapping (<code>ApplyOpeningMemberExtentSnap</code>) using resolved girt T-ranges, with minimum-length rejection and user warning banner for invalid splits.</li>
-<li>Rendering and interaction are segment-aware for opening roles:
-<ul>
-<li>Elevation and 3D preview iterate per-segment opening-role configs (<code>LeftJamb</code>/<code>RightJamb</code>/<code>Header</code>/<code>Sill</code>).</li>
-<li>Section preview iterates segmented <code>Header</code>/<code>Sill</code> configs and continues to omit jamb profile bands by design.</li>
-<li>Elevation draws dashed boundary lines between adjacent jamb segments.</li>
-<li>Handle generation creates jamb top/bottom pairs and header/sill left/right endpoint pairs per segment; all opening-member handle drags carry <code>SegmentIndex</code> so segmented child configs are edited directly.</li>
-</ul>
-</li>
-<li>Openings-pane operations now include explicit jamb segment add/remove commands (left/right) that mutate <code>SegmentedConfigs</code> in-place with segment-order/group maintenance and minimum-length guardrails.</li>
-<li>Placement remains independent per member (no grouping at writer layer):
-<ul>
-<li>Orchestrator and writer utilities resolve/place each jamb segment as an independent opening component.</li>
-<li>DomainWriter maps placed jamb components back to segment configs by role and local-Z ordering.</li>
-</ul>
-</li>
-<li>Reconciliation was upgraded from Phase 1 defensive reset to full segment-group cleanup:
-<ul>
-<li>host diffs track <code>MemberEdgeImpactKeys</code>,</li>
-<li>opening deletion flow merges/dissolves orphaned segment groups,</li>
-<li>post-pass renumbers/dissolves inconsistent groups,</li>
-<li>orphaned jamb segment sets dissolve when referenced bisecting girts disappear.</li>
-</ul>
-</li>
-<li>Edge-case hardening includes:
-<ul>
-<li><code>MemberEdge</code> handling in grid normalization + extent T-resolution,</li>
-<li>validation warnings for invalid member-edge labels/orphaned groups,</li>
-<li>adjacent bisection-point merge within <code>2 * END_GAP</code>,</li>
-<li>explicit <code>MemberEdge</code> cutback behavior in placement gap computation.</li>
-</ul>
-</li>
-<li>Persistence now uses explicit field mapping for opening-role configs (including nested <code>SegmentedConfigs</code>, <code>JambSegmentGroupId</code>, and <code>JambSegmentOrder</code>) in <code>StorageMapper</code> serialize/deserialize helpers.</li>
-</ul>
-<h3 id="segment-merge--collapse-hardening-2026-03-03">Segment Merge + Collapse Hardening (2026-03-03)</h3>
-<p>Follow-up hardening was implemented to prevent stale references and stale segmented state during editing:</p>
-<ul>
-<li><strong>MergeGirtSegments rewrites opening extent targets</strong>: when two girt segment <code>UiKey</code>s are removed and replaced with a merged row, any <code>TopExtentTarget</code> / <code>BottomExtentTarget</code> references that pointed at either removed key are rewritten to the merged key (and Undo restores opening rows).</li>
-<li><strong>Re-segmentation collapses segment groups</strong>: if re-segmentation recomputation produces fewer than 2 child segments, the segment group is collapsed back to a standalone row, segment metadata is cleared, bypass keys + opening-edge gap overrides are merged, and opening extent targets are rewritten to the collapsed row key.</li>
-<li><strong>Bisection provenance is preserved</strong>: near-duplicate bisections coalesce by position but retain <em>all</em> source intersecting element keys so bypass filtering remains correct when multiple openings contribute to one merged point.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1908</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1268</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:309</code></p>
-</blockquote>
-<h3 id="geometry-aware-gap-fallback-surfacing-2026-03-03">Geometry-Aware Gap Fallback Surfacing (2026-03-03)</h3>
-<p>Gap computation can fall back to flat <code>END_GAP</code> when profile data is missing or a profile transform fails. This is now <strong>tagged</strong> per-bisection and surfaced to the UI once per session as a summary banner when it affects segmentation actions.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:411</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1209</code></p>
-</blockquote>
-<h3 id="gap-override-validation-hardening-2026-03-03">Gap Override Validation Hardening (2026-03-03)</h3>
-<ul>
-<li>Gap overrides reject <code>NaN</code> / <code>Infinity</code> inputs and enforce a sane maximum absolute magnitude; negative values remain allowed (extend instead of trim).</li>
-<li>Persisted override values are validated for finiteness during <code>Plan.Validate()</code> so corrupted state is caught before placement.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:2899</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:271</code></p>
-</blockquote>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/ExtentKind.cs:12</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:508</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:767</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Plan.cs:883</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:77</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:164</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/AutoSegmentationService.cs:16</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/AutoSegmentationService.cs:69</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:225</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:506</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:700</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:574</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:658</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:717</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:459</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:634</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:879</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:1087</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:292</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Handles.cs:381</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/Panes/OpeningsPaneViewModel.cs:242</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Views/ShellWindow.xaml:1290</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:204</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.Utilities.cs:336</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.OpeningPlacement.cs:174</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/DomainWriter.Updates.cs:467</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/EditWall/HostChangeDiffService.cs:245</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:158</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:307</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/HostChangeReconciliationService.cs:375</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/GridManagementService.cs:189</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Services/GridManagementService.cs:318</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/Validation/ValidationService.cs:121</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.MemberPlacement.cs:319</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Persistence/SchemaDefinition.cs:20</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Persistence/StorageMapper.cs:108</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Persistence/StorageMapper.cs:170</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/Startup.cs:59</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs</code></p>
-</blockquote>
-<h2 id="integration-points">Integration Points</h2>
-<h3 id="revit-api-integration">Revit API Integration</h3>
-<p>SGT interacts with Revit through adapter services:</p>
-<ul>
-<li><strong>WallGeometryService</strong>: Extract wall curves, layers, dimensions</li>
-<li><strong>RevitOpeningQuery</strong>: Detect doors, windows, and openings in walls</li>
-<li><strong>SgtDomainWriter</strong>: Create structural framing instances</li>
-<li><strong>SgtSystemRepository</strong>: Store/retrieve SGT configurations in extensible storage</li>
-</ul>
-<h3 id="related-documentation">Related Documentation</h3>
-<ul>
-<li><a href="../../architecture/overview.html">System Architecture</a> - Overall system design</li>
-<li><a href="../../projects/app.html">Application Host</a> - How tools are loaded and hosted</li>
-<li><a href="../../development/manifests.md">Tool Manifest Format</a> - Manifest schema reference</li>
-</ul>
-<h2 id="testing">Testing</h2>
-<p>SGT includes comprehensive tests:</p>
-<pre><code>src/Tools/Structural/SGT/Tests/
-+-- SgtAdapterTests.cs
-+-- SgtFrameBuilderTests.cs
-+-- SgtConfigHydratorTests.cs
-+-- SgtValidationServiceTests.cs
-+-- SgtOrchestratorExtentTests.cs
-+-- SgtHostChangeDiffServiceTests.cs
-+-- ... (additional test files)
-</code></pre>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Tests/DBTools.SGT.Tests.csproj</code></p>
-</blockquote>
-<p>Run tests via the Revit test runner:</p>
-<pre><code class="lang-bash">bash invoke-revit-tests.sh --smart --tool SGT
-</code></pre>
-<h2 id="preview-rotation-parity-2026-02-07">Preview Rotation Parity (2026-02-07)</h2>
-<p>Preview profile transforms use one shared section-space transform helper for Elevation/Section/3D.</p>
-<ul>
-<li><code>FlipFacing</code> mirrors in family-local UV.</li>
-<li>Cross-section rotation is applied in section space.</li>
-<li>Exact Y/Z justification-pair deltas translate along U/V (instance-local section axes).</li>
-<li>Projection into depth/secondary always respects analyzer-resolved <code>yTargetsFlange</code> (no role forcing).</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code></p>
-</blockquote>
-<h2 id="preview-secondary-axis-parity-2026-02-07">Preview Secondary-Axis Parity (2026-02-07)</h2>
-<p>Preview no longer uses a separate secondary-axis sign correction path.</p>
-<ul>
-<li>Projection uses analyzer <code>yTargetsFlange</code> mapping for all roles (<code>Y-&gt;Flange</code> =&gt; <code>depth=U,secondary=V</code>; <code>Y-&gt;Web</code> =&gt; <code>depth=V,secondary=U</code>).</li>
-<li>Horizontal roles use canonical warmup signs; jamb roles use the selected per-rotation vertical calibration entry.</li>
-<li>Preview parity is obtained by the warmed baseline profile loops, exact Y/Z pair deltas, and the same pure-math transform contract used by all preview modes.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/OrientationSemanticsHelper.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs</code></p>
-</blockquote>
-<hr>
-<blockquote>
-<p><strong>Documentation Status</strong>: Complete</p>
-<p><strong>Last Updated</strong>: 2026-02-19</p>
-<p><strong>Source Review</strong>: Verified against source files in <code>src/Tools/Structural/SGT/</code></p>
-</blockquote>
+<p>Use <code>./test.sh test --tool SGT --scope pure</code> for the pure suite and <code>./test.sh test --tool SGT --scope local -y &lt;year&gt;</code> for daemon-backed Revit execution. Normal hosted submissions omit <code>--machine</code>; daemon AUTO selects eligible workers using holder affinity and pressure. An explicit <code>--machine</code> remains a diagnostic/operator override. See the <a href="../../architecture/test-pipeline.html">test pipeline</a> for execution metadata and host requirements.</p>
+<h2 id="user-documentation">User Documentation</h2>
+<p>The restructure changes internal ownership only. Product workflows and UI behavior remain documented in the <a href="../../../user-guide/tools/sgt.html">SGT user guide</a> and <a href="../../../user-guide/tools/sgt/section-preview.html">section preview guide</a>.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/sgt.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>

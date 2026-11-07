@@ -2,21 +2,21 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Super Girt Tool (SGT) — Comprehensive Specification | DB Tools </title>
+      <title>SGT Source and Contract Specification | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Super Girt Tool (SGT) — Comprehensive Specification | DB Tools ">
+      <meta name="title" content="SGT Source and Contract Specification | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
-      <link rel="stylesheet" href="../../../public/main.css?v=20260125">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
       <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/sgt-spec.md/#L1">
+      
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -37,11 +37,11 @@
         document.documentElement.setAttribute('data-bs-theme', 'dark')
       </script>
 
-      <script src="../../../public/main.js?v=20260125" defer></script>
+      <script src="../../../public/main.js?v=20261030" defer></script>
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,1196 +87,420 @@
         </div>
 
         <article data-uid="">
-<h1 id="super-girt-tool-sgt--comprehensive-specification">Super Girt Tool (SGT) — Comprehensive Specification</h1>
+<h1 id="sgt-source-and-contract-specification">SGT Source and Contract Specification</h1>
 
-<blockquote>
-<p><strong>Version</strong>: 1.0 (Merged)
-<strong>Date</strong>: 2025-11-25
-<strong>Supersedes</strong>: SGT Spec-Lock v13, SGT_Specification_2025-11-9_v6
-<strong>Status</strong>: Normative</p>
-</blockquote>
-<p>This document consolidates all historical guidance, current specifications, and implementation requirements into a single, authoritative Super Girt Tool specification. It merges content from 15 historical documents and 4 current spec files.</p>
-<hr>
-<h2 id="part-1-core-principles">Part 1: Core Principles</h2>
-<h3 id="11-single-strict-path">1.1 Single Strict Path</h3>
-<ul>
-<li><strong>Pipeline</strong>: Analyze → Configure (UI) → Preview → Plan → Write</li>
-<li>No fallbacks, no silent failures, no vague heuristics</li>
-<li>Fail fast and loud with typed exceptions and overlays</li>
-<li>Catch only typed, expected errors at narrow boundaries; otherwise surface errors and stop</li>
-</ul>
-<h3 id="12-preview-purity">1.2 Preview Purity</h3>
-<ul>
-<li>Preview never mutates the document</li>
-<li>Temporary instances for analysis/diagnostics are allowed</li>
-<li>Preview reflects actual placement parameters</li>
-</ul>
-<h3 id="13-transactional-commit">1.3 Transactional Commit</h3>
-<ul>
-<li>Batch writes, isolate per-girt failures</li>
-<li>Emit precise summary</li>
-<li>Single metadata write at commit</li>
-</ul>
-<h3 id="14-spec-lock-supremacy">1.4 Spec-Lock Supremacy</h3>
-<ul>
-<li>Orientation, rotation, offsets, joins, end-gaps, tolerance gates, and view contracts are judged by the Spec-Lock rules</li>
-<li>When in doubt, enforce the Spec-Lock constraints</li>
-</ul>
-<h3 id="15-agentsmd-compliance">1.5 AGENTS.md Compliance</h3>
-<ul>
-<li>No fallback routes</li>
-<li>No silent failures</li>
-<li>No stubs/placeholders in production paths</li>
-<li>Delete dead code</li>
-<li>Centralized error handling</li>
-</ul>
-<hr>
-<h2 id="part-2-wall-anchored-frame">Part 2: Wall-Anchored Frame</h2>
-<h3 id="21-right-handed-coordinate-system">2.1 Right-Handed Coordinate System</h3>
-<p>The tool uses a <strong>single, unified right-handed wall frame</strong> throughout all services. No service may define its own coordinate system.</p>
-<p><strong>Frame Definition (matches WallFrame.cs):</strong></p>
-<ul>
-<li><strong>Origin</strong>: Location curve start point − (bottom offset × BasisZ)</li>
-<li><strong>BasisX</strong>: Along wall (tangent to location curve, typically horizontal)</li>
-<li><strong>BasisY</strong>: Exterior normal (perpendicular to wall, pointing outward from interior, from <code>Wall.Orientation</code>)</li>
-<li><strong>BasisZ</strong>: Vertical (building up, parallel to Revit world Z-axis)</li>
-</ul>
-<p><strong>Right-Hand Verification:</strong></p>
-<ul>
-<li>BasisZ = BasisX × BasisY</li>
-</ul>
-<p><strong>Orthonormality Checks:</strong></p>
-<ul>
-<li>|dot(X,Y)|, |dot(X,Z)|, |dot(Y,Z)| ≤ 1e-6</li>
-<li>(BasisX × BasisY) · BasisZ ≥ 0.9999</li>
-</ul>
-<p><strong>NO OTHER coordinate systems should exist in SGT codebase.</strong> This frame is used for:</p>
-<ul>
-<li>Family calibration (face classification)</li>
-<li>Orientation analysis (placement, seating checks)</li>
-<li>Preview generation (geometry transforms)</li>
-<li>All wall-relative computations</li>
-</ul>
-<h3 id="22-linked-wall-handling">2.2 Linked Wall Handling</h3>
-<p>For linked walls:</p>
-<ol>
-<li>Read the linked wall's <code>Orientation</code> property and location curve endpoints</li>
-<li>Apply <code>RevitLinkInstance.GetTotalTransform()</code> to transform into host-document coordinate space</li>
-<li>The transformed orientation is guaranteed to be the normal vector from the target exterior plane</li>
-<li>Store the transformation in the wall's domain object, including determinant and mirrored (<code>determinant &lt; 0</code>) metadata</li>
-<li>Frame-swap opening T mapping must include mirrored parity so visual elevation left/right remains authoritative for jamb semantics</li>
-</ol>
-<h3 id="23-single-frame-enforcement">2.3 Single Frame Enforcement</h3>
-<p><strong>CRITICAL</strong>: The right-handed wall frame computed in §2.1 is the <strong>only</strong> transformation used throughout the entire tool. Any code that previously used a different coordinate system frame must be refactored to use this single transformation.</p>
-<hr>
-<h2 id="part-3-services-architecture">Part 3: Services Architecture</h2>
-<h3 id="31-coordinate-system-service">3.1 Coordinate System Service</h3>
-<p><strong>Single Source of Truth</strong> for wall coordinate system.</p>
-<p><strong>Responsibilities:</strong></p>
-<ol>
-<li>Accept linked or host foundation wall element ID (from user selection or test function)</li>
-<li>Read wall's <code>Orientation</code> property and location curve endpoints</li>
-<li>Transform into host-document coordinate space</li>
-<li>Compute and store the right-handed wall frame (Origin + BasisX/Y/Z)</li>
-<li>Provide the Revit <code>Transform</code> object for use by all other services</li>
-</ol>
-<h3 id="32-wall-layer-service">3.2 Wall Layer Service</h3>
-<p><strong>Responsibilities:</strong></p>
-<ol>
-<li>Examine target wall for compound structure</li>
-<li>Select target layer using fallback logic:
-<ul>
-<li><strong>Primary</strong>: Most-exterior core layer with &quot;Structural&quot; checkbox enabled</li>
-<li><strong>Fallback 1</strong>: Thickest layer</li>
-<li><strong>Fallback 2</strong>: If multiple layers have same thickness, use most-exterior</li>
-</ul>
-</li>
-<li>Store selected layer in wall domain object</li>
-<li>Compute &quot;target layer offset&quot; — the offset from wall center (location curve) to exterior side of target layer</li>
-<li>Populate UI layer dropdown with all layers, defaulting to selected layer</li>
-</ol>
-<h3 id="33-target-exterior-plane-service">3.3 Target Exterior Plane Service</h3>
-<p><strong>Responsibilities:</strong></p>
-<ol>
-<li>Create Revit <code>Plane</code> object representing the <strong>Final Target Exterior Plane</strong></li>
-<li>Construct <code>Frame()</code> object with:
-<ul>
-<li><strong>Origin</strong>: Wall frame origin + target layer offset + UI layer offset value (defaults to 0)</li>
-<li><strong>Basis Vectors</strong>: From Coordinate System Service</li>
-</ul>
-</li>
-<li>Keep plane updated when:
-<ul>
-<li>UI target layer combobox changes</li>
-<li>UI layer offset textbox changes</li>
-</ul>
-</li>
-<li>Create new / delete old plane as needed</li>
-</ol>
-<h3 id="34-calibration-service">3.4 Calibration Service</h3>
-<p><strong>Single Source of Truth</strong> for identifying web and flange faces per family.</p>
-<p><strong>High-Level Process:</strong></p>
-<ol>
-<li>Place temporary instance on target plane (arbitrary length/direction)</li>
-<li>Extract geometry using <code>GetInstanceGeometry()</code> with Medium detail level</li>
-<li>Strip end cap faces (faces perpendicular to member length)</li>
-<li>Group remaining faces by area into bins:
-<ul>
-<li>Larger area bin → &quot;likely web faces&quot;</li>
-<li>Smaller area bin → &quot;likely flange faces&quot;</li>
-</ul>
-</li>
-<li>Within each bin, filter by normal vector orientation:
-<ul>
-<li>Discard faces whose normals aren't multiples of 90° from wall frame</li>
-<li>Select largest area face per orientation bin</li>
-</ul>
-</li>
-<li>Store face IDs in family domain object</li>
-<li>Delete temp instance and rollback transaction</li>
-</ol>
-<p><strong>Notes:</strong></p>
-<ul>
-<li>Calibration runs <strong>once per family</strong> (not per type)</li>
-<li>Type selection: prefer &quot;middle&quot; type if multiple exist</li>
-<li>Face IDs are stable across instances of the same family</li>
-<li>Geometry traversal must prefer <code>GetInstanceGeometry()</code> and only fall back to <code>SymbolGeometry</code> when instance geometry is unavailable; traversing both in one pass is forbidden because it duplicates candidates and can mix stale/fresh probe geometry.</li>
-</ul>
-<h3 id="35-orientation-analysis-service">3.5 Orientation Analysis Service</h3>
-<p><strong>Single Source of Truth</strong> for determining placement settings per family per role.</p>
-<p><strong>Process (per family, per role):</strong></p>
-<ol>
-<li>Place temp instance on target plane with role-appropriate direction:
-<ul>
-<li>Girts/Heads/Sills: horizontal</li>
-<li>Jambs: vertical</li>
-</ul>
-</li>
-<li>Retrieve calibrated faces from Calibration Service</li>
-<li>Find correct rotation by testing web face normal against expected direction
-<ul>
-<li>Horizontal roles probe canonical quarter-turns (<code>0/90/180/270</code>) directly.</li>
-<li>Vertical roles (jambs) probe one azimuth-compensated value per canonical quarter-turn (4 candidates total). The persisted default remains the canonical quarter-turn rotation.</li>
-</ul>
-</li>
-<li>Identify correct flange face by checking normal matches exterior plane normal</li>
-<li>Test Y justification options against <strong>flange gate</strong> OR <strong>web gate</strong>:
-<ul>
-<li><strong>Flange gate</strong>: BasisY distance from flange face point to target exterior plane ≈ 0</li>
-<li><strong>Web gate</strong>: Uses shape/role mode policy in analyzer:
-<ul>
-<li>Open-section horizontals (<code>Channel</code> girt/head/sill, <code>Z</code> girt, <code>Angle</code> girt): <strong>edge-contact</strong> distance (minimum face-vertex distance)</li>
-<li>Closed/tube sections (<code>HSS</code>) and jamb roles: <strong>face-coplanar</strong> distance (maximum face-vertex distance)</li>
-</ul>
-</li>
-<li><strong>Target/exterior gate (all roles)</strong>: Uses <strong>face-coplanar</strong> distance</li>
-<li><strong>Opening-role web-plane origin contract</strong>: <code>Head</code>/<code>Sill</code>/<code>Jamb</code> web seating planes are anchored to the <strong>target structural-plane origin</strong> (layer-offset/wall-offset applied), not raw wall-frame origin, so opening-role Y/Z gates evaluate in the same plane frame as target seating</li>
-<li>Calibrated face-id lookup deduplicates by persistent face id before seating selection</li>
-<li>Square-HSS symmetric candidates are re-resolved inside each Y/Z probe iteration after <code>doc.Regenerate()</code> (no pre-loop face cache reuse)</li>
-</ul>
-</li>
-<li>Test Z justification for remaining gate</li>
-<li>For vertical roles, enforce the <strong>open-side pointing</strong> contract for channels (C/MC):
-<ul>
-<li>For each passing rotation candidate, run the full Y/Z solver and then measure which side of the section is the <strong>web side</strong> along wall BasisX (using section geometry extents).</li>
-<li>Select the rotation/justification solution where the <strong>open side</strong> points away from the opening center:
-<ul>
-<li><code>JambLeft</code>: open side points toward <code>−BasisX</code></li>
-<li><code>JambRight</code>: open side points toward <code>+BasisX</code></li>
-</ul>
-</li>
-<li>If <code>CanFlipFacing == true</code>, flip testing may still be evaluated, but the analyzer must not depend on flip support. The primary disambiguator is choosing the correct canonical rotation (often <code>0</code> vs <code>180</code>).</li>
-<li>Persist <code>OrientationResult.IsFlipped</code> only when the winning solution actually requires <code>FlipFacing</code>.</li>
-</ul>
-</li>
-<li>Store solved settings (rotation, Y-just, Z-just) in family domain object</li>
-</ol>
-<p><strong>Constraints:</strong></p>
-<ul>
-<li>Z-shapes: Only analyze for Girt role (hard block for opening roles)</li>
-<li>Angle-shapes: Only analyze for Girt role (hard block for opening roles)</li>
-<li>Analysis runs per-family, per-role, but only one type per family</li>
-</ul>
-<p><strong>Dual-web-face disambiguation contract (C/MC jambs):</strong></p>
-<ul>
-<li>Calibration can retain both web-side face normals for channels (<code>+X</code> and <code>-X</code> orientation bins), so rotation gate alone can pass both <code>JambLeft</code> and <code>JambRight</code> at the same rotation.</li>
-<li>Vertical role disambiguation must therefore include an <strong>open-side pointing</strong> check (not rotation-only acceptance).</li>
-<li>If <code>CanFlipFacing == false</code>, the analyzer must still be able to disambiguate by choosing the canonical rotation (typically <code>0</code> vs <code>180</code>) that satisfies the open-side pointing contract.</li>
-<li>If no candidate satisfies pointing, the analyzer must return invalid for that role (explicit failure, no silent fallback).</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:340</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:405</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:548</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:893</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1787</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:544</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Domain/ValueObjects/OrientationResult.cs:9</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:20</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FaceSelectors.cs:88</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:356</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:832</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1369</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:240</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:1046</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.Utilities.cs:125</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.OpeningPlacement.cs:235</code></p>
-</blockquote>
-<hr>
-<h2 id="part-4-role-contracts">Part 4: Role Contracts</h2>
-<h3 id="41-role-axis-alignment">4.1 Role Axis Alignment</h3>
+<!-- STATUS: verified -->
+<!-- Last Updated: 2026-09-06 -->
+<!-- Verified By: SGT_Session 08-23-26-1228am -->
+<p>This page is the source-anchored contract index for SGT. It describes current owners only; retired <code>Shell/</code>, <code>Shared/</code>, <code>Features/Editing</code>, <code>Features/Extents</code>, <code>Features/NewWall</code>, and <code>Features/Persistence</code> paths are not compatibility surfaces.</p>
+<h2 id="runtime-identity">Runtime Identity</h2>
 <table>
 <thead>
 <tr>
-<th>Role</th>
-<th>Length (L)</th>
-<th>Depth (d)</th>
-<th>Width/Flange (bf)</th>
-<th>Flange Direction</th>
+<th>Contract</th>
+<th>Current source</th>
+<th>Runtime identity</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Girt</td>
-<td>+BasisX</td>
-<td>±BasisY</td>
-<td>+BasisZ</td>
-<td>Up</td>
+<td>Manifest</td>
+<td><code>src/Tools/Structural/SGT/manifest.yml</code></td>
+<td><code>DBTools.SGT</code></td>
 </tr>
 <tr>
-<td>Head</td>
-<td>+BasisX</td>
-<td>±BasisY</td>
-<td>+BasisZ</td>
-<td>Up (away from opening)</td>
+<td>Module</td>
+<td><code>App/Composition/SgtToolModule.cs</code></td>
+<td><code>DBTools.SGT.App.Composition.SgtToolModule</code></td>
 </tr>
 <tr>
-<td>Sill</td>
-<td>+BasisX</td>
-<td>±BasisY</td>
-<td>−BasisZ</td>
-<td>Down (away from opening)</td>
+<td>Command</td>
+<td><code>App/Composition/SgtCommand.cs</code></td>
+<td><code>DBTools.SGT.App.Composition.SgtCommand</code></td>
 </tr>
 <tr>
-<td>Jamb_Left</td>
-<td>+BasisZ</td>
-<td>±BasisY</td>
-<td>−BasisX</td>
-<td>Away from opening</td>
+<td>Window</td>
+<td><code>App/Views/SgtWindow.xaml(.cs)</code></td>
+<td><code>DBTools.SGT.App.Views.SgtWindow</code></td>
 </tr>
 <tr>
-<td>Jamb_Right</td>
-<td>+BasisZ</td>
-<td>±BasisY</td>
-<td>+BasisX</td>
-<td>Away from opening</td>
+<td>Window view model</td>
+<td><code>App/ViewModels/SgtWindowViewModel*.cs</code></td>
+<td><code>DBTools.SGT.App.ViewModels.SgtWindowViewModel</code></td>
+</tr>
+<tr>
+<td>Design-time view model</td>
+<td><code>App/DesignTime/SgtWindowDesignTimeViewModel.cs</code></td>
+<td><code>DBTools.SGT.App.DesignTime.SgtWindowDesignTimeViewModel</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="42-seating-requirements-all-roles">4.2 Seating Requirements (All Roles)</h3>
-<ul>
-<li><strong>Exterior flange</strong>: Seats on the exterior wall plane (BasisY direction)</li>
-<li><strong>Web seating by role</strong>:
-<ul>
-<li>Girt: Web on assigned elevation plane (horizontal)</li>
-<li>Head: Web on opening top plane (horizontal)</li>
-<li>Sill: Web on opening bottom plane (horizontal)</li>
-<li>Jambs: Web on opening side planes (vertical left/right)</li>
-</ul>
-</li>
-</ul>
-<h3 id="43-corner-alignment">4.3 Corner Alignment</h3>
-<ul>
-<li>Corner = intersection of correct flange face and correct web face</li>
-<li>Achieved automatically when both flange gate and web gate pass</li>
-<li>No separate corner gate implementation needed</li>
-</ul>
-<h3 id="44-pointing-requirements">4.4 Pointing Requirements</h3>
-<ul>
-<li><strong>Girts/Heads</strong>: Point UP (web face normal points down)</li>
-<li><strong>Sills</strong>: Point DOWN (web face normal points up)</li>
-<li><strong>Jambs</strong>: Point AWAY from opening center (web face normal points toward opening)</li>
-<li>For open-section jambs (C/MC), pointing is resolved through flip-state role tie-break; left/right jambs should resolve opposite <code>IsFlipped</code> states when the same rotation candidate is otherwise valid.</li>
-</ul>
-<h3 id="45-special-shape-handling">4.5 Special Shape Handling</h3>
-<p><strong>Z-Shapes:</strong></p>
-<ul>
-<li>Valid only for Girt role</li>
-<li>Exterior flange down, interior side flange up</li>
-<li>Analyzer enforces flange-pair ordering: exterior seated flange must be lower and interior paired flange must be both interior and above</li>
-<li><strong>Hard block</strong> for opening roles (heads/sills/jambs)</li>
-</ul>
-<p><strong>Angle-Shapes:</strong></p>
-<ul>
-<li>Valid only for Girt role</li>
-<li><strong>Hard block</strong> for opening roles (heads/sills/jambs)</li>
-<li>Unequal-leg contract: short leg is web-like (seats assigned elevation), long leg is flange-like (seats target exterior plane)</li>
-<li>Equal-leg fallback: select web/flange by wall-up vs wall-exterior axis alignment score</li>
-<li>Orientation gates still require exterior seating + elevation seating with zero offsets</li>
-</ul>
-<p><strong>HSS Rectangles:</strong></p>
-<ul>
-<li>Calibration now captures explicit rectangular-HSS face groups for <strong>deep</strong> and <strong>shallow</strong> section dimensions</li>
-<li>Horizontal roles (Girt/Head/Sill): <code>targetSet=deep</code>, <code>webSet=shallow</code> (deep seats target exterior plane; shallow seats assigned elevation/opening top-bottom plane)</li>
-<li>Vertical roles (JambLeft/JambRight): <code>targetSet=shallow</code>, <code>webSet=deep</code> (deep seats opening-edge plane; shallow seats target exterior plane)</li>
-<li>Analyzer no longer relies on ad-hoc web/flange area-swap heuristics to decide rectangular-HSS role mapping</li>
-</ul>
-<p><strong>HSS Squares:</strong></p>
-<ul>
-<li>Width == depth degeneracy allowed</li>
-<li>Alignment accepts symmetric case and evaluates all non-endcap section faces for seating/alignment (not only calibrated web/flange bins)</li>
-<li>Symmetric non-endcap faces are re-fetched per Y/Z probe pass after justification regen, preventing stale pre-probe face reuse</li>
-<li>Seating/pointing gates still apply</li>
-</ul>
-<p><strong>Finite-Metric Gatekeeping:</strong></p>
-<ul>
-<li>Y/Z candidate and pair scoring now reject non-finite (<code>NaN</code>/<code>Infinity</code>) metric values before ranking</li>
-<li>Failure diagnostics include candidate counts (<code>candidates</code>, <code>finiteCandidates</code>, <code>rejectedNonFinite</code>) so Step 2 fatal triage shows whether failure is geometric or numeric</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:400</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:446</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/WallAnalysis/FamilyCalibrationData.cs:68</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:588</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:833</code></p>
-</blockquote>
-<h3 id="46-solid-geometry-placement">4.6 Solid Geometry Placement</h3>
-<p>ALL elements must have their solid geometry placed on the <strong>interior side</strong> of the target exterior wall plane.</p>
-<hr>
-<h2 id="part-5-rotation--justification">Part 5: Rotation &amp; Justification</h2>
-<h3 id="51-cross-section-rotation">5.1 Cross-Section Rotation</h3>
-<ul>
-<li>Also known as &quot;Structural Bend Dir Angle&quot;</li>
-<li>Angle about member length axis (L)</li>
-<li><strong>Constrained to k×90°</strong> within tolerance (mod 90° ≤ 1e-6°)</li>
-<li>Non-multiple-of-90° rotations fail immediately</li>
-</ul>
-<h3 id="52-yz-justification">5.2 Y/Z Justification</h3>
-<ul>
-<li><strong>Y Justification</strong>: Controls lateral positioning (Left, Center, Right, Origin)</li>
-<li><strong>Z Justification</strong>: Controls vertical positioning (Top, Middle, Bottom, Origin)</li>
-<li>Family-dependent labels; validity determined by seating/corner gate outcomes</li>
-<li>Labels are for UI display; actual values are numeric</li>
-</ul>
-<h3 id="53-zero-offsets-policy">5.3 Zero Offsets Policy</h3>
-<p><strong>Hard Gate</strong>: Y/Z justification offset values = 0.000 ft</p>
-<ul>
-<li>Any non-zero offset fails with <code>[SpecFail/Offsets/NonZero]</code></li>
-<li><strong>Clarification</strong>: &quot;Wall Offset&quot; (depth plane choice in UI) is independent and allowed</li>
-<li>Wall Offset translates the placement plane along wall depth direction</li>
-<li>Instance Y/Z justification offsets must remain exactly 0.0</li>
-</ul>
-<h3 id="54-parameter-update-ordering">5.4 Parameter Update Ordering</h3>
-<p><strong>Per element, in order:</strong></p>
-<ol>
-<li>Place instance</li>
-<li>Set Disallow Join at both ends</li>
-<li>Apply negative Start/End Extensions for gaps</li>
-<li>Validate spans (&gt; 6&quot;)</li>
-<li>Commit</li>
-</ol>
-<hr>
-<h2 id="part-6-uiux-flow">Part 6: UI/UX Flow</h2>
-<h3 id="61-entry-points">6.1 Entry Points</h3>
-<ul>
-<li><strong>New Flow</strong>: &quot;Super Girt Tool&quot; ribbon button in DB Tools tab</li>
-<li><strong>Edit Flow</strong>: Contextual button in &quot;Modify — Structural Framing&quot; tab when SGT metadata detected</li>
-</ul>
-<h3 id="62-new-flow-single-basis-wall">6.2 New Flow (Single Basis Wall)</h3>
-<p><strong>Basis wall is singular.</strong> All analysis, seeding, previews, openings, and placement are anchored to one basis wall.</p>
-<p><strong>Launch &amp; Prompt:</strong></p>
-<ol>
-<li>Yellow warning banner appears on launch</li>
-<li>Prompt user to select <strong>either</strong> a linked model wall <strong>or</strong> a host foundation wall</li>
-<li>Enforce single selection; reject multiple selections and non-wall types</li>
-</ol>
-<p><strong>Progress Overlay (4 Steps):</strong></p>
-<ol>
-<li><strong>Step 1: Calibration</strong> (0% → 100%)
-<ul>
-<li>Calibrate all structural framing families</li>
-<li>Identify web faces and flange faces</li>
-</ul>
-</li>
-<li><strong>Step 2: Orientation Analysis</strong> (0% → 100%)
-<ul>
-<li>Analyze each family for each role</li>
-<li>Z-shapes and Angle-shapes only for Girt role</li>
-</ul>
-</li>
-<li><strong>Step 3: 2D Profile Loop Extraction</strong> (0% → 100%)
-<ul>
-<li>Extract Medium-detail geometry loops</li>
-<li>Sanitize (ordering, closure, tolerance-clean)</li>
-</ul>
-</li>
-<li><strong>Step 4: Initial UI Seeding</strong> (0% → 100%)
-<ul>
-<li><strong>Default family</strong>: &quot;C Shapes&quot; / &quot;C10X15.3&quot;</li>
-<li>Seed girt rows at ≤ 5'-0&quot; spacing</li>
-<li>Seed opening rows from detected openings (Linked) or empty (Foundation)</li>
-</ul>
-</li>
-</ol>
-<p><strong>Auto-Seeding:</strong></p>
-<ul>
-<li><strong>Girts</strong>: ≤ 5'-0&quot; spacing with orientation-analyzed defaults</li>
-<li><strong>Openings (Linked)</strong>: One row per detected opening; default enabled roles are computed from opening bounds vs wall bounds (no fixed &quot;Sill off&quot; default)</li>
-<li><strong>Manual Openings</strong>: Available via &quot;Add Opening&quot; action</li>
-</ul>
-<p><strong>Plan Validity:</strong></p>
-<ul>
-<li>Plans may be <strong>openings-only</strong> (0 girts but ≥1 enabled opening role)</li>
-<li>Place/Update are disabled only when the plan would place nothing</li>
-</ul>
-<p><strong>Reveal:</strong>
-When analysis and seeding complete, keep the overlay visible until the first Elevation preview frame has painted (so the preview is never blank), then close the overlay to reveal pre-populated grids and live previews.</p>
-<h3 id="63-edit-flow-selection-aware">6.3 Edit Flow (Selection-Aware)</h3>
-<p><strong>SelectionChanged Observer:</strong></p>
-<ul>
-<li>Monitor Revit selection for Structural Framing with SGT schema</li>
-<li>Show &quot;Edit SGT Wall&quot; button on contextual tab when detected</li>
-</ul>
-<p><strong>Launch:</strong></p>
-<ul>
-<li>If multiple SystemIds present, open picker</li>
-<li>Otherwise use single system</li>
-</ul>
-<p><strong>Rehydrate:</strong></p>
-<ul>
-<li>Run auto-analysis at open</li>
-<li>Rehydrate UI from existing SGT System</li>
-<li>Initial seeding rules do NOT apply in Edit</li>
-</ul>
-<p><strong>Edit-Time Segmentation Invariants (Hard Requirements):</strong></p>
-<ul>
-<li>If girt segments are <strong>merged</strong> (two <code>UiKey</code>s removed, one inserted), any opening-role extent targets (<code>TopExtentTarget</code> / <code>BottomExtentTarget</code>) that referenced either removed <code>UiKey</code> <strong>must be rewritten</strong> to the inserted <code>UiKey</code> so snap-to-girt semantics remain stable.</li>
-<li>If re-segmentation recomputation produces fewer than 2 segments, the segment group must <strong>collapse back</strong> to a single standalone row (no stale segmented siblings).</li>
-<li>When deduplicating near bisection points, preserve all source intersecting element keys; bypass filtering may exclude a point only when <strong>all</strong> contributing sources are bypassed.</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1908</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1437</code><br>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/MemberIntersectionService.cs:309</code></p>
-</blockquote>
-<h3 id="64-foundation-mode">6.4 Foundation Mode</h3>
-<p><strong>Seeding Window:</strong></p>
-<ul>
-<li>From TOP of basis foundation wall upward 20'-0&quot;</li>
-<li>Standard ≤ 5'-0&quot; spacing within this band</li>
-</ul>
-<p><strong>Openings:</strong></p>
-<ul>
-<li>NOT auto-seeded in Foundation Mode</li>
-<li>Manual rows preview and place with full contracts</li>
-</ul>
-<p><strong>Height Above Top:</strong></p>
-<ul>
-<li>Acts as vertical reference when enabled</li>
-</ul>
-<h3 id="65-window-structure">6.5 Window Structure</h3>
-<p><strong>Left Pane — Scope &amp; Config:</strong></p>
-<ul>
-<li>Exterior Plane &amp; Compound Layers (Linked Mode)</li>
-<li>Wall Offset (depth-plane selection)</li>
-<li>Foundation Mode + Height Above Top</li>
-</ul>
-<p><strong>Visibility by Flow:</strong></p>
-<ul>
-<li><strong>New</strong>: Place visible; Update/Remove hidden</li>
-<li><strong>Edit</strong>: Place hidden; Update/Remove visible</li>
-</ul>
-<hr>
-<h2 id="part-7-preview-system">Part 7: Preview System</h2>
-<h3 id="71-common-contracts">7.1 Common Contracts</h3>
-<ul>
-<li>All three previews (Elevation, Section, 3D) derive from the same canonical, Revit-accurate element data</li>
-<li>Elevation and Section are projections of the canonical data used by 3D</li>
-<li>Previews stay synchronized with grids and UI state at all times</li>
-<li><strong>Preview/placement parity for vertical framing (jambs)</strong>:
-<ul>
-<li><code>OpeningRoleConfig.RotationDegrees</code> is stored as a <strong>wall-relative canonical rotation</strong> (typically quarter-turns).</li>
-<li>Step 2 may apply <strong>azimuth compensation</strong> only while probing temporary vertical instances on off-axis walls; the stored rotation remains canonical.</li>
-<li>Preview matches placed geometry by combining the canonical rotation with Step 3's per-rotation vertical calibration payload (section loops, exact Y/Z pair deltas, and wall-direction sign bases).</li>
-<li>Placement applies azimuth compensation only when writing the effective Revit bend-dir angle.</li>
-</ul>
-</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Orientation/JambAzimuthCompensation.cs:34</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Models/PreviewScene3DBuilder.cs:293</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Rendering/PreviewRenderer.cs:761</code></p>
-</blockquote>
-<h3 id="72-elevation-preview">7.2 Elevation Preview</h3>
-<p><strong>Coordinate System:</strong></p>
-<ul>
-<li>u = +BasisX (along wall)</li>
-<li>v = +BasisZ (vertical)</li>
-</ul>
-<p><strong>Rendering:</strong></p>
-<ul>
-<li>Draw bf-thickness bands from loop v-extents along L</li>
-<li>Use trimmed L-span (grids/openings)</li>
-<li>Enforce end gaps via negative extensions after Disallow Join</li>
-<li>Horizontals must not intrude into jamb bf</li>
-<li>Show grid extents overlay</li>
-</ul>
-<p><strong>Acceptance Gates:</strong></p>
-<ul>
-<li>bf-thickness bands correct</li>
-<li>Horizontals segmented at openings</li>
-<li>1/2&quot; end gaps at jamb interfaces</li>
-<li>Disallow Join at both ends</li>
-<li>Zero offsets</li>
-</ul>
-<h3 id="73-section-preview">7.3 Section Preview</h3>
-<p><strong>Coordinate System:</strong></p>
-<ul>
-<li>u = +BasisY (depth / exterior normal)</li>
-<li>v = +BasisZ (vertical)</li>
-</ul>
-<p><strong>Rendering:</strong></p>
-<ul>
-<li>Render Medium loops with EvenOdd fill</li>
-<li>Anchor at L-axis ∩ section plane (or closest point if parallel)</li>
-<li>No L-extrusion</li>
-<li>Stroke presentation is guidance</li>
-</ul>
-<p><strong>Acceptance Gates:</strong></p>
-<ul>
-<li>Medium-detail loops rendered with EvenOdd</li>
-<li>Oriented per (d, bf)</li>
-<li>No L-extrusion</li>
-<li>Strict axis-alignment by role</li>
-</ul>
-<h3 id="74-3d-preview">7.4 3D Preview</h3>
-<p><strong>Rendering:</strong></p>
-<ul>
-<li>Mesh from canonical 3D element data</li>
-<li>End caps must be tessellated from section loops using <strong>EvenOdd</strong> across all contours (concave + holes supported; no triangle-fan caps)</li>
-<li>Two directional lights + ambient</li>
-<li>Fixed 6&quot; (0.5 ft) floor plane</li>
-<li>Role palette visible</li>
-<li>Overlay legend</li>
-<li>Interactive orbit/pan/zoom</li>
-</ul>
-<p><strong>Acceptance Gates:</strong></p>
-<ul>
-<li>No extra gates; 3D renders exactly the snapshot data</li>
-<li>Issues are visually obvious</li>
-<li>No triangulated/infill artifacts at member ends; concave + hollow sections terminate cleanly (holes remain holes)</li>
-</ul>
-<hr>
-<h2 id="part-8-endpoint-association-system">Part 8: Endpoint Association System</h2>
-<h3 id="81-endpointassociation-value-object">8.1 EndpointAssociation Value Object</h3>
-<p>Every segment endpoint must have an association that tracks what it connects to.</p>
-<p><strong>Association Types:</strong></p>
+<p>The manifest, XAML <code>x:Class</code>, XAML design-time type, Loader generated bridge, and App <code>GlobalSuppressions</code> FQNs must change together whenever a front-door type moves or is renamed.</p>
+<h2 id="current-owner-tree">Current Owner Tree</h2>
+<p>Only directories containing current tracked source are listed here:</p>
 <table>
 <thead>
 <tr>
-<th>Type</th>
-<th>Description</th>
-<th>Required Fields</th>
+<th>Owner</th>
+<th>Current concepts</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>WallStart</code></td>
-<td>Wall start (t=0)</td>
-<td>None</td>
+<td><code>App/</code></td>
+<td><code>Composition/ContextualEdit</code>, <code>Converters</code>, <code>DesignTime</code>, UI-only <code>Persistence</code>, <code>Resources</code>, <code>Sessions/{Revit,TransactionGroup,ViewModels,WindowSession,Workflow}</code>, <code>Startup</code>, <code>State/{Orientation,PlanStore,PlanSynchronization}</code>, <code>ViewModels</code>, <code>Views</code> including concrete Preview presentation</td>
 </tr>
 <tr>
-<td><code>WallEnd</code></td>
-<td>Wall end (t=1)</td>
-<td>None</td>
+<td><code>Domain/</code></td>
+<td><code>Connectivity</code>, <code>Defaults</code>, <code>EndpointAssociation</code>, <code>Errors</code>, <code>Extents/OpeningEdge</code>, <code>FamilyResolution</code>, <code>Foundation</code>, <code>FramingType</code>, <code>Geometry</code>, <code>Girt</code>, <code>Identity</code>, <code>LengthText</code>, <code>Member</code>, <code>MemberProfile</code>, <code>MemberResolution</code>, <code>MemberRole</code>, <code>MemberSegment</code>, <code>MemberSpan</code>, <code>Openings</code>, <code>Orientation</code>, <code>PlanEditing</code>, <code>PlanLayer</code>, <code>Plans</code>, <code>Rotation</code>, <code>SnapTarget</code>, <code>Wall</code>, <code>WallTarget</code></td>
 </tr>
 <tr>
-<td><code>Grid</code></td>
-<td>Grid intersection</td>
-<td>GridName, GridOffset</td>
+<td><code>Features/BulkEdit</code></td>
+<td><code>Apply</code>, <code>FieldSelection</code>, <code>RoleSelection</code>, <code>Target</code>, <code>ViewModels</code></td>
 </tr>
 <tr>
-<td><code>OpeningEdge</code></td>
-<td>Opening edge</td>
-<td>OpeningId, EdgeSide, EdgeOffset</td>
+<td><code>Features/Openings</code></td>
+<td><code>Detection</code>, <code>Domain</code>, <code>Editing</code>, <code>MemberEditTarget</code>, <code>Persistence</code>, <code>Placement</code>, <code>PlanProjection</code>, <code>Preview</code>, <code>Revit</code>, <code>RoleOptions</code>, <code>Synchronization</code>, <code>ViewModels</code>, <code>Views</code></td>
 </tr>
 <tr>
-<td><code>FreeAlong</code></td>
-<td>Free distance from wall start</td>
-<td>AlongDistance</td>
+<td><code>Features/Orientation</code></td>
+<td><code>Analysis</code> and its <code>OpeningRole</code>/<code>Solver</code> concepts</td>
+</tr>
+<tr>
+<td><code>Features/Placement</code></td>
+<td><code>Domain</code>, <code>Execution</code>, <code>Girt</code>, <code>Orientation</code>, <code>Planning</code>, <code>Revit/ModelWrite</code>, <code>Workflow</code></td>
+</tr>
+<tr>
+<td><code>Features/Preview</code></td>
+<td><code>DesignTime</code>, <code>Domain</code>, <code>Editing</code>, <code>Geometry</code>, <code>Planning</code>, <code>Refresh</code>, <code>Rendering</code>, <code>Selection</code>, <code>Snap</code>, <code>ViewModels</code></td>
+</tr>
+<tr>
+<td><code>Features/WallAnalysis</code></td>
+<td><code>Domain</code>, <code>Revit/{Geometry,Planning}</code></td>
+</tr>
+<tr>
+<td><code>Persistence/</code></td>
+<td><code>ElementTagSchema</code>, private <code>PlanData</code> transport records inside <code>SystemStorageMapper.Data.cs</code>, <code>StoredSystem</code>, <code>SystemStorageMapper*</code>, <code>ISystemRepository</code>, and <code>Revit/SystemRepository</code></td>
+</tr>
+<tr>
+<td><code>Revit/</code></td>
+<td>cross-feature <code>FamilyGeometry</code>, <code>FamilySymbol</code>, <code>FramingParameter</code>, <code>SymbolCalibration</code>, <code>TemporaryTransaction</code>, and <code>Wall</code> adapters</td>
+</tr>
+<tr>
+<td><code>Tests/</code></td>
+<td>production-owner mirrors under <code>App</code>, <code>Domain</code>, <code>Features</code>, and <code>Persistence</code>; Revit fixtures under <code>Integration/Revit</code>; test-only code under <code>Support</code></td>
 </tr>
 </tbody>
 </table>
-<p><strong>OpeningEdgeSide Values:</strong></p>
-<ul>
-<li>Left</li>
-<li>Right</li>
-<li>Top</li>
-<li>Bottom</li>
-</ul>
-<h3 id="82-association-rules">8.2 Association Rules</h3>
-<ul>
-<li>All girt segments must have start and end associations defined</li>
-<li>All opening elements must have endpoint associations</li>
-<li>Associations drive:
-<ul>
-<li>Segment trimming calculations</li>
-<li>Preview rendering coordinates</li>
-<li>Placement coordinate determination</li>
-</ul>
-</li>
-</ul>
-<hr>
-<h2 id="part-9-elevation-preview-snapping">Part 9: Elevation Preview Snapping</h2>
-<h3 id="91-elevationsnapindex">9.1 ElevationSnapIndex</h3>
-<p>Spatial index for O(log n) nearest-neighbor queries on snap targets.</p>
-<p><strong>Indexed Targets:</strong></p>
-<ul>
-<li>Grids (sorted by t-parameter)</li>
-<li>Opening edges (left/right, sorted by t-parameter)</li>
-</ul>
-<p><strong>Rebuild:</strong></p>
-<ul>
-<li>Called once per preview refresh</li>
-<li>Before drag operations</li>
-</ul>
-<h3 id="92-ielevationsnapservice">9.2 IElevationSnapService</h3>
-<p>Service for computing snap targets during drag operations.</p>
-<p><strong>SnapInput Parameters:</strong></p>
-<ul>
-<li>Target t-parameter (0.0 to 1.0)</li>
-<li>Pixels per unit t</li>
-<li>Cursor position (X, Y in pixels)</li>
-<li>DPI scale factor</li>
-<li>Note: DPI scale is used for hit-testing and snap thresholds. Preview visual styling (text/lineweights) uses a fixed visual scale (DPI-agnostic).</li>
-<li>Wall length in feet</li>
-<li>Available grids and edges</li>
-<li>Optional girt/wall-top/wall-bottom elevation targets (for vertical endpoint snaps)</li>
-</ul>
-<p><strong>SnapResult:</strong></p>
-<ul>
-<li>Snapped (bool): True when cursor is within snap threshold of the resolved valid target</li>
-<li>Kind: &quot;Grid&quot;, &quot;Edge&quot;, &quot;WallEdge&quot;, &quot;Girt&quot;, &quot;WallTop&quot;, or &quot;WallBottom&quot;</li>
-<li>Name: Grid name or opening key</li>
-<li>Side: Edge side (Left/Right)</li>
-<li>T: Resolved target t-parameter (for vertical-only snaps, cursor T is preserved)</li>
-<li>DxPx: Pixel distance to snap target</li>
-</ul>
-<h3 id="93-snapping-behavior">9.3 Snapping Behavior</h3>
-<p><strong>Lock Rule (non-negotiable):</strong></p>
-<ul>
-<li>Drag/snap interactions are locked to valid associations only.</li>
-<li>No free-along / arbitrary drag targets are produced by snapping.</li>
-<li>Valid snap associations are other elements, grids, or wall edges.</li>
-</ul>
-<p><strong>Priority:</strong></p>
-<ol>
-<li>Grid snapping (highest priority on ties)</li>
-<li>Wall edge snapping</li>
-<li>Opening edge snapping</li>
-<li>Vertical targets when the edit mode enables elevation snapping (girts, wall top, wall bottom)</li>
-</ol>
-<p><strong>Thresholds:</strong></p>
-<ul>
-<li>Hit radius: 10px at 96 DPI baseline (DPI-scaled)</li>
-<li>Snap threshold: 12px to mark a target as &quot;Snapped=true&quot;</li>
-<li>Epsilon for t-value comparisons: 1e-9</li>
-</ul>
-<p>When the cursor is outside threshold, the nearest valid target is still returned with <code>Snapped=false</code> (locked association with out-of-threshold feedback).</p>
-<p><strong>Tie-Breakers:</strong></p>
-<ul>
-<li>Prefer grids over wall edges over opening edges</li>
-<li>Prefer smaller t on exact ties</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapService.cs:46</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Snapping/ElevationSnapIndex.cs:216</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/PreviewVisualTokens.cs:1</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.Core.cs:1205</code></p>
-</blockquote>
-<hr>
-<h2 id="part-10-placement-system">Part 10: Placement System</h2>
-<h3 id="101-disallow-join">10.1 Disallow Join</h3>
-<ul>
-<li>Must be set at <strong>both ends</strong> for <strong>all members</strong> (all roles)</li>
-<li>Set <strong>before</strong> applying end extensions</li>
-</ul>
-<h3 id="102-end-extensions">10.2 End Extensions</h3>
-<ul>
-<li>Along-L edits are via Start/End Extensions only</li>
-<li>Use <strong>negative values</strong> to shorten (not cutbacks)</li>
-<li>Required 1/2&quot; end gaps at horizontal–jamb interfaces</li>
-<li>Order: Set Disallow Join → Apply −1/2&quot; extensions</li>
-</ul>
-<h3 id="103-minimum-segment-length">10.3 Minimum Segment Length</h3>
-<ul>
-<li>Girt segments must be &gt; 6&quot; (0.5 ft)</li>
-<li>Otherwise fail with <code>[SpecFail/Extents/TooShort]</code></li>
-</ul>
-<h3 id="104-opening-segmentation">10.4 Opening Segmentation</h3>
-<ul>
-<li>Horizontal members segment at openings</li>
-<li>Compute intervals by subtracting opening spans from row extent</li>
-<li>Gate by vertical intersection (row elevation vs opening height window)</li>
-<li>Apply 1/2&quot; gaps at opening edges</li>
-<li>Exception: rows may declare <code>BypassedOpeningKeys</code>; matching openings are excluded from subtraction and remain continuous</li>
-<li>Interior endpoint drag to the opposite edge of the same opening auto-adds bypass for that opening and clears opening-edge gap overrides for that opening</li>
-<li>Snapping a girt extent endpoint to a specific opening edge removes that opening from bypass for that row</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1021</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.DomainIntegration.cs:1861</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.CoreAndEditing.cs:1565</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Extents/SegmentResolutionService.cs:39</code>
-<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Orchestrator.cs:155</code></p>
-</blockquote>
-<h3 id="105-placement-order">10.5 Placement Order</h3>
-<p><strong>Per element:</strong></p>
-<ol>
-<li>Place instance(s)</li>
-<li>Disallow Join at both ends</li>
-<li>Apply negative Start/End Extensions for 1/2&quot; gaps at true intersections only</li>
-<li>Validate minimum segment length</li>
-<li>Commit</li>
-</ol>
-<h3 id="106-zero-offsets-enforcement">10.6 Zero Offsets Enforcement</h3>
-<ul>
-<li>Location curve represents logical L-span</li>
-<li>Shortening via negative extensions only</li>
-<li>No cutbacks</li>
-<li>Hand/Face flips allowed if seating/axis outcomes remain valid</li>
-</ul>
-<h3 id="107-orientation-parameter-application-structural-framing">10.7 Orientation Parameter Application (Structural Framing)</h3>
-<ul>
-<li><strong>Order matters</strong> for vertical framing:
-<ol>
-<li>Set <code>STRUCTURAL_BEND_DIR_ANGLE</code> (rotation)</li>
-<li><code>doc.Regenerate()</code> (ensure rotation takes effect)</li>
-<li>Apply <code>flipFacing()</code> if required</li>
-<li><code>doc.Regenerate()</code></li>
-<li>Set Y justification</li>
-<li><code>doc.Regenerate()</code></li>
-<li>Set Z justification</li>
-<li><code>doc.Regenerate()</code></li>
-</ol>
-</li>
-<li>Rationale: without regeneration between updates, Revit can apply justifications against stale orientation state, causing flange seating drift (often showing up as a depth-sized exterior shift).</li>
-</ul>
-<blockquote>
-<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Placement/Writers/DomainWriter.Utilities.cs:125</code></p>
-</blockquote>
-<hr>
-<h2 id="part-11-metadata--storage">Part 11: Metadata &amp; Storage</h2>
-<h3 id="111-extensible-storage-schema">11.1 Extensible Storage Schema</h3>
-<p>All SGT instances carry schema fields:</p>
+<p>The live <code>Plan</code>, <code>PlanBaselineSnapshot</code>, <code>IPlanStore</code> port, plan-editing rules, and pure projection mappers belong to Domain. App owns the <code>PlanStore</code> implementation and UI synchronization. The Revit repository implementation belongs to <code>Persistence/Revit/SystemRepository.cs</code>. <code>Domain/Id/SystemId</code> is required through the plan, edit-analysis, Change Review, and placement graph; <code>ContextualEditHook</code> alone parses selected persisted tag text for edit launch, and only repository, wall-writer, and genuine Revit tag/storage edges unwrap <code>SystemId.Value</code>.</p>
+<p><code>Wall.Create</code> returns <code>Wall</code> directly and rejects null geometry. ID and geometry factories retain their validation results. Persistence and placement retain those real admission failures.</p>
+<h2 id="composition-and-sessions">Composition and Sessions</h2>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th>Responsibility</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Tag</code></td>
-<td>&quot;SGT&quot;</td>
+<td>Tool registration</td>
+<td><code>App/Composition/ServiceCollectionExtensions.cs</code> (<code>AddAppStateServices</code> registers App-state services)</td>
 </tr>
 <tr>
-<td><code>SystemId</code></td>
-<td>GUID string</td>
+<td>Contextual edit ribbon</td>
+<td><code>App/Composition/ContextualEdit/ContextualEditHook.cs</code> and adjacent evaluator/button builder</td>
 </tr>
 <tr>
-<td><code>ConfigJson</code></td>
-<td>Role, vertical location, along-wall location, depth plane, etc.</td>
+<td>New/edit launch flow</td>
+<td><code>App/Startup/NewSessionWorkflow.cs</code>, <code>StartupAnalysisWorkflow.cs</code>, and <code>StartupTargetResolver.cs</code></td>
 </tr>
 <tr>
-<td><code>WallCurveHash</code></td>
-<td>Robust matching (1e-5 ft rounding, includes wall ID)</td>
+<td>Modal lifetime and failure order</td>
+<td><code>App/Sessions/WindowSession/Revit/SgtWindowSession.cs</code></td>
 </tr>
 <tr>
-<td><code>WallOffset</code></td>
-<td>Depth offset value</td>
+<td>Session construction</td>
+<td><code>App/Sessions/WindowSession/Revit/WindowSessionBuilder.cs</code> resolves the Revit-scoped collaborators and directly composes the window view model, Change Review workflow, and modal session; <code>App/ViewModels/SgtWindowViewModel</code> directly constructs and owns its complete child UI graph.</td>
 </tr>
 <tr>
-<td><code>Timestamp</code></td>
-<td>Creation/modification time</td>
+<td>UI-to-plan synchronization</td>
+<td><code>App/State/PlanSynchronization/PlanSynchronizationCoordinator*.cs</code></td>
 </tr>
 <tr>
-<td><code>Version</code></td>
-<td>Schema version (&quot;13&quot;)</td>
+<td>Application dialog adapter</td>
+<td><code>App/Sessions/WindowSession/WindowSessionDialogs.cs</code></td>
+</tr>
+<tr>
+<td>Analysis command/session orchestration</td>
+<td><code>App/Sessions/Workflow/AnalysisSessionWorkflow.cs</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="112-edit-round-trip">11.2 Edit Round-Trip</h3>
-<p>Metadata enables:</p>
-<ul>
-<li>Selection-based detection</li>
-<li>Edit launch</li>
-<li>Reconciliation when host or openings change</li>
-</ul>
-<p><strong>Note</strong>: Initial seeding does NOT apply in Edit; system rehydrates from stored configuration.</p>
-<p><strong>Openings-only</strong>:</p>
-<ul>
-<li>A stored system may have <code>0</code> girt rows as long as it has ≥1 enabled opening role; Edit/Update must still work end-to-end.</li>
-</ul>
-<h3 id="113-remove-system-flow">11.3 Remove System Flow</h3>
-<p><strong>VM Command</strong>: <code>RemoveSystemCommand</code></p>
-<p><strong>Implementation:</strong></p>
-<ol>
-<li>Show overlay &quot;Removing…&quot;</li>
-<li>Call writer API to delete only elements tagged with current SystemId</li>
-<li>Delete girts and all opening roles</li>
-<li>Remove stored config from SgtConfigStore (host) and SgtLinkedConfigStore (linked)</li>
-<li>Update overlay with result</li>
-<li>Close window on success</li>
-</ol>
-<p><strong>Constraint</strong>: Does NOT affect other SGT systems; scoped deletion only.</p>
-<hr>
-<h2 id="part-12-error-handling">Part 12: Error Handling</h2>
-<h3 id="121-specfail-tags">12.1 SpecFail Tags</h3>
-<p>Recommended for logs/exceptions:</p>
+<p>Revit-backed session geometry is under <code>App/Sessions/Revit/Geometry</code>; <code>SgtWindowSession</code> owns its ordered modal completion phases under <code>App/Sessions/WindowSession/Revit</code>; startup analysis is under <code>App/Startup</code>. Revit-free session construction remains under <code>App/Sessions</code>; live-plan synchronization is App state under <code>App/State/PlanSynchronization</code>, not session infrastructure.</p>
+<h2 id="feature-contracts">Feature Contracts</h2>
+<h3 id="change-review-session-contract">Change Review session contract</h3>
+<p><code>Features/ChangeReview</code> is a raw-XAML child hosted by the existing
+<code>ToolWindowFactory</code>/<code>ToolWindowHost</code> path. Its view-model and workflow are
+session-owned; no static stores candidate state or subscribes to a Revit event.
+The workflow compares one synchronized plan revision with one live snapshot,
+then analyzes a confirmed candidate before publishing the detached plan and
+ledger. <code>Accept</code>, <code>Keep</code>, and <code>Ignore</code> are the only decision vocabulary.
+<code>ChangeReviewPlanBuilder</code> is the one decision authority: it resolves each item's
+decision once and derives both the candidate plan and the ledger Confirm saves;
+rows display the resolved decision. Its <code>AllowedDecisions</code> is the allowed-decision
+matrix and <code>ProposeDecision</code> the one default rule: the dialog offers the matrix's
+decisions (<code>SetInvalidated</code> removes Ignore for a released user-created opening
+unless Ignore is already selected) and preselects an allowed proposal, and the builder applies a proposal to an
+undecided item that needs no attention only when the matrix allows it. An
+explicit Ignore returns a Placed opening to its
+Placed framing configuration, held, even when the draft carries a local edit; an
+opening that was never placed stays unframed, and a later Keep frames a never-placed
+manual opening again. Without a live observation a row offers only Keep and Ignore.
+The live snapshot carries the grid
+crossings along the Placed wall and the observed wall, and girt grid anchors
+resolve against the grids of the wall the review adopts. Review
+rows show the opening source name (or <strong>Manual opening</strong> for an unnamed
+detached manual row), source, status, and decision; effects appear in the
+selected row's details pane. Placement validation messages include the
+along-wall range when it is relevant. The canonical key is never user-facing.</p>
+<p>The parent session owns the one <code>TransactionGroup</code> named <strong>Super Girt Tool</strong>.
+Review Confirm saves the decision ledger inside that group without changing
+framing. Place, Update, Delete System, and
+Deconstruct run ordinary transactions inside that group. A successful window
+close assimilates once; Cancel, an error, native close failure, or forced
+retirement rolls back once. A relink child is retired in <code>finally</code>, and active
+review-to-pick re-entry remains in the same synchronous modal driver. Unsupported
+SGT storage is purged, including its owned element tags, inside that group so
+the same close decision governs the purge.</p>
+<p>The release acceptance uses real Revit commands, model elements, tags, and
+reloaded storage. Pure tests prove decision/evaluator transitions and relink
+pairing; RevitLocal tests prove physical placement/update/removal, target
+occupancy, unsupported-data purge, rollback after multiple inner writes, and
+the single <strong>Super Girt Tool</strong> Undo result. No test substitutes a fake
+transaction or Undo-history counter for the operator's Revit evidence.</p>
+<h3 id="placement">Placement</h3>
 <table>
 <thead>
 <tr>
-<th>Tag</th>
-<th>Description</th>
+<th>Responsibility</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>[SpecFail/RoleAxes/Mapping]</code></td>
-<td>Axis alignment failure</td>
+<td>User workflow</td>
+<td><code>Features/Placement/Workflow/PlacementWorkflow.cs</code></td>
 </tr>
 <tr>
-<td><code>[SpecFail/Offsets/NonZero]</code></td>
-<td>Non-zero Y/Z offset detected</td>
+<td>Dialog ports</td>
+<td><code>Features/Placement/Workflow/IDangerConfirmationDialog.cs</code>, <code>IUpdateSummaryDialog.cs</code></td>
 </tr>
 <tr>
-<td><code>[SpecFail/Extents/TooShort]</code></td>
-<td>Segment &lt; 6&quot;</td>
+<td>Pure readiness, command state, and preflight</td>
+<td><code>Features/Placement/Domain/{CommandReadiness,CommandState,GirtPreflight,PlanPreflight,Readiness}</code></td>
 </tr>
 <tr>
-<td><code>[SpecFail/Writer/Acceptance]</code></td>
-<td>No valid rotation/justification combination</td>
+<td>UI command-state projection and validation application</td>
+<td><code>Features/Placement/ViewModels/PlacementCommandStateProjector.cs</code></td>
 </tr>
 <tr>
-<td><code>[SpecFail/Writer/Basis]</code></td>
-<td>Cannot determine flange face</td>
+<td>Execution and outcomes</td>
+<td><code>Features/Placement/Execution/PlacementExecutor.cs</code>, <code>PlacementOutcome.cs</code></td>
 </tr>
 <tr>
-<td><code>[SpecFail/RightHand]</code></td>
-<td>Non-right-handed rotation delta</td>
+<td>Placement projection</td>
+<td><code>Features/Placement/Planning/PlacementProjectionBuilder.cs</code></td>
+</tr>
+<tr>
+<td>Revit wall analysis/plan construction</td>
+<td><code>Features/WallAnalysis/Domain/IWallAnalysisPlanBuilder.cs</code>, <code>Features/WallAnalysis/Revit/Planning/PlanBuilder.cs</code>, and its steps</td>
+</tr>
+<tr>
+<td>Model-write port</td>
+<td><code>Features/Placement/Operations/ModelWrite/WallSystem/IWallSystemWriter.cs</code></td>
+</tr>
+<tr>
+<td>Model writes</td>
+<td><code>Features/Placement/Revit/ModelWrite/WallSystem/WallSystemWriter*.cs</code></td>
+</tr>
+<tr>
+<td>Girt pane XAML, GirtGrid, top-level row filtering, and segment-expander row selection/focus</td>
+<td><code>Features/Placement/Girt/Views/GirtView.xaml</code></td>
+</tr>
+<tr>
+<td>Flip-cell input routing and row/checkbox selection policy</td>
+<td><code>DBTools.Presentation/Tools/SGT/SgtWindowInteractionBehavior.cs</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="122-tolerances">12.2 Tolerances</h3>
+<p>Placement results and status records live beside their <code>Execution</code> or <code>Workflow</code> consumers. Model mutation uses <code>Revit/ModelWrite</code>; its inward ports and write contracts use <code>Operations/ModelWrite</code>. <code>GirtView</code> raises concrete typed requests for the selected <code>GirtRowViewModel</code>, its actual visual anchor, and the original mouse or routed event. App consumes those requests only to coordinate the existing bulk-edit and segment-flyout surfaces; it does not traverse the Girt visual tree or retain raw-grid interaction handlers. The stable SGT interaction behavior handles the Flip-cell root gesture before generic DataGrid selection and preserves the checkbox-specific route. Girt column widths are intentionally not persisted, and no persistence schema is introduced for this extraction.</p>
+<h3 id="preview">Preview</h3>
 <table>
 <thead>
 <tr>
-<th>Check</th>
-<th>Tolerance</th>
+<th>Responsibility</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Alignment (dot product)</td>
-<td>≥ 0.9999</td>
+<td>Refresh coordination</td>
+<td><code>Features/Preview/Refresh/PreviewRefreshCoordinator.cs</code></td>
 </tr>
 <tr>
-<td>Seating</td>
-<td>≤ 1e-3 ft</td>
+<td>Feature registration</td>
+<td><code>Features/Preview/PreviewServiceCollectionExtensions.cs</code></td>
 </tr>
 <tr>
-<td>Corner</td>
-<td>≤ 1e-4 ft</td>
+<td>Preview model/state</td>
+<td><code>Features/Preview/Domain</code></td>
 </tr>
 <tr>
-<td>Rotation</td>
-<td>k×90° within 1e-6°</td>
+<td>Editing operations</td>
+<td><code>Features/Preview/Editing</code></td>
 </tr>
 <tr>
-<td>Minimum girt length</td>
-<td>&gt; 6&quot; (0.5 ft)</td>
+<td>WPF rendering and stable scene adaptation</td>
+<td><code>Features/Preview/Views/{Geometry,Rendering}</code>; portable mesh construction remains in <code>Features/Preview/Rendering/Scene3D</code></td>
 </tr>
 <tr>
-<td>T-parameter epsilon</td>
-<td>1e-9</td>
+<td>Preview handle projection, hit testing, selection, snap and 2D/3D view state</td>
+<td><code>Features/Preview/{Handle,HitTesting}</code>; WPF-bound parts in <code>Features/Preview/Views/{Handle,HitTesting,Selection,Snap,View2D,Viewport}</code></td>
 </tr>
 <tr>
-<td>Distance epsilon (feet)</td>
-<td>1e-6</td>
+<td>Concrete Preview view, presenter, input behavior, and runtime release</td>
+<td><code>App/Views/Preview/{PreviewView.xaml,Presenter,Subscription}</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="123-logging-requirements">12.3 Logging Requirements</h3>
-<ul>
-<li>No silent failures</li>
-<li>All errors surface via banner/overlay</li>
-<li>Centralized error boundaries</li>
-<li>No broad <code>catch(Exception)</code> unless at narrow per-element boundary with explicit message propagation</li>
-</ul>
-<hr>
-<h2 id="part-13-window-initialization--progress-overlay">Part 13: Window Initialization &amp; Progress Overlay</h2>
-<h3 id="131-overlay-display">13.1 Overlay Display</h3>
-<p>On each window paint, display a <strong>4-step progress overlay</strong> that shows completion percentage for each step.</p>
-<h3 id="132-step-1-calibration-0--100">13.2 Step 1: Calibration (0% → 100%)</h3>
-<ul>
-<li>Enumerate all structural framing families in document</li>
-<li>For each family (once per run):
-<ul>
-<li>Place temporary instance</li>
-<li>Extract geometry and identify web/flange faces</li>
-<li>Store face IDs in family calibration cache</li>
-<li>Delete temp instance</li>
-</ul>
-</li>
-<li>The calibration pass is cache-aware and must not re-run temp calibration for a family that is already calibrated in the current run.</li>
-<li>The default girt family guard at the end of Step 1 must check cache presence first and skip recalibration when cache is already populated.</li>
-<li>If a temp calibration fails with family-modification/stretch-forbidden errors, treat it as a symbol-level calibration failure and continue trying other symbols in the same family.</li>
-<li>Temp probes must run inside rollback-only transactions (<code>Transaction</code> or <code>SubTransaction</code>) with clear-after-rollback enabled.</li>
-<li>Transaction-mode temp probes must attach the shared silent failures preprocessor and return failure metadata (<code>blocking</code>, <code>warnings</code>, <code>lastResult</code>, <code>forbidden</code>) through <code>TempTransaction.RunWithMetadata(...)</code>.</li>
-<li>Step 1 calibration, Step 2 orientation probes, and Step 3 profile warm must consume temp-transaction metadata and convert blocking probe failures into deterministic symbol/type-level failures (forbidden and non-forbidden), not silent probe success.</li>
-<li>The temp-transaction utility must capture work exceptions and rollback exceptions independently; it must not throw from a <code>finally</code> path that can mask the original failure context.</li>
-<li>If rollback fails, raise <code>[SpecFail/TempTx/RollbackFailed]</code> and preserve both failures when both work and rollback fault.</li>
-<li>Emit temp-transaction lifecycle diagnostics for rollback probes (<code>[SGT.TempTx.Begin]</code>, <code>[SGT.TempTx.Rollback.Begin]</code>, <code>[SGT.TempTx.Rollback.End]</code>, <code>[SGT.TempTx.Failures]</code>) at <code>Trace</code> level; keep blocking failures at <code>Warning</code>/<code>Error</code>.</li>
-<li>Forbidden temp placement failures must short-circuit immediately after temp placement/regenerate (before any face traversal/classification work).</li>
-<li>Emit a single begin/end calibration transaction diagnostic per symbol (<code>[SGT.Calibration.Tx.Begin]</code> / <code>[SGT.Calibration.Tx.End]</code>) including elapsed milliseconds, document/transaction context, and final outcome (<code>ok|forbidden|failed</code>).</li>
-<li>Emit one compact calibration summary per run (<code>[SGT.PreflightSummary]</code>) with total/calibrated/failed counts.</li>
-<li>Post-overlay Analyze completion must force Elevation mode, request a preview refresh, and keep the overlay visible until the Elevation preview has painted at least one frame (paint barrier). After overlay teardown, schedule a Background safety refresh with explicit failure logging (no watchdog/fallback enqueue behavior).</li>
-<li>Progress: <code>(completed families / total families) × 100%</code></li>
-</ul>
+<p><code>App/Views/Preview</code> is the concrete WPF composition boundary. <code>PreviewView.xaml</code> is a raw embedded resource with no code-behind; <code>SgtWindowRawViewComposer</code> loads it, assigns the runtime preview data context, and enables <code>PreviewPresenterBehavior</code>. The behavior owns presenter attachment and release, concrete UI state, preview editing, refresh, plan-store, undo, notification, selection, and window-surface collaborators directly, without a callback/context bag. It owns the stable viewport connection and Helix mechanics. <code>Features/Preview</code> remains inward-facing and owns preview semantics, editing, refresh, rendering, handle projection, hit testing, view state, and view models; it does not depend on App presentation. <code>App/Views/SgtWindow.xaml</code> hosts the preview view through <code>PreviewViewHost</code>; <code>App/Views/SgtWindow.cs</code> releases the behavior during window cleanup; and <code>App/Sessions/WindowSession/Revit/SgtWindowSession.cs</code> invokes that release capability before transaction finalization. <code>App/Sessions/WindowSession/WindowSessionSurfaceCoordinator.cs</code> owns cross-pane UI selection and row-command dispatch. Preview keeps computed <code>PreviewGirtSegment</code> assignments inside its editing workflow, edits <code>IPlanStore</code>, and requests FromPlan projection. Placement rows do not store Preview domain objects and Preview does not manually mirror edits into Placement. The input-free designer creates direct design-time presenter state with an explicit no-op logger.</p>
+<!-- VERIFIED: 2026-08-23 -->
 <blockquote>
-<p><strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:142
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/WallAnalysis/SymbolCalibrationService.cs:116
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:337
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:38
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:123
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:279
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:210
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/ViewModels/ShellWindowViewModel.AnalysisAndHydration.cs:228
-<strong>Source:</strong> src/Tools/Structural/SGT/Shell/UI/Behaviors/PreviewPresenterBehavior.CanvasInput.cs:160
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step1Calibrate.cs:151
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:310
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step2Analyze.cs:384
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/Steps/PlanBuilder.Step3Warm.cs:481
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Orientation/OrientationAnalyzer.cs:828
-<strong>Source:</strong> src/Tools/Structural/SGT/Features/Placement/TempTransaction.cs:74</p>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/Preview/PreviewView.xaml</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/SgtWindowRawViewComposer.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/SgtWindow.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/Preview/Presenter/PreviewPresenterBehavior.State.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Views/Preview/Presenter/PreviewPresenterBehavior.ContextMenus.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/App/Sessions/WindowSession/WindowSessionSurfaceCoordinator.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/Preview/Views/Rendering/Scene3D/StructuralPreviewSceneAdapter.cs</code>
+<strong>Source:</strong> <code>src/DBTools.Presentation/StructuralPreview/StructuralPreview3D.cs</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/BulkEdit/ViewModels/BulkEditFlyoutViewModel.cs:7-87</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/Features/BulkEdit/Target/BulkEditTargetLifecycle.cs:8-130</code></p>
 </blockquote>
-<h3 id="133-step-2-orientation-analysis-0--100">13.3 Step 2: Orientation Analysis (0% → 100%)</h3>
+<h3 id="other-ratified-features">Other Ratified Features</h3>
 <ul>
-<li>For each calibrated family:
-<ul>
-<li>For each applicable role (Girt, Head, Sill, JambLeft, JambRight):
-<ul>
-<li>Skip opening roles for Z-shapes and Angle-shapes</li>
-<li>Place temp instance with role-appropriate direction</li>
-<li>Test rotation/justification combinations</li>
-<li>Vertical roles: use 4 probe candidates (canonical quarter-turns + azimuth compensation), then evaluate both flip states per passing rotation candidate</li>
-<li>Store solved settings</li>
+<li><code>Features/Openings</code> owns query, mutation, projection, synchronization, and row UI. <code>Domain/Openings</code> owns the editable row, durable live reference, physical bounds and runtime geometry resolver without a Features dependency.</li>
+<li>Girt endpoints are <code>GirtEndpointAnchor</code> values (<code>Domain/Girt/EndpointAnchor</code>). The stored girt shape admits only <code>FullLength</code>, <code>Grid</code> and <code>OpeningEdge</code> endpoints, and an opening-edge endpoint carries no endpoint gap; storage rejects any other girt endpoint: <code>SystemStorageMapper.DeserializeSystem</code> returns <code>Storage/InvalidJson</code>, and the detail names the girt and the endpoint. <code>MemberSpanEndpoint.TryGetOpeningAnchor</code> reads direct <code>OpeningEdge</code>/<code>DualOpeningEdge</code> metadata only (nonblank key, defined edge side); no opening anchor is parsed from a label. <code>MemberEdge</code> runtime endpoints belong to opening members and resolve from direct opening-edge metadata or a numeric split label; a split label more than 0.01 ft outside the wall reports <code>OutOfRange</code>.</li>
+<li>Opening geometry is all-or-fallback per source. <code>OpeningBoundsCandidateComposer</code> owns cut/solid/width/parameter/profile precedence without shared sentinel mutation. Unavailable individual geometry sources permit fallback. Invalid profile vertices, failed or non-finite wall projections, and exhausted bounds produce <code>OpeningQueryIncomplete</code> with wall or insert context instead of a successful partial opening list. Cancellation and unexpected Revit geometry faults propagate causally.</li>
+<li>Opening-segment mutation, preview girt-snap planning, member-segment hydration, and placement projection return <code>SpecFailure</code> for expected domain rejection. UI synchronization maps only those typed failures to banners and must leave plan-store and preview state unchanged. Argument errors, cancellation, and unexpected runtime faults propagate with their original identity. Transactional Revit storage/model-write boundaries retain exception unwinding where rollback requires it.</li>
+<li><code>TemporaryTransactionRunner</code> records operation, accessor, and rollback failures before diagnostics. Snapshot and rollback logging failures join that list in attempt order, so logging cannot replace the probe or rollback cause. A lone operation failure keeps its original exception identity.</li>
+<li>Placement command execution preserves the safe-execution status as one explicit result. Update success/cancellation closes the window, and update failure requests a rollback close; removal success clears the system and closes, while rejection/failure/cancellation retains it. Every removal result requests exactly one reactive preview refresh.</li>
+<li><code>Features/Orientation/Revit/Analysis</code> owns orientation analysis against Revit families and its solver inputs; portable math/results remain in <code>Features/Orientation/Analysis</code>; WallAnalysis consumes the named <code>FramingTypeOrientationAnalysisResult</code> data result while progress remains status-only.</li>
+<li><code>Features/WallAnalysis/Domain</code> owns the plan-builder port and <code>Features/WallAnalysis/Revit/Planning</code> owns wall analysis, calibration, target-geometry resolution, profile warming, seeding, and plan construction against the selected Revit wall. Calibration checks cancellation before validation and cache access, treats argument defects as argument exceptions, converts typed <code>SpecFailureException</code> failures to results, and caches only successes. Family calibration is a per-family preflight that logs a failed family and continues; each type of that family carries the typed failure, with family and type names, as a per-role orientation failure. The orientation analyzer throws <code>SpecFailureException</code> for expected family incompatibilities, and <code>WallAnalysisFramingTypeAnalyzer</code> converts them per role. <code>WallGeometryBuilder</code> converts typed frame failures for host and linked frames at one boundary. Cancellation, rollback failures, and invariant defects propagate after contextual logging. App/session workflow owns command-level orchestration.</li>
+<li>New and edit plan builders apply the same admission rules before returning success. Admission rejects invalid configurations with <code>PlanValidationFailed</code> before plan-store publication. Edit analysis rehydrates stored values and analyzes current wall geometry. The session workflow owns UI reconciliation.</li>
+<li>Initial seeding belongs only to <code>PlanSeedingStep</code>. Post-analysis App feedback reads existing row counts and never seeds or republishes a plan. No-opening feedback is suppressed for foundation mode. The initial preview completion barrier remains required.</li>
+<li>Total profile-warming failure retains the first five type-specific causes, ordered by numeric type ID, and the omitted count. Its failure code remains <code>ProfileLoopsAllFailed</code>. Partial-success warnings and cancellation behavior are unchanged.</li>
+<li><code>Features/BulkEdit</code> owns the bulk-edit flyout workflow, centered on <code>BulkEditFlyoutViewModel</code> and its partial family.</li>
+<li>Bulk apply mutates girt and opening rows under both reactive-sync suppressions. After a successful commit, the girt owner refreshes selected rows' Flip capability and option lists while still suppressed and clears a previous type-change preview blocker only if its own row now has valid orientation. Opening-only edits and failed applies do not dismiss that blocker. One UI-edit preview refresh then synchronizes the committed rows to the plan. A failed apply restores its row snapshots and reports one bulk error without projecting transient edits.</li>
+<li>Collapsed segment-group deletion and undo each publish one accepted plan revision: row mutation, saved group metadata restoration on undo, and renumbering execute inside the same <code>PlanStore.Update</code>. Undo refuses a group changed after deletion without overwriting its later edits; the window keeps the editing session open, warns the operator, and clears stale edit history.</li>
 </ul>
-</li>
-</ul>
-</li>
-<li>Emit compact Step 2 summaries for opening detection and merge (<code>[SGT.Step2.OpeningsSummary]</code>, <code>[SGT.Step2.OpeningMergeSummary]</code>), with only sampled opening detail in Debug logs.</li>
-<li>Emit one Debug orientation summary per role (<code>[SGT.Orientation.Summary]</code>) and keep candidate/probe-level diagnostics at <code>Trace</code>.</li>
-<li>Progress: <code>(completed family-role pairs / total pairs) × 100%</code></li>
-</ul>
-<h3 id="134-step-3-2d-profile-loop-extraction-0--100">13.4 Step 3: 2D Profile Loop Extraction (0% → 100%)</h3>
-<ul>
-<li>For each calibrated family:
-<ul>
-<li>Extract Medium-detail geometry loops</li>
-<li>Sanitize loops (ordering, closure, tolerance)</li>
-<li>Cache for preview rendering</li>
-</ul>
-</li>
-<li>Emit one compact Step 3 summary (<code>[SGT.PreflightSummary]</code>) with total/warmed/failed type counts; keep per-type warm success chatter at <code>Trace</code>.</li>
-<li>Progress: <code>(completed families / total families) × 100%</code></li>
-</ul>
-<h3 id="135-step-4-initial-ui-seeding-0--100">13.5 Step 4: Initial UI Seeding (0% → 100%)</h3>
-<p><strong>Default Family/Type:</strong></p>
-<ul>
-<li>Family: &quot;C Shapes&quot;</li>
-<li>Type: &quot;C10X15.3&quot;</li>
-<li>(Hardcoded for initial implementation)</li>
-</ul>
-<p><strong>Girt Seeding:</strong></p>
-<ul>
-<li>Calculate wall vertical extent</li>
-<li>Seed rows at ≤ 5'-0&quot; spacing</li>
-<li>Apply orientation analysis results for default family</li>
-</ul>
-<p><strong>Opening Seeding:</strong></p>
-<ul>
-<li>Linked Mode: One row per detected opening, with default enabled roles computed from opening bounds vs wall bounds:
-<ul>
-<li>Left/Right jambs enabled when the opening is not at the wall ends (tolerance-gated)</li>
-<li>Header enabled when the opening top is below the vertical max (tolerance-gated)</li>
-<li>Sill enabled when the opening bottom is above the base reference (tolerance-gated)</li>
-<li>Left/Right role interpretation is visual elevation-based and must remain stable for rotated and mirrored links</li>
-<li>Role configs seed <code>FlipFacing</code> from analyzed <code>OrientationResult.IsFlipped</code></li>
-</ul>
-</li>
-<li>Foundation Mode: Empty (manual add only)</li>
-</ul>
-<p><strong>Progress</strong>: Based on seeding completion</p>
-<hr>
-<h2 id="part-14-smart-family-change-updates">Part 14: Smart Family Change Updates</h2>
-<h3 id="141-trigger-condition">14.1 Trigger Condition</h3>
-<p>When a UI element (girt OR opening element) changes its <strong>family selection</strong> to a different family.</p>
-<h3 id="142-update-behavior">14.2 Update Behavior</h3>
-<ol>
-<li>Look up orientation analysis results for:
-<ul>
-<li>New family ID</li>
-<li>Current role (Girt, Head, Sill, JambLeft, JambRight)</li>
-</ul>
-</li>
-<li>Auto-populate UI fields:
-<ul>
-<li>Rotation</li>
-<li>Y Justification</li>
-<li>Z Justification</li>
-<li>(HandFlip defaults to false)</li>
-</ul>
-</li>
-<li>UI controls update in lock-step with domain object</li>
-</ol>
-<h3 id="143-user-override">14.3 User Override</h3>
-<ul>
-<li>User can manually change rotation/justification after auto-population</li>
-<li>Manual changes are preserved until next family change</li>
-<li>On placement, use <strong>currently configured UI settings</strong> (not analysis defaults)</li>
-</ul>
-<h3 id="144-service-implementation">14.4 Service Implementation</h3>
-<p><strong>SgtSmartDefaultsService:</strong></p>
-<pre><code>ApplySmartDefaultsForGirt(row, symbolId)
-  → Sets rotation, Y-just, Z-just from orientation analysis
-
-TryApplySmartDefaultsForOpeningRole(row, role)
-  → Handles LeftJamb, RightJamb, Header, Sill
-</code></pre>
-<h3 id="145-justification-display">14.5 Justification Display</h3>
-<ul>
-<li>UI displays human-readable labels: &quot;Left&quot;, &quot;Center&quot;, &quot;Right&quot;, &quot;Top&quot;, &quot;Bottom&quot;, etc.</li>
-<li>Values convert to/from Revit API integers via <code>JustificationConverter</code></li>
-<li>Rotation displays as degrees (0/90/180/270) but may be stored as radians for API</li>
-</ul>
-<hr>
-<h2 id="part-15-grid-extents-ui">Part 15: Grid Extents UI</h2>
-<h3 id="151-detection">15.1 Detection</h3>
-<p>Find host and link grid lines intersecting the basis wall; show as Elevation overlay.</p>
-<h3 id="152-per-row-ui">15.2 Per-Row UI</h3>
-<p>Two comboboxes per girt row:</p>
-<ul>
-<li>Left Extent</li>
-<li>Right Extent</li>
-</ul>
-<p><strong>Default</strong>: &quot;Full Length&quot; (bounded by wall edges)</p>
-<h3 id="153-rules">15.3 Rules</h3>
+<h2 id="tool-wide-contracts">Tool-Wide Contracts</h2>
 <table>
 <thead>
 <tr>
-<th>Grid Count</th>
-<th>Behavior</th>
+<th>Contract family</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>0 grids</td>
-<td>Both comboboxes disabled</td>
+<td>Revit-free entities, rules, geometry, wall/opening/orientation semantics</td>
+<td><code>Domain/</code>; <code>GirtPlanRow</code> is the plan-member row under <code>Domain/Girt</code>, <code>FamilyOrientation</code> is under <code>Domain/Orientation</code>, and wall mode/face/execution context are under <code>Domain/Wall</code></td>
 </tr>
 <tr>
-<td>1 grid</td>
-<td>Picking it on one side disables the other (remains &quot;Full Length&quot;)</td>
+<td>Mutable live plan, baseline snapshot, clone/sandbox behavior, and store port</td>
+<td><code>Domain/Plans</code></td>
 </tr>
 <tr>
-<td>2+ grids</td>
-<td>Both enabled; forbid same-grid at both ends; forbid inversions (Right &lt; Left)</td>
+<td>Generic plan editing and runtime/read projections</td>
+<td><code>Domain/PlanEditing</code>, <code>Domain/Plans/Projection</code>; <code>PlanProjectionMapper</code> alone converts girt plan rows and runtime member configs</td>
+</tr>
+<tr>
+<td>Live plan store, hashes, and UI-to-plan synchronization</td>
+<td><code>Domain/PlanStore</code>, <code>App/State/PlanSynchronization</code></td>
+</tr>
+<tr>
+<td>Private storage transport, repository contract, schema, and serialization admission</td>
+<td><code>Persistence/</code></td>
+</tr>
+<tr>
+<td>Revit Extensible Storage adapter</td>
+<td><code>Persistence/Revit/SystemRepository.cs</code></td>
+</tr>
+<tr>
+<td>Cross-feature Revit adapters</td>
+<td><code>Revit/</code></td>
+</tr>
+<tr>
+<td>App-only UI settings persistence</td>
+<td><code>App/Persistence/</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="154-endpoint-computation">15.4 Endpoint Computation</h3>
+<p><code>PlanStore.Initialize</code> prepares and validates a candidate before replacing the live plan or advancing its revision. Rejected reinitialization preserves the accepted plan and sends no change event; a successful admission publishes one initialized event after the lock is released.</p>
+<p>Plan admission rejects duplicate member keys before a candidate becomes the live plan. Segment deletion undo relies on that identity invariant when matching surviving group rows against its applied snapshot.</p>
+<p>Key fidelity names are domain <code>GirtPlanRow</code> with <code>MemberKey</code>, feature <code>GirtRowViewModel</code> with UI-only <code>MemberId</code>, girt-grid <code>GirtTypeItem</code>, inward <code>FramingTypeOption</code>, <code>RangeMath</code>, and <code>WallFramingMode</code>. <code>GirtTypeItem</code> and <code>FramingTypeOption</code> expose matching <code>TypeId</code> values. The wall-layer contract is split one type per file: <code>WallLayer.cs</code>, <code>WallLayerCollection.cs</code>, and <code>WallLayerFunction.cs</code>.</p>
+<h2 id="dependency-facts">Dependency Facts</h2>
+<p>The baseline projection direction is inward: Features and App may use <code>Domain/Plans/Projection/PlanBaselineMapper</code>, which captures a <code>Plan</code> as <code>PlanBaselineSnapshot</code> and restores the editable desired plan from that snapshot plus <code>PlacedSystem</code>. Girt rows come from the stored girt members through <code>PlanProjectionMapper</code>; opening rows and wall geometry come from Placed; the runtime collections are derived from those rows, and the stored snapshot is retained in <code>Plan.BaselineSnapshot</code>. Edit startup reads one live snapshot, lets Change Review apply remembered decisions, and then the registered edit builder analyzes that desired plan against the current target. Persistence separately owns <code>PlanData</code> transport/admission in <code>SystemStorageMapper.Plan.cs</code>, plus <code>StoredSystem</code>, <code>ISystemRepository</code>, and the Revit repository adapter. Features do not depend on Persistence for pure baseline projection, and Persistence does not import App.</p>
+<p>At the broader tool boundary, Domain has no dependency on App, Features, Persistence, CommunityToolkit, <code>ObservableCollection</code>, or WPF. Features have no App dependency. Feature-owned ports and behavior inputs are implemented or composed at the App/session boundary where needed.</p>
+<p><code>EndpointAssociationOpeningEdgeSide</code> is the sole semantic opening-edge representation in Domain, Features, App state, and the persistence transport. Stable text conversion occurs only at actual serialization, UI-label, or cache-key boundaries.</p>
+<p>WallAnalysis may invoke Placement planning/model-write contracts while building an executable plan, but Placement has no WallAnalysis dependency. App/session composition depends on both and owns the analysis lifecycle; there is no Placement-to-WallAnalysis backedge.</p>
+<h2 id="project-surfaces">Project Surfaces</h2>
+<!-- VERIFIED: 2026-07-10 -->
+<p><code>DBTools.SGT.csproj</code> owns both desktop and portable targets. Shared portable rules select inward code by layer, disable content identity and merging, and exclude desktop resources. SGT has no sandbox profile or production-source links.</p>
+<ul>
+<li>portable Pure: <code>Tests/DBTools.SGT.Portable.Pure.Tests.csproj</code> references SGT directly for domain/features, plan-store, persistence, review-workflow, and preview-status behavior.</li>
+<li>desktop Pure: <code>Tests/DBTools.SGT.Pure.Tests.csproj</code> references normal desktop SGT for WPF and session behavior.</li>
+<li>local/Revit: <code>Tests/DBTools.SGT.Local.Tests.csproj</code> references the owning projects and stages the desktop product.</li>
+</ul>
+<p>Review cancellation/relink stays in <code>IChangeReviewOperation</code>; desktop lifecycle composition binds <code>App/Views/IChangeReviewDialogHost</code> to the dialog constructor for child ownership. The presenter maps Presentation status to portable readiness/reason values. Raw XAML and the Windows test lane remain because these views need WPF.</p>
+<p>Test-only behavior and helpers remain under <code>Tests/Support</code>; they are not represented as production-owner mirrors.</p>
+<blockquote>
+<p><strong>Source:</strong> <code>src/Tools/Structural/SGT/Tests/DBTools.SGT.Pure.Tests.csproj</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/DBTools.SGT.csproj</code>
+<strong>Source:</strong> <code>src/Tools/Structural/SGT/MAP.md</code></p>
+</blockquote>
+<p>Any future move must update source namespaces, XAML, manifest FQNs, project links/removes, test namespaces, Loader bridge output, App suppression targets, and the generated MAP in the same change.</p>
+<h2 id="persistence-shape">Persistence Shape</h2>
+<p><code>Persistence/Revit/SystemRepository.cs</code> is the repository implementation and <code>Persistence/ISystemRepository.cs</code> is its current contract. <code>StoredSystem.cs</code>, the private records in <code>SystemStorageMapper.Data.cs</code>, <code>SystemStorageMapper*</code>, and schema builders are co-owned there. <code>Domain/Plans/Projection/PlanBaselineMapper.cs</code> owns pure baseline capture and rehydration; <code>SystemStorageMapper.Plan.cs</code> owns only transport mapping and admission into the complete current <code>PlanBaselineSnapshot</code> contract. Runtime plan JSON is the private <code>SystemData</code> graph: <code>OpeningDefinitionData</code>, <code>OpeningFrameData</code>, <code>OpeningFrameSpanData</code>, <code>MemberConfigData</code>, <code>MemberSpanData</code>, and <code>MemberSpanEndpointData</code> carry the persisted opening/frame/member fields, then map into fresh Domain instances during admission. Nullable transport collections and entries are kept nullable so malformed storage is rejected by the mapper, not normalized by Domain constructors or clones. Current-shape validation is allowed; schema-version dispatch, legacy readers, compatibility forwarding, or Persistence-to-App imports are not. Persisted system-id schema and Revit tag values remain text; their single edit-launch conversion is fail-closed in <code>App/Composition/ContextualEdit/ContextualEditHook.cs</code>.</p>
+<p>Every SGT <code>DataStorage</code> must have a valid entity whose <code>SystemIdString</code> parses as a nonempty <code>SystemId</code>.
+Its name must exactly match <code>GetDataStorageName(parsedSystemId)</code> using ordinal comparison.
+A lookup also requires the parsed ID to equal the requested ID.
+Invalid entities, invalid IDs, and mismatched identities return typed failures.</p>
+<p>Each canonical storage name must identify exactly one row.
+Lookups reject duplicate names before reading or mutating either row.
+<code>Save</code> and <code>Delete</code> reject corrupt or ambiguous matching rows without changing them.
+<code>GetAllSystemIds</code> rejects invalid SGT-prefixed rows and duplicate system IDs instead of returning a partial or ambiguous list.</p>
+<p><code>ISystemRepository.Exists</code> returns <code>Result&lt;bool, SpecFailure&gt;</code> to distinguish absence from corrupt storage.
+A missing schema or system remains a typed <code>Load</code> failure.
+<code>Exists</code> returns <code>false</code> when no matching row exists.
+Deleting a missing row succeeds.
+Enumeration is empty when the schema or rows are absent.
+Cancellation and unexpected Revit faults continue to propagate.</p>
+<p>Revit family/type/instance identities remain <code>long</code> from API conversion through plan state, caches, projections, selection, and storage. <code>FamilyTypeId.Value</code>, framing option IDs, selected plan IDs, member type IDs, and placement update IDs follow this contract. Existing JSON field names and ordinary positive integer tokens remain valid. Counts, indexes, rotations, category enums, manual-opening surrogates, and geometry face indexes remain 32-bit. Geometry face indexes must not be treated as document element identities.</p>
+<h2 id="verification-anchors">Verification Anchors</h2>
+<p>The structural acceptance gates are:</p>
 <ol>
-<li>Snap to selected grid planes ∩ wall plane</li>
-<li>Set Disallow Join at both ends</li>
-<li>Apply −1/2&quot; Start/End Extensions</li>
-<li>Enforce &gt; 6&quot; minimum length</li>
+<li>generated MAP consistency (<code>.agents/work/canon_source_maps.py --check</code>);</li>
+<li>manifest-type validation (<code>ValidateManifestTypes</code>);</li>
+<li>CANON source fidelity, including the sibling-family and parent-cadence checks (<code>.agents/work/canon_source_fidelity.py --gate</code>).</li>
 </ol>
-<hr>
-<h2 id="part-16-combination-freedom">Part 16: Combination Freedom</h2>
-<p>Any parameter combination (rotation/flip hand/face/Y-just/Z-just) is <strong>valid if and only if</strong> all acceptance gates are satisfied:</p>
-<ul>
-<li>k×90° rotation</li>
-<li>Strict axis alignment</li>
-<li>Exterior flange seating + role web seating</li>
-<li>Zero offsets</li>
-<li>Required 1/2&quot; end gaps via negative extensions</li>
-<li>Disallow Join at both ends</li>
-<li>Minimum length &gt; 6&quot;</li>
-<li>Grid ordering rules</li>
-<li>Hybrid axes asserts pass</li>
-</ul>
-<p>The spec prescribes <strong>outcomes</strong>, not a single parameter recipe. No heuristic search is required if the outcome is known.</p>
-<hr>
-<h2 id="part-17-future-considerations">Part 17: Future Considerations</h2>
-<h3 id="171-sgtmember-role-agnostic-approach">17.1 SgtMember Role-Agnostic Approach</h3>
-<p>Current implementation uses &quot;SgtGirt&quot; with separate handling for opening components. Future intent is to consolidate to a unified &quot;SgtMember&quot; class that is role-agnostic:</p>
-<ul>
-<li>Single class handles all roles: Girt, Head, Sill, JambLeft, JambRight</li>
-<li>Role property determines behavior and validation rules</li>
-<li>No axis-specific restrictions</li>
-</ul>
-<h3 id="172-z-shape-opening-role-relaxation">17.2 Z-Shape Opening Role Relaxation</h3>
-<p>Currently Z-shapes and Angle-shapes are hard-blocked for opening roles. If user demand exists, this could be relaxed to a warning with override capability.</p>
-<hr>
-<h2 id="appendix-a-file-references">Appendix A: File References</h2>
-<h3 id="core-domain">Core Domain</h3>
-<ul>
-<li><code>DBTools.Core/Domain/SGT/ValueObjects/EndpointAssociation.cs</code></li>
-<li><code>DBTools.Core/Domain/SGT/ValueObjects/GirtSegment.cs</code></li>
-<li><code>DBTools.Core/Domain/SGT/Rules/MemberRules.cs</code></li>
-</ul>
-<h3 id="services">Services</h3>
-<ul>
-<li><code>DBTools.UI/Services/Snapping/IElevationSnapService.cs</code></li>
-<li><code>DBTools.UI/Services/Snapping/ElevationSnapIndex.cs</code></li>
-<li><code>DBTools.UI/Services/Snapping/SnappingConstants.cs</code></li>
-<li><code>DBTools.UI/Services/Defaults/SgtSmartDefaultsService.cs</code></li>
-</ul>
-<h3 id="adapters">Adapters</h3>
-<ul>
-<li><code>DBTools.RevitAdapter/SGT/Analysis/SgtOrientationAnalyzer.cs</code></li>
-<li><code>DBTools.RevitAdapter/SGT/Analysis/SgtSymbolCalibrationService.cs</code></li>
-<li><code>DBTools.RevitAdapter/SGT/Analysis/SgtFaceSelectors.cs</code></li>
-<li><code>DBTools.RevitAdapter/SGT/Analysis/SgtFrameBuilder.cs</code></li>
-<li><code>DBTools.RevitAdapter/SGT/Services/SgtDomainWriter.cs</code></li>
-</ul>
-<h3 id="ui">UI</h3>
-<ul>
-<li><code>DBTools.UI/ViewModels/SGT/SgtWindowViewModel.*.cs</code></li>
-<li><code>DBTools.UI/Views/SGT/SgtWindow.xaml</code></li>
-</ul>
-<hr>
-<h2 id="appendix-b-change-log">Appendix B: Change Log</h2>
-<h3 id="version-10-2025-11-25">Version 1.0 (2025-11-25)</h3>
-<ul>
-<li>Initial merged specification</li>
-<li>Consolidated 15 historical documents + 4 current specs</li>
-<li>Added endpoint association system (Part 8)</li>
-<li>Added elevation snapping specification (Part 9)</li>
-<li>Added 4-step progress overlay specification (Part 13)</li>
-<li>Added smart family change updates (Part 14)</li>
-<li>Adopted strict single wall frame mandate</li>
-<li>Specified Z-shape and Angle-shape hard block for opening roles</li>
-<li>Added future considerations for SgtMember consolidation</li>
-</ul>
+<p>The pre-push hook runs all three; <code>ValidatePrePush</code> owns the manifest-type gate. The Loader bridge and MAP generators must be rerun after owner or front-door changes.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/kirsch33/dbtools/blob/dev/wiki/developer-guide/tools/structural/sgt-spec.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
