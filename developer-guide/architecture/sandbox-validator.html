@@ -89,11 +89,14 @@
         <article data-uid="">
 <h1 id="sandbox-validator">Sandbox Validator</h1>
 
-<p><code>DBTools.Sandbox</code> validates one staged product year without Revit. In headless
-mode it checks the candidate files, metadata and manifests. On Windows it also
-builds the real tool windows and checks themes, layout, bindings and
-Dispatcher cleanup. It is also a host for developing tool UI with design-time
-view models.</p>
+<p><code>DBTools.Sandbox</code> validates one staged product year outside a running Revit
+session. It checks the candidate files, metadata and manifests, then builds the
+real tool windows and checks themes, layout, bindings and Dispatcher cleanup.
+It is also a host for developing tool UI with design-time view models.</p>
+<p>Sandbox is a Windows WPF executable (<code>DBTools.Sandbox.exe</code>, <code>win-x64</code>). Both
+modes need the matching Revit year installed: Sandbox resolves <code>AdWindows.dll</code>,
+<code>RevitAPI.dll</code>, <code>RevitAPIUI.dll</code> and <code>UIFramework.dll</code> from the Revit
+installation directory.</p>
 <h2 id="synopsis">Synopsis</h2>
 <pre><code class="lang-text">DBTools.Sandbox [--headless] [--dist-dir DIR] [--revit-reference-dir DIR]
 </code></pre>
@@ -107,7 +110,7 @@ view models.</p>
 <tbody>
 <tr>
 <td><code>--headless</code></td>
-<td>Run static and metadata validation without creating windows. Requires <code>--revit-reference-dir</code>.</td>
+<td>Run the full validation sequence, close every window and exit with the result. Without it, Sandbox opens the window catalog for interactive use. Requires <code>--revit-reference-dir</code>.</td>
 </tr>
 <tr>
 <td><code>--dist-dir DIR</code></td>
@@ -115,21 +118,26 @@ view models.</p>
 </tr>
 <tr>
 <td><code>--revit-reference-dir DIR</code></td>
-<td>Revit reference metadata for the year, checked against the installed runtime. Valid only with <code>--headless</code>.</td>
+<td>A directory with the four Revit reference files for the year. Their metadata must be compatible with the installed runtime. Valid only with <code>--headless</code>.</td>
 </tr>
 </tbody>
 </table>
 <p>Both <code>--option VALUE</code> and <code>--option=VALUE</code> are accepted. An empty value, an
 unknown argument or a missing value is an error. Without <code>--headless</code>,
-Sandbox runs interactively against the installed Revit runtime. WSL paths of
-the form <code>/mnt/&lt;drive&gt;/...</code> are converted to Windows paths.</p>
-<p>Example, after <code>./build.sh BuildAll</code>:</p>
-<pre><code class="lang-bash">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj -- \
-  --headless --dist-dir .artifacts/dist/Release/2026 \
-  --revit-reference-dir /path/to/Revit2026
+Sandbox uses the installed Revit runtime as the reference. A <code>--dist-dir</code> of
+the form <code>/mnt/&lt;drive&gt;/...</code> is converted to a Windows path.</p>
+<p>Examples, in PowerShell on Windows after <code>./build.sh BuildAll</code>. Validate the
+2026 candidate against the installed Revit 2026 files:</p>
+<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\DBTools.Sandbox.exe --headless `
+  --dist-dir .artifacts\dist\Release\2026 `
+  --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
 </code></pre>
-<p>The exit status is 1 when validation fails before WPF starts; the error is
-written to standard error.</p>
+<p>Open the window catalog for the 2026 candidate:</p>
+<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\DBTools.Sandbox.exe `
+  --dist-dir .artifacts\dist\Release\2026
+</code></pre>
+<p>The exit status is 0 when headless validation passes and 1 when it fails. A
+failure before WPF starts is written to standard error.</p>
 <h2 id="process-model">Process model</h2>
 <p>Each year runs in a new process in the default load context:</p>
 <ol>
@@ -161,9 +169,10 @@ their source-derived versions from PE metadata, without loading Revit API
 assemblies.</li>
 <li>Discover the embedded manifests and validate module, command,
 availability, icon, raw XAML and design-time view model ownership.</li>
-<li>On Windows (not <code>--headless</code>), load the resources and themes, build each
+<li>Load the resources and themes, build the window catalog and each tool
 window, run layout and interaction checks, capture binding errors, close
 every window and verify Dispatcher cleanup.</li>
+<li>Fail if any Revit API assembly is loaded at the end.</li>
 </ol>
 <p>Portable validation of a distribution archive checks the same file set and
 also file lengths and SHA-256 hashes.</p>
@@ -269,8 +278,11 @@ sandbox/&lt;year&gt;/&lt;sanitized-tfm&gt;/                    path inside the v
 <code>validate-dist-&lt;sha256&gt;.zip</code> with the candidate and Sandbox. The DIST suite
 consumes that archive and writes a structured result JSON (see
 <a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>).
-The archive and the result keep normalized relative paths. A headless or Linux
-run checks files and metadata only; the window checks run only on Windows.</p>
+The archive and the result keep normalized relative paths. The portable
+validation of the archive runs on any host and checks files and metadata only.
+The Windows acceptance suite runs <code>DBTools.Sandbox.exe --headless</code> for each
+year, with the reference files the archive carries under <code>revit-refs/&lt;year&gt;/</code>,
+so the window checks run there.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <table>
 <thead>

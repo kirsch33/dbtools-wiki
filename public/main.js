@@ -14,7 +14,6 @@
     document.documentElement.setAttribute('data-bs-theme', 'dark');
   }
 
-  // Keep only a 32px navbar logo; hide other logos, hero/cover/banner sections and content background images.
   function stripPageDecorationsAndSizeNavbarLogo() {
     document.querySelectorAll('img').forEach(img => {
       const src = (img.src || img.getAttribute('src') || '').toLowerCase();
@@ -86,6 +85,5 @@
   setTimeout(stripPageDecorationsAndSizeNavbarLogo, 300);
   setTimeout(stripPageDecorationsAndSizeNavbarLogo, 1000);
 
-  // Force dark mode immediately (before DOMContentLoaded)
   forceDarkMode();
 })();

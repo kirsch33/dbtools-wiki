@@ -414,8 +414,10 @@ It records plan identity for the audit output. Execution does not use it as a co
 <p>For AddXrefs, the planner copies the DWG and allowed manual Xrefs beside it.
 With discovery enabled and Core Console available, it scans the tree and copies unique referenced paths
 beside the destination DWG, allocating collision suffixes when necessary.
-When repath is enabled, it appends <code>CadRepathItem</code> using the destination DWG directory as NewRoot.</p>
-<p>Discovery failure logs a warning and uses heuristic copying.
+When repath is enabled, it appends <code>CadRepathItem</code> using the destination DWG directory as NewRoot.
+The shipped scanner aborts on any DWG with a nonempty Xref path (see <a href="#limitations">Limitations</a>),
+so a successful scan finds no Xref files and the repath item only re-saves the copy.</p>
+<p>Discovery failure adds a Warning message, uses heuristic copying and plans no repath.
 Disabled discovery or unavailable Core Console also uses heuristic copying:
 copy existing sibling directories named <code>xrefs</code>, <code>xref</code>, <code>refs</code>, <code>ref</code>, <code>external</code>, <code>dwg</code>, or <code>cad</code>.
 Each source/destination directory pair is copied once. Heuristic copying does not rewrite Xrefs.
@@ -573,7 +575,7 @@ Delete requires a selection, removes the item, invokes the delete callback, and 
 MetadataCatalogWorkflow returns the ordered catalog edits for the App view model to apply to host/link metadata.
 The dialog's default Close button closes without accepting a separate result payload.</p>
 <h3 id="ui-contracts">UI contracts</h3>
-<p><code>PreviewWorkflowState</code> requires a current preview, allowed target, and no Block messages before Process can run.
+<p><code>PreviewWorkflowState</code> requires a current preview, allowed target, and no Block messages before Execute can run.
 Async Add Hosts, Sync Preview, and Execute commands use nonthrowing safe execution and restore busy state.
 Debounced preview handles expected owner cancellation separately.
 For Ok and Cancelled results, the production overlay reports completion and an alert shows status and manifest path.
