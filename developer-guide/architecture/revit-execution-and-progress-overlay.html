@@ -89,226 +89,166 @@
         <article data-uid="">
 <h1 id="revit-execution-and-progress-overlay">Revit Execution and Progress Overlay</h1>
 
-<p>This guide captures the required execution flow for Revit API access and the progress overlay system used by DBTools tools. It summarizes the current contracts in code and shows practical do/don’t examples.</p>
-<h2 id="centralized-runner-responsibilities">Centralized runner responsibilities</h2>
+<p>This page describes how DBTools runs Revit API work and how tools report progress through the progress overlay.</p>
+<h2 id="command-entry">Command entry</h2>
 <h3 id="toolcommand"><code>ToolCommand</code></h3>
+<p><code>ToolCommand</code> (<code>src/DBTools.Core/Tools/Commands/ToolCommand.cs</code>) is the base class of every Revit command.</p>
 <ul>
-<li><strong>Owns the top-level Revit command entrypoint</strong>: public <code>Execute</code> validates Autodesk inputs and passes the non-null <code>UIApplication</code> to the package-visible <code>ExecuteCore</code> seam. <code>ExecuteCore</code> runs through <code>ISafeExecutor</code>, resolves <code>CommandContextFactory</code> from the live runtime, and invokes the protected <code>RunAsync</code> implementation hook with the one owning <code>CommandContext</code>.</li>
-<li><strong>Keeps command helpers narrow</strong>: command subclasses resolve services from <code>ICommandContext</code>, whose inherited <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code> directly. Window-owning features compose <code>ToolWindowFactory</code> and invoke <code>IToolWindowSession.ShowDialog()</code> or <code>Show()</code> so the session owns reflection scope and retirement.</li>
+<li>The public <code>Execute</code> validates the Autodesk inputs and passes the non-null <code>UIApplication</code> to the internal <code>ExecuteCore</code>.</li>
+<li><code>ExecuteCore</code> runs through <code>ISafeExecutor</code>, resolves <code>CommandContextFactory</code> from the live runtime, and calls the protected <code>RunAsync</code> hook with one owning <code>CommandContext</code>.</li>
+<li>Command subclasses resolve services from <code>ICommandContext</code>. Its base interface <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code>.</li>
+<li>A feature that owns a window composes <code>ToolWindowFactory</code> and calls <code>IToolWindowSession.ShowDialog()</code> or <code>Show()</code>. The session owns the reflection scope and the window's retirement.</li>
 </ul>
-<p>Expected refusals throw Core's <code>SafeExecutionRefusedException</code> with a user-facing
-reason. <code>SafeExecutor</code> returns <code>SafeExecutionStatus.Refused</code> without failure
-surfacing or exception diagnostics. The Warning banner owns the single
-Warning log; executions without a banner log <code>[Refused] {Name}: {Message}</code>.
-<code>ToolCommand</code> still returns Revit <code>Result.Cancelled</code>. Unexpected exceptions retain
-the existing Error diagnostics and Error banner.</p>
+<p>An expected refusal throws <code>SafeExecutionRefusedException</code> with a reason for the user. <code>SafeExecutor</code> then returns <code>SafeExecutionStatus.Refused</code>, with no failure surface and no exception diagnostics. <code>SafeExecutionRefusalReporter</code> shows a Warning banner, which writes the one Warning log entry; an execution without a banner logs <code>[Refused] {Name}: {Message}</code>. <code>ToolCommand</code> returns Revit <code>Result.Cancelled</code> for a refusal and for a failure. An unexpected exception writes Error diagnostics and shows an Error banner.</p>
 <h3 id="iapprunscopefactory"><code>IAppRunScopeFactory</code></h3>
-<ul>
-<li><strong>Composes the concrete App scope</strong>: App composition registers <code>IAppRunScopeFactory</code> after Core Revit services. <code>CommandContextFactory</code> consumes it and calls <code>Create(...)</code>; the factory selects the profile-specific call gate, constructs <code>RevitRunScope</code>, and returns <code>IAppRunScope</code>, which owns scoped resolution and disposal.</li>
-<li><strong>Profiles are the switch</strong>: <code>InlineUi</code> uses <code>InlineRevitCallGate</code>; <code>QueuedModeless</code> uses <code>QueuedRevitCallGate</code>. The profile determines whether Revit API calls run inline (modal) or are queued through the App-owned <code>ExternalEvent</code> host (modeless).</li>
-</ul>
+<p>App composition (<code>AppServiceProviderFactory</code>) registers <code>IAppRunScopeFactory</code> with the Core implementation <code>AppRunScopeFactory</code>. <code>CommandContextFactory</code> calls <code>Create(UIApplication, AppRunScopeProfile)</code>. The factory selects the call gate for the profile, constructs <code>RevitRunScope</code>, and returns an <code>IAppRunScope</code>, which owns scoped resolution and disposal.</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Call gate</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>InlineUi</code> (default)</td>
+<td><code>InlineRevitCallGate</code></td>
+<td>Modal commands and daemon-hosted Revit automation that already run on the Revit UI thread.</td>
+</tr>
+<tr>
+<td><code>QueuedModeless</code></td>
+<td><code>QueuedRevitCallGate</code></td>
+<td>Modeless tool windows and long workflows that must queue Revit API work to the UI thread through the App-owned <code>ExternalEvent</code> host.</td>
+</tr>
+</tbody>
+</table>
+<p>A tool selects its profile through <code>RunProfile</code> in its registration; <code>ToolRegistration</code> uses <code>InlineUi</code> when none is given.</p>
 <h3 id="active-document-verification">Active-document verification</h3>
-<p>Consumers that retain a launch document call <code>GetVerifiedActiveDocument(...)</code>.
-The run scope rejects invalid expected or active documents and requires matching
-<code>DocumentSessionKey</code> values before it returns the active document.</p>
-<h3 id="irevitcallgate-profiles"><code>IRevitCallGate</code> profiles</h3>
+<p>A consumer that keeps its launch document calls <code>GetVerifiedActiveDocument(...)</code>. The run scope rejects an invalid expected or active document and requires matching <code>DocumentSessionKey</code> values before it returns the active document.</p>
+<h2 id="call-gates">Call gates</h2>
+<p><code>IRevitCallGate</code> is the single entry point for Revit API access. It runs synchronous callbacks on the Revit UI thread. Revit API calls outside the call gate can raise invalid-context exceptions or break UI-thread rules.</p>
 <ul>
-<li><strong>Modal inline (InlineUi)</strong>: <code>InlineRevitCallGate</code> checks every Action invocation-list member for an async state machine and rejects statically awaitable result types before validating context, then runs admitted callbacks immediately on the Revit UI thread. Use for modal commands and daemon-hosted Revit automation where Revit already owns the thread.</li>
-<li><strong>Queued modeless (QueuedModeless)</strong>: <code>QueuedRevitCallGate</code> applies the same admission before scheduling through the owned <code>ExternalEvent</code> host. Use for modeless windows or long-running flows that must be queued to the UI thread.</li>
-<li><strong>Reference-typed results</strong>: Reference-typed multicast result delegates are rejected before invocation because ordinary multicast dispatch exposes only the final return value. After invocation, reference-typed results receive a runtime <code>Task</code>/<code>ValueTask</code> guard, including values erased behind interfaces. Nullable <code>ValueTask</code> result types are rejected statically; custom awaiter structs are not detected.</li>
+<li><code>InlineRevitCallGate</code> checks every member of an <code>Action</code> invocation list for an async state machine and rejects awaitable result types before it validates the API context. It then runs the callback immediately. <code>ForceQueue</code> on the inline gate throws <code>ContextUnavailableException</code>.</li>
+<li><code>QueuedRevitCallGate</code> applies the same admission, then schedules the callback through its <code>ExternalEvent</code> host.</li>
+<li>A multicast result delegate with a reference result type is rejected before invocation, because ordinary multicast dispatch exposes only the last return value. After invocation, a reference-typed result gets a runtime <code>Task</code>/<code>ValueTask</code> check, which also finds values behind interfaces. Nullable <code>ValueTask</code> result types are rejected statically. Custom awaiter structs are not detected.</li>
 </ul>
-<h3 id="when-to-use-inlineui-vs-queuedmodeless">When to use <code>InlineUi</code> vs <code>QueuedModeless</code></h3>
-<ul>
-<li><strong><code>InlineUi</code></strong>: modal Revit commands or daemon-hosted Revit automation contexts that already run on the UI thread and do not require <code>ExternalEvent</code>/Idling pumping.</li>
-<li><strong><code>QueuedModeless</code></strong>: modeless tool windows or long-running workflows that must marshal Revit API work onto the UI thread via the queued host.</li>
-</ul>
-<h3 id="itransactionrunner--itransactiongroupservice"><code>ITransactionRunner</code> / <code>ITransactionGroupService</code></h3>
-<ul>
-<li><strong>Resolve scoped transaction services from the App/command scope</strong> (<code>context.Resolve&lt;ITransactionRunner&gt;()</code> / <code>context.Resolve&lt;ITransactionGroupService&gt;()</code>) to ensure Revit API access is routed through the call gate and wrapped in proper transactions. <code>IRevitRunScope</code> owns only UIApplication, the call gate, document access, and disposal.</li>
-<li><code>TransactionRunner</code> is explicitly built on top of <code>IRevitCallGate</code> and applies synchronous delegate/result-type admission before entering the gate or opening a transaction. Its reference-result awaitable guard executes inside the transaction body, before commit. This keeps transactions and UI-thread access consistent with Revit’s rules.</li>
-<li><code>ITransactionRunner</code> exposes named active-document and explicit-document methods. Delegates receive <code>RevitTransactionContext</code>, which carries both <code>UIApplication</code> and <code>Document</code> without multiplying overloads by delegate shape.</li>
-<li><code>ITransactionGroupService</code> exposes only the manual active-document lifecycle: <code>BeginAsync(...)</code>, <code>FinalizeAsync(...)</code>, <code>IsActive</code>, and <code>IsGroupHealthyAsync(...)</code>. Callers that need guaranteed cleanup must own the try/catch/finally around <code>FinalizeAsync(...)</code> in the workflow that knows whether the group should commit or roll back.</li>
-<li><strong>Trimmed surface:</strong> The old no-context <code>RunAsync(...)</code>, UIApplication-specific transaction overloads, <code>RunAtomicAsync*</code>, <code>BeginAsync(Document, ...)</code>, <code>RunAsync(string, Document, ...)</code>, and <code>RunAsync(Document, string, ...)</code> overloads were removed as dead public contract or avoidable Revit API type exposure.</li>
-</ul>
-<!-- VERIFIED: 2026-07-30 -->
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/CallGateDelegateValidator.cs:14-55</code>
-<strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/InlineRevitCallGate.cs:26-64</code>
-<strong>Source:</strong> <code>src/DBTools.Core/Revit/Execution/CallGate/QueuedRevitCallGate.cs:38-100</code>
-<strong>Source:</strong> <code>src/DBTools.Core/Revit/Transactions/TransactionRunner.cs:26-101</code></p>
-</blockquote>
-<h3 id="prohibition-revit-api-outside-irevitcallgate">Prohibition: Revit API outside <code>IRevitCallGate</code></h3>
-<ul>
-<li><code>IRevitCallGate</code> is the unified entry point for <strong>all</strong> Revit API access and enforces synchronous callbacks on the UI thread. Any direct Revit API usage outside the call gate risks invalid context exceptions or UI-thread violations.</li>
-</ul>
-<h2 id="execution-context-best-practices-external-refs">Execution context best practices (external refs)</h2>
-<blockquote>
-<p>These are contextual practices aligned with Revit’s external API requirements and the current call-gate implementation.</p>
-</blockquote>
-<ul>
-<li><strong>Modeless UI uses the owned ExternalEvent host</strong>. The queued gate marshals work to the Revit UI thread through one generation-owned native event and enters an explicit main-thread API scope inside its <code>Execute</code> callback.</li>
-<li><strong>Use task-based wrappers to schedule synchronous Revit work</strong> (e.g., Revit.Async-style wrappers). The call gate rejects async-state-machine Actions and <code>Task</code>/<code>ValueTask</code> result shapes before scheduling, so keep asynchronous workflows <em>outside</em> the gate and in-gate delegates synchronous.</li>
-<li><strong>Validate API context before inline execution</strong>. Inline execution uses the same API authority as queued execution. <code>RevitHost</code> supplies application data; the product determines authority, including after an awaited continuation in the driver callback.</li>
-</ul>
-<h3 id="api-context-admission-and-externalevent-probes">API-context admission and ExternalEvent probes</h3>
-<p><code>RevitCallGateApiContext.IsActive</code> is the product's API-context authority.
-Known native entry points use its internal synchronous <code>Enter</code> scope as a fast
-path. Untracked calls first check the Revit dispatcher, then create and immediately
-dispose an unraised ExternalEvent with a stateless no-op handler. Workers return
-false before the probe. Every untracked call probes again; no success or failure
-is cached across turns. <code>Current</code> exposes a known <code>UIApplication</code> only while the
-context is active. An ambient application reference is data, not authority.</p>
-<p>The public <code>UIApplication</code> constructor requires <code>ApplicationServices.Application</code>.
-There is no public conversion from <code>UIControlledApplication.ControlledApplication</code>.
-If startup has not received any <code>UIApplication</code>, queued work obtains it from the
-real ExternalEvent callback. No private-field reflection is used.</p>
-<p>The probe uses a fresh event rather than adding/removing a handler on a Revit event.
-It neither modifies the current event's subscriber collection nor writes a document,
-so it avoids the same-event subscription restriction and document-write restrictions
-in Idling, ViewActivated, DocumentChanged and updater callbacks. API admission still
-does not grant permission to use an API forbidden in a particular callback; callers
-must respect read-only and dynamic-update restrictions.</p>
-<p>The <a href="https://rvtdocs.com/2026/Autodesk.Revit.UI.ExternalEvent.Create">2026</a> and
-<a href="https://rvtdocs.com/2027/Autodesk.Revit.UI.ExternalEvent.Create">2027</a> API references
-list the Create signature and null-handler exception, but omit its outside-context
-exception. An <a href="https://forums.autodesk.com/t5/revit-api-forum/externalevent/m-p/9029307">Autodesk support discussion</a>
-records that runtime check and distinguishes UI-thread access from API authority.
-The choice of allocation over subscription follows these API boundaries; the
-references do not separately certify every callback combination. The probe does
-not distinguish add-in ownership. When it succeeds inside another add-in's
-main-thread API callback, it returns true and DBTools runs inline without an
-explicit DBTools scope, matching ricaun's routing. DBTools-owned
-callback entries use an explicit synchronous <code>UIApplication</code> scope, and later
-continuations must probe or queue again.</p>
-<p>The scope is a <code>ref struct</code>, so a caller cannot hold it across an await. Its
-shared lifetime lets even an unsafe wrong-thread disposal revoke the original
-authority before reporting the misuse. <code>Enter</code> stays internal: App's linked native
-callbacks and FoundationTags' standalone Idling owner need access. GM's existing
-friendship supports synchronous-delegate validation, and GM does not enter scopes.</p>
-<p>The hosted certification fixture (<code>RevitCallGateApiContextHostedCertificationTests</code>) exercises real <code>ViewActivated</code>,
-<code>DocumentChanged</code>, <code>FailuresProcessing</code>, and <code>IUpdater.Execute</code> callbacks through
-real transactions and view activation. It always opens and activates the staged GM
-model, restores the original view, and rolls back the temporary view.
-The host retains the staged active document until Revit closes. It cannot certify <code>OnShutdown</code>
-while the daemon keeps the whole NUnit run inside one Revit callback; the RevitHostedTurns lane certifies modeless
-false results (<code>RevitCallGateModelessHostedTurnCertificationTests</code>) and native <code>Idling</code> delivery to App's
-deferred-startup subscription (<code>AppDeferredStartupSubscriptionHostedTurnTests</code>).
-Only an untracked main-thread admission allocates and disposes an
-unraised ExternalEvent per authority check; explicit scopes avoid that probe cost, and workers return
-false before probing. Each native Execute turn runs, in FIFO order, every queued
-item that was waiting when the turn started, so N waiting calls cost one Revit
-round trip instead of N. Items queued during the turn wait for the next turn, and
-after the first item a turn starts no new item once its 50 ms budget is used, so an
-expanding queue cannot monopolize that turn. A failed or canceled item completes
-its own task and the turn continues with the next item. An item that leaves a
-transaction open in any document ends the turn: Revit discards what a callback leaves
-open only when the callback returns, so the next item waits for a later turn instead of
-running inside it. A transaction group without an open transaction is invisible to that
-check, so production code creates transaction groups through
-<code>RevitTransactionGroups.Begin</code>. The factory ends the current turn before it
-constructs and starts the group. <code>TransactionGroupTurnBoundaryContractTests</code>
-(Build tests) scans compiled production assemblies and permits construction only
-inside that factory.
-Nested Auto calls stay inline while
-<code>ForceQueue</code> explicitly defers to a future turn. The probe never raises its event
-and therefore does not claim that Revit dispatched a later native turn.</p>
-<p>The owned scheduler posts every raise to the Revit dispatcher at Normal priority,
-also when the caller is already on the dispatcher thread. A caller therefore never
-waits on native Raise, a burst of calls shares one raise, and the raise for work
-left after a turn runs after Execute returns instead of inside Revit's own handler.
-Denied and TimedOut responses retain the queue and retry with 50–500 ms backoff for at most
-five seconds. Expiry faults that waiting batch; the scheduler accepts new work.
-Each turn feeds a throttled Debug summary (<code>[CallGate/Turns]</code>): turns and calls, maximum
-queue depth, the Raise-to-Execute gap, Execute duration, native Raise duration and
-results, and refused-raise retries. It is written when a turn leaves the queue empty, at
-most once per second, or after 10 s of a queue that stays busy; turns inside the
-one-second interval are reported with the next activity.
-Retirement aborts its posted raise, stops and detaches its retry timer, releases
-queued delegates, and disposes its native event. Dropped tasks never complete;
-a worker synchronously waiting on one would hang. Failed-startup cleanup uses
-cancellation instead because Revit and its callers remain alive.</p>
-<h2 id="progress-overlay-usage">Progress overlay usage</h2>
-<h3 id="host-requirements">Host requirements</h3>
-<ul>
-<li><strong>Host tool views through <code>ToolWindowFactory</code> and <code>IToolWindowSession</code>.</strong> The stable modal/modeless shells expose the WPF owner contract. Core installs <code>WindowInitializer</code> before raw XAML loads and retires its lifecycle state with the session.</li>
-<li>For tool-specific windows, bind overlay ownership explicitly with <code>ProgressOverlay.For(this, logger)</code> so state, dispatcher affinity, and diagnostics remain tied to that host window. The logger is required at this runtime boundary; composition supplies the owner logger rather than routing through a fallback.</li>
-</ul>
-<h3 id="scope-and-dispatcher-rules">Scope and dispatcher rules</h3>
-<ul>
-<li><strong>Always use <code>Scope(...)</code> for long operations</strong>. Nested scopes are state-local to the owner-bound overlay and clean up in LIFO order.</li>
-<li><strong>Show/Update/Hide are UI-dispatched</strong>. <code>ProgressOverlay</code> marshals public calls to its owner's WPF dispatcher, so callers should use the overlay API and avoid touching overlay state directly from background threads.</li>
-<li><strong>Status transitions force a render pump</strong>. <code>Update(...)</code> delegates state mutation to <code>OverlayState.ApplyUpdate(...)</code>, where status-string changes call <code>RequestRender(force: true)</code> and progress-only updates remain throttled (<code>force: false</code>). This keeps short phase changes visible under Revit dispatcher starvation without removing global throttles.</li>
-<li><strong>Overlay render flushing is guarded and throttled</strong>. <code>RequestRender</code> still schedules a render callback, and uses a single-frame pump helper (<code>TryPumpSingleFrame</code>) with a depth guard and short time budget to restore incremental visual updates without unbounded re-entrancy. Under Revit-hosted dispatcher starvation, the queued callback that clears the pending-render flag can be delayed; forced renders (step transitions) bypass the pending guard, and a stuck-pending timeout allows recovery when the dispatcher is slow.</li>
-<li><strong>Overlay responsibilities are owner-bound.</strong> <code>ProgressOverlay.Hosts.cs</code> is the single <code>Window</code>-to-<code>OverlayState</code> lifecycle and visual-host registry; <code>ProgressOverlay.Operations.cs</code> exposes the public lifecycle API; <code>Runtime/ProgressOverlayRunWorkflow.cs</code> owns <code>RunAsync(...)</code> show policy, linked CTS lifecycle, cancel polling, watcher observation, and hide sequencing. There is no ambient or process-global host selection.</li>
-<li><strong>Coverage expectation:</strong> cheap <code>IProgressOverlay</code> doubles can stay in pure/view-model tests, but production overlay behavior belongs in a local WPF/Revit-hosted lane. GM's local shell fixture directly exercises <code>ProgressOverlay.For(...)</code> visual-host injection and <code>RunAsync(...)</code> cancellation bridging with a real WPF dispatcher instead of <code>RecordingOverlay</code>.</li>
-</ul>
-<h3 id="cancel-handling">Cancel handling</h3>
-<ul>
-<li><strong>Prefer <code>RunAsync(...)</code> so the overlay owns cancellation bridging</strong>. <code>ProgressOverlayRunWorkflow</code> polls <code>CancelRequested</code>, cancels a linked CTS, and hands the work delegate a token that fires on cancel — so long-running operations should run their work through <code>RunAsync(...)</code> rather than hand-rolling a watcher. SGT placement (<code>PlacementCommandService</code>) and GM commit-review both use this API.</li>
-<li><strong>Poll <code>CancelRequested</code> and bridge to your CTS only when not using <code>RunAsync(...)</code></strong>. The overlay exposes a thread-safe <code>CancelRequested</code> property; workflows that still drive their own <code>Scope(...)</code> (for example SGT analysis) bridge it into operation cancellation manually.</li>
-</ul>
-<h2 id="dodont-examples-from-current-code">Do/Don’t examples (from current code)</h2>
-<h3 id="call-gate-usage">Call gate usage</h3>
-<p><strong>Do</strong>: queue modeless work with synchronous delegates.</p>
+<p>Keep asynchronous workflows outside the gate and make in-gate delegates synchronous:</p>
 <pre><code class="lang-csharp">await _gate.RunAsync(app =&gt;
 {
-    // Revit API work here (sync only)
+    // Revit API work here (synchronous only)
     return true;
 });
 </code></pre>
-<p>This aligns with <code>QueuedRevitCallGate.RunAsync(...)</code>, which admits only synchronous result shapes before marshalling to the Revit UI thread.</p>
-<p><strong>Don’t</strong>: use an async-void Action or return <code>Task</code>, <code>Task&lt;T&gt;</code>, <code>ValueTask</code>, or
-<code>ValueTask&lt;T&gt;</code> from a call-gate delegate. These shapes are rejected before the
-delegate can start.</p>
-<h3 id="progress-overlay-scope">Progress overlay scope</h3>
-<p><strong>Do (SGT)</strong>: create a scope and poll cancel status.</p>
-<pre><code class="lang-csharp">using var scope = _overlay.Scope(ProgressScopeAnalyze, cancelable: true);
-_overlay.Update(ProgressCalibratingFamilies, 0.0);
-if (_overlay.CancelRequested)
-{
-    linkedCts.Cancel();
-}
-</code></pre>
-<p>SGT’s analysis workflow creates a scope, updates it, and bridges cancel requests into the analysis CTS.</p>
-<p><strong>Do (GM)</strong>: use <code>Scope(...)</code> and <code>CancelRequested</code> while applying mappings.</p>
-<pre><code class="lang-csharp">using var scope = _overlay.Scope(&quot;Applying mappings...&quot;, true);
-if (_overlay.CancelRequested)
-{
-    _cts.Cancel();
-}
-</code></pre>
-<p>GM's commit review view model follows this pattern to keep UI cancel actions responsive during long operations.</p>
-<p><strong>Don’t</strong>: manipulate overlay state directly or bypass the dispatcher. Use <code>Show/Update/Hide/Scope</code> so the overlay stays UI-thread safe.</p>
-<p>Nested <code>Scope(...)</code> calls restore the parent state held by the same owner-bound
-overlay in LIFO order when the inner scope ends. After <code>Show(...)</code> resets the
-previous cancellation state, the cancel watcher starts its delay before the
-operation body begins, so normal cleanup observes one already-started watcher
-rather than a scheduling race.</p>
-<blockquote>
-<p><strong>Source:</strong> <code>src/DBTools.Core/Progress/Overlay/Runtime/ProgressOverlay.Operations.cs</code>
-<strong>Source:</strong> <code>src/DBTools.Core/Progress/Overlay/Runtime/ProgressOverlayRunWorkflow.cs</code></p>
-</blockquote>
-<!-- VERIFIED: 2026-08-01 -->
-<h2 id="phase-2-granular-progress-primitives">Phase 2: Granular progress primitives</h2>
-<h3 id="tuple-progress-payload">Tuple progress payload</h3>
-<p>Phase 2 migrated tool-level progress from <code>IProgress&lt;string&gt;</code> to <code>IProgress&lt;(string message, double? progress01)&gt;</code>. This allows tools to emit both a status message <strong>and</strong> a numeric 0..1 progress fraction in a single report, enabling smoother overlay bar updates.</p>
-<p><strong>Affected interfaces:</strong></p>
+<p>An <code>async void</code> action, or a delegate that returns <code>Task</code>, <code>Task&lt;T&gt;</code>, <code>ValueTask</code> or <code>ValueTask&lt;T&gt;</code>, is rejected before it starts.</p>
+<p>Sources: <code>src/DBTools.Core/Revit/Execution/CallGate/CallGateDelegateValidator.cs</code>, <code>InlineRevitCallGate.cs</code>, <code>QueuedRevitCallGate.cs</code>.</p>
+<h3 id="api-context-admission">API-context admission</h3>
+<p><code>RevitCallGateApiContext.IsActive</code> decides whether the current code has Revit API context.</p>
 <ul>
-<li><code>IMappingService.ApplyPlanAsync</code> — GM mapping engine</li>
-<li><code>IOrchestrator.PlaceAsync / UpdateAsync</code> — SGT orchestrator</li>
-<li><code>IPlacementWriter.PlaceAsync / UpdateAsync</code> — SGT domain writer</li>
+<li>Known native entry points use the internal synchronous <code>Enter</code> scope.</li>
+<li>An untracked call first checks the Revit dispatcher thread, then creates and immediately disposes an unraised <code>ExternalEvent</code> with a stateless no-op handler. Worker threads return <code>false</code> before the probe.</li>
+<li>Every untracked call probes again. No result is cached across turns.</li>
+<li><code>Current</code> exposes a known <code>UIApplication</code> only while the context is active. An ambient application reference does not grant API context.</li>
 </ul>
-<h3 id="monotonicprogressadapter"><code>MonotonicProgressAdapter</code></h3>
-<p>Wraps an <code>IProgress&lt;(string, double?)&gt;</code> and enforces monotonic non-decreasing progress01 values. Status-only updates (null progress01) are forwarded without affecting tracking. Create one instance per logical run.</p>
-<p>Both the adapter and overlay reject NaN and infinities before publishing an update. Finite values still clamp to <code>[0,1]</code>. A rejected adapter report does not change its monotonic tracking. Overlay admission occurs before either status or progress changes.</p>
-<pre><code class="lang-csharp">var adapter = new MonotonicProgressAdapter(
-    new Progress&lt;(string message, double? progress01)&gt;(update =&gt;
-        _overlay.Update(update.message, update.progress01)));
-await _mapping.ApplyPlanAsync(plan, adapter, ct);
+<p>The public <code>UIApplication</code> constructor requires <code>ApplicationServices.Application</code>; there is no public conversion from <code>UIControlledApplication.ControlledApplication</code>. If startup has not received a <code>UIApplication</code>, queued work gets one from the real <code>ExternalEvent</code> callback. No private-field reflection is used.</p>
+<p>The probe creates a new event instead of adding and removing a handler on a Revit event. It does not change the subscriber collection of the current event and does not write a document, so it is legal in <code>Idling</code>, <code>ViewActivated</code>, <code>DocumentChanged</code> and updater callbacks. Admission does not permit an API that a particular callback forbids; callers must obey read-only and dynamic-update restrictions.</p>
+<p>The <a href="https://rvtdocs.com/2026/Autodesk.Revit.UI.ExternalEvent.Create">2026</a> and <a href="https://rvtdocs.com/2027/Autodesk.Revit.UI.ExternalEvent.Create">2027</a> API references list the <code>Create</code> signature and the null-handler exception, but not the outside-context exception. An <a href="https://forums.autodesk.com/t5/revit-api-forum/externalevent/m-p/9029307">Autodesk forum thread</a> describes that runtime check and the difference between UI-thread access and API context.</p>
+<p>The probe does not identify which add-in owns a callback. Inside another add-in's main-thread API callback it returns <code>true</code>, and DBTools runs inline without its own scope. Callbacks that DBTools owns enter an explicit synchronous <code>UIApplication</code> scope; later continuations must probe or queue again.</p>
+<p>The scope is a <code>ref struct</code>, so a caller cannot hold it across an <code>await</code>. Its shared lifetime lets a wrong-thread disposal revoke the context before the misuse is reported. <code>Enter</code> is internal; App's native callbacks and FoundationTags' <code>Idling</code> owner use it. GM has access for synchronous-delegate validation only and does not enter scopes.</p>
+<p><code>RevitCallGateApiContextHostedCertificationTests</code> runs real <code>ViewActivated</code>, <code>DocumentChanged</code>, <code>FailuresProcessing</code> and <code>IUpdater.Execute</code> callbacks through real transactions and view activation. It opens and activates the staged GM model, restores the original view and rolls back the temporary view. The host keeps the staged document open until Revit closes. The fixture cannot test <code>OnShutdown</code>, because the daemon runs the whole NUnit run inside one Revit callback. The <code>RevitHostedTurns</code> category tests modeless <code>false</code> results (<code>RevitCallGateModelessHostedTurnCertificationTests</code>) and native <code>Idling</code> delivery to App's deferred-startup subscription (<code>AppDeferredStartupSubscriptionHostedTurnTests</code>).</p>
+<h3 id="queued-turns">Queued turns</h3>
+<p>Each native <code>Execute</code> turn of the queued gate runs, in FIFO order, every item that was waiting when the turn started. N waiting calls cost one Revit round trip.</p>
+<ul>
+<li>Items queued during a turn wait for the next turn.</li>
+<li>After the first item, a turn starts no new item once its 50 ms budget (<code>RevitCallGateTask.DrainBudget</code>) is used.</li>
+<li>A failed or canceled item completes its own task; the turn continues with the next item.</li>
+<li>An item that leaves a transaction open in any document ends the turn. Revit discards what a callback leaves open only when the callback returns, so the next item must run in a later turn.</li>
+<li>Nested <code>Auto</code> calls run inline. <code>ForceQueue</code> defers to a later turn.</li>
+</ul>
+<p>A transaction group without an open transaction is not visible to the open-transaction check. Production code therefore creates every <code>TransactionGroup</code> through <code>RevitTransactionGroups.Begin(document, name, validateStart)</code>. The factory calls <code>RevitCallGateTurnBoundary.EndAfterCurrentCall()</code>, so the current turn ends when the running call returns, then constructs and starts the group and disposes it if the start fails. <code>TransactionGroupTurnBoundaryContractTests</code> (<code>testing/DBTools.Build.Tests</code>) inspects the compiled production assemblies and permits <code>TransactionGroup</code> construction only inside that factory.</p>
+<p>The scheduler posts every raise to the Revit dispatcher at <code>Normal</code> priority, also from the dispatcher thread. A caller never waits on native <code>Raise</code>, a burst of calls shares one raise, and the raise for work left after a turn runs after <code>Execute</code> returns.</p>
+<p><code>Denied</code> and <code>TimedOut</code> raise results keep the queue and retry with a backoff from 50 ms, doubling to at most 500 ms, for at most 5 seconds (<code>RevitCallGateRaiseRetry</code>). When that time expires, the waiting batch faults; the scheduler still accepts new work.</p>
+<p>Each turn feeds a Debug summary with the prefix <code>[CallGate/Turns]</code>: turns and calls, maximum queue depth, the Raise-to-Execute gap, Execute duration, native Raise duration and results, and refused-raise retries. The summary is written when a turn leaves the queue empty, at most once per second, or after 10 s of a queue that stays busy. Turns inside the one-second interval are reported with the next activity.</p>
+<p>Retirement cancels the posted raise, stops and detaches the retry timer, releases queued delegates and disposes the native event. Dropped tasks never complete, so a worker that waits synchronously on one hangs. Cleanup after a failed startup cancels the tasks instead, because Revit and its callers are still running.</p>
+<h2 id="transactions">Transactions</h2>
+<p>Resolve transaction services from the command scope: <code>context.Resolve&lt;ITransactionRunner&gt;()</code> and <code>context.Resolve&lt;ITransactionGroupService&gt;()</code>. <code>RevitServiceCollectionExtensions</code> registers both as scoped services on the scope's <code>IRevitCallGate</code>. <code>IRevitRunScope</code> owns only the <code>UIApplication</code>, the call gate, document access and disposal.</p>
+<ul>
+<li><code>TransactionRunner</code> runs on <code>IRevitCallGate</code>. It applies the synchronous delegate and result-type admission before it enters the gate or opens a transaction. Its awaitable check for reference results runs inside the transaction body, before commit.</li>
+<li><code>ITransactionRunner</code> has named active-document and explicit-document methods. Delegates receive <code>RevitTransactionContext</code>, which carries the <code>UIApplication</code> and the <code>Document</code>.</li>
+<li><code>ITransactionGroupService</code> is the manual active-document lifecycle: <code>BeginAsync(name)</code>, <code>FinalizeAsync(TransactionGroupFinalization)</code>, <code>IsActive</code> and <code>IsGroupHealthyAsync()</code>. The caller owns the <code>try</code>/<code>finally</code> around <code>FinalizeAsync</code>, in the workflow that knows whether to commit or roll back. If the document is already modifiable, <code>BeginAsync</code> creates no group, <code>IsActive</code> becomes <code>true</code>, and <code>FinalizeAsync</code> only resets state.</li>
+<li>Revit rolls back a group that is still open when the callback that started it returns. Separate <code>BeginAsync</code> and <code>FinalizeAsync</code> calls therefore keep one group only under the inline gate, inside one callback (a modal command).</li>
+<li><code>TransactionGroupService</code> also implements <code>IAtomicTransactionGroup</code>; GM commit review constructs it directly for its gate. <code>IAtomicTransactionGroup.RunAsync(name, work, keep, ct)</code> runs the whole group inside one callback, so it is one Revit undo entry also under the queued gate. It refuses a document with an open transaction, assimilates the group when <code>keep(result)</code> is <code>true</code> and rolls it back otherwise. An exception or a cancellation before finalization rolls the group back and propagates. If Revit does not confirm the rollback, the call throws <code>TransactionGroupOutcomeUnknownException</code>; the caller must not report the work as discarded.</li>
+</ul>
+<h2 id="progress-overlay">Progress overlay</h2>
+<h3 id="hosts">Hosts</h3>
+<ul>
+<li>Host tool views through <code>ToolWindowFactory</code> and <code>IToolWindowSession</code>. The modal and modeless shells expose the WPF owner. Core installs <code>WindowInitializer</code> before the XAML loads and retires its state with the session.</li>
+<li>Bind an overlay to its window with <code>ProgressOverlay.For(window, logger)</code>, on the owner's UI thread. State, dispatcher affinity and diagnostics stay tied to that window. The logger is required.</li>
+<li><code>ProgressOverlayWindowCapability</code> (<code>ProgressOverlayWindowCapability.Hosts.cs</code>) is the only registry from <code>Window</code> to overlay state and visual host. There is no ambient or process-global host.</li>
+<li><code>ProgressOverlay.Operations.cs</code> holds the public lifecycle API. <code>ProgressOverlayRunWorkflow.cs</code> owns <code>RunAsync(...)</code>: the show policy, the linked cancellation source, cancel observation and hide sequencing.</li>
+</ul>
+<h3 id="iprogressoverlay"><code>IProgressOverlay</code></h3>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Show(title, cancelable)</code></td>
+<td>Shows the overlay and resets the cancellation state.</td>
+</tr>
+<tr>
+<td><code>Update(status, progress01)</code></td>
+<td>Sets status text and progress in <code>[0,1]</code>. A <code>null</code> argument leaves that value unchanged. A non-finite progress value throws <code>ArgumentOutOfRangeException</code> before status or progress changes. Finite values are clamped to <code>[0,1]</code>.</td>
+</tr>
+<tr>
+<td><code>UpdateStep(current, total, description, progress01)</code></td>
+<td>Sets the status to <code>Step X/Y: {description}</code>.</td>
+</tr>
+<tr>
+<td><code>Scope(title, cancelable)</code></td>
+<td>Returns a disposable scope. Nested scopes restore the parent state in LIFO order.</td>
+</tr>
+<tr>
+<td><code>CancelRequested</code></td>
+<td>Thread-safe snapshot of the Cancel button state.</td>
+</tr>
+<tr>
+<td><code>RequestCancel()</code></td>
+<td>Sets <code>CancelRequested</code>.</td>
+</tr>
+<tr>
+<td><code>Hide()</code></td>
+<td>Hides the overlay and clears transient state.</td>
+</tr>
+<tr>
+<td><code>RunAsync(title, work, cancelable, options, ct)</code></td>
+<td>Runs <code>work</code> with an overlay lifecycle and cancellation bridge. A second run on the same window while one is active throws <code>InvalidOperationException</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>ProgressOverlay</code> marshals public calls to its owner's WPF dispatcher. Do not change overlay state directly from a background thread.</p>
+<h3 id="rendering">Rendering</h3>
+<ul>
+<li>A status change forces a render (<code>RequestRender(force: true)</code>); a progress-only update is throttled. Phase changes stay visible when Revit starves the dispatcher.</li>
+<li><code>ProgressOverlayRenderScheduler</code> throttles render requests to one per 30 ms and pumps one dispatcher frame (<code>DispatcherFramePump.TryPumpSingleFrame</code>) with a 20 ms budget and a depth guard.</li>
+<li>A forced render bypasses the pending-render guard. A pending render older than 250 ms is treated as stuck and replaced.</li>
+<li>Do not add other dispatcher pump loops or dispatcher-frame code outside that helper while Revit work is active.</li>
+</ul>
+<h3 id="cancellation">Cancellation</h3>
+<p>Use <code>RunAsync(...)</code> for long operations. <code>ProgressOverlayRunWorkflow</code> observes <code>CancelRequested</code>, cancels a linked token source and passes the work delegate a token that fires on cancel. After <code>Show(...)</code> resets the cancellation state, the cancel watcher starts before the work begins. SGT analysis (<code>AnalysisSessionWorkflow</code>), SGT placement (<code>PlacementWorkflow</code>) and GM commit review (<code>CommitReviewApplyOverlayWorkflow</code>) use <code>RunAsync</code>.</p>
+<p>A workflow that drives its own <code>Scope(...)</code> reads <code>CancelRequested</code> and bridges it to its own cancellation. TDV transfer does this: its reporter returns <code>Overlay.CancelRequested</code> as <code>IsCancellationRequested</code>.</p>
+<pre><code class="lang-csharp">using (Overlay.Scope(&quot;Transferring Drafting Views&quot;, cancelable: true))
+{
+    result = await _session.ApplySelectionAsync(items, reporter, CancellationToken.None);
+}
 </code></pre>
-<h3 id="mappingchangecontext-helper-updates-gm"><code>MappingChangeContext</code> helper updates (GM)</h3>
-<p><code>MappingChangeContext.ReportProgress(message)</code> now accepts an optional <code>double? progress01</code> parameter. The 3-arg <code>ReportProgress(stageName, current, total)</code> overload has been renamed to <code>ReportProgressStage(stageName, current, total, progress01?)</code> for clarity.</p>
-<h3 id="per-tool-overlay-integration">Per-tool overlay integration</h3>
+<h3 id="progress-values">Progress values</h3>
+<p>Tools report <code>IProgress&lt;(string message, double? progress01)&gt;</code>: a status message and an optional fraction in <code>[0,1]</code>.</p>
+<p><code>MonotonicProgressAdapter</code> (<code>src/DBTools.Core/Progress/Aggregation</code>) wraps such a reporter and forwards non-decreasing values clamped to <code>[0,1]</code>. A <code>null</code> fraction forwards the status and does not change the tracked value. A non-finite fraction throws <code>ArgumentOutOfRangeException</code> and does not change the tracked value. Create one adapter per operation.</p>
 <table>
 <thead>
 <tr>
@@ -319,35 +259,33 @@ await _mapping.ApplyPlanAsync(plan, adapter, ct);
 </thead>
 <tbody>
 <tr>
-<td><strong>GM</strong></td>
-<td><code>MappingPlanExecutor</code> emits writer-level (writerIndex/totalActiveWriters)</td>
-<td><code>MonotonicProgressAdapter</code> in <code>CommitReviewViewModel</code></td>
+<td>GM</td>
+<td><code>MappingPlanExecutor</code> reports per-writer progress (<code>writerIndex / writerCount</code>); <code>MappingApplyState.ReportProgress(message, progress01)</code> reports within a writer.</td>
+<td><code>CommitReviewApplyWorkflow</code> wraps the reporter in <code>MonotonicProgressAdapter</code>; <code>CommitReviewApplyOverlayWorkflow</code> updates the overlay.</td>
 </tr>
 <tr>
-<td><strong>TDV</strong></td>
-<td>Transfer executor reports per-view stage percents (0, 10, 25, 35, 60, 85, 100)</td>
-<td><code>TdvWindowViewModel.UpdateTransferOverlayProgress</code> maps them through six weighted stages</td>
+<td>TDV</td>
+<td>The transfer executor reports per-view stage percentages (0, 10, 25, 35, 60, 85, 100).</td>
+<td><code>TdvWindowViewModel.UpdateTransferOverlayProgress</code> maps them through six weighted stages and never decreases.</td>
 </tr>
 <tr>
-<td><strong>SGT</strong></td>
-<td><code>PlacementExecutionService.PlaceAsync</code> / <code>UpdateAsync</code> emit wall-level + sub-step progress</td>
-<td><code>MonotonicProgressAdapter</code> in <code>ShellWindowViewModel</code></td>
+<td>SGT</td>
+<td><code>PlacementExecutor.PlaceAsync</code> / <code>UpdateAsync</code> report wall-level and sub-step progress.</td>
+<td><code>PlacementWorkflow</code> wraps the overlay in <code>MonotonicProgressAdapter</code>.</td>
 </tr>
 <tr>
-<td><strong>RecordSet</strong></td>
-<td><code>PlanExecutor</code> emits per-item status + int percent</td>
-<td>VM combines status and percent in overlay update</td>
+<td>RecordSet</td>
+<td><code>ExecutionPlanExecutor.ExecuteAsync</code> takes an <code>Action&lt;int&gt;</code> percentage and an <code>Action&lt;string&gt;</code> log.</td>
+<td><code>PlanExecutionWorkflow</code> combines the last percentage with each log message in one overlay update.</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Note:</strong> RecordSet intentionally uses <code>IProgress&lt;int&gt;</code> (percentage) rather than the tuple pattern. This is because RecordSet's <code>PlanExecutor</code> uses a weight-based percentage calculation internally, and the VM combines the separate status log stream with the integer percentage for overlay updates. This approach avoids additional refactoring of the executor's internal progress model while still achieving the same overlay UX.</p>
-</blockquote>
-<h2 id="common-failure-modes">Common failure modes</h2>
+<h3 id="tests">Tests</h3>
+<p>Pure and view-model tests can use simple <code>IProgressOverlay</code> doubles. Production overlay behavior is tested with a real WPF dispatcher: GM's local shell fixture exercises <code>ProgressOverlay.For(...)</code> visual-host injection and <code>RunAsync(...)</code> cancellation.</p>
+<h2 id="common-failures">Common failures</h2>
 <ul>
-<li><strong>Dispatcher errors or missing host</strong>: calling overlay APIs without a window initialized by Core <code>WindowInitializer</code>, or bypassing the overlay API, can lead to dispatcher errors or missing state. Always use <code>Scope/Show/Update/Hide</code> on a supported Presentation window host.</li>
-<li><strong>Revit context leaks</strong>: direct Revit API access outside <code>IRevitCallGate</code> or attempting async delegates inside the gate can lead to invalid context errors. Stick to the call gate + transaction runner, and keep delegates synchronous.</li>
-<li><strong>Re-entrant UI pumping risk during active Revit execution</strong>: progress overlay updates now use a bounded single-frame pump with depth guards; avoid introducing additional custom pump loops or unguarded dispatcher-frame usage outside this shared helper.</li>
+<li><strong>Dispatcher errors or missing state:</strong> an overlay call on a window that Core <code>WindowInitializer</code> did not initialize, or a change that bypasses the overlay API.</li>
+<li><strong>Invalid Revit API context:</strong> Revit API calls outside <code>IRevitCallGate</code>, or async delegates inside the gate.</li>
 </ul>
 
 </article>

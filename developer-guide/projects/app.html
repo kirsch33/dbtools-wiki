@@ -89,33 +89,8 @@
         <article data-uid="">
 <h1 id="dbtoolsapp">DBTools.App</h1>
 
-<!-- STATUS: implementation contract; installed and Dev Mode acceptance pending -->
-<!-- Last Updated: 2026-10-24 -->
-<p><code>DBTools.App</code> builds <code>DBTools.dll</code>, the direct Revit add-in entry and App
-runtime. It targets <code>net10.0-windows</code> for Revit 2026.5+ and 2027.</p>
-<h2 id="ownership">Ownership</h2>
-<p>App owns the public parameterless Revit entry, daemon idle acknowledgement,
-non-inlined startup/shutdown boundary, startup
-fallback diagnostics, lifecycle, hooks, ribbon composition, settings host,
-shutdown, and centrally embedded manifests. Tool assemblies own SGT, Settings,
-and DialogSuppression.</p>
-<p>The first startup branch checks <code>DBTOOLS_DAEMON_REVIT_ROLE</code> and the exact
-<code>AssemblyLoadContext.Default</code> owner. The idle copy records
-<code>DBToolsDaemon.IdleAddin:DBTools</code> with its actual location and returns before
-normal App startup. Active startup enters <code>ToolWindowCallbackScope</code> and starts
-the App lifecycle. The BCL-only fallback writer records
-<code>DBTools.Fallback.log</code> under <code>%APPDATA%\DBTools\Logs</code>.</p>
-<h2 id="tool-registration-and-ribbon">Tool registration and ribbon</h2>
-<p><code>AppToolModuleRegistrar</code> asks Core's <code>ToolModuleCatalog</code> to discover embedded
-manifests. Each tool manifest names its owner, loaded by explicit path from the
-product year's <code>Tools/</code> directory in the active owning context.</p>
-<p>Ribbon planning builds <code>PushButtonData</code> directly from each <code>ToolRegistration</code>:
-the command assembly's file-backed <code>Location</code>, command full name, and optional
-concrete command availability full name. There is no App command lifecycle
-registry, generated bridge, or command fallback resolver. <code>ToolCommand.Execute</code>
-and <code>IsCommandAvailable</code> enter the stable Presentation callback scope so command
-callbacks cannot capture an owning context through <code>ExecutionContext</code>.</p>
-<h2 id="project-contract">Project contract</h2>
+<p><code>DBTools.App</code> builds <code>DBTools.dll</code>, the Revit add-in entry and the App runtime. It targets <code>net10.0-windows</code> (<code>DBT_RevitTargetFramework</code>) for desktop Revit 2026.5 or later and Revit 2027.</p>
+<h2 id="project">Project</h2>
 <table>
 <thead>
 <tr>
@@ -137,136 +112,106 @@ callbacks cannot capture an owning context through <code>ExecutionContext</code>
 <td><code>net10.0-windows</code></td>
 </tr>
 <tr>
-<td>Direct product references</td>
+<td>Product references</td>
 <td><code>DBTools.Core</code>, <code>DBTools.Presentation</code></td>
 </tr>
 <tr>
-<td>Merge owner</td>
-<td>Generic declared merge mechanism folds <code>ricaun.Revit.UI</code> into App</td>
+<td>Merged package</td>
+<td><code>ricaun.Revit.UI</code>, folded into <code>DBTools.dll</code> by the declared assembly merge</td>
 </tr>
 <tr>
-<td>Manifest ownership</td>
-<td>Embedded centrally in App</td>
+<td>Manifests</td>
+<td>Embedded in App for every tool</td>
 </tr>
 </tbody>
 </table>
-<p>The App project must not add a loose-copy target for merged ricaun runtime files.
-The product output stages App at the year root and tool owners below
-<code>Tools/</code>.</p>
-<h2 id="tests">Tests</h2>
-<p>App Pure tests cover the idle gate, direct ribbon planning, settings, and
-startup state. App Local tests cover real Revit ribbon composition and App
-lifecycle. Hosted staging supplies the complete direct product tree. The
-coordinator must run both-year Local fixtures and installed/Dev Mode entry
-proofs; this page does not claim those runtime results.</p>
-<h2 id="owner-tree">Owner tree</h2>
-<p>The App source tree follows the responsibility owners below:</p>
+<p>Revit API references are compile-only and are never staged as product runtime files. The App project must not add a loose-copy target for the merged <code>ricaun.Revit.UI</code> files. Product output stages App at the year root and the tool assemblies below <code>Tools/</code>.</p>
+<h2 id="responsibilities">Responsibilities</h2>
+<p>App owns:</p>
+<ul>
+<li>the public parameterless Revit entry (<code>AddinEntry</code>) and the daemon idle acknowledgement;</li>
+<li>the non-inlined startup and shutdown boundary, and the startup fallback diagnostics;</li>
+<li>lifecycle, hooks (<code>AppHooksToolModule</code>), ribbon composition, the settings host and shutdown;</li>
+<li>the embedded tool manifests.</li>
+</ul>
+<p>The fourteen tool projects under <code>src/Tools/</code> own their tool assemblies, including SGT, Settings and DialogSuppression. Each tool owner embeds its icons, raw views and manifest-declared design-time view models. Presentation owns the stable themes and compiled WPF controls.</p>
+<h2 id="source-tree">Source tree</h2>
 <pre><code class="lang-text">src/DBTools.App/
 ├── Addin/             # Revit entry and installed-copy idle acknowledgement
 ├── Composition/       # DI and manifest-facing registration
-├── Host/              # failure, test-run, and window-owner boundaries
-├── Lifecycle/         # publication, cleanup, and lifecycle state
+├── Host/              # failure, test-run and window-owner boundaries
+├── Lifecycle/         # publication, cleanup and lifecycle state
 ├── Logging/           # App logging-window integration
-├── Ribbon/            # planning, Revit effects, state, and startup styling
+├── Ribbon/            # planning, Revit effects, state and startup styling
 ├── Runtime/           # App runtime and local Revit task ownership
 ├── Settings/          # App settings host and integration
 ├── Shutdown/          # synchronous shutdown workflow
-└── Startup/           # preparation, deferred work, effects, and runtime boundary
+└── Startup/           # preparation, deferred work, effects and runtime boundary
 </code></pre>
-<p>Tests mirror these owners. Pure tests compile only the source slices needed for
-platform-neutral behavior; Local tests reference the real App project and retain the
-Revit/UI integration boundary.</p>
-<h2 id="startup-and-shutdown-phases">Startup and shutdown phases</h2>
-<p><code>AddinEntry</code> has a public parameterless constructor for Revit. Its first <code>OnStartup</code>
-action checks the daemon role and the entry assembly's actual load context. Only a
-file-backed entry in <code>AssemblyLoadContext.Default</code> acknowledges the installed idle copy;
-the acknowledgement key is <code>DBToolsDaemon.IdleAddin:&lt;simple-name&gt;</code> and its value is the
-entry location. The idle branch returns success without touching ribbon, events,
-or other startup work. ProductLoadContext, DevModeLoadContext, null contexts,
-and all other contexts take normal startup.</p>
-<p>Normal startup enters the non-inlined <code>AppStartupBoundary</code>, initializes the App runtime,
-validates themes, composes the ribbon, starts
-the Revit call gate, and publishes deferred startup work. Failure cleanup is synchronous
-at the owning Revit API boundary and combines primary and cleanup failures. Startup,
-shutdown and ribbon-runtime failures that cannot reach the normal log use the
-BCL-only <code>%APPDATA%/DBTools/Logs/DBTools.Fallback.log</code> path so a missing
-Core/UI dependency does not suppress the diagnostic.</p>
-<p><code>OnShutdown</code> follows the same boundary and returns only after the lifecycle cleanup result
-is complete. An idle installed entry has no owned runtime and returns success directly.
-The <code>App runtime host lifecycle</code> (<code>ShutdownHost</code>) sub-step, dispatcher-registry retirement,
-and cleanup summary are recorded to the fallback file after logging is disposed. The <code>Revit task host</code> sub-step still records failures through the live logger.</p>
-<h2 id="runtime-and-composition-details">Runtime and composition details</h2>
-<p><code>AppRuntimeFactory</code> builds the service root once. <code>AppServiceProviderFactory</code> registers
-logging, settings, UI ownership, Revit call gates, safe execution, command preflight,
-hooks, alerts, and ribbon composition. <code>AppToolModuleRegistrar</code> discovers embedded
-manifest resources once, instantiates module owners, captures settings/services/hooks in
-temporary registration state, validates module responsibilities, and merges the state into
-the App container.</p>
-<p>Tool manifests resolve their module, command, availability, and icon owner from
-the product year's <code>Tools/</code> image through Core's <code>ToolAssemblyResolver</code>; AppHooks stays in App. It uses
-the active owning load context, checks the declared PE identity, rejects a loaded same-name
-image from another path or identity, and does not probe a fallback directory.</p>
-<p>The command preflight creates the concrete command availability type before execution.
-<code>ToolCommand.Execute</code> and <code>IsCommandAvailable</code> enter the Presentation callback scope for
-the owning App/tool assembly, while <code>ExecutionContext</code> flow is suppressed across callbacks
-so host dispatchers and timers cannot retain a generation context.</p>
-<h2 id="ribbon-contract">Ribbon contract</h2>
-<p>Ribbon planning builds controls directly from <code>ToolRegistration</code>. A button's
-<code>PushButtonData</code> contains the command assembly's file-backed location, command full name,
-and optional concrete availability full name. Grouped controls preserve manifest order and
-use the same direct definitions. Existing buttons are reused only when their assembly path
-and class binding still match; a stale owner fails loudly rather than silently routing to a
-different generation. On a Dev Mode reload, a retained button can receive a changed
-availability class. Clearing an existing class requires a Revit restart. Removing, reordering
-or retyping retained items, or adding to a retained stack, fails and asks for a restart. A
-change to retained stack placement, membership, or boundaries also fails and asks for a restart.
-New panel items and grouped-button children can be appended after the retained items.</p>
-<p>Settings, SGT, and DialogSuppression follow the same registration path as every other
-manifest-declared tool, and their module/command assembly is the corresponding <code>Tools/</code>
-image.</p>
-<h2 id="resources">Resources</h2>
-<p>App embeds central tool manifests. Each tool owner embeds
-its icons, raw views, and manifest-declared design-time ViewModels. Presentation owns stable
-themes and compiled WPF controls. App has one desktop compilation; Pure tests reference that
-same image.</p>
-<h2 id="test-and-evidence-ownership">Test and evidence ownership</h2>
-<p>App Pure tests cover role/context decisions, direct planning, settings, and startup-state
-contracts. App Local tests cover direct entry behavior, real
-ribbon composition, command availability, lifecycle cleanup, and Revit window ownership.
-The coordinator runs both supported years and separately proves installed Default-context
-idle and Dev Mode reload behavior. Documentation and source-level tests do not claim those
-native results.</p>
-<h2 id="build-and-source-maps">Build and source maps</h2>
-<p><code>DBTools.App.csproj</code> emits <code>DBTools.dll</code> and references Core and Presentation. The generic
-assembly merge folds <code>ricaun.Revit.UI</code> into App; the App project must not add a loose-copy
-target for that merged implementation. ProductOutput stages App at the year root and
-standalone tools under <code>Tools/</code>.</p>
-<p><code>src/DBTools.App/MAP.md</code> is generated from the current live tree and manifest fields. When
-an owner directory or test path changes, run <code>python3 .agents/work/canon_source_maps.py</code>;
-do not hand edit the generated map.</p>
-<h2 id="hosted-test-boundary">Hosted test boundary</h2>
-<p>Local App and tool tests compile against the APIs they exercise, but runtime ownership
-comes from the staged product tree. Tool project references remain compile references and
-do not create competing flat product images in the test dependency closure. Hosted inputs
-include the complete year root with <code>Tools/</code> preserved, while test assemblies, NUnit files,
-and companions remain separate inputs. The daemon's ProductLoadContext forwards product
-references to the same declared product instances used by the App.</p>
-<p>The App test marker and Revit host support live at the test owner boundary. A hosted test
-must initialize the selected Revit year and use the shared call gate; a pure test references
-the normal App and must not run Revit startup or load Revit-typed members. The two lanes share behavior fixtures only
-when their runtime dependencies are genuinely the same.</p>
-<h2 id="project-references-and-release-checks">Project references and release checks</h2>
-<p>App references Core and Presentation directly. Tool projects own all fourteen tool
-assemblies, including SGT, Settings, and DialogSuppression. Revit API
-references are compile-only for product output and are never staged as product runtime
-files. The declared merge props own <code>ricaun.Revit.UI</code> folding and its determinism evidence.</p>
-<p>Release checks validate App's direct entry identity, embedded manifest ownership, command
-and availability owners, stable Presentation resources, source-map freshness, and exact
-year-tree placement. They do not prove installed Revit startup, daemon ProductLoadContext
-sharing, or Dev Mode reload; those remain coordinator-owned runtime proofs.</p>
-<p>See <a href="../architecture/assembly-loading.html">Assembly Loading Contract</a>,
-<a href="../architecture/project-references.html">Project References</a>, and
-<a href="../architecture/test-pipeline.html">Test Pipeline</a>.</p>
+<p><code>src/DBTools.App/MAP.md</code> is generated from the source tree and manifest fields. Do not edit it by hand; after an owner directory or test path changes, run <code>python3 .agents/work/canon_source_maps.py</code>.</p>
+<h2 id="startup">Startup</h2>
+<p><code>AddinEntry</code> has a public parameterless constructor for Revit. The first action of <code>OnStartup</code> checks <code>DBTOOLS_DAEMON_REVIT_ROLE</code> and the load context of the entry assembly.</p>
+<ul>
+<li><strong>Idle copy:</strong> only a file-backed entry in <code>AssemblyLoadContext.Default</code> acknowledges the installed idle copy. It records the key <code>DBToolsDaemon.IdleAddin:&lt;simple-name&gt;</code> (for App, <code>DBToolsDaemon.IdleAddin:DBTools</code>) with the entry location as its value, and returns success without touching the ribbon, events or other startup work.</li>
+<li><strong>Normal startup:</strong> every other context (<code>ProductLoadContext</code>, <code>DevModeLoadContext</code>, a null context and any other context) enters <code>ToolWindowCallbackScope</code> and the non-inlined <code>AppStartupBoundary</code>. Startup initializes the App runtime, validates themes, composes the ribbon, starts the Revit call gate and publishes deferred startup work.</li>
+</ul>
+<p>Failure cleanup runs synchronously at the Revit API boundary and combines the primary and cleanup failures. A startup, shutdown or ribbon-runtime failure that cannot reach the normal log is written by a BCL-only writer to <code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code>, so a missing Core or UI dependency does not hide the diagnostic.</p>
+<h2 id="shutdown">Shutdown</h2>
+<p><code>OnShutdown</code> uses the same boundary and returns only after the lifecycle cleanup result is complete. An idle installed entry has no runtime and returns success directly. The <code>App runtime host lifecycle</code> (<code>ShutdownHost</code>) step, the dispatcher-registry retirement and the cleanup summary are written to the fallback log after logging is disposed. The <code>Revit task host</code> step logs failures through the live logger.</p>
+<h2 id="composition">Composition</h2>
+<p><code>AppRuntimeFactory</code> builds the service root once. <code>AppServiceProviderFactory</code> registers logging, settings, UI ownership, Revit call gates, safe execution, command preflight, hooks, alerts and ribbon composition.</p>
+<p><code>AppToolModuleRegistrar</code> asks Core's <code>ToolModuleCatalog</code> to discover the embedded manifest resources once. It instantiates the module owners, collects their settings, services and hooks in temporary registration state, validates module responsibilities and merges the state into the App container.</p>
+<p>Core's <code>ToolAssemblyResolver</code> loads the module, command, availability and icon owner of each manifest by explicit path from the product year's <code>Tools/</code> directory, in the active owning load context. It checks the declared PE identity, rejects a loaded image with the same name from another path or identity, and probes no other directory. <code>AppHooks</code> stays in App.</p>
+<p>The command preflight creates the concrete command availability type before execution. <code>ToolCommand.Execute</code> and <code>IsCommandAvailable</code> enter the Presentation callback scope of the owning assembly. <code>ExecutionContext</code> flow is suppressed across callbacks, so host dispatchers and timers cannot keep a reference to an owning load context.</p>
+<h2 id="ribbon">Ribbon</h2>
+<p>Ribbon planning builds each <code>PushButtonData</code> directly from a <code>ToolRegistration</code>: the file-backed <code>Location</code> of the command assembly, the command full name and the optional availability class full name. Grouped controls keep manifest order and use the same definitions. There is no command registry, generated bridge or command fallback resolver in App. Settings, SGT and DialogSuppression use the same registration path as every other tool.</p>
+<p>On a reload (Dev Mode), <code>RibbonComposer</code> finds the retained panels without changing them and validates every requested panel and button before it removes, creates or restores anything. A refused reload leaves the ribbon unchanged and throws <code>InvalidOperationException</code> with a message that ends <code>Restart Revit to load this ribbon definition.</code></p>
+<table>
+<thead>
+<tr>
+<th>Retained ribbon change</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Same assembly path and command class</td>
+<td>Button reused.</td>
+</tr>
+<tr>
+<td>Changed availability class on a retained button</td>
+<td>Applied.</td>
+</tr>
+<tr>
+<td>Cleared availability class</td>
+<td>Refused; restart Revit.</td>
+</tr>
+<tr>
+<td>Removed, reordered or retyped items or buttons</td>
+<td>Refused; restart Revit.</td>
+</tr>
+<tr>
+<td>Changed stack placement, membership or row boundaries, or an item added to a retained stack</td>
+<td>Refused; restart Revit.</td>
+</tr>
+<tr>
+<td>Changed assembly path or command class</td>
+<td>Refused; restart Revit.</td>
+</tr>
+<tr>
+<td>New panel items or grouped-button children after the retained items</td>
+<td>Appended.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tests">Tests</h2>
+<ul>
+<li><strong>Pure</strong> tests cover the idle gate (role and load-context decisions), ribbon planning, settings and startup state. They compile only the source needed for platform-neutral behavior, must not run Revit startup and must not load Revit-typed members.</li>
+<li><strong>Local</strong> tests reference the real App project and cover entry behavior, real ribbon composition, command availability, lifecycle cleanup and Revit window ownership. A hosted test initializes the selected Revit year and uses the shared call gate.</li>
+</ul>
+<p>Hosted tests take runtime ownership from the staged product tree. Tool project references stay compile references and do not add separate product images to the test dependency closure. Hosted inputs include the complete year root with <code>Tools/</code> preserved; test assemblies, NUnit files and companions are separate inputs. The daemon's <code>ProductLoadContext</code> forwards product references to the same product instances that App uses.</p>
+<p>Release checks validate App's entry identity, embedded manifest ownership, command and availability owners, the stable Presentation resources, source-map freshness and the placement in the year tree. They do not test installed Revit startup, <code>ProductLoadContext</code> sharing in the daemon or Dev Mode reload; those need runs in Revit 2026 and 2027.</p>
+<p>See <a href="../architecture/assembly-loading.html">Assembly Loading Contract</a>, <a href="../architecture/project-references.html">Project References</a> and <a href="../architecture/test-pipeline.html">Test Pipeline</a>.</p>
 
 </article>
 

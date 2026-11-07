@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>View Template Comparer (VTC) — Developer Guide | DB Tools </title>
+      <title>View Template Comparer (VTC) - Developer Guide | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="View Template Comparer (VTC) — Developer Guide | DB Tools ">
+      <meta name="title" content="View Template Comparer (VTC) - Developer Guide | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,180 +87,126 @@
         </div>
 
         <article data-uid="">
-<h1 id="view-template-comparer-vtc--developer-guide">View Template Comparer (VTC) — Developer Guide</h1>
+<h1 id="view-template-comparer-vtc---developer-guide">View Template Comparer (VTC) - Developer Guide</h1>
 
-<p>VTC compares two Revit view templates, stages category edits locally, and applies selections plus eligible pending overrides through one <code>ApplySelectedChangesCommand</code> path (user-facing button label stays &quot;Process&quot;).</p>
-<hr>
-<h2 id="current-architecture">Current Architecture</h2>
-<h3 id="test-ownership">Test ownership</h3>
-<p><code>AlertBodyTemplateProviderTests</code> belongs to VTC App composition. The VTC Pure
-project exercises the provider and its raw <code>AlertBodyTemplates.xaml</code> resource
-(<code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code>) through a plain reference to the
-normal desktop VTC owner; this is WPF-only and does not start a Revit host.</p>
-<h3 id="command--application-shell">Command + application shell</h3>
+<p>VTC compares two Revit view templates of the current document, stages category edits locally, and applies the selected differences and eligible pending overrides through one command, <code>ApplySelectedChangesCommand</code> (button label &quot;Process&quot;). It can also create a merged template and save templates to a local library.</p>
+<p>The data contract (tabs, imported categories, Revit-link settings, keys, apply and copy rules, library storage) is in the <a href="vtc-spec.html">VTC specification</a>.</p>
+<h2 id="command-and-composition">Command and composition</h2>
 <ul>
-<li><code>VtcCommand</code> remains the Revit entrypoint.</li>
-<li><code>VtcCommand</code> validates the DBTools command context and delegates application assembly to <code>App/Composition/VtcWindowLauncher</code>.</li>
-<li><code>VtcWindowLauncher</code> owns modal launch flow: it resolves document-scoped templates, handles the no-template alert, delegates collaborator construction to <code>VtcWindowCompositionFactory</code>, creates <code>VtcWindowSession</code> through Core <code>ToolWindowFactory</code>, and, after dialog close, ensures the logger window when Debug Mode is on. It always retires the comparer and linked-file windows; a dialog failure stays ahead of every retirement failure.</li>
-<li><code>VtcWindowCompositionFactory</code> creates one document-scoped graph: <code>TemplateExtractor</code>, <code>RevitLinkSettingsAdapter</code>, <code>TemplateDifferenceEvaluator</code>, <code>TemplateApplier</code>, <code>TemplateMaterializer</code>, and the single outward <code>TemplateRuntime</code>.</li>
-<li><code>TemplateRuntime</code> is the only document façade. It owns template-ID resolution and exposes compare, extract, apply, materialize, Revit-link copy, and pattern queries without retaining a second pass-through comparison façade. App batch-session consumers depend on the focused <code>ITemplateSessionRuntime</code> port; the Revit façade implements it, and pure tests substitute only that external boundary rather than shadowing the production class.</li>
-<li><code>VtcWindowSession</code> owns the modal tool-window session. Core <code>ToolWindowFactory</code> supplies the stable shell for the raw VTC view; Comparison owns the comparison workspace, Inspector, and Preview views; Library owns its concrete workspace view; the focused Revit-link modal reuses the Comparison-owned diff control.</li>
-<li><code>AlertPresenter</code> is the one VTC presentation boundary. Composition supplies the raw alert service only to that presenter; App view-model and workflow consumers use the presenter for standard alerts plus bespoke requests and selections.</li>
-<li><code>VtcWindowBatchWorkflow</code> owns only App session reactions for Process and Library work. The App view-model owns Revit-link prompts, modal hosting, refresh, and result presentation; <code>TemplateRuntime</code> delegates Revit-link batch apply/copy execution and expected-conflict classification to Template Apply. There is no App-facing feature workflow, callback inversion, or raw alert-service escape.</li>
+<li><code>VtcCommand</code> is the Revit entry point. It validates the command context and calls <code>App/Composition/VtcWindowLauncher</code>.</li>
+<li><code>VtcWindowLauncher</code> owns the modal launch: it resolves the document's templates, shows an alert when there are none, has <code>VtcWindowCompositionFactory</code> build the collaborators, and creates <code>VtcWindowSession</code> through Core's <code>ToolWindowFactory</code>. After the dialog closes it opens the logger window when Debug Mode is on. It always retires the comparer and linked-file windows; a dialog failure is reported before any retirement failure.</li>
+<li><code>VtcWindowCompositionFactory</code> creates one graph per document: <code>TemplateExtractor</code>, <code>RevitLinkSettingsAdapter</code>, <code>TemplateDifferenceEvaluator</code>, <code>TemplateApplier</code>, <code>TemplateMaterializer</code>, <code>TemplateStorage</code> (cache directory <code>AppPaths.GetToolCacheDir(&quot;VTC&quot;)</code>) and the one document facade, <code>TemplateRuntime</code>.</li>
+<li><code>TemplateRuntime</code> (<code>Revit/Template</code>) resolves template IDs and exposes compare, extract, batch apply, create merged, apply model, Revit-link targets and copy, and line and fill pattern queries. App batch-session code depends on the <code>App/Sessions/ITemplateSessionRuntime</code> port, which <code>TemplateRuntime</code> implements; pure tests replace only that port.</li>
+<li><code>VtcWindowSession</code> owns the modal window session. <code>ToolWindowFactory</code> supplies the stable shell for the raw VTC view. Comparison owns the workspace, Inspector and Preview views; Library owns its workspace view; the Revit-link modal reuses the Comparison diff control.</li>
+<li><code>AlertPresenter</code> is the only alert boundary in App. Composition gives the alert service only to the presenter; view models and workflows use the presenter for standard alerts, custom requests and selections.</li>
+<li><code>VtcWindowBatchWorkflow</code> handles App session reactions for Process and Library work. The App view model owns Revit-link prompts, modal hosting, refresh and result presentation. <code>TemplateRuntime</code> passes Revit-link batch apply and copy, and the classification of expected conflicts, to Template Apply.</li>
+<li><code>VtcWindowCommandRuntime</code> reports a refused operation through <code>SafeExecutionRefusalReporter</code> as <code>VTC {operation}</code>.</li>
 </ul>
-<h3 id="dev-mode-view-hosting">Dev Mode view hosting</h3>
-<p>VTC views are raw XAML <code>EmbeddedResource</code> items with explicit logical names. The
-main view uses <code>DBTools.ToolViews.VTC.VtcWindow.xaml</code>; the remaining resources are
-<code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code>,
-<code>DBTools.ToolViews.VTC.ComparisonWorkspaceView.xaml</code>,
-<code>DBTools.ToolViews.VTC.ComparisonInspectorView.xaml</code>,
-<code>DBTools.ToolViews.VTC.ComparisonPreviewView.xaml</code>,
-<code>DBTools.ToolViews.VTC.DiffViewControl.xaml</code>,
-<code>DBTools.ToolViews.VTC.LibraryView.xaml</code>, and
-<code>DBTools.ToolViews.VTC.RevitLinkSettingsWindow.xaml</code>.
-<code>VtcWindowSession</code> reads the main resource through Core <code>ToolWindowFactory</code> and
-owns once-only owner attachment and cleanup. VTC has no custom close gate or native pick loop.</p>
-<p>Shared VTC resource dictionaries live in the stable
-<code>DBTools.Presentation/Tools/VTC/</code> owner as <code>VtcDiffViewStyles.xaml</code> and
-<code>VtcComparisonViewStyles.xaml</code>. Stable converters in the flat
-<code>DBTools.Presentation.Tools.VTC</code> namespace are <code>VtcConflictConverter</code> and
-<code>VtcRawViewConverter</code>. <code>VtcResourceTemplateSelector</code> resolves App-owned outcome templates and always returns an empty template for standalone views. Alert bodies use full-name string keys with the stable
-<code>TypeNameTemplateSelector</code>; every content and item slot has an explicit template,
-immutable record values use <code>OneTime</code> bindings, and mutable view-model state uses
-<code>INotifyPropertyChanged</code>.</p>
-<p>The conversion preserves live comparison and Inspector bindings, preview navigation
-only for navigable setting keys, workspace path realization and selection, eligible
-left-button double-click override editing, Library split-button menu placement, and modal close behavior. Keyboard focus moves to the comparison row after the inspector tab loads. Pending navigation focus and close requests are aborted on retirement.</p>
-<p>Each raw view merges Theme once, before the VTC style dictionaries. The shared dictionaries do not merge Theme again. <code>Vtc.TreeView</code> keeps its original implicit TreeView base and VTC overrides; each tree retains its existing scrolling and virtualization settings. Named item selectors specify <code>TextSearch.TextPath</code> for prefix typing and automation names on their template text. <code>SavedTemplateInfo</code>, <code>ViewFilterOption</code>, <code>LinePattern</code>, <code>FillPatternData</code>, and <code>TemplateOption</code> return their display label from <code>ToString()</code> so item-container automation peers and text fallbacks also use the displayed label without changing the themed container styles.</p>
-<p>Two interaction changes are intentional: override editing responds only to the left mouse button, and the linked dialog’s context-menu selection commands now resolve through its own view model and work. The raw linked view itself carries the “Linked file override differences” automation name. The main window initializer retains the <code>VtcWindow</code> log prefix.</p>
-<h3 id="core-services">Core services</h3>
+<p>Sources: <code>src/Tools/Experimental/VTC/Revit/Template/TemplateRuntime.cs</code>, <code>src/Tools/Experimental/VTC/Features/TemplateApply/Execution/TemplateApplier.Operations.cs</code>, <code>src/Tools/Experimental/VTC/App/Composition/VtcWindowCompositionFactory.cs</code>.</p>
+<h2 id="source-layout">Source layout</h2>
+<p>VTC has several features under <code>Features/</code>, each with its own domain, planning, state, Revit and UI code:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Features/Comparison</code></td>
+<td>Diff tree (<code>DiffTreeBuilder</code>, <code>DiffTreeIndex</code>, <code>DiffTreeNode</code>, <code>DiffTreeProjector</code>), preview projection, window comparison state (<code>VtcWindowComparisonCoordinator</code>), category tab classification and <code>RevitLinkActionSourceResolver</code></td>
+</tr>
+<tr>
+<td><code>Features/Library</code></td>
+<td><code>TemplateStorage</code>, <code>SavedTemplateInfo</code>, <code>TemplateStorageException</code></td>
+</tr>
+<tr>
+<td><code>Features/RevitLinks</code></td>
+<td><code>RevitLinkDiffEvaluator</code>, <code>RevitLinkSettingsAdapter</code>, <code>RevitLinkTargetResolver</code>, the Revit-link settings window</td>
+</tr>
+<tr>
+<td><code>Features/TemplateApply</code></td>
+<td><code>TemplateApplier</code> partials, pending overrides (<code>PendingOverrideState</code>), apply results and conflicts, <code>MergedTemplateBuilder</code>, <code>SnapshotSelectionPolicy</code>, pattern rendering and override editors</td>
+</tr>
+<tr>
+<td><code>Features/TemplateComparison.cs</code>, <code>Features/TemplateDifferenceEvaluator.cs</code></td>
+<td>Host-neutral comparison result and evaluator</td>
+</tr>
+<tr>
+<td><code>Domain/</code></td>
+<td>Tool-wide vocabulary: <code>TemplateSnapshot</code>, <code>SettingDifference</code>, <code>SettingValue</code>, <code>SettingTab</code>, <code>RevitLinkSetting</code>, <code>RevitLinkSettingKind</code>, <code>RevitLinkSettingValue</code>, <code>RevitLinkTarget</code>, <code>RevitLinkTargetKind</code> and the graphics data types</td>
+</tr>
+<tr>
+<td><code>Revit/Template</code></td>
+<td><code>TemplateExtractor</code>, <code>TemplateMaterializer</code>, <code>TemplateRuntime</code></td>
+</tr>
+<tr>
+<td><code>App/</code></td>
+<td>Composition, sessions, view models, views and design-time data</td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li><code>TemplateSnapshot</code> stores explicit Revit-link setting rows in <code>RevitLinks</code>; the old linked-file blob payload is gone.</li>
-<li>Display settings now use typed VTC enums for detail level, display style, parts visibility, discipline, and show-hidden-lines, with explicit conversion only at the Revit API boundary.</li>
-<li><code>SettingDifference.LeftValue</code> / <code>RightValue</code> store typed <code>SettingValue</code> cases instead of <code>object</code>, and compare/apply/App paths pattern-match those cases rather than recovering payload shape with runtime casts.</li>
-<li><code>TemplateDifferenceEvaluator</code> is host-neutral under <code>Features/Comparison</code>; <code>TemplateExtractor</code> and <code>RevitLinkSettingsAdapter</code> own Revit mechanics behind <code>TemplateRuntime</code>.</li>
-<li><code>SettingPreviewItem</code> and <code>DiffTreeProjector.ViewFilter</code> are Comparison-owned input/state contracts, so feature projections do not import App view models.</li>
-<li><code>DiffTreeNode</code> contains comparison and local display state only. <code>PendingOverrideState</code> owns pending override DTOs without tree or UI dependencies, and <code>TemplateApplyResult</code> remains the sole apply-outcome authority. The App view-model projects that result onto current setting keys for row feedback and filtering without storing outcomes on comparison nodes.</li>
-<li><code>VtcWindowBatchWorkflow.SavedTemplates</code> treats template extraction/merge and the cache save/delete as the mutation boundary. After a committed mutation, list refresh has its own error boundary: log the refresh failure with the template name and show one warning that the cache operation succeeded; show success only after the list refresh succeeds. Both save commands ask &quot;Replace saved template 'X'?&quot; through <code>AlertPresenter</code> before overwriting an existing name; Cancel writes nothing.</li>
-<li><code>DiffTreeBuilder</code> only constructs a tree from differences. <code>DiffTreeIndex</code> retains the rebuilt roots and owns key lookup, canonical-node paths, tree-order selection collection, and Revit-link subtree queries for the coordinator, preview projection, and focused Revit-link modal.</li>
+<li><code>TemplateDifferenceEvaluator</code> is host-neutral. <code>TemplateExtractor</code> and <code>RevitLinkSettingsAdapter</code> own the Revit mechanics behind <code>TemplateRuntime</code>.</li>
+<li><code>SettingDifference.LeftValue</code> and <code>RightValue</code> hold typed <code>SettingValue</code> cases. Compare, apply and App code pattern-match these cases.</li>
+<li>Display settings use VTC enums (<code>DetailLevel</code>, <code>DisplayStyle</code>, <code>PartsVisibility</code>, <code>ViewDiscipline</code>, <code>ShowHiddenLinesMode</code>); conversion to Revit enums happens only at the Revit API boundary.</li>
+<li><code>SettingPreviewItem</code> and <code>DiffTreeProjector.ViewFilter</code> are Comparison contracts, so feature projections do not import App view models.</li>
+<li><code>DiffTreeNode</code> holds comparison and display state only. <code>PendingOverrideState</code> holds pending override DTOs with no tree or UI dependency. <code>TemplateApplyResult</code> is the only apply outcome; the App view model (<code>TemplateApplyOutcomeProjection</code>) projects it onto setting keys for row feedback and filters and stores no outcome on comparison nodes.</li>
+<li><code>DiffTreeBuilder</code> only builds a tree from differences. <code>DiffTreeIndex</code> keeps the rebuilt roots and owns key lookup, canonical node paths, selection collection in tree order and Revit-link subtree queries for the coordinator, the preview projection and the Revit-link modal.</li>
+<li><code>MergedTemplateBuilder</code> (<code>Features/TemplateApply/Planning/MergedTemplate</code>) builds the merged <code>TemplateSnapshot</code> from the comparison result, the selections, the base side and the name. View-model operations only orchestrate effects.</li>
+<li>App composes outcome templates into Comparison views at runtime; Comparison raises only selected-node, override-edit and preview-setting requests for App to coordinate across panes and modals.</li>
+<li>Local Revit tests compose the same concrete runtime graph.</li>
 </ul>
-<h3 id="owner-layout">Owner layout</h3>
-<p>VTC is multi-feature: <code>Features/{Comparison,Library,RevitLinks,TemplateApply}</code> own their domain/planning/state/Revit/UI layers. Tool-wide vocabulary remains under the small root <code>Domain</code>, including persisted <code>RevitLinkSetting</code>, <code>RevitLinkSettingKind</code>, <code>RevitLinkSettingValue</code>, <code>RevitLinkTarget</code>, and <code>RevitLinkTargetKind</code>; application views, view models, resources, sessions, and composition live under <code>App</code>; shared Revit document adapters live under <code>Revit/Template</code>. The former <code>Shell</code>, <code>Shared</code>, and root <code>UI</code> organizers are dissolved.</p>
+<h2 id="views">Views</h2>
+<p>VTC views are raw XAML <code>EmbeddedResource</code> items with explicit logical names:</p>
 <ul>
-<li>Extraction, diff computation, and native Revit-link loading/copy/apply logic live in focused owners rather than overlapping façades. Comparison owns window comparison state and UI-neutral source selection; Template Apply owns batch execution and expected conflict classification; <code>RevitLinkSettingsAdapter</code> owns extract/copy mechanics and reads and writes <code>RevitLinkGraphicsSettings</code> directly, while <code>RevitLinkTargetResolver</code> owns target lookup plus linked-document name/id remapping.</li>
-<li>Local Revit tests compose the same concrete runtime graph; no compatibility façade or forwarding alias remains.</li>
-<li>The App outcome projection remains App-owned. It is composed into Comparison views through runtime templates, while Comparison emits only selected-node, override-edit, and preview-setting requests for App cross-pane/modal coordination.</li>
+<li><code>DBTools.ToolViews.VTC.VtcWindow.xaml</code> (main view)</li>
+<li><code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.ComparisonWorkspaceView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.ComparisonInspectorView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.ComparisonPreviewView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.DiffViewControl.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.LibraryView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.RevitLinkSettingsWindow.xaml</code></li>
 </ul>
-<!-- VERIFIED: 2026-09-05 -->
-<blockquote>
-<p><strong>Sources:</strong> <code>src/Tools/Experimental/VTC/Revit/Template/TemplateRuntime.cs</code>, <code>src/Tools/Experimental/VTC/Features/TemplateApply/Execution/TemplateApplier.Operations.cs</code>, <code>src/Tools/Experimental/VTC/App/Composition/VtcWindowCompositionFactory.cs</code></p>
-</blockquote>
-<hr>
-<h2 id="imported-categories">Imported Categories</h2>
+<p><code>VtcWindowSession</code> loads the main resource through <code>ToolWindowFactory</code> and owns the one-time owner attachment and cleanup. VTC has no custom close gate and no native pick loop.</p>
+<p>Shared resource dictionaries are in <code>DBTools.Presentation/Tools/VTC/</code>: <code>VtcDiffViewStyles.xaml</code> and <code>VtcComparisonViewStyles.xaml</code>. The namespace <code>DBTools.Presentation.Tools.VTC</code> holds the converters <code>VtcConflictConverter</code> and <code>VtcRawViewConverter</code>. <code>VtcResourceTemplateSelector</code> resolves App outcome templates and returns an empty template in a standalone view. Alert bodies use full type-name string keys with <code>TypeNameTemplateSelector</code>. Every content and item slot has an explicit template; immutable record values bind <code>OneTime</code> and mutable view-model state uses <code>INotifyPropertyChanged</code>.</p>
 <ul>
-<li>Imported Categories stay inside the normal <code>CategoryOverride</code> pipeline.</li>
-<li><code>CategoryTabClassifier</code> routes model categories with positive IDs to <code>ImportedCategories</code>. Other category types retain their native tab routing.</li>
-<li>Extraction, compare, inline edit, preview, Process, merged-save, and snapshot apply all reuse the same category contracts and VM state as any other category row.</li>
-<li>Tree rendering keeps imported categories under their own native-looking tab; imported layers/subcategories still inherit the imported parent tab.</li>
+<li>Each raw view merges Theme once, before the VTC dictionaries; the shared dictionaries do not merge Theme. <code>Vtc.TreeView</code> is based on the implicit TreeView style with VTC overrides; each tree sets its own scrolling and virtualization.</li>
+<li>Named item selectors set <code>TextSearch.TextPath</code> for prefix typing and automation names on their template text. <code>SavedTemplateInfo</code>, <code>ViewFilterOption</code>, <code>LinePattern</code>, <code>FillPatternData</code> and <code>TemplateOption</code> return their display label from <code>ToString()</code>, so automation peers and text fallbacks show the label.</li>
+<li>Preview navigation is available only for navigable setting keys. Double-click override editing responds to the left mouse button only, on eligible rows.</li>
+<li>Keyboard focus moves to the comparison row after the Inspector tab loads. Pending focus and close requests are canceled on retirement.</li>
+<li>The linked dialog's context-menu selection commands bind to its own view model. The raw linked view has the automation name &quot;Linked file override differences&quot;. The main window initializer uses the log prefix <code>VtcWindow</code>.</li>
 </ul>
-<hr>
-<h2 id="revit-links">Revit Links</h2>
-<h3 id="native-only-contract">Native-only contract</h3>
+<h2 id="process-and-merged-templates">Process and merged templates</h2>
 <ul>
-<li>Revit Links no longer use <code>VtcLinkedFileOverrideData</code>, <code>CategoryOverrides</code>, host-category masquerading, or compare-only linked-category blobs.</li>
-<li>VTC emits one explicit <code>VtcRevitLinkSettingData</code> row for each of the 11 Revit-link setting kinds.</li>
-<li>Revit-link rows now use one canonical key: target kind (<code>type</code> or <code>instance</code>), canonical <code>LinkName</code>, and setting kind.</li>
-<li>Cross-model compare/save/load/apply no longer switches between doc-local ids and alternate matching paths. If <code>LinkName</code> is ambiguous for a target kind, VTC now fails instead of guessing.</li>
-<li>The diff tree groups those rows under <code>Revit Links</code> by link display name, so the main tree shows all 11 leaf settings instead of one opaque link blob row.</li>
+<li><code>ApplySelectedChangesCommand</code> applies the selections and eligible pending category overrides in one <code>VTC Process Apply</code> transaction, with one <code>SubTransaction</code> per setting so an expected conflict rolls back only that setting.</li>
+<li>An apply failure becomes a per-setting conflict only after its sub-transaction confirms <code>RolledBack</code>. If the rollback throws or reports another status, the batch stops with a <code>BatchApplyException</code> that contains the apply failure and then the rollback failure. An unconfirmed rollback never publishes a pending-override conflict key.</li>
+<li><strong>Create Merged</strong> (<code>TemplateRuntime.CreateMergedTemplate</code>) runs template creation and the pending-override batch in one transaction group, <code>Create Merged View Template</code>, started through <code>RevitTransactionGroups.Begin</code> and assimilated into one Undo entry. Expected per-setting conflicts are reported and the new template is kept. Any other fault rolls the group back and leaves no template, so a retry with the same name works.</li>
+<li><code>TemplateMaterializer</code> copies the Left template with <code>ElementTransformUtils.CopyElements</code> and a duplicate-type handler that keeps destination types, so Revit shows no dialog. It catches no copy failure: a fault rolls back the group and reaches <code>RunOrReport</code> as an Error alert.</li>
+<li><code>VtcWindowBatchWorkflow.SavedTemplates</code> treats template extraction or merge and the cache save or delete as the change. After that change, the list refresh has its own error boundary: a refresh failure is logged with the template name and shows one warning that the cache operation succeeded; success is shown only after the refresh succeeds. Both save commands ask <code>Replace saved template 'X'?</code> through <code>AlertPresenter</code> before they overwrite an existing name; Cancel writes nothing.</li>
 </ul>
-<h3 id="supported-api-surface">Supported API surface</h3>
-<ul>
-<li>Supported desktop Revit 2026.5+ and 2027 public API metadata includes:
-<ul>
-<li><code>ViewFilterType</code></li>
-<li><code>NestedLinks</code></li>
-<li><code>ObjectStyles</code></li>
-</ul>
-</li>
-</ul>
-<p>Revit 2026 API/reference metadata currently derives from the pinned 2026.4.10 portable package for cross-platform compilation; it is not installed-Revit-2026.5 API-parity proof.</p>
-<ul>
-<li><code>ColorFill</code></li>
-<li><code>ViewRange</code></li>
-<li><code>Phase</code></li>
-<li><code>PhaseFilter</code></li>
-<li><code>ViewDetailLevel</code></li>
-<li><code>Discipline</code></li>
-<li>VTC always emits and copies all 11 Revit-link setting kinds through typed <code>RevitLinkGraphicsSettings</code> members.</li>
-<li>Type-level and instance-level link targets are both extracted through <code>View.GetLinkOverrides(...)</code> / <code>View.SetLinkOverrides(...)</code>.</li>
-</ul>
-<h3 id="ui-and-copy-flow">UI and copy flow</h3>
-<ul>
-<li>The context menu now exposes “Open Revit Link Settings...” and “Copy Revit Link Settings To...”.</li>
-<li>Those actions only appear on a concrete Revit-link group or leaf row, not on the <code>Revit Links</code> tab root.</li>
-<li>Opening the focused modal from any Revit-link leaf now scopes the modal back to that link target’s full setting group instead of showing a one-row subset.</li>
-<li><code>RevitLinkActionSourceResolver</code> is the Comparison-owned, UI-neutral selection rule: it chooses the sole available side or a viable selected side, and reports ambiguity only when both sides remain viable. App owns the resulting prompt and all user-visible effects.</li>
-<li>If both Left and Right contain the same Revit-link row and no side is already selected, VTC prompts for which template the modal/copy action should operate on instead of silently defaulting to Left.</li>
-<li>The focused modal rehosts all 11 Revit-link rows present in the main tree, and a successful modal apply refreshes the main comparison so the tree is not left stale.</li>
-<li>Applying from the focused modal uses <code>BatchApply</code> in one <code>VTC Process Apply</code> transaction, with one subtransaction per setting and one Undo entry. A missing comparison key is an <code>ElementNotFound</code> conflict; an unexpected fault rolls back the whole apply.</li>
-<li>Copy uses <code>GetRevitLinkTargets()</code> plus <code>CopyRevitLinkSettings(...)</code> and always handles all 11 Revit-link setting kinds, matching extraction.</li>
-<li>Copy runs each target in a <code>Copy Revit Link Settings</code> transaction, then assimilates those transactions into one Undo entry. An expected failure rolls back only that target; an unexpected fault rolls back every target.</li>
-<li><code>Linked View</code>, <code>Phase</code>, and <code>Phase Filter</code> are remapped by linked-element name when source and target point at different linked RVTs; raw linked-document ids are not copied across models.</li>
-<li>When the source linked document is unloaded and that remap name is unavailable, copy reuses the raw id only if source and target reference the same linked model. Cross-link copy fails instead of guessing.</li>
-</ul>
-<h3 id="removed-behavior">Removed behavior</h3>
-<ul>
-<li>Deleted behavior:
-<ul>
-<li>compare-only linked-category extraction</li>
-<li><code>CopyCategoryOverrides</code>-style linked copy flags</li>
-<li>one-row linked-file blob compare/apply semantics</li>
-<li>linked-model Model/Annotation/Import Categories masquerading as host category rows</li>
-</ul>
-</li>
-<li>VTC now either reads and writes a setting through public API or omits it entirely.</li>
-</ul>
-<hr>
-<h2 id="process--serialization">Process + Serialization</h2>
-<ul>
-<li><code>ApplySelectedChangesCommand</code> still batches selections plus eligible pending category overrides, with per-setting <code>SubTransaction</code> isolation for expected conflicts.</li>
-<li>An apply failure becomes a per-setting conflict only after its subtransaction confirms <code>RolledBack</code>. A thrown rollback failure or another status aborts the batch with a <code>BatchApplyException</code> containing both causes, ordered apply failure then rollback failure. Unconfirmed rollback never publishes a pending-override conflict key.</li>
-<li>Create Merged runs template creation and the pending-override batch in one <code>TransactionGroup</code> (<code>TemplateRuntime.CreateMergedTemplate</code>), assimilated into one Undo entry named <code>Create Merged View Template</code>. Expected per-setting conflicts are reported and keep the new template; any other fault rolls the group back and leaves no template, so a retry with the same name succeeds.</li>
-<li><code>TemplateMaterializer</code> copies the Left template with <code>ElementTransformUtils.CopyElements</code>, using a duplicate-type handler that keeps destination types so Revit opens no modal dialog. It catches no copy failures, so any fault rolls back the group and reaches <code>RunOrReport</code> as an Error alert.</li>
-<li><code>TemplateStorage</code> admits one complete current <code>TemplateSnapshot</code> graph on both load and save, including required collections, nested elements, and enum values. Incompatible data uses the existing storage exception channel; no normalization or old-format recovery is performed.</li>
-<li><code>TemplateStorage</code> is the sole cache-path owner. Callers use logical template names; <code>SavedTemplateInfo</code> exposes only the name and modification time, and rooted or separator-containing names are rejected rather than normalized.</li>
-<li>Library enumeration and existence checks are pure queries when the cache directory is absent. Enumeration returns an empty list for <code>DirectoryNotFoundException</code>; other enumeration failures raise <code>TemplateStorageException</code> with operation <code>enumerate</code>. <code>TemplateExists</code> returns false for a missing file or folder and raises <code>TemplateStorageException</code> for other probe failures. Only <code>SaveTemplate</code> creates the directory.</li>
-<li><code>TemplateExtractor</code> has no duplicability probe or logger dependency; the unused <code>CheckDuplicability</code> surface was deleted with all constructor callsites updated.</li>
-<li>Revit-link rows participate in Preview, Process, create-merged, and save-merged as ordinary diff rows.</li>
-<li><code>BuildMergedModel(...)</code> now persists explicit <code>RevitLinks</code> rows instead of the deleted linked-file blob contract.</li>
-<li>Merged-template construction is Application-owned: <code>Features/Application/Planning/VtcMergedTemplateBuilder</code> derives the merged <code>VtcTemplateSettingsModel</code> from comparison result, selections, base side, and name. Application view-model operations keep only effect orchestration and call the feature builder.</li>
-<li>Missing-side Revit-link selections now reset only the selected native setting row to its default/host state.</li>
-<li>Snapshot-style compare/save/load/apply reuses the same canonical <code>LinkName</code> keys as normal compare; it does not switch between id keys and alternate lookup routes.</li>
-</ul>
-<!-- VERIFIED: 2026-11-03 -->
-<blockquote>
-<p><strong>Sources:</strong> <code>src/Tools/Experimental/VTC/Domain/Template/TemplateSnapshot.cs</code>, <code>src/Tools/Experimental/VTC/Features/Library/Operations/TemplateStorage.cs</code>, <code>src/Tools/Experimental/VTC/Revit/Template/TemplateExtractor.cs</code>, <code>src/Tools/Experimental/VTC/Revit/Template/TemplateMaterializer.cs</code></p>
-</blockquote>
-<hr>
 <h2 id="tests">Tests</h2>
+<p><code>DBTools.VTC.Pure.Tests</code> (no Revit host):</p>
 <ul>
-<li><code>VtcDiffTreeBuilderTests</code> and <code>VtcDiffTreeNodeTests</code> run in <code>DBTools.VTC.Pure.Tests</code> because diff-tree grouping, selection state, and property-change behavior are native shell state, not Revit-hosted behavior.</li>
-<li><code>VtcDiffTreeBuilderTests</code> covers imported-category tab rendering and Revit-link grouping by link name.</li>
-<li><code>VtcPendingOverrideManagerTests</code> run in <code>DBTools.VTC.Pure.Tests</code> because pending override staging, eligibility, restore, clear, merge-save application, and failed-pending collection are native shell state over VTC DTOs.</li>
-<li><code>TemplateApplyOutcomeProjectionTests</code> prove App-side keyed conflict/success projection used by the row feedback and result filters; no Template Apply outcome is retained by the comparison tree.</li>
-<li><code>TemplateStorageTests</code> run in <code>DBTools.VTC.Pure.Tests</code> against the real storage service with a temp cache directory; the pure project consumes VTC product code and the canonical raw alert-template logical resource name through a plain owner reference and does not reference <code>DBTools.App</code>.</li>
-<li><code>VtcRawXamlParseTests</code> checks that the linked-file view exposes its accessible name and passes its view model into the composed diff view; raw comparison owner tests exercise the registered Core <code>ToolWindowFactory</code> session and stable behavior bindings.</li>
-<li><code>TemplateStorageTests</code> round-trip imported-category tab data plus explicit <code>RevitLinks</code> payload rows.</li>
-<li><code>TemplateDiffEvaluatorTests</code> run in <code>DBTools.VTC.Pure.Tests</code> because snapshot comparison is native policy over <code>SettingDifference</code> rows, not Revit-hosted behavior.</li>
-<li><code>RevitLinkActionSourceResolverTests</code> run in <code>DBTools.VTC.Pure.Tests</code> and cover sole-side, selected-side, ambiguous-side, and no-Revit-link-value resolution without App prompt behavior.</li>
-<li><code>VtcWindowViewModelTests</code> now keeps only local process/create/link shell flow around real Revit template extraction/apply/create, local alert/process body orchestration, and Revit-link modal/copy behavior.</li>
-<li><code>DBTools.VTC.Local.Tests</code> now includes Local Revit fixtures that open promoted GM/SGT models, create temporary templates, and roll back all mutations after each run.</li>
-<li><code>VtcRevitLinkSnapshotLocalTests</code> covers canonical <code>LinkName</code> pairing plus linked-element-name remap failures in the supported Revit-hosted runner.</li>
-<li><code>VtcRevitLinkBaselineLocalTests</code> validates extract + apply round-trips for <code>LinkVisibilityType</code> and <code>LinkedViewId</code> on both <code>RevitLinkType</code> and <code>RevitLinkInstance</code> targets in <code>sgt_test_model.rvt</code>.</li>
-<li><code>VtcRevitLinkExtendedLocalTests</code> validates the extended <code>RevitLinkGraphicsSettings</code> members on the real SGT linked-model fixture.</li>
-<li><code>VtcRevitLinkSnapshotLocalTests</code> validates snapshot-style compare/apply when stored Revit-link target ids and linked-element ids are intentionally mismatched.</li>
-<li><code>VtcImportCategoriesLocalTests</code> imports a shared CAD asset transiently inside the rollback scope and confirms imported categories still use the normal category-override compare/apply path.</li>
-<li><code>VtcSgtModelAuditLocalTests</code> and <code>VtcGmModelAuditLocalTests</code> remain as open-model sanity checks around existing-view extraction and link-target presence.</li>
+<li><code>DiffTreeBuilderTests</code>, <code>DiffTreeIndexTests</code>, <code>DiffTreeNode*Tests</code>, <code>DiffTreeProjectorTests</code>: grouping, selection state and change notification, including imported-category tabs and Revit-link grouping by link name.</li>
+<li><code>PendingOverrideStateTests</code>, <code>PendingCategoryOverrideTests</code>: staging, eligibility, restore, clear, merge-save application and failed-pending collection.</li>
+<li><code>TemplateApplyOutcomeProjectionTests</code>: keyed conflict and success projection for row feedback and result filters.</li>
+<li><code>TemplateStorageTests</code>: the real storage service with a temporary cache directory, including imported-category data and <code>RevitLinks</code> rows. The project references the VTC product assembly directly, not <code>DBTools.App</code>.</li>
+<li><code>TemplateDiffEvaluatorTests</code>, <code>RevitLinkDiffEvaluatorTests</code>: snapshot comparison over <code>SettingDifference</code> rows.</li>
+<li><code>RevitLinkActionSourceResolverTests</code>: sole-side, selected-side, ambiguous-side and no-value resolution.</li>
+<li><code>AlertBodyTemplateProviderTests</code>: the provider and its raw <code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code> resource (WPF only).</li>
+<li><code>VtcRawXamlParseTests</code>: the linked-file view's accessible name and its view model passed to the composed diff view. Raw comparison view tests use the registered <code>ToolWindowFactory</code> session and the stable behavior bindings.</li>
+</ul>
+<p><code>DBTools.VTC.Local.Tests</code> (<code>[RevitLocal]</code>) open the GM and SGT test models, create temporary templates and roll back every change after each run:</p>
+<ul>
+<li><code>VtcWindowViewModelTests</code>: Process, Create and link flows around real template extraction, apply and creation, alert orchestration and the Revit-link modal and copy.</li>
+<li><code>RevitLinkBaselineTests</code>: extract and apply round trips of <code>LinkVisibilityType</code> and <code>LinkedViewId</code> on <code>RevitLinkType</code> and <code>RevitLinkInstance</code> targets in <code>sgt_test_model.rvt</code>.</li>
+<li><code>RevitLinkExtendedTests</code>: the other <code>RevitLinkGraphicsSettings</code> members on the SGT linked model.</li>
+<li><code>RevitLinkSnapshotRemapTests</code>: snapshot compare and apply with deliberately mismatched target and linked-element IDs, <code>LinkName</code> pairing and linked-element-name remap failures.</li>
+<li><code>ImportedCategoryRoundTripTests</code>: imports a shared CAD file inside the rollback scope and checks that imported categories use the normal category compare and apply path.</li>
+<li><code>SgtModelExtractionTests</code>, <code>GmModelExtractionTests</code>: extraction from existing views and presence of link targets in the open models.</li>
 </ul>
 
 </article>
