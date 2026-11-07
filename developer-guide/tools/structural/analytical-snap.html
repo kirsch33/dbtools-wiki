@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,26 +89,19 @@
         <article data-uid="">
 <h1 id="analytical-snap-to-level">Analytical Snap To Level</h1>
 
+<h2 id="overview">Overview</h2>
 <p>Analytical Snap To Level moves selected analytical members to a chosen level elevation.
 Beams move both endpoints. Columns move the endpoint nearest the target elevation and retain the other endpoint.
 X and Y coordinates remain unchanged. A column tie moves the start endpoint.</p>
-<h2 id="use">Use</h2>
-<ol>
-<li>Select analytical members.</li>
-<li>Run <strong>Analytical Snap To Level</strong> on the Structural panel.</li>
-<li>Choose a level from the elevation-sorted level picker.</li>
-<li>Read the processed and skipped counts in the completion alert.</li>
-</ol>
-<p>The ribbon accepts any nonempty selection through <code>CommandAvailability.HasSelection</code>.
-Processing requires <code>OST_AnalyticalMember</code>, an <code>AnalyticalMember</code> instance, and structural role Beam or Column.
-The curve must be a straight <code>Line</code>. Girder, Member, Unset, and other roles are skipped.
-The tool has no persistent settings.</p>
-<h2 id="execution">Execution</h2>
-<p>Source: <code>src/Tools/Structural/AnalyticalSnapToLevel/</code>.
-<code>App/Composition/AnalyticalSnapToLevelCommand</code> resolves <code>Features/AnalyticalSnapToLevelWorkflow</code>.
-The workflow uses <code>IAlertService</code> for the level picker and completion alert,
-<code>ITransactionRunner</code> for changes, a window-owner provider, and a typed logger.
-It ensures the logger window through <code>ILoggerWindowHost</code> after successful completion when Debug Mode is enabled.</p>
+<p>Related tool: <a href="framing-joins.html">Framing Joins</a>.</p>
+<h2 id="architecture">Architecture</h2>
+<h3 id="registration">Registration</h3>
+<p><code>manifest.yml</code> registers <code>DBTools.AnalyticalSnapToLevel</code> with the command and availability type
+<code>DBTools.AnalyticalSnapToLevel.App.Composition.AnalyticalSnapToLevelCommand</code>.
+The button uses <code>InlineUi</code>, icon key <code>analytical_snap</code>, and order 20 on the Structural panel.
+The assembly is <code>DBTools.AnalyticalSnapToLevel</code>.</p>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="snapper-api">Snapper API</h3>
 <p>The public snapper boundary is:</p>
 <pre><code class="lang-csharp">public AnalyticalSnapper(ITransactionRunner tx, Document doc, ILogger logger);
 public (int ProcessedCount, IReadOnlyList&lt;(ElementId ElementId, string Reason)&gt; Skipped)
@@ -118,11 +111,7 @@ public (int ProcessedCount, IReadOnlyList&lt;(ElementId ElementId, string Reason
 an ordered list of <code>(ElementId, Reason)</code> skips. <code>AnalyticalSegment.SnapTo</code> owns the pure endpoint rule.
 <code>AnalyticalSnapper</code> resolves the typed Revit structural role, constructs the adjusted line, and calls <code>SetCurve</code>.
 A processed member counts even when its endpoint elevations already match the target.</p>
-<p>All members run in one <code>DB Tools - Snap Analytical Elements to Level</code> transaction.
-Unexpected failures, including a <code>SetCurve</code> refusal, propagate to safe execution and roll back the entire run.
-An empty selection or a missing level choice produces <code>SafeExecutionRefusedException</code>.
-The level picker returns no choice when the document contains no levels.</p>
-<h2 id="skips-and-diagnostics">Skips and diagnostics</h2>
+<h3 id="skips-and-diagnostics">Skips and diagnostics</h3>
 <table>
 <thead>
 <tr>
@@ -158,15 +147,34 @@ The level picker returns no choice when the document contains no levels.</p>
 Each group shows its count and at most ten element IDs, followed by <code>and N more</code> when needed.
 The non-analytical group shows only its count. Debug logs include the target level,
 per-element skip or success, and final totals.</p>
-<h2 id="registration-and-tests">Registration and tests</h2>
-<p><code>manifest.yml</code> registers <code>DBTools.AnalyticalSnapToLevel</code> with the command and availability type
-<code>DBTools.AnalyticalSnapToLevel.App.Composition.AnalyticalSnapToLevelCommand</code>.
-The button uses <code>InlineUi</code>, icon key <code>analytical_snap</code>, and order 20 on the Structural panel.
-The assembly is <code>DBTools.AnalyticalSnapToLevel</code>.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="use">Use</h3>
+<ol>
+<li>Select analytical members.</li>
+<li>Run <strong>Analytical Snap To Level</strong> on the Structural panel.</li>
+<li>Choose a level from the elevation-sorted level picker.</li>
+<li>Read the processed and skipped counts in the completion alert.</li>
+</ol>
+<p>The ribbon accepts any nonempty selection through <code>CommandAvailability.HasSelection</code>.
+Processing requires <code>OST_AnalyticalMember</code> and an <code>AnalyticalMember</code> instance.
+See <a href="#limitations">Limitations</a> for supported roles and curves.
+The tool has no persistent settings.</p>
+<h3 id="execution">Execution</h3>
+<p>Source: <code>src/Tools/Structural/AnalyticalSnapToLevel/</code>.
+<code>App/Composition/AnalyticalSnapToLevelCommand</code> resolves <code>Features/AnalyticalSnapToLevelWorkflow</code>.
+The workflow uses <code>IAlertService</code> for the level picker and completion alert,
+<code>ITransactionRunner</code> for changes, a window-owner provider, and a typed logger.
+It ensures the logger window through <code>ILoggerWindowHost</code> after successful completion when Debug Mode is enabled.</p>
+<p>All members run in one <code>DB Tools - Snap Analytical Elements to Level</code> transaction.
+Unexpected failures, including a <code>SetCurve</code> refusal, propagate to safe execution and roll back the entire run.
+An empty selection or a missing level choice produces <code>SafeExecutionRefusedException</code>.
+The level picker returns no choice when the document contains no levels.</p>
+<h2 id="testing">Testing</h2>
 <p>Pure tests cover endpoint geometry through AnalyticalSegmentTests and AnalyticalSegmentEdgeCaseTests.
-Hosted workflow tests cover skip-summary behavior. Revit integration tests live under
+Revit-hosted workflow tests cover skip-summary behavior. Revit integration tests live under
 <code>Tests/Integration/Revit/</code> and exercise the command, workflow, and analytical curve changes.</p>
-<p>Related tool: <a href="framing-joins.html">Framing Joins</a>.</p>
+<h2 id="limitations">Limitations</h2>
+<p>Only straight analytical members with role Beam or Column are processed. The tool preserves X and Y and does not change unsupported roles or curved members.</p>
 
 </article>
 

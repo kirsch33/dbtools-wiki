@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -259,9 +259,9 @@ computes content versions and stages runtime prerequisites, but does not
 validate or publish a distribution.</p>
 <h2 id="implementation">Implementation</h2>
 <p>Each entry maps its options to MSBuild properties, acquires the pinned SDK,
-initializes the HandyControl submodule when needed, and runs <code>Build.proj</code>. A
-BUILD test checks that both entries produce the same <code>dotnet build</code> command
-line. No <code>Build.proj</code> target runs bash or Python, so <code>BuildAll</code> and
+initializes the HandyControl submodule when needed, and runs <code>Build.proj</code>. Both
+entries produce the same <code>dotnet build</code> command line. No <code>Build.proj</code> target
+runs bash or Python, so <code>BuildAll</code> and
 <code>BuildTests</code> behave the same on Windows. Test execution is done by <code>test.sh</code>.</p>
 <p><code>Build.proj</code> owns the target graph and starts each child <code>dotnet build</code> with
 its own binary log. The C# code of each target is a <code>BuildPipelineStep</code> in
@@ -278,20 +278,11 @@ Revit API files are reference metadata, not an executable runtime. APS Design
 Automation builds the separate Revit 2026 <code>net8.0</code> Sentinel test project with
 its own API provider.</p>
 <h2 id="product-output">Product output</h2>
-<p><code>build/MSBuild/ProductOutput.proj</code> and <code>ProductOutput.targets</code> stage this tree
-for each year in <code>.artifacts/bin/Release/&lt;year&gt;/net10.0-windows/</code>:</p>
-<pre><code class="lang-text">&lt;year&gt;/
-├── DBTools.addin
-├── DBTools.dll
-├── DBTools.Core.dll
-├── DBTools.Presentation.dll
-├── DBTools.HandyControl.dll
-└── Tools/
-    └── DBTools.&lt;Tool&gt;.dll
-</code></pre>
+<p><code>build/MSBuild/ProductOutput.proj</code> and <code>ProductOutput.targets</code> stage the
+<a href="assembly-loading.html#installed-layout">product tree</a> for each year in
+<code>.artifacts/bin/Release/&lt;year&gt;/net10.0-windows/</code>.</p>
 <p><code>StageProductOutputTask</code> keeps the <code>Tools/</code> directory and validates each
-declared owner image. <code>DBTools.addin</code> names <code>DBTools.dll</code> and the class
-<code>DBTools.App.Addin.AddinEntry</code>. Intermediate runtime inputs can be year-keyed
+declared owner image. Intermediate runtime inputs can be year-keyed
 under <code>.artifacts/bin/Release/&lt;year&gt;-runtime-input/</code>. Local test staging
 copies the year tree recursively into the test output and removes stale
 top-level tool images. The installer receives the file list from
@@ -429,14 +420,15 @@ permission error), promotion logs the reason once at low importance and copies
 that file and all remaining files. No step writes into a published file. Point
 Dev Mode at <code>.artifacts/dist/Release/&lt;year&gt;</code> directly; a copy is a set of new
 files that the scanner scans again.</p>
-<h2 id="hosted-test-inputs">Hosted test inputs</h2>
-<p>Hosted staging builds one complete product tree for the selected year and
+<h2 id="revit-hosted-test-inputs">Revit-hosted test inputs</h2>
+<p>Staging for Revit-hosted tests builds one complete product tree for the selected year and
 includes it with relative paths unchanged, including the 14 tool assemblies in
 <code>Tools/</code>. Test assemblies, NUnit and adapter files, and companions are separate
 inputs. The input cache checks relative path, identity, length and hash before
 the daemon request is written.</p>
-<p>Test restore roots are per year: Local years restore separately, and Design
-Automation shares the 2026 root. The Pure root restores every Pure project
+<p>Test restore roots are per year: each year of the <code>local</code> scope restores
+separately, and Design Automation tests share the 2026 root. The Pure root
+restores every Pure project
 against <code>$(DBT_PureRevitYear)</code> owners through static graph restore. NuGet
 keys package specifications by project path, so one root never mixes owner
 variants. See <a href="test-pipeline.html">Test Pipeline</a>.</p>
@@ -485,9 +477,8 @@ the invocation still owns is terminated, the compiler by its exact
 <code>-pipename:</code> argument and MSBuild nodes by the exact salt in their
 environment. No process is matched by name. A starting invocation stops
 <code>dbtools-scope</code> servers whose owner process no longer exists; servers of a
-live owner are never touched. In one measurement on an 8 GB host, a clean
-two-year <code>BuildApp</code> took 229 s with the servers and 547 s without them, and
-used about 1.4 GB more peak memory.</p>
+live owner are never touched. The servers make a clean build faster and
+raise its peak memory use.</p>
 </li>
 <li><p><code>0</code>: no compiler server and no MSBuild server (<code>UseSharedCompilation=false</code>). Use
 this on hosts that admit builds by free memory.</p>
@@ -497,10 +488,10 @@ this on hosts that admit builds by free memory.</p>
 <code>/proc</code>. Node reuse is off in both modes. Outside a wrapper,
 <code>Directory.Build.props</code> keeps the compiler server off. <code>UseSharedCompilation</code>
 is not a content-version input.</p>
-<p><code>build/Testing/check-build-server-lifecycle.sh &lt;second-checkout&gt;</code> is a manual
-test with the real SDK. It covers a normal exit, a failed build, SIGTERM,
+<p><code>build/Testing/check-build-server-lifecycle.sh &lt;second-checkout&gt;</code> runs the
+server lifecycle with the real SDK: a normal exit, a failed build, SIGTERM,
 SIGKILL followed by the next build's sweep, and a concurrent owner in another
-checkout.</p>
+checkout. Run it manually.</p>
 <h2 id="logs">Logs</h2>
 <p>Each run writes to <code>.artifacts/build/&lt;YYYYMMDD-HHmmssfff&gt;-&lt;pid&gt;/</code>, named by
 <code>build.sh</code> or <code>build.ps1</code> (by <code>Build.proj</code> for a plain <code>dotnet build</code>). The
@@ -583,7 +574,8 @@ free memory.</p>
 <h2 id="continuous-integration">Continuous integration</h2>
 <p>The CI and Documentation workflows run only on manual dispatch, not on pushes
 or pull requests. CI mode <code>build</code> runs <code>BuildAll</code>; mode <code>build-test</code> also builds
-and runs the selected tests. The release workflow, triggered by a published
+and runs the selected tests. The Documentation workflow publishes the site
+through the <a href="wiki-server.html">wiki server</a>. The release workflow, triggered by a published
 release, builds and promotes the distribution and bundle on Linux, then runs
 only the Inno Setup compiler on Windows. The self-hosted Windows test runner
 consumes compiled test artifacts through <code>test.sh</code> and does not build the

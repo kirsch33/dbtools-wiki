@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Extreme Roof Framing | DB Tools </title>
+      <title>Extreme Roof Framing Tool | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Extreme Roof Framing | DB Tools ">
+      <meta name="title" content="Extreme Roof Framing Tool | DB Tools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,9 +87,9 @@
         </div>
 
         <article data-uid="">
-<h1 id="extreme-roof-framing">Extreme Roof Framing</h1>
+<h1 id="extreme-roof-framing-tool">Extreme Roof Framing Tool</h1>
 
-<p>Extreme Roof Framing (ERFT) adjusts structural columns and beams so their tops follow the underside of a sloped floor or roof. It changes the top offset of each column and the start and end offsets of each beam; it does not change level associations. You pick a target floor or roof and the members to adjust, check the calculated changes in a table and a 3D preview, then apply them in one transaction. ERFT stores the result with the members, so you can edit the system later.</p>
+<p>The Extreme Roof Framing Tool (ERFT) adjusts structural columns and beams so their tops follow the underside of a sloped floor or roof. It changes the top offset of each column and the start and end offsets of each beam; it does not change level associations. You pick a target floor or roof and the members to adjust, check the calculated changes in a table and a 3D preview, then apply them as one undo entry. ERFT stores the result with the members, so you can edit the system later.</p>
 <p>ERFT is a Testing tool and is under development.</p>
 <h2 id="synopsis">Synopsis</h2>
 <p>Ribbon: <strong>DB Tools</strong> &gt; <strong>Testing</strong> &gt; <strong>Extreme Roof Framing</strong>.</p>
@@ -109,7 +109,7 @@
 <li>structural columns placed at a point;</li>
 <li>structural framing with a straight location line that is not a brace.</li>
 </ul>
-<p>Members whose structural material name contains the word <code>concrete</code> (any case) are excluded, and the selection banner reports how many. The selection must contain a column, or a beam that connects to a column. If a selected member cannot be analyzed, the launch fails with <code>Selection/SourceExtractionFailed</code>; a beam-only selection without a column connection fails with <code>Selection/NoColumnConnection</code>.</p>
+<p>Members whose structural material name contains the word <code>concrete</code> (any case) are excluded, and a banner reports how many. The selection must contain a column, or a beam that connects to a column. Otherwise the launch stops with a message (see Messages).</p>
 <h2 id="window">Window</h2>
 <h3 id="target">Target</h3>
 <p><strong>Target:</strong> shows the selected floor or roof. <strong>Pick</strong> hides the window, lets you select another target and recalculates the plan.</p>
@@ -137,7 +137,7 @@
 </tr>
 </tbody>
 </table>
-<p>The change is rounded to a multiple of the tolerance. <strong>Nearest</strong> rounds to the closest multiple, so a change smaller than half the tolerance becomes no change. <strong>Up</strong> and <strong>Down</strong> always round away from zero in their direction: with a 1/4&quot; tolerance, a +0.01&quot; change becomes +1/4&quot; with <strong>Up</strong> and 0 with <strong>Down</strong>. A row shows <strong>No Change</strong> when its rounded change is smaller than half the tolerance.</p>
+<p>The change is rounded to a multiple of the tolerance. <strong>Nearest</strong> rounds to the closest multiple, so a change smaller than half the tolerance becomes no change. <strong>Up</strong> rounds to the next multiple above the change, and <strong>Down</strong> to the next multiple below it. With a 1/4&quot; tolerance, a +0.01&quot; change becomes +1/4&quot; with <strong>Up</strong> and 0 with <strong>Down</strong>; a -0.01&quot; change becomes 0 with <strong>Up</strong> and -1/4&quot; with <strong>Down</strong>. A row shows <strong>No Change</strong> when its rounded change is smaller than half the tolerance.</p>
 <h3 id="columns-and-beams">Columns and Beams</h3>
 <table>
 <thead>
@@ -158,7 +158,7 @@
 </tbody>
 </table>
 <p>The status is <strong>Pending</strong> (will change), <strong>No Change</strong> or <strong>Error</strong>. Selecting a row selects the member in the preview, and clicking a member in the preview selects its row. <strong>Esc</strong>, or a click on an empty area of a table, clears the selection; <strong>Esc</strong> does not close the window.</p>
-<h3 id="3d-preview">3D Preview</h3>
+<h3 id="d-preview">3D Preview</h3>
 <p>The preview shows the target as a transparent surface and the members at their adjusted positions, colored by status: green for Pending, gray for No Change, red for Error. Hover a member for a tooltip. <strong>Zoom to Fit</strong> fits the scene and keeps the view angle; <strong>Home</strong> returns to the default view angle. The target cannot be selected.</p>
 <p>If the graphics device fails, the preview is turned off for that window and asks you to update the graphics driver or enable GPU acceleration, then reopen the tool. Tolerance, Apply, Cancel and <strong>Pick</strong> still work. A member type whose section profile cannot be read is left out of the preview.</p>
 <h3 id="commands">Commands</h3>
@@ -191,28 +191,100 @@
 </ul>
 <p>The bottom surface is the set of faces of the target that face downward. &quot;Nearest point&quot; is the closest point in 3D, not a vertical projection, so a member outside the target's outline goes to its nearest edge. If the target has no downward faces, every row shows Error.</p>
 <h2 id="result">Result</h2>
-<p>Apply runs one transaction, <code>ERFT Apply Adjustments</code>, which you can undo with <code>Ctrl+Z</code>. It:</p>
+<p>Apply makes one undo entry, <code>ERFT Apply Adjustments</code>. Press <code>Ctrl+Z</code> to undo it. Apply:</p>
 <ol>
 <li>sets the column top offsets and the beam start and end offsets of the Pending rows;</li>
 <li>tags each changed member as an ERFT member of the system;</li>
 <li>saves the system (target, tolerance, rounding and offsets) in the model.</li>
 </ol>
-<p>If any offset, tag or storage write fails, the whole transaction rolls back. A success alert reports the number of modified columns and beams and the unchanged count, and the window closes. An expected failure shows an error alert and keeps the window open.</p>
+<p>If any offset, tag or stored-data write fails, Apply changes nothing. A success alert reports the number of modified columns and beams and the unchanged count, and the window closes. A failure shows an error alert and keeps the window open.</p>
 <h2 id="editing-a-system">Editing a system</h2>
 <p>Select one or more ERFT members. On the Modify tab for Structural Columns, Structural Framing or a multi-category selection, click <strong>Edit ERFT</strong>. When the selection belongs to several systems, choose one. ERFT restores the stored target, tolerance and rounding, reads the current member geometry and offsets and calculates again. Applying again starts from the current offsets; it does not add the stored changes a second time.</p>
-<ul>
-<li>If some stored members no longer exist, a warning reports how many, and the others are edited.</li>
-<li>If no stored member exists, or the stored data is missing or invalid, the edit stops with <code>Cannot edit the selected ERFT system because stored plan data is missing or invalid.</code> followed by the error tag.</li>
-</ul>
+<p>If some stored members no longer exist, a warning reports how many, and the others are edited. If no stored member exists, or the stored data is missing or invalid, the edit stops with a message (see Messages).</p>
+<h2 id="messages">Messages</h2>
+<p>Alerts and banners are titled with the tool name. Some messages end with a diagnostic code in the form <code>[SpecFail/&lt;code&gt;] &lt;detail&gt;</code>; include it when you report a problem.</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Select a LINKED floor or roof target (press ESC to switch to HOST target selection).</code></td>
+<td>Target selection, first step.</td>
+</tr>
+<tr>
+<td><code>Select a HOST floor or roof target (press ESC to cancel ERFT launch).</code></td>
+<td>Target selection in the host document.</td>
+</tr>
+<tr>
+<td><code>Select source structural columns and beams to adjust, then click Finish.</code></td>
+<td>Source selection.</td>
+</tr>
+<tr>
+<td><code>Filtered out &lt;n&gt; concrete element(s) based on Structural Material name match: /\bconcrete\b/.</code></td>
+<td>Concrete members were removed from the selection.</td>
+</tr>
+<tr>
+<td><code>Could not extract geometry from the selected floor/roof.</code></td>
+<td>The target has no usable geometry. Select another floor or roof.</td>
+</tr>
+<tr>
+<td><code>Could not extract geometry from the stored target floor/roof.</code></td>
+<td>Edit mode: the stored target was deleted or changed.</td>
+</tr>
+<tr>
+<td><code>One or more selected source elements could not be analyzed. ERFT only supports point-based structural columns and straight structural framing members.</code></td>
+<td>A selected member is not supported. Adjust the selection.</td>
+</tr>
+<tr>
+<td><code>Select at least one column or beams that frame to columns.</code></td>
+<td>The selection has only beams, and none connects to a column.</td>
+</tr>
+<tr>
+<td><code>Custom tolerance must be a number of inches, at least 0.01.</code></td>
+<td>The custom tolerance is invalid. Apply is disabled.</td>
+</tr>
+<tr>
+<td><code>Applied adjustments:</code> with the counts of modified columns, modified beams and unchanged elements</td>
+<td>Apply finished.</td>
+</tr>
+<tr>
+<td><code>Apply failed:</code> followed by the reason</td>
+<td>Apply changed nothing. The window stays open.</td>
+</tr>
+<tr>
+<td><code>No plan to apply.</code></td>
+<td>Apply was clicked with no calculated plan.</td>
+</tr>
+<tr>
+<td><code>&lt;n&gt; element(s) from the original adjustment were not found and will be skipped.</code></td>
+<td>Edit mode: some stored members no longer exist.</td>
+</tr>
+<tr>
+<td><code>None of the previously adjusted elements could be found in the document.</code></td>
+<td>Edit mode: no stored member exists.</td>
+</tr>
+<tr>
+<td><code>Stored tolerance value '&lt;value&gt;' is invalid.</code>, <code>Could not restore the stored rounding mode '&lt;value&gt;'.</code></td>
+<td>Edit mode: the stored data is invalid. Create a new adjustment.</td>
+</tr>
+<tr>
+<td><code>Cannot edit the selected ERFT system because stored plan data is missing or invalid.</code></td>
+<td>Edit mode: the stored data cannot be read.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="limitations">Limitations</h2>
 <ul>
 <li>Only host-document members can be adjusted. The target can be in the host or in a loaded linked model.</li>
 <li>Concrete members are excluded.</li>
 <li>Brace framing and curved beams are not supported.</li>
 <li>ERFT changes offsets only, never the levels of members.</li>
-<li>Hosted tests cover host floors only; linked targets have no automated test.</li>
 </ul>
-<p>See the <a href="../../developer-guide/tools/structural/erft.html">developer page</a> and the <a href="../../developer-guide/tools/structural/erft-spec.html">technical specification</a> for the geometry, rounding and storage details.</p>
+<p>See the <a href="../../developer-guide/tools/experimental/erft.html">developer page</a> and the <a href="../../developer-guide/tools/experimental/erft-spec.html">technical specification</a> for the geometry, rounding and storage details.</p>
 
 </article>
 

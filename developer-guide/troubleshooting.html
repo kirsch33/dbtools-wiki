@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -90,7 +90,7 @@
 <h1 id="troubleshooting">Troubleshooting</h1>
 
 <p>This page lists common build, runtime and tool errors, and how to read the
-DBTools logs. For a reported failure, read the logs in
+DB Tools logs. For a reported failure, read the logs in
 <code>%APPDATA%\DBTools\Logs\</code> first.</p>
 <h2 id="build">Build</h2>
 <h3 id="choosing-a-build-command">Choosing a build command</h3>
@@ -103,7 +103,7 @@ project's runtime inputs. It does not validate or publish a distribution.
 distribution for every supported year, including the Dev Mode preflight and
 manifest checks. <code>BuildAll</code> compiles no tests; use <code>./build.sh BuildTests</code> or a
 selected-test target. See <a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
-<h3 id="python-310-or-later-is-required">Python 3.10 or later is required</h3>
+<h3 id="python-3.10-or-later-is-required">Python 3.10 or later is required</h3>
 <pre><code class="lang-text">Python 3.10 or later is required. Install it with: sudo apt-get install python3
 </code></pre>
 <p>On Linux and WSL, <code>build/DotNet/sdk.sh</code> uses Python to verify and install the
@@ -113,7 +113,7 @@ test discovery. Install Python and rerun the command:</p>
 bash build/DotNet/sdk.sh
 </code></pre>
 <p>On Windows, <code>build.ps1</code> installs and verifies the SDK without Python.</p>
-<h3 id="dbtoolsdaemonprotocol-package-missing-or-mismatched">DbToolsDaemon.Protocol package missing or mismatched</h3>
+<h3 id="dbtoolsdaemon.protocol-package-missing-or-mismatched">DbToolsDaemon.Protocol package missing or mismatched</h3>
 <p><code>BuildAll</code> requires the <code>DbToolsDaemon.Protocol</code> package version pinned in
 <code>build/Distribution/protocol-package-lock.json</code>, with the SHA-256 recorded
 there. The Validation Runner loads the package after the build tasks verify it.
@@ -123,7 +123,7 @@ release, or <code>local-candidate</code> for an approved local candidate with it
 <code>candidate-&lt;version&gt;</code> tag, daemon commit, and copies of the bundle README and
 <code>SHA256SUMS</code>. Do not point the build at a daemon checkout or bypass the check.</p>
 <p><code>BuildAll</code> does not need the daemon CLI or an installed Revit. The DIST suite
-and hosted Revit tests use the daemon CLI.</p>
+and Revit-hosted tests use the daemon CLI.</p>
 <h3 id="dev-mode-preflight-fails">Dev Mode preflight fails</h3>
 <p><code>ValidateDistributionCandidate</code> runs the Dev Mode policy on each year and prints:</p>
 <pre><code class="lang-text">Revit &lt;year&gt; Dev Mode preflight: &lt;n&gt; failures, &lt;m&gt; warnings; outcome=&lt;x&gt;
@@ -140,6 +140,11 @@ initialize it automatically, which requires a Git checkout and network access:</
 </code></pre>
 <p>The output is
 <code>.artifacts/vendor/&lt;Configuration&gt;/handycontrol/net10.0-windows/DBTools.HandyControl.dll</code>.</p>
+<h3 id="unsupported-revit-year">Unsupported Revit year</h3>
+<p>The supported desktop years are Revit 2026 (2026.5 or later) and Revit 2027;
+the distribution and reference metadata use the year keys 2026 and 2027. A
+build or candidate for any other year is rejected; there is no
+fallback framework.</p>
 <h3 id="revit-backup-files-in-test-models">Revit backup files in test models</h3>
 <p>Revit writes backup copies (<code>*.0001.rvt</code>, <code>*.00001.rvt</code>) when it saves a model.
 Under <code>testing/RevitTestModels/</code> these files are ignored by Git. The build does
@@ -166,7 +171,7 @@ Causes:</p>
 <li>The driver watches the multi-year root <code>.artifacts/dist/Release</code> instead of
 one year directory.</li>
 <li>A reload starts while promotion replaces the files.</li>
-<li>DBTools code loaded or resolved a <code>DBTools.*</code> assembly or type outside the
+<li>DB Tools code loaded or resolved a <code>DBTools.*</code> assembly or type outside the
 driver's collectible <code>AssemblyLoadContext</code> (for example through an
 <code>AppDomain</code>-wide scan or <code>Assembly.Load</code>), so the context cannot unload.</li>
 </ul>
@@ -176,9 +181,6 @@ or <code>.artifacts/dist/Release/2027</code>, never at a copy, and publish with
 (a hard link), so Windows Defender does not scan it again. A copied directory is
 a set of new files that Defender scans again, which can add tens of seconds to
 each Dev Mode inspection.</p>
-<p>The supported desktop years are Revit 2026.5 and later, and Revit 2027; the
-distribution and reference metadata use the year keys 2026 and 2027. A candidate
-for any other year is rejected; there is no fallback framework.</p>
 <h3 id="theme-validation">Theme validation</h3>
 <p>Startup validates the theme with <code>ThemeValidator.ValidateOrThrow</code>; a failure
 stops startup. In a Revit-hosted test run, read the daemon job's startup
@@ -229,8 +231,8 @@ rethrow. Use <code>RunAsync</code> where the caller must receive the exception.<
 <pre><code class="lang-text">System.Windows.Markup.XamlParseException: A TwoWay or OneWayToSource binding cannot work on the read-only property '&lt;name&gt;' ...
 </code></pre>
 <p><code>Run.Text</code> binds <code>TwoWay</code> by default. Binding it to a get-only property fails
-when the window loads. Set <code>Mode=OneWay</code>, or bind a <code>TextBlock.Text</code> instead.
-Raw VTC XAML uses <code>OneTime</code> bindings for immutable record values.</p>
+when the window loads. Set <code>Mode=OneWay</code> (or <code>OneTime</code> for an immutable value),
+or bind a <code>TextBlock.Text</code> instead.</p>
 <h3 id="contextual-ribbon-layout-changes">Contextual ribbon layout changes</h3>
 <p>A contextual ribbon injector that modifies Revit's contextual tabs eagerly (for
 example the Multi-Select tab) or inserts at index 0 shifts the native buttons.
@@ -376,7 +378,7 @@ previous file fails, the new file stays active and a warning is logged.</li>
 <tr>
 <td><code>[Cancel]</code></td>
 <td>Warning</td>
-<td>The operation was cancelled</td>
+<td>The operation was canceled</td>
 </tr>
 <tr>
 <td><code>[Error]</code></td>
@@ -392,7 +394,7 @@ duration.</p>
 <ol>
 <li>the log file from <code>%APPDATA%\DBTools\Logs\</code>, or a logger window export;</li>
 <li>the Revit version (year and build number);</li>
-<li>the DBTools version;</li>
+<li>the DB Tools version;</li>
 <li>the correlation ID of the failed operation;</li>
 <li>the steps to reproduce;</li>
 <li>a screenshot of any error dialog.</li>

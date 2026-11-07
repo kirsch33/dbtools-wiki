@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>GM Production Contracts | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="GM Production Contracts | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="gm-production-contracts">GM Production Contracts</h1>
+
+<p>These Global Mapper (GM) behaviors are performance or correctness
+requirements. Each section names the source that implements the contract and
+the effect of breaking it. A change to a contract is a product change; update
+this page with it. See <a href="gm.html">Global Mapper</a> for the tool design.</p>
+<p>Paths are relative to <code>src/Tools/Common/GM/</code>.</p>
+<h2 id="usage-index-sampling-cap">Usage index sampling cap</h2>
+<p><code>Features/Usage/Revit/Operations/Indexing/UsageIndexSource.Families.cs</code>,
+<code>QuerySampleInstanceIdsBySymbol</code></p>
+<p>The usage index samples one family instance per family type (symbol), at most
+2500 instances (<code>MaxSampleInstances</code> in <code>UsageIndexSource.cs</code>). It streams
+view-independent (model) instances first and returns as soon as it has 2250
+samples. Only when the model instances give fewer than 2250 samples does it add
+view-owned instances of the active view, up to the cap.</p>
+<p>Unbounded iteration scales with views times instances: a project with 200
+views and 50,000 instances stalls for minutes.</p>
+<h2 id="one-geometry-pass-per-usage-kind">One geometry pass per usage kind</h2>
+<p><code>Features/Usage/Revit/Operations/Indexing/StyleMaterial/UsageStyleMaterialCollector.cs</code>,
+<code>QueryStyleMaterialUsageChunk</code></p>
+<p>Style and material usage are captured from the same sample. Instance geometry
+is requested once for styles and once for materials, both with
+<code>IncludeNonVisibleObjects = true</code>. Symbol geometry is requested only when the
+instance has no geometry.</p>
+<p>Style geometry uses the owning or active view; material geometry uses
+view-independent <code>Fine</code> detail. Sharing one geometry result between them
+changes coverage. The combined chunk shares element lookup and the traversal of
+family-dependent styles.</p>
+<h2 id="one-instance-for-parameter-discovery">One instance for parameter discovery</h2>
+<p><code>Features/Families/Revit/FamilyScanner.ParameterNames.cs</code>,
+<code>QueryMappableParamNamesForFamily</code></p>
+<p>Parameter-name discovery reads the parameters of every type of the family and
+of one instance. Parameter definitions are family-level, so every instance
+has the same definitions; scanning more instances adds cost and no data.</p>
+<h2 id="deep-scan-runs-only-on-request">Deep scan runs only on request</h2>
+<p><code>Features/DeepScan/Workflow/DeepScanWorkflow.cs</code></p>
+<p>A deep scan opens family documents with <code>EditFamily</code>, which takes seconds per
+family. It runs only from a user action: <strong>Scan Family</strong> on a family row, deep
+scan of all visible families, or deep scan of unscanned families with zero
+instances (after a confirmation). Background prewarm only reads the deep scan
+cache; it never starts a scan. See
+<a href="gm-spec.html">GM specification</a>.</p>
+<h2 id="parameter-discovery-filter">Parameter discovery filter</h2>
+<p><code>Revit/ParameterDiscovery/ParameterDiscoveryEligibility.cs</code></p>
+<p>Discovery excludes read-only parameters, built-in parameters
+(<code>InternalDefinition</code> with a valid <code>BuiltInParameter</code>) and blank definition
+names. It does not filter on <code>UserModifiable</code>, because Revit can report a
+parameter that the API can write as not user-modifiable.</p>
+<p>Removing the read-only or built-in filter offers parameters that cannot be
+written or should not be mapped. Adding a <code>UserModifiable</code> filter hides valid
+mapping targets.</p>
+<h2 id="simple-style-canonicalization">Simple style canonicalization</h2>
+<p><code>UsageStyleMaterialCollector.RecordStyle</code>;
+<code>Features/Usage/Revit/Operations/Indexing/UsageIndexSource.StyleMaterial.cs</code>,
+<code>BuildStyleCanonicalizationMap</code></p>
+<p>Style usage records the raw style ID and its canonical projection ID only.
+Recording every equivalent alias multiplies dictionary insertions per geometry
+object without improving the result.</p>
+<h2 id="style-maps-built-once-per-usage-build">Style maps built once per usage build</h2>
+<p><code>UsageIndexSource.StyleMaterial.cs</code>, <code>BuildStyleMaterialUsageAsync</code></p>
+<p>Style canonicalization, category projection and object-style classification
+run once per usage build, and their results are passed to each chunk of 25
+instances (<code>UsageChunkSize</code>). Rebuilding them per chunk repeats a full
+<code>FilteredElementCollector</code> scan for every chunk.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

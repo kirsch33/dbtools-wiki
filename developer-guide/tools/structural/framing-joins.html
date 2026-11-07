@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,9 +89,15 @@
         <article data-uid="">
 <h1 id="framing-joins">Framing Joins</h1>
 
+<h2 id="overview">Overview</h2>
 <p>Framing Joins allows or disallows joins at both ends of selected structural framing instances.
 The tool has no persistent settings.</p>
-<h2 id="commands">Commands</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="source">Source</h3>
+<p>The implementation and manifest are under <code>src/Tools/Structural/FramingJoins/</code>.
+The project references Core and the Revit API.</p>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="commands">Commands</h3>
 <table>
 <thead>
 <tr>
@@ -116,12 +122,14 @@ The tool has no persistent settings.</p>
 <p>Both commands use <code>InlineUi</code> and the Structural panel's <code>framing_joins</code> split button.
 Their manifest order is 0 and 1, respectively. The icon keys are <code>allow_join</code> and <code>disallow_join</code>.
 Availability uses <code>CommandAvailability.HasStructuralFramingSelection</code>.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="use">Use</h3>
 <ol>
 <li>Select structural framing elements.</li>
 <li>Run <strong>Allow Join</strong> or <strong>Disallow Join</strong>.</li>
 <li>Read the completion banner for the processed instance count.</li>
 </ol>
-<h2 id="execution">Execution</h2>
+<h3 id="execution">Execution</h3>
 <p><code>App/Composition/AllowJoinSelectedCommand</code> and <code>DisallowJoinSelectedCommand</code> resolve
 <code>Features/FramingJoinsWorkflow</code> through their <code>CommandService</code> registration.
 The workflow receives <code>ITransactionRunner</code>, <code>ILoggerWindowHost</code>, a window-owner provider, and a typed logger through dependency injection.</p>
@@ -135,11 +143,11 @@ It counts processed instances, including instances whose join state already matc
 <p>An endpoint failure logs the exception and element ID, then throws <code>InvalidOperationException</code> with the original cause.
 The transaction rolls back the complete batch. A successful batch shows a six-second completion toast
 and ensures the logger window when Debug Mode is enabled.</p>
-<h2 id="source-and-tests">Source and tests</h2>
-<p>The implementation and manifest are under <code>src/Tools/Structural/FramingJoins/</code>.
-The project references Core and the Revit API.
-Pure fixtures <code>FramingJoinTargetBuilderTests</code> and <code>FramingJoinsWorkflowTests</code> cover filtering and endpoint execution.
-Hosted fixtures <code>FramingJoinsCommandTests</code> and <code>FramingJoinsWorkflowRevitTests</code> cover command and Revit integration.</p>
+<h2 id="testing">Testing</h2>
+<p>Pure fixtures <code>FramingJoinTargetBuilderTests</code> and <code>FramingJoinsWorkflowTests</code> cover filtering and endpoint execution.
+Revit-hosted fixtures <code>FramingJoinsCommandTests</code> and <code>FramingJoinsWorkflowRevitTests</code> cover command and Revit integration.</p>
+<h2 id="limitations">Limitations</h2>
+<p>The tool processes <code>FamilyInstance</code> elements in Structural Framing. It does not alter joins for other selected elements.</p>
 
 </article>
 

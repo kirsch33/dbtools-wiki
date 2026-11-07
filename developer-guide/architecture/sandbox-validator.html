@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -147,41 +147,8 @@ loaded for another year. Sandbox creates no load context, does not run App's
 Revit startup, does not load Revit reference files as product assemblies and
 does not probe subfolders other than <code>Tools/</code>.</p>
 <h2 id="candidate-contract">Candidate contract</h2>
-<table>
-<thead>
-<tr>
-<th>Relative path</th>
-<th>Content</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DBTools.addin</code></td>
-<td>Add-in manifest naming <code>DBTools.dll</code> and <code>DBTools.App.Addin.AddinEntry</code></td>
-</tr>
-<tr>
-<td><code>DBTools.dll</code></td>
-<td>App entry</td>
-</tr>
-<tr>
-<td><code>DBTools.Core.dll</code></td>
-<td>Core</td>
-</tr>
-<tr>
-<td><code>DBTools.Presentation.dll</code></td>
-<td>Stable WPF assembly</td>
-</tr>
-<tr>
-<td><code>DBTools.HandyControl.dll</code></td>
-<td>Renamed HandyControl</td>
-</tr>
-<tr>
-<td><code>Tools/DBTools.&lt;Tool&gt;.dll</code></td>
-<td>The 14 tool assemblies</td>
-</tr>
-</tbody>
-</table>
-<p><code>SandboxCandidate</code> checks the add-in file, the top-level files, the flat
+<p>A candidate is one year directory of the
+<a href="assembly-loading.html#installed-layout">product tree</a>. <code>SandboxCandidate</code> checks the add-in file, the top-level files, the flat
 <code>Tools/</code> directory, the PE simple names, and conflicts with assemblies already
 loaded in the process. No third-party DLL may be present.</p>
 <h2 id="validation-sequence">Validation sequence</h2>
@@ -271,8 +238,8 @@ tool types, no inferred <code>DataGrid</code> columns and no pack URIs into the 
 assembly;</li>
 <li>a concrete design-time view model whose visibility matches
 <code>designTimeViewModelVisibility</code> (<code>Public</code> or <code>Internal</code>) and that has a
-parameterless constructor (public for <code>Public</code>); Sandbox invokes it. It should hold fixed display data and use no
-Revit, network or settings services. Tool code can check
+parameterless constructor (public for <code>Public</code>); Sandbox invokes it. Give it
+fixed display data and no Revit, network or settings services. Tool code can check
 <code>DBTools.Core.Sandbox.SandboxMode.IsActive</code> to avoid services that do not
 exist in Sandbox.</li>
 </ul>
@@ -301,10 +268,9 @@ sandbox/&lt;year&gt;/&lt;sanitized-tfm&gt;/                    path inside the v
 <p><code>./build.sh PackageSandboxValidationInput</code> writes a content-addressed
 <code>validate-dist-&lt;sha256&gt;.zip</code> with the candidate and Sandbox. The DIST suite
 consumes that archive and writes a structured result JSON (see
-<a href="test-pipeline.html#dist">Test Pipeline</a>). The archive and the result keep
-normalized relative paths. A passing headless or Linux result covers files and
-metadata only; native WPF behavior requires the Windows run. Daemon Dev Mode
-injection and reload are tested separately.</p>
+<a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>).
+The archive and the result keep normalized relative paths. A headless or Linux
+run checks files and metadata only; the window checks run only on Windows.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <table>
 <thead>

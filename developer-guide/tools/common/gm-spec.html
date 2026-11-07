@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,16 +89,18 @@
         <article data-uid="">
 <h1 id="global-mapper-architecture-specification">Global Mapper architecture specification</h1>
 
+<h2 id="overview">Overview</h2>
 <p>Global Mapper (GM) collects Revit content, builds mapping intent, and executes reviewed replacement plans.
 This specification describes its state, execution, persistence, and lifetime contracts.
 Source: <code>src/Tools/Common/GM/</code>. <a href="gm.html">GM</a> describes entry points and test surfaces.</p>
-<h2 id="composition-and-document-scope">Composition and document scope</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="composition-and-document-scope">Composition and document scope</h3>
 <p><code>App/Composition/Revit/GmModelessSessionFactory</code> captures the launch UIDocument and Document,
 creates a QueuedModeless App run scope, and binds its concrete <code>GmSessionDocumentGate</code> once before resolving modeless work.
 The gate compares ordinal <code>DocumentSessionKey</code> values on each callback.
 The key uses the document hash code for session scoping. It does not guarantee collision-free identity.
 The persistence key is the nonblank document path, or that captured session key for an unsaved document.
-Unsaved documents do not load legacy title-keyed data.</p>
+Unsaved documents load saved data only under their captured session key.</p>
 <p><code>AddGm()</code> registers the concrete GM gate without replacing shared <code>IRevitCallGate</code> registrations.
 GM Revit readers, writers, family batches, transaction runners, and Commit Review consume the concrete gate.
 <code>RevitMappingPlanExecutor</code> rejects an invalid document or session-key mismatch before writers begin.
@@ -128,508 +130,7 @@ Feature implementations do not import <code>DBTools.GM.App</code>.</p>
 <p><code>FamilyMappingFactory</code> returns FamilyMappingViewModel, FamilyMappingScanWorkflow,
 FamilyMappingRowRefresh, FamilyMappingTypeCreation, and one MappingRowSet spanning family/type and supplied Usage rows.
 FamilyMappingScanStateApplier belongs to scan sequencing. The row builders and refresh owners receive the same row set.</p>
-<h2 id="session-operations-and-shutdown">Session operations and shutdown</h2>
-<p><code>Domain/SessionOperation/ISessionOperationGate</code> exposes serialized work, overlay progress, busy state, and UI cancellation.
-<code>App/Sessions/SessionOperationGate</code> implements admission and cancel-and-drain.
-MappingUpdateSuppression separately controls nested live-plan suppression.
-SessionOperationProgress carries operation progress or the Hidden no-display value.
-The Domain/Workspace IWorkspaceSignals port carries feature requests for whole-window refresh.
-App/Sessions/WorkspaceSignals implements that port, alongside WorkspaceState implementing IWorkspaceState.
-An operation failure remains primary. Caller cancellation propagated through the linked work token
-is translated back to the caller token.</p>
-<p>Teardown independently attempts stopped-step logging, busy-state reset, and busy-text reset.
-The resets run directly or in one dispatcher call. An aborted or unscheduled dispatcher call produces one teardown failure.
-The linked cancellation source is always released. One failure propagates unchanged.
-Multiple failures aggregate in primary-first order with contextual teardown wrappers.
-A failing StateChanged subscriber cannot hide the work failure or skip the other reset.</p>
-<p>BackgroundPrewarm and OptionRenderingRefresh retain their transitive task and cancellation source.
-Replacement cancels and drains the active pair before starting the next.
-The session refuses ordinary close while Commit Review or Type Mapping owns an interaction.
-The first admitted close publishes closing state, cancels Mapping/startup, observes startup,
-and retains one terminal shutdown task. Repeated closes join that completion.</p>
-<p>The shutdown workflow independently attempts prewarm drain, option-rendering drain, confirmed preference-clear drain,
-session-operation cancel-and-drain, close persistence, and synchronous graph disposal, in that order.
-It then issues one terminal Close. Closed performs idempotent view-model cleanup and App run-scope disposal.
-Failures retain lifecycle order and do not skip later cleanup.
-Pane and scope collaborators remain alive until running work drains.</p>
-<p>Dev Mode retirement is synchronous and requires Idle for immediate collection.
-Commit Review reports Busy, so reload waits for Keep, Roll back, X, or cancellation followed by close.
-Revit shutdown can force <code>ToolWindowRegistry.RetireAll</code>.
-Retirement diagnoses pending work, aborts owned dispatcher operations, cancels without draining,
-rolls back an open apply group through the inline commit gate, disposes child/session scopes,
-and skips close persistence with a log entry. It opens no dispatcher frame.
-An existing normal-close task stops before its next stage when retirement takes over.</p>
-<p><code>DevModeStatus</code> exposes <code>Idle</code> or <code>Busy: &lt;operations&gt;</code> in the root UI Automation ItemStatus.
-It includes name lookup, navigation, both auto-zoom debounces, duplicate rebuilds, Type Mapping,
-Commit Review, cache posts, and pending page selection.
-App, Family Mapping, and Shared Parameters navigation use Mapping-owned NavigationLifetime leases.
-Leases start inside admitted callbacks or around awaited execution.
-Both feature auto-zoom debounces use 200 ms and the lease token.
-Disposal cancels outside the lifetime lock and prevents later selection, activation, or zoom.
-Core alerts use observed nested modal loops and diagnose reload during a dialog.</p>
-<h2 id="domain-and-feature-contracts">Domain and feature contracts</h2>
-<h3 id="project-state">Project state</h3>
-<p><code>Domain/ProjectState</code> owns ProjectState, family/type records, reference index/values,
-project parameters, scan state, projection, and the scoped ProjectStateStore.
-The store imports no feature or App namespace. CurrentProjectState and CurrentProjectStateCategoryId
-identify the loaded snapshot and its category in one replacement operation.
-<code>IProjectStateBuilder</code> and <code>ProjectStateBuildRequest</code> are inward contracts.
-<code>App/State/ProjectStateBuilder</code> queries Families, Usage, Shared Parameters, and Previews and projects their results into those values.</p>
-<p>Family-only refresh retains loaded Usage and Shared Parameters sections and invalidates derived usage caches before preparing rows.
-A failed build preserves published state.
-Commit Review planning builds the selected category plus pending-intent owner families without publishing.
-<code>CarryForwardInto</code> supplies loaded sections and unchanged-family Deep Scan evidence to that planning state.
-Duplicate detection also stays unpublished. <code>CarryDeepScanEvidenceInto</code> supplies only unchanged-family evidence to its fresh full state.</p>
-<p>The ProjectStateStore retains evidence across category-filtered state replacement.
-A rebuild restores it only when the family's type set and per-type instance counts remain unchanged.
-After commit, <code>ReplaceProjectStateAfterCommit</code> discards directly changed families and containing ancestors across all categories.
-Direct changes include mapped/owning families, families of mapped types, and material/object-style families found by AffectedFamilyResolver.
-Commit Review planning uses that same resolver. Its plan context owns planning identity and evidence.
-Discarding evidence removes scan state, type payloads, DeepScanResults, and fast parameter discovery together.</p>
-<h3 id="element-names-and-categories">Element names and categories</h3>
-<p><code>Domain/ElementNames</code> owns IElementNameQuery, ElementNamesCache, and ElementNameLookupKind.
-<code>Revit/ElementName/ElementNameQuery</code> implements the Revit adapter. App registers it with state/cache wiring.
-Categories registers curated-category services.
-Strict name loading requires a nonblank cached name for every requested ID.
-Blank entries are queried again. Omitted/blank provider values stay unresolved.
-GetResolvedFamilyName prefers cache, then project-state family name, and throws if neither exists.
-Display getters retain explicit ID/unavailable-name fallbacks.</p>
-<p>WorkspaceState.SelectedCategory is the single typed CategoryOption value exposed by IWorkspaceState.
-CategoryFilter derives its display label. Null and Id zero select every family.
-Other signed IDs select exactly that category, including negative built-in Revit IDs.
-Both IFamilyQuery methods use those rules.
-GetFamiliesAsync reuses state only when category identity matches, families exist, and all family names are nonblank.
-It still filters the reused result by the requested category.</p>
-<p>WorkspaceState.SortMode uses MatchingOptionSortMode through mutation, persistence, restoration, and option projection.
-CurrentProjectStateCategoryId identifies loaded state. FamilyMappingState.AppliedCategoryId identifies applied rows.
-Applying a different category resets category-scoped rows before application and records the category only after rows apply.
-Cancellation between state publication and row application therefore causes a reset on retry.</p>
-<h3 id="mapping-intent-rows-and-conflicts">Mapping intent, rows, and conflicts</h3>
-<p><code>Features/Mapping/Domain</code> owns immutable intent, conflict, operation, plan, and host-free execution values.
-It does not import mutable Rows types.
-<code>MappingIntentKey</code> validates its nine-field shape through named factories and FromPersisted.
-It rejects invalid zero identities while retaining signed category IDs such as <code>-2000011</code>.</p>
-<p>The Rows package owns row-to-intent translation, projection, origin mutation, and family-apply behavior.
-Conflict/Rows owns row conflict matching. Detection consumes an immutable MappingSelectionSnapshot.
-MappingConflictWorkflow hydrates returned MappingIntentKey values into loaded rows.
-MappingConflictTarget defines three closed variants: a positive element selection, a type-parameter policy, or a display-only message.
-Resolution chooses an original side or an explicit MappingConflictBulkAction.
-Display labels and sentinel IDs do not encode executable policy.
-Duplicates implements Mapping-owned neutral selection/resolution contracts without exporting its own selection types.</p>
-<p>Mapping owns projection/execution contexts, row signals, navigation values/lifetimes,
-MappingUpdateSuppression, and OriginClearSuppression.
-Mapping Domain/Planning owns nested-family, style, and type-reference plan language.
-Commit Review's CommitReviewDocumentEditBuilder owns mutable family-batch assembly.
-Mapping's neutral composition registers MappingPlanVerifier and MappingIntentStore.
-Revit/Composition registers mutation adapters, attached by App's AddGm root.
-Shared Parameters implements Mapping's focused embed port and uses Mapping operation identities.</p>
-<p><code>Domain/Parameters/FamilyParameterDiscoveryResult</code> carries normalized ScopedParameterName values,
-complete/partial state, and contextual read errors.
-Family Mapping and Shared Parameters publish choices only from complete discovery.
-Duplicate parameter scoring requires complete discovery on both sides.
-Instance/Type suffixes are display labels. Parameter mappings retain scope and require equal source/target scope.</p>
-<h3 id="element-identities">Element identities</h3>
-<p>Revit family, type, instance, material, style, view, and category IDs use long.
-Revit boundaries use ElementIdConverter.ToLong and FromLong.
-Saved-mapping and UI-state JSON retain their property names and accept older integer-valued number tokens.
-Family-document materials resolve by name rather than host numeric ID.</p>
-<p>Int remains appropriate for counts, indexes, depths, enum/order casts, synthetic duplicate group IDs,
-SharedParameterDuplicateMatcher sequence IDs, and MappingOption.StableStringId hashes.
-SharedParameterValueCopier rejects Map From values outside Int32 for Revit Integer storage.
-ElementId parameter destinations parse Map From text as long.</p>
-<h3 id="persistence-and-saved-mappings">Persistence and saved mappings</h3>
-<p><code>Domain/Cache</code> owns tool-wide cache paths, metadata, and recovery policy.
-<code>App/Persistence</code> owns document UI-state storage and session persistence sequencing.
-StatePersistence requires both IUIStateCache and ISavedMappingStore in production.
-Design-time projection does not construct unused persistence.</p>
-<p>JSON writes flush a unique sibling temporary file and publish it atomically.
-Cancellation or I/O failure preserves the last good snapshot.
-Only confirmed missing files/directories count as absent. Access, sharing, invalid-path, and other I/O faults propagate.
-UI-state and Deep Scan snapshots are disposable caches: malformed, invalid, or old snapshots are discarded and logged.
-Saved mappings are user data and use strict nullable-ingress validation with contextual failures.
-Cache results are immutable hit/miss values. Hits always contain data.</p>
-<p>IUIStateCache serializes asynchronous writes and clears across scoped instances with a process-wide mutation gate.
-StatePersistence serializes document loads, clears, and saves and tracks separate UI-state/saved-mapping clear generations.
-An older open session cannot restore either snapshot after another window clears it.
-A freshly loaded window can persist new state.
-UIStateLifecycle attempts enabled close writes independently, retains failures in write order,
-and resets one-shot suppression even on failure. Confirmed clears drain before close persistence and disposal.
-PaneStateProjector supplies SavedAt. Saving preserves the supplied timestamp.</p>
-<p>Saved Mappings validates exact document identity and every persisted key before admission.
-Parameter mappings retain ScopedParameterName scope. The persistence port exposes load, save, and clear.
-MappingIntentStore owns merging. Commit Review constructs the restore workflow, merges persisted intent,
-and reapplies through row owners.</p>
-<p>Clearing saved mappings follows this order:</p>
-<ol>
-<li>Remove saved origins/selections from loaded rows.</li>
-<li>Clear mapping intent, duplicate intent, and the in-memory persisted list.</li>
-<li>Clear storage.</li>
-<li>Run the required App-bound refreshRowsAfterSavedMappingClear operation.</li>
-</ol>
-<p>CrossPaneRowRefresh rebuilds loaded Usage rows, refreshes Family Mapping rows,
-reconciles indicators under suppression, releases suppression, refreshes locks, and publishes cache status.
-Reapply calls Usage, FamilyMappingRowRefresh, Shared Parameters, and row locks directly.</p>
-<h3 id="option-cache-and-similarity">Option cache and similarity</h3>
-<p>MappingOptionCache keys candidates by mapping kind, source ID, category, ordered target ID/name pairs, and source label.
-Category lookup does not fall back to general entries. Prewarm uses the same identity.
-Candidate snapshots use private read-only lists, so replacing entries cannot mutate earlier results.</p>
-<p>NamingSimilarity.Normalize and numeric-suffix stem comparison retain letters/digits in invariant lowercase.
-Numeric-suffix siblings with equal cleaned stems score 1.0 before Dice evaluation.
-Dice uses lowercased raw-name bigrams, including punctuation and whitespace, with multiplicities.
-Its score is twice the multiset intersection divided by the sum of raw lengths minus two.
-For a raw length below two, equal raw lengths score 1.0 only with equal nonempty cleaned stems.
-Other short-name pairs score zero. Each scoring pass owns its immutable name-profile cache.</p>
-<h3 id="deep-scan">Deep Scan</h3>
-<p>Deep Scan owns family scans, projection, usage resolution, feature cache, and refresh workflow.
-A user scan collects a complete family batch and finishes cache preparation before one validated ApplyBatch admission.
-Usage refresh data is prepared before completed scan state publishes.
-Cancellation or required failure before admission preserves the prior projection.</p>
-<p>Host lookup completeness is separate for styles, materials, and families.
-An item failure marks only its domain incomplete and prevents partial singleton-name resolution or resolver-cache reuse.
-Other complete requested domains remain usable. Affected families retain warning diagnostics and incomplete usage.
-Unexpected collector/category traversal failures abort construction.
-Partial parameter discovery invalidates fast choices, is omitted from duplicate scoring,
-and removes prior reusable cache entries before admission. A later complete query can repopulate choices.
-Partial usage remains visible but cannot become reusable complete cache data.
-DeepScanCacheCoordinator removes prior reusable entries for incomplete parameter discovery or usage scans before admission.
-Failure to resolve a removal identity or remove an entry propagates and prevents admission.
-A cache write failure without required removals logs a warning.</p>
-<p>Cache operations use a local persistence gate plus an exclusive per-file process lock.
-Each batch reloads authoritative disk state once while holding both.
-Startup hydration reads eligible families against one load. User scan removes/writes its family batch with one load and one atomic save.
-This serializes owners across Revit processes. Disposal drains persistence before releasing the DI-root owner.
-Snapshot admission validates entries and parameter/usage completeness flags as a whole.
-It discards incompatible snapshots rather than salvaging entries.</p>
-<p>Clear Cache holds a session-lifetime registration through deletion, projection/UI refresh, and completion.
-It shares session-operation admission with scans. Shutdown drains it before disposing collaborators.
-A confirmed clear increments DeepScanOrchestrator's generation after disk deletion and before projection clearing.
-Hydration rejects its whole candidate batch if that generation changes or the captured ProjectState reference changes during reading.
-It never replaces an already completed family scan.</p>
-<p>CrossPaneRowRefresh implements IDeepScanUsageRefresh: apply Usage data, rebuild loaded rows when needed,
-reconcile Family Mapping state/indicators under suppression, then refresh locks.
-DeepScanRefreshWorkflow invalidates options and awaits the App-bound Shared Parameters authoring rebuild.
-That rebuild evicts authoring snapshots and rebuilds the loaded tree with pending intent and selection.
-Completion events describe changed cache state and publish even when rebuilding faults or cancels.
-The outcome then propagates to the operation boundary.
-Eligible-cache hydration finishes only after its queued UI refresh runs.</p>
-<p>AuthoringRebuildWorkflow serializes rebuild and application.
-If evidence invalidates during a build, including the first build, it builds again before applying.
-Disposal cancels held/queued rebuilds and prevents later application.</p>
-<h3 id="duplicates">Duplicates</h3>
-<p>The Duplicates feature owns detection, selections, rows, resolution, tree, pane state, and type mapping.
-Detection/DuplicateDetectionEngine calls the family, style, material, and shared-parameter matchers,
-assigns aggregate group IDs, and returns DuplicateDetectionResult.
-The feature's Domain, Selection, Rows, Resolution, Tree, Pane, and TypeMapping folders own their respective contracts and behavior.
-SharedParameterDuplicateMatcher lives beside family/style/material matchers under Detection/Matching.
-CurrentDuplicateDetection owns the last fully completed artifact.
-Detection collects its unpublished full state, executes stable DuplicateKind stages, hydrates names,
-then publishes and returns the same artifact reference. Earlier failure/cancellation preserves the prior artifact.
-Family-row counts use that same detection state.</p>
-<p>The immediate rebuild receives the artifact explicitly. Other readers inject CurrentDuplicateDetection.
-Cached refresh waits for cross-dispatcher rebuilds. A reentrant request replaces the queued request.
-The outer refresh runs the latest queued rebuild before returning, including propagating its failure.
-PreviewDuplicateMatcher matches style/material candidates only when both resolve to the same signature.
-Unavailable previews never match, including each other.
-Duplicates imports neither Shared Parameters nor Commit Review.</p>
-<h3 id="families-and-family-mapping">Families and Family Mapping</h3>
-<p>Families' neutral composition registers FamilyQuery and IFamilyQuery.
-Its Revit composition registers FamilyDocumentService, FamilyScanner, and scanner ports.
-FamilyDocumentService owns document lifecycle/query, not Mapping material preparation.
-Families consumes its own IFamilyInstanceCountQuery, implemented by Usage's live source.
-A thrown Document.Close or false result is a cleanup failure under the shared strict close policy.</p>
-<p>FamilyMappingViewModel owns binding state and interactions.
-FamilyMappingScanWorkflow owns asynchronous scan/cache/post-commit sequencing and its private scan-state applier.
-FamilyMappingRowRefresh owns symbol projection, row build/refresh, saved-mapping reapply, and usage reconciliation.
-Ordinary category navigation reuses a category snapshot or matching loaded state.
-RescanFamiliesAfterCommitAsync discards every category snapshot and rebuilds from the document,
-including when category identity stays unchanged, so newly created types reach rows.
-Cross-pane sequences remain in App's CrossPaneRowRefresh.</p>
-<h3 id="usage">Usage</h3>
-<p>Usage owns indexing, matching/options, preview cache/versioning, rows, selection, traversal, and pane state.
-AppSessionProjectionBuilder constructs one UsageIndexLoader and FamilyUsage after session state, names, and operation gate exist.
-The loader retains those collaborators. It is not a context-free service.
-RebuildPlanningUsageIfNeededAsync returns Task and builds only a missing index when usage intent exists.
-RebuildUsageAfterCommitIfNeededAsync returns true only when it builds the index.</p>
-<p>UsageIndexSnapshotBuilder starts and drains five catalog/index tasks, aggregates non-cancellation faults,
-and creates an unpublished candidate without touching the match index.
-Name resolution, project-state usage storage, and Deep Scan refresh preparation precede publication.
-Index publication aligns the match index, target universe, hydration generation, and option cache.
-UsageMatchIndex shares one in-flight family hydration among concurrent callers.
-An index publication invalidates hydration started against the prior generation.</p>
-<p>UsageIndexPublished runs synchronously on the publishing thread, including workers.
-RowRefreshPublicationWiring dispatches row projection to the UI thread. Rows track publication version.
-Detect suppresses publication-driven duplicate rebuild and rebuilds once after scanning, retaining the keep target.
-Passive option projection suppresses intent capture. An unavailable saved target remains disabled for review.
-An explicit edit can clear or replace it.</p>
-<p>UsageViewModel owns target selection and bound collection/preview mutation.
-Selection-family flow performs one family lookup, name hydration, and row population.
-UsagePreviewService owns calculation, caching, and request-version order.
-UsageWorkflow consumes IUsageIndexLoader and its own rows without App/Family Mapping imports or row locks.
-App PageActivationWorkflow suppresses live-plan updates across loading, reconciliation, and indicators,
-then refreshes locks and cache state after suppression.</p>
-<h3 id="shared-parameters-and-ui-execution">Shared Parameters and UI execution</h3>
-<p>Shared Parameters owns domain values, authoring, formulas, Revit adapters, rows, tree, views, and pane state.
-SharedParameterDuplicateReconciler owns stateful duplicate-row mutation and reentrancy.
-SharedParameterConflictProjector performs stateless tree/Commit Review projection.</p>
-<p>Map From reads numeric formula inputs at the Revit boundary. The preview evaluator does not parse displayed parameter text.
-Measured values use Revit's display unit. Preview output uses 15 significant digits.
-Numeric preview accepts signed/unsigned E/e exponents, including substituted invariant G15 values.
-Unresolved identifiers/functions produce preview-unavailable. Revit still validates authored formulas.
-Formula mode returns zero from the value copier without target resolution or writes.
-The embed applier counts authored formulas separately from value updates:
-one formula has authored=1, updated=0, affected=1. MapFrom retains copied-value counts.</p>
-<p>Detached Usage selection-preview and authoring property notifications use ISafeExecutor.RunWithoutThrowingAsync.
-The shared boundary owns logging/banners without rethrowing into WPF dispatch.
-Shared-parameter group/category/authoring work and contested overlay admission retain the UI context before collection mutation.
-Preview failures propagate to their owning command/tree-selection boundary for one report.</p>
-<h3 id="commit-review-planning-and-continuation">Commit Review planning and continuation</h3>
-<p>Commit Review planning resolves names, builds planning state, loads parameter groups, and prepares rows/usage
-inside one ISessionOperationGate operation. Collaborators do not reacquire that non-reentrant gate.
-The gate releases before the review dialog opens. Refresh takes a separate operation.
-Planning cancellation remains control flow. Other faults can produce invalid-plan state.
-Commit Review receives closing state and MappingSessionContext with IWorkspaceState rather than mutable App state.
-Planning/DocumentEdit owns mutable batch assembly. Report/OperationRows/OperationRowProjector produces
-family, pending, result, and error rows. Workflow owns apply/finalization. Revit/CommitReviewSessionFactory
-composes the child scope, planning, transaction groups, and modal presenter through the bound document gate.
-CommitReviewRowServices is feature-owned and constructed by App's row composition.</p>
-<p>Commit continuation uses ICommitReviewRowRefresh, implemented by CrossPaneRowRefresh.
-It returns Refreshed, Canceled, or NoSelectedCategory.
-Only a successful family scan proceeds to usage preparation, family reconciliation, and row locks.
-Canceled stops through cancellation. NoSelectedCategory skips refresh without a success log.
-Committed mappings remain persisted in either case.
-The refresh workflow consumes ISessionOperationGate for busy state.</p>
-<p>Commit-and-continue invalidates authoring snapshots, duplicates, and cached family views before rescanning.
-Returned outcomes rebuild the applied Shared Parameters tree.
-A successful continuation rescans Duplicates immediately when that page is active.</p>
-<h3 id="view-operations-and-catalogs">View operations and catalogs</h3>
-<p>ViewOps owns navigation. A positive missing element ID returns false without changing view or selection.
-Nonpositive IDs are argument errors. Unexpected Revit faults propagate.
-Previews owns cross-feature material/style catalogs and preview values.</p>
-<h2 id="mapping-execution">Mapping execution</h2>
-<p>RevitMappingPlanExecutor validates document identity and supplies document operations to MappingPlanExecutor.
-Production apply and Pure tests use the same stage loop, capture boundaries, and result builder.</p>
-<h3 id="result-accounting">Result accounting</h3>
-<p>The MappingApplyResult constructor validates and snapshots recorded operation results.
-Succeeded operations require positive affected counts. Skips require zero.
-Failed operations can retain counts for writes completed before failure.
-Root succeeded/failed/skipped and affected totals derive from one recorded-result snapshot.
-Caller collections cannot mutate the completed result.
-Family success requires changed work and a successful reload.
-Failed-rule totals and fatal operation diagnostics must agree.</p>
-<p>Exception-backed diagnostics retain the original exception internally.
-MappingApplyResultBuilder logs each exception reference once with operation context.
-Commit Review receives stable operation text, codes, IDs, and family context.
-Exception types, messages, and stacks stay in logs.
-Writer exceptions are attributed to every unrecorded operation owned by that writer.
-Family cleanup always attempts close and retains close diagnostics after primary errors.
-Cancellation plus cleanup failures propagate primary-first through family-batch and outer writer containment.</p>
-<p>Skipped group-owned references produce Mapping warnings.
-An Edit Group restriction rejecting a line-style transaction at commit fails that pair.
-Successful sibling results retain their affected counts, but Commit Review rolls back an attempt with fatal mapping diagnostics.</p>
-<h3 id="writer-failures">Writer failures</h3>
-<p>A writer exception after all owned operations are recorded is a workflow failure.
-The result builder logs writer/stage context once and rethrows the original exception with its stack.
-Recorded operations alone cannot produce a successful final result in this case.
-With unrecorded owned operations, the executor records their failures and continues to later writers.</p>
-<h3 id="population-capture">Population capture</h3>
-<p>Replacement capture precedes the first mutation that can change its population.
-<code>ApplyContext</code> captures the original symbol populations, target occupancy and
-type-parameter source values before the writer loop. Host material references
-are captured at the fixed boundary after Host recreation and before Nested
-Families or Type Replacements, including plans with no Host operations. They
-refer to recreated element IDs without consuming values introduced by later
-type-parameter migration or family reloads. Each family document captures all applicable material,
-object-style and nested-symbol references before its operation loop. Missing
-sources are explicit capture results. An absent source in a traversed
-family is zero work with a non-fatal reason. A missing host source or an
-ambiguous family material name remains an error. Apply never discovers an
-incoming population. Family material capture includes writable type parameters
-and the per-type defaults of instance material parameters. Revit does not allow
-formulas on Material data type parameters. Formula-determined parameters are
-outside this material replacement population. Reference kinds are explicit.
-Blank type names are valid and match ordinally. Capture does not change
-<code>FamilyManager.CurrentType</code>. Transactional apply restores the captured type. Object-style capture identifies the
-actual subcategory parameter or boundary curves of each filled region.</p>
-<p>Family-owned execution uses BatchOperationSet keyed by MappingOperation.OperationId and
-FamilyBatchResult.ResultsByOperationId. Style and prepared-material payloads use the same IDs.
-Nested, style, material, and embed dispatch uses canonical operation types and direct appliers.
-Intermediate counts must be nonnegative, and succeeded plus failed documents cannot exceed attempted.
-Invalid producer output fails validation.</p>
-<h3 id="family-document-lifetime">Family document lifetime</h3>
-<p>Family-owned batch execution discovers the complete applicable family tree and
-captures each original population before applying any family mutation.
-<code>FamilyBatchDocuments</code> retains one edit document for each family
-identity through capture, apply, and reload. Discovery spans the whole commit.
-Its peak open-document count therefore grows with the discovered tree. After
-discovery, documents with no applicable work in themselves or their descendants
-are closed before apply. Remaining documents close after their last root-batch
-use. Final cleanup closes anything left, including after cancellation. Each
-release closes in reverse open order and reports individual close failures.
-Discovery logs the peak and retained counts and reports progress per root.
-Cleanup uses the underlying Revit gate without requiring the launch document
-to remain active or the work token to remain uncancelled. <code>EditFamily</code>
-creates independent copies, so no captured element key is carried into a second
-edit session. Family element references use <code>UniqueId</code> within their retained
-document plus parameter identity. Family type references use explicit reference
-kind, family type name, and family parameter name. Built-in parameter identity
-uses the typed Revit enum without narrowing its underlying 64-bit value.
-Document-local <code>ElementId</code> values remain diagnostics and population indexes
-only. Missing keys produce a diagnostic and do not trigger a live rescan.</p>
-<h3 id="shared-family-identity-and-reload">Shared family identity and reload</h3>
-<p>Shared nested families use a name/category identity. Nonshared copies
-include their embedding path. Discovery opens
-the project's shared definition when one exists, so a parent's stale embedded
-copy cannot become the original population for another root. If the same
-shared family is reached through several roots, applicable operation
-populations are merged and each normalized operation is applied once. An
-equivalent alias receives a merged notice. If its representative fails, the
-alias is reported as failed as well. Conflicting targets for the same source
-fail preflight. After a nested or root reload, the load
-allowlist selects <code>FamilySource.Family</code> only for shared identities changed by
-that target traversal. Unchanged shared children use <code>FamilySource.Project</code>,
-which preserves the target document's existing child instead of reloading a
-stale source copy. Parent material capture excludes shared-symbol projections:
-the child owns those values and only surviving writes count. Before
-reload, project-owned shared material projections are restored from the target
-document explicitly. Revit can otherwise propagate those type values even when
-the shared-family load callback selects Project. Nonshared symbol overrides
-remain part of the parent population.</p>
-<h3 id="family-results">Family results</h3>
-<p>Family-document success requires both changed work and a successful reload. A failed
-family traversal or reload marks every operation actually executed in that
-traversal as failed, including merged aliases. An affected count can
-show writes made before the failure. The original exception remains attached
-to the diagnostic for logging and review.</p>
-<p>Family-document attempt/success/failure counts include every examined root and
-child document, including zero-work captures. A reload or close failure keeps
-the completed affected counts and marks the affected document operation results failed.</p>
-<h3 id="material-projection-ownership">Material projection ownership</h3>
-<p>A parent FamilySymbol's material type value is a projection of the child's
-authored FamilyType value. When that child has the same planned material
-operation, the child owns the write and its count. For nonshared children,
-root-only operations and traversal-depth leaves retain their parent-side
-references. Shared projections are always child-owned. Missing captured
-host references produce a nonfatal diagnostic.</p>
-<h3 id="line-style-verification">Line-style verification</h3>
-<p>Line-style query snapshots retain curve IDs and per-source offered intersections,
-not Revit element wrappers or target sets per curve. A line-style apply performs
-one fresh discovery sweep, then verifies actual styles by reading the captured
-IDs. Complete original-source intersections are regrouped under the final source
-styles. Unexpected population splits or missing curves fail verification for
-the committed pairs. Their operation results retain the committed affected counts, and
-the writer returns the errors instead of throwing away those operation results.
-Commit Review and the subsequent accepted Usage refresh share this result. A
-rollback does not publish it. <code>CommitReviewLineStyleLifecycle</code> exports it once,
-and only while the session's query cache still holds the snapshot that was
-current when post-apply verification succeeded. Explicit Detect and Usage refresh boundaries
-invalidate prior snapshots. The hosted sweep fixture compares target intersections with an independent Revit API query.</p>
-<p>Object-style attribution identifies the family returned by <code>LoadFamily</code>, its retained name,
-and its ownership of original instances. A Detail Items fixture does not establish the same
-style availability for every Generic Model, annotation, or in-place family.</p>
-<h3 id="post-apply-verification">Post-apply verification</h3>
-<p>Commit Review checks operation identity and successful operation results for all
-replacement kinds, including runtime replacements created by Create Type.
-Symbol and line-style counts can be checked against incoming populations.
-Family material and object-style Usage count families while operation results count
-references. An overlapping successful target is therefore checked through its
-operation result and writer readback, not by equating those different quantities.</p>
-<h3 id="commit-review-results-and-finalization">Commit Review results and finalization</h3>
-<table>
-<thead>
-<tr>
-<th>Result</th>
-<th>Contract</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Completed</td>
-<td>Requires MappingApplyResult and derives success from Outcome</td>
-</tr>
-<tr>
-<td>Canceled</td>
-<td>Contains neither Mapping result nor failure prose</td>
-</tr>
-<tr>
-<td>WorkflowFailed</td>
-<td>Requires a nonblank reason. Can retain a rolled-back Mapping result for diagnostics</td>
-</tr>
-</tbody>
-</table>
-<p>Warnings can complete successfully and remain committable.
-Only positive succeeded operations without fatal diagnostics project applied or persistable intent.
-Verification requires no planned type, host, style, or material source references to remain.
-Otherwise the verifier's four-field failure summary blocks mapping projection.</p>
-<p>One <code>Global Mapper: Apply</code> session group stays open through modal review.
-Apply and Retry Apply execute and verify inside an inner attempt group.
-Failure or cancellation rolls back the attempt and permits retry.
-Retry reuses the reviewed plan but constructs a new apply context and rereads the document.</p>
-<p><strong>Keep + Continue</strong> and <strong>Keep + Close GM</strong> assimilate the session group into one Undo entry before recording mappings.
-<strong>Roll back</strong>, X's rollback answer, cancellation, and abnormal exit roll it back.
-An unknown rollback outcome propagates to the error banner rather than asserting that nothing was kept.
-Active-view refresh follows successful verification. A refresh warning does not disable Keep.
-After review closes, RefreshAfterReviewAsync refreshes GM after any admitted attempt, including failed or rolled-back attempts.</p>
-<p>Type replacements retain their selecting intent key, so acceptance records intent for its actual owner.
-Apply transactions log each Revit failure at Warning with definition ID and failing elements.
-Pre-commit issues retain their validation label.</p>
-<p>Family-document material replacement resolves source and target by material name.
-Errors retain planned operation ID and host source/target IDs.
-Family-document material IDs and affected elements are diagnostic details.
-Report grouping uses the owning operation even when operations share a host pair or family documents assign different IDs.</p>
-<h3 id="reloaded-family-identity">Reloaded family identity</h3>
-<p>Family-owned apply retains the family ID returned by Revit reload. Accepted mappings use that identity, including existing saved and pending mappings for the same family. Rollback leaves mapping identities unchanged.
-MappingApplyResult.ReloadedFamilyIds snapshots changed root identities.
-Finalization remaps applied/persistable family keys and targets before merging.
-MappingIntentStore also remaps existing saved/pending intents, manual family-apply state, and usage links.
-One replaced identity must not retain a second saved mapping.</p>
-<h3 id="host-replacement">Host replacement</h3>
-<p>Each host replacement is atomic per instance. Placement and required facing, hand, and
-point-rotation transfer must finish before source deletion. Ordinary parameter
-copies use best-effort transfer. A failed replacement becomes an item error only after its
-subtransaction reports a completed rollback. If rollback throws or reports any other
-status, the primary and rollback failures escape together so the enclosing transaction
-aborts instead of committing an uncertain document state.</p>
-<p><code>ParameterValueTransfer</code> reads the target after <code>Parameter.Set</code> returns false.
-It accepts the copy as a no-op
-only when its storage type and value exactly match the requested source value. It applies
-no numeric tolerance to <code>Double</code> values. A remaining mismatch becomes a nonfatal
-<code>HostParameterCopyWarning</code> with the source instance, parameter, and reason.
-Setter exceptions remain failures. These warnings
-appear only after the replacement subtransaction commits. A later required-state
-failure rolls back and retains the fatal replacement error. Commit Review preserves each
-distinct diagnostic, opens the operation diagnostics section, and reports <code>Completed with Warnings</code>.
-It counts nonfatal diagnostics. Within each diagnostic-code group, it includes distinct messages in first-seen order.
-Code groups sort by descending diagnostic count, then by code ignoring case.</p>
-<p>Host parameter transfer treats a writable instance <code>Phase Created</code> value as instance-owned
-even when the family symbol exposes the same built-in parameter ID.
-Generated <code>IfcGUID</code> remains excluded by the type-bound rule.</p>
-<h2 id="revit-read-scheduling">Revit read scheduling</h2>
-<p>GmSessionDocumentGate validates Action callbacks as synchronous before wrapping their launch-document check.
-It rejects async void before Core can see only the synchronous decorator.
-Generic results also undergo synchronous-result validation.</p>
-<p>Independent reads for one action start together and are awaited in original order,
-so the first read's failure/cancellation remains primary.
-Startup starts family-category, shared-parameter-category, and parameter-group reads together.
-Family expansion starts view and parameter-name reads together.
-Selected-type instance examples are read once through type selection.
-Core's queued-turn policy determines which waiting calls share a callback.</p>
-<h2 id="line-style-eligibility">Line-style eligibility</h2>
-<p>The shared line-style query checks the capability required by Revit commit.
-A grouped curve is restylable only when its group and every enclosing group
-have exactly one placed instance of their type. Attached detail groups also
-check their parent model group. Multi-instance groups are excluded before
-capture with their type name, placed count and Edit Group reason. GM never
-enters Edit Group mode and never ungroups elements. A style used only by those
-excluded members has no selectable source targets, even when the style remains
-available as a target for other sources.</p>
-<p>The writer captures every pair's population before the first pair mutates the
-document. Curves with no alternate Lines projection style, no resolvable
-projection or a non-Lines current style are also excluded. The query retains scalar curve IDs and per-source target intersections for
-restylable curves. It does not retain Revit wrappers
-for excluded members, and readback never revisits them. Each successful pair's
-affected count equals its pre-apply Usage quantity. A defensive group-edit
-failure at commit rolls back only that pair and surfaces the reason.</p>
-<h2 id="public-surface-and-resources">Public surface and resources</h2>
+<h3 id="public-surface-and-resources">Public surface and resources</h3>
 <p>GM production payload types default to internal.
 Manifest activation requires public GmToolModule and GmCommand.
 Public conflict projection values retain their public binding properties.
@@ -637,7 +138,7 @@ Dependency objects, converters, selectors, and attached behaviors are stable pub
 The design-time view models are internal with public binding/fragment properties.
 Sandbox and production consume the same raw resources and fragments.
 Compiled resource validation checks manifest logical names.</p>
-<h2 id="source-reference">Source reference</h2>
+<h3 id="source-reference">Source reference</h3>
 <p>Paths below are relative to <code>src/Tools/Common/GM/</code>.</p>
 <table>
 <thead>
@@ -693,6 +194,511 @@ Compiled resource validation checks manifest logical names.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="domain-and-feature-contracts">Domain and feature contracts</h3>
+<h4 id="project-state">Project state</h4>
+<p><code>Domain/ProjectState</code> owns ProjectState, family/type records, reference index/values,
+project parameters, scan state, projection, and the scoped ProjectStateStore.
+The store imports no feature or App namespace. CurrentProjectState and CurrentProjectStateCategoryId
+identify the loaded snapshot and its category in one replacement operation.
+<code>IProjectStateBuilder</code> and <code>ProjectStateBuildRequest</code> are inward contracts.
+<code>App/State/ProjectStateBuilder</code> queries Families, Usage, Shared Parameters, and Previews and projects their results into those values.</p>
+<p>Family-only refresh retains loaded Usage and Shared Parameters sections and invalidates derived usage caches before preparing rows.
+A failed build preserves published state.
+Commit Review planning builds the selected category plus pending-intent owner families without publishing.
+<code>CarryForwardInto</code> supplies loaded sections and unchanged-family Deep Scan evidence to that planning state.
+Duplicate detection also stays unpublished. <code>CarryDeepScanEvidenceInto</code> supplies only unchanged-family evidence to its fresh full state.</p>
+<p>The ProjectStateStore retains evidence across category-filtered state replacement.
+A rebuild restores it only when the family's type set and per-type instance counts remain unchanged.
+After commit, <code>ReplaceProjectStateAfterCommit</code> discards directly changed families and containing ancestors across all categories.
+Direct changes include mapped/owning families, families of mapped types, and material/object-style families found by AffectedFamilyResolver.
+Commit Review planning uses that same resolver. Its plan context owns planning identity and evidence.
+Discarding evidence removes scan state, type payloads, DeepScanResults, and fast parameter discovery together.</p>
+<h4 id="element-names-and-categories">Element names and categories</h4>
+<p><code>Domain/ElementNames</code> owns IElementNameQuery, ElementNamesCache, and ElementNameLookupKind.
+<code>Revit/ElementName/ElementNameQuery</code> implements the Revit adapter. App registers it with state/cache wiring.
+Categories registers curated-category services.
+Strict name loading requires a nonblank cached name for every requested ID.
+Blank entries are queried again. Omitted/blank provider values stay unresolved.
+GetResolvedFamilyName prefers cache, then project-state family name, and throws if neither exists.
+Display getters retain explicit ID/unavailable-name fallbacks.</p>
+<p>WorkspaceState.SelectedCategory is the single typed CategoryOption value exposed by IWorkspaceState.
+CategoryFilter derives its display label. Null and Id zero select every family.
+Other signed IDs select exactly that category, including negative built-in Revit IDs.
+Both IFamilyQuery methods use those rules.
+GetFamiliesAsync reuses state only when category identity matches, families exist, and all family names are nonblank.
+It still filters the reused result by the requested category.</p>
+<p>WorkspaceState.SortMode uses MatchingOptionSortMode through mutation, persistence, restoration, and option projection.
+CurrentProjectStateCategoryId identifies loaded state. FamilyMappingState.AppliedCategoryId identifies applied rows.
+Applying a different category resets category-scoped rows before application and records the category only after rows apply.
+Cancellation between state publication and row application therefore causes a reset on retry.</p>
+<h4 id="mapping-intent-rows-and-conflicts">Mapping intent, rows, and conflicts</h4>
+<p><code>Features/Mapping/Domain</code> owns immutable intent, conflict, operation, plan, and host-free execution values.
+It does not import mutable Rows types.
+<code>MappingIntentKey</code> validates its nine-field shape through named factories and FromPersisted.
+It rejects invalid zero identities while retaining signed category IDs such as <code>-2000011</code>.</p>
+<p>The Rows package owns row-to-intent translation, projection, origin mutation, and family-apply behavior.
+Conflict/Rows owns row conflict matching. Detection consumes an immutable MappingSelectionSnapshot.
+MappingConflictWorkflow hydrates returned MappingIntentKey values into loaded rows.
+MappingConflictTarget defines three closed variants: a positive element selection, a type-parameter policy, or a display-only message.
+Resolution chooses an original side or an explicit MappingConflictBulkAction.
+Display labels and sentinel IDs do not encode executable policy.
+Duplicates implements Mapping-owned neutral selection/resolution contracts without exporting its own selection types.</p>
+<p>Mapping owns projection/execution contexts, row signals, navigation values/lifetimes,
+MappingUpdateSuppression, and OriginClearSuppression.
+Mapping Domain/Planning owns nested-family, style, and type-reference plan language.
+Commit Review's CommitReviewDocumentEditBuilder owns mutable family-batch assembly.
+Mapping's neutral composition registers MappingIntentStore. Commit Review composition registers CommitReviewPlanVerifier.
+Revit/Composition registers mutation adapters, attached by App's AddGm root.
+Shared Parameters implements Mapping's focused embed port and uses Mapping operation identities.</p>
+<p><code>Domain/Parameters/FamilyParameterDiscoveryResult</code> carries normalized ScopedParameterName values,
+complete/partial state, and contextual read errors.
+Family Mapping and Shared Parameters publish choices only from complete discovery.
+Duplicate parameter scoring requires complete discovery on both sides.
+Instance/Type suffixes are display labels. Parameter mappings retain scope and require equal source/target scope.</p>
+<h4 id="element-identities">Element identities</h4>
+<p>Revit family, type, instance, material, style, view, and category IDs use long.
+Revit boundaries use ElementIdConverter.ToLong and FromLong.
+Saved-mapping and UI-state JSON accept integer-valued number tokens, including values in the 32-bit range.
+Family-document materials resolve by name rather than host numeric ID.</p>
+<p>Counts, indexes, depths, enum/order casts, synthetic duplicate group IDs,
+SharedParameterDuplicateMatcher sequence IDs, and MappingOption.StableStringId hashes use int.
+SharedParameterValueCopier rejects Map From values outside Int32 for Revit Integer storage.
+ElementId parameter destinations parse Map From text as long.</p>
+<h4 id="persistence-and-saved-mappings">Persistence and saved mappings</h4>
+<p><code>Domain/Cache</code> owns tool-wide cache paths, metadata, and recovery policy.
+<code>App/Persistence</code> owns document UI-state storage and session persistence sequencing.
+StatePersistence requires both IUIStateCache and ISavedMappingStore in production.
+Design-time projection does not construct unused persistence.</p>
+<p>JSON writes flush a unique sibling temporary file and publish it atomically.
+Cancellation or I/O failure preserves the last good snapshot.
+Only confirmed missing files/directories count as absent. Access, sharing, invalid-path, and other I/O faults propagate.
+UI-state and Deep Scan snapshots are disposable caches: malformed, invalid, or old snapshots are discarded and logged.
+Saved mappings are user data and use strict nullable-ingress validation with contextual failures.
+Cache results are immutable hit/miss values. Hits always contain data.</p>
+<p>IUIStateCache serializes asynchronous writes and clears across scoped instances with a process-wide mutation gate.
+StatePersistence serializes document loads, clears, and saves and tracks separate UI-state/saved-mapping clear generations.
+An older open session cannot restore either snapshot after another window clears it.
+A freshly loaded window can persist new state.
+UIStateLifecycle attempts enabled close writes independently, retains failures in write order,
+and resets one-shot suppression even on failure. Confirmed clears drain before close persistence and disposal.
+PaneStateProjector supplies SavedAt. Saving preserves the supplied timestamp.</p>
+<p>Saved Mappings validates exact document identity and every persisted key before admission.
+Parameter mappings retain ScopedParameterName scope. The persistence port exposes load, save, and clear.
+MappingIntentStore owns merging. Commit Review constructs the restore workflow, merges persisted intent,
+and reapplies through row owners.</p>
+<p>Clearing saved mappings follows this order:</p>
+<ol>
+<li>Remove saved origins/selections from loaded rows.</li>
+<li>Clear mapping intent, duplicate intent, and the in-memory persisted list.</li>
+<li>Clear storage.</li>
+<li>Run the required App-bound refreshRowsAfterSavedMappingClear operation.</li>
+</ol>
+<p>CrossPaneRowRefresh rebuilds loaded Usage rows, refreshes Family Mapping rows,
+reconciles indicators under suppression, releases suppression, refreshes locks, and publishes cache status.
+Reapply calls Usage, FamilyMappingRowRefresh, Shared Parameters, and row locks directly.</p>
+<h4 id="option-cache-and-similarity">Option cache and similarity</h4>
+<p>MappingOptionCache keys candidates by mapping kind, source ID, category, ordered target ID/name pairs, and source label.
+Category lookup does not fall back to general entries. Prewarm uses the same identity.
+Candidate snapshots use private read-only lists, so replacing entries cannot mutate earlier results.</p>
+<p>NamingSimilarity.Normalize and numeric-suffix stem comparison retain letters/digits in invariant lowercase.
+Numeric-suffix siblings with equal cleaned stems score 1.0 before Dice evaluation.
+Dice uses lowercased raw-name bigrams, including punctuation and whitespace, with multiplicities.
+Its score is twice the multiset intersection divided by the sum of raw lengths minus two.
+For a raw length below two, equal raw lengths score 1.0 only with equal nonempty cleaned stems.
+Other short-name pairs score zero. Each scoring pass owns its immutable name-profile cache.</p>
+<h4 id="deep-scan">Deep Scan</h4>
+<p>Deep Scan owns family scans, projection, usage resolution, feature cache, and refresh workflow.
+A user scan collects a complete family batch and finishes cache preparation before one validated ApplyBatch admission.
+Usage refresh data is prepared before completed scan state publishes.
+Cancellation or required failure before admission preserves the prior projection.</p>
+<p>Host lookup completeness is separate for styles, materials, and families.
+An item failure marks only its domain incomplete and prevents partial singleton-name resolution or resolver-cache reuse.
+Other complete requested domains remain usable. Affected families retain warning diagnostics and incomplete usage.
+Unexpected collector/category traversal failures abort construction.
+Partial parameter discovery invalidates fast choices, is omitted from duplicate scoring,
+and removes prior reusable cache entries before admission. A later complete query can repopulate choices.
+Partial usage remains visible but cannot become reusable complete cache data.
+DeepScanCacheCoordinator removes prior reusable entries for incomplete parameter discovery or usage scans before admission.
+Failure to resolve a removal identity or remove an entry propagates and prevents admission.
+A cache write failure without required removals logs a warning.</p>
+<p>Cache operations use a local persistence gate plus an exclusive per-file process lock.
+Each batch reloads authoritative disk state once while holding both.
+Startup hydration reads eligible families against one load. User scan removes/writes its family batch with one load and one atomic save.
+This serializes owners across Revit processes. Disposal drains persistence before releasing the DI-root owner.
+Snapshot admission validates entries and parameter/usage completeness flags as a whole.
+It discards incompatible snapshots rather than salvaging entries.</p>
+<p>Clear Cache holds a session-lifetime registration through deletion, projection/UI refresh, and completion.
+It shares session-operation admission with scans. Shutdown drains it before disposing collaborators.
+A confirmed clear increments DeepScanOrchestrator's generation after disk deletion and before projection clearing.
+Hydration rejects its whole candidate batch if that generation changes or the captured ProjectState reference changes during reading.
+It never replaces an already completed family scan.</p>
+<p>CrossPaneRowRefresh implements IDeepScanUsageRefresh: apply Usage data, rebuild loaded rows when needed,
+reconcile Family Mapping state/indicators under suppression, then refresh locks.
+DeepScanRefreshWorkflow invalidates options and awaits the App-bound Shared Parameters authoring rebuild.
+That rebuild evicts authoring snapshots and rebuilds the loaded tree with pending intent and selection.
+Completion events describe changed cache state and publish even when rebuilding faults or cancels.
+The outcome then propagates to the operation boundary.
+Eligible-cache hydration finishes only after its queued UI refresh runs.</p>
+<p>AuthoringRebuildWorkflow serializes rebuild and application.
+If evidence invalidates during a build, including the first build, it builds again before applying.
+Disposal cancels held/queued rebuilds and prevents later application.</p>
+<h4 id="duplicates">Duplicates</h4>
+<p>The Duplicates feature owns detection, selections, rows, resolution, tree, pane state, and type mapping.
+Detection/DuplicateDetectionEngine calls the family, style, material, and shared-parameter matchers,
+assigns aggregate group IDs, and returns DuplicateDetectionResult.
+The feature's Domain, Selection, Rows, Resolution, Tree, Pane, and TypeMapping folders own their respective contracts and behavior.
+SharedParameterDuplicateMatcher lives beside family/style/material matchers under Detection/Matching.
+CurrentDuplicateDetection owns the last fully completed artifact.
+Detection collects its unpublished full state, executes stable DuplicateKind stages, hydrates names,
+then publishes and returns the same artifact reference. Earlier failure/cancellation preserves the prior artifact.
+Family-row counts use that same detection state.</p>
+<p>The immediate rebuild receives the artifact explicitly. Other readers inject CurrentDuplicateDetection.
+Cached refresh waits for cross-dispatcher rebuilds. A reentrant request replaces the queued request.
+The outer refresh runs the latest queued rebuild before returning, including propagating its failure.
+PreviewDuplicateMatcher matches style/material candidates only when both resolve to the same signature.
+Unavailable previews never match, including each other.
+Duplicates imports neither Shared Parameters nor Commit Review.</p>
+<h4 id="families-and-family-mapping">Families and Family Mapping</h4>
+<p>Families' neutral composition registers FamilyQuery and IFamilyQuery.
+Its Revit composition registers FamilyDocumentService, FamilyScanner, and scanner ports.
+FamilyDocumentService owns document lifecycle/query, not Mapping material preparation.
+Families consumes its own IFamilyInstanceCountQuery, implemented by Usage's live source.
+A thrown Document.Close or false result is a cleanup failure under the shared strict close policy.</p>
+<p>FamilyMappingViewModel owns binding state and interactions.
+FamilyMappingScanWorkflow owns asynchronous scan/cache/post-commit sequencing and its private scan-state applier.
+FamilyMappingRowRefresh owns symbol projection, row build/refresh, saved-mapping reapply, and usage reconciliation.
+Ordinary category navigation reuses a category snapshot or matching loaded state.
+RescanFamiliesAfterCommitAsync discards every category snapshot and rebuilds from the document,
+including when category identity stays unchanged, so newly created types reach rows.
+App's CrossPaneRowRefresh sequences cross-pane work.</p>
+<h4 id="usage">Usage</h4>
+<p>Usage owns indexing, matching/options, preview cache/versioning, rows, selection, traversal, and pane state.
+AppSessionProjectionBuilder constructs one UsageIndexLoader and FamilyUsage after session state, names, and operation gate exist.
+The loader retains those collaborators. It is not a context-free service.
+RebuildPlanningUsageIfNeededAsync returns Task and builds only a missing index when usage intent exists.
+RebuildUsageAfterCommitIfNeededAsync returns true only when it builds the index.</p>
+<p>UsageIndexSnapshotBuilder starts and drains five catalog/index tasks, aggregates non-cancellation faults,
+and creates an unpublished candidate without touching the match index.
+Name resolution, project-state usage storage, and Deep Scan refresh preparation precede publication.
+Index publication aligns the match index, target universe, hydration generation, and option cache.
+UsageMatchIndex shares one in-flight family hydration among concurrent callers.
+An index publication invalidates hydration started against the prior generation.</p>
+<p>UsageIndexPublished runs synchronously on the publishing thread, including workers.
+RowRefreshPublicationWiring dispatches row projection to the UI thread. Rows track publication version.
+Detect suppresses publication-driven duplicate rebuild and rebuilds once after scanning, retaining the keep target.
+Passive option projection suppresses intent capture. An unavailable saved target remains disabled for review.
+An explicit edit can clear or replace it.</p>
+<p>UsageViewModel owns target selection and bound collection/preview mutation.
+Selection-family flow performs one family lookup, name hydration, and row population.
+UsagePreviewService owns calculation, caching, and request-version order.
+UsageWorkflow consumes IUsageIndexLoader and its own rows without App/Family Mapping imports or row locks.
+App PageActivationWorkflow suppresses live-plan updates across loading, reconciliation, and indicators,
+then refreshes locks and cache state after suppression.</p>
+<h4 id="shared-parameters-and-ui-execution">Shared Parameters and UI execution</h4>
+<p>Shared Parameters owns domain values, authoring, formulas, Revit adapters, rows, tree, views, and pane state.
+SharedParameterDuplicateReconciler owns stateful duplicate-row mutation and reentrancy.
+SharedParameterConflictProjector performs stateless tree/Commit Review projection.</p>
+<p>Map From reads numeric formula inputs at the Revit boundary. The preview evaluator does not parse displayed parameter text.
+Measured values use Revit's display unit. Preview output uses 15 significant digits.
+Numeric preview accepts signed/unsigned E/e exponents, including substituted invariant G15 values.
+Unresolved identifiers/functions produce preview-unavailable. Revit still validates authored formulas.
+Formula mode returns zero from the value copier without target resolution or writes.
+The embed applier counts authored formulas separately from value updates:
+one formula has authored=1, updated=0, affected=1. MapFrom retains copied-value counts.</p>
+<p>Detached Usage selection-preview and authoring property notifications use ISafeExecutor.RunWithoutThrowingAsync.
+The shared boundary owns logging/banners without rethrowing into WPF dispatch.
+Shared-parameter group/category/authoring work and contested overlay admission retain the UI context before collection mutation.
+Preview failures propagate to their owning command/tree-selection boundary for one report.</p>
+<h4 id="commit-review-planning-and-continuation">Commit Review planning and continuation</h4>
+<p>Commit Review planning resolves names, builds planning state, loads parameter groups, and prepares rows/usage
+inside one ISessionOperationGate operation. Collaborators do not reacquire that non-reentrant gate.
+The gate releases before the review dialog opens. Refresh takes a separate operation.
+Planning cancellation remains control flow. Other faults can produce invalid-plan state.
+Commit Review receives closing state and MappingSessionContext with IWorkspaceState rather than mutable App state.
+Planning/DocumentEdit owns mutable batch assembly. Report/OperationRows/OperationRowProjector produces
+family, pending, result, and error rows. Workflow owns apply/finalization. Revit/CommitReviewSessionFactory
+composes the child scope, planning, transaction groups, and modal presenter through the bound document gate.
+CommitReviewRowServices is feature-owned and constructed by App's row composition.</p>
+<p>Commit continuation uses ICommitReviewRowRefresh, implemented by CrossPaneRowRefresh.
+It returns Refreshed, Canceled, or NoSelectedCategory.
+Only a successful family scan proceeds to usage preparation, family reconciliation, and row locks.
+Canceled stops through cancellation. NoSelectedCategory skips refresh without a success log.
+Committed mappings remain persisted in either case.
+The refresh workflow consumes ISessionOperationGate for busy state.</p>
+<p>Commit-and-continue invalidates authoring snapshots, duplicates, and cached family views before rescanning.
+Returned outcomes rebuild the applied Shared Parameters tree.
+A successful continuation rescans Duplicates immediately when that page is active.</p>
+<h4 id="view-operations-and-catalogs">View operations and catalogs</h4>
+<p>ViewOps owns navigation. A positive missing element ID returns false without changing view or selection.
+Nonpositive IDs are argument errors. Unexpected Revit faults propagate.
+Previews owns cross-feature material/style catalogs and preview values.</p>
+<h3 id="line-style-eligibility">Line-style eligibility</h3>
+<p>The shared line-style query checks the capability required by Revit commit.
+A grouped curve is restylable only when its group and every enclosing group
+have exactly one placed instance of their type. Attached detail groups also
+check their parent model group. Multi-instance groups are excluded before
+capture with their type name, placed count and Edit Group reason. GM never
+enters Edit Group mode and never ungroups elements. A style used only by those
+excluded members has no selectable source targets, even when the style remains
+available as a target for other sources.</p>
+<p>The writer captures every pair's population before the first pair mutates the
+document. Curves with no alternate Lines projection style, no resolvable
+projection or a non-Lines current style are also excluded. The query retains scalar curve IDs and per-source target intersections for
+restylable curves. It does not retain Revit wrappers
+for excluded members, and readback never revisits them. Each successful pair's
+affected count equals its pre-apply Usage quantity. A defensive group-edit
+failure at commit rolls back only that pair and surfaces the reason.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="session-operations-and-shutdown">Session operations and shutdown</h3>
+<p><code>Domain/SessionOperation/ISessionOperationGate</code> exposes serialized work, overlay progress, busy state, and UI cancellation.
+<code>App/Sessions/SessionOperationGate</code> implements admission and cancel-and-drain.
+MappingUpdateSuppression separately controls nested live-plan suppression.
+SessionOperationProgress carries operation progress or the Hidden no-display value.
+The Domain/Workspace IWorkspaceSignals port carries feature requests for whole-window refresh.
+App/Sessions/WorkspaceSignals implements that port, alongside WorkspaceState implementing IWorkspaceState.
+An operation failure remains primary. Caller cancellation propagated through the linked work token
+is translated back to the caller token.</p>
+<p>Teardown independently attempts stopped-step logging, busy-state reset, and busy-text reset.
+The resets run directly or in one dispatcher call. An aborted or unscheduled dispatcher call produces one teardown failure.
+The linked cancellation source is always released. One failure propagates unchanged.
+Multiple failures aggregate in primary-first order with contextual teardown wrappers.
+A failing StateChanged subscriber cannot hide the work failure or skip the other reset.</p>
+<p>BackgroundPrewarm and OptionRenderingRefresh retain their transitive task and cancellation source.
+Replacement cancels and drains the active pair before starting the next.
+The session refuses ordinary close while Commit Review or Type Mapping owns an interaction.
+The first admitted close publishes closing state, cancels Mapping/startup, observes startup,
+and retains one terminal shutdown task. Repeated closes join that completion.</p>
+<p>The shutdown workflow independently attempts prewarm drain, option-rendering drain, confirmed preference-clear drain,
+session-operation cancel-and-drain, close persistence, and synchronous graph disposal, in that order.
+It then issues one terminal Close. Closed performs idempotent view-model cleanup and App run-scope disposal.
+Failures retain lifecycle order and do not skip later cleanup.
+Pane and scope collaborators remain alive until running work drains.</p>
+<p>Dev Mode retirement is synchronous and requires Idle for immediate collection.
+Commit Review reports Busy, so reload waits for Keep, Roll back, X, or cancellation followed by close.
+Revit shutdown can force <code>ToolWindowRegistry.RetireAll</code>.
+Retirement diagnoses pending work, aborts owned dispatcher operations, cancels without draining,
+rolls back an open apply group through the inline commit gate, disposes child/session scopes,
+and skips close persistence with a log entry. It opens no dispatcher frame.
+An existing normal-close task stops before its next stage when retirement takes over.</p>
+<p><code>DevModeStatus</code> exposes <code>Idle</code> or <code>Busy: &lt;operations&gt;</code> in the root UI Automation ItemStatus.
+It includes name lookup, navigation, both auto-zoom debounces, duplicate rebuilds, Type Mapping,
+Commit Review, cache posts, and pending page selection.
+App, Family Mapping, and Shared Parameters navigation use Mapping-owned NavigationLifetime leases.
+Leases start inside admitted callbacks or around awaited execution.
+Both feature auto-zoom debounces use 200 ms and the lease token.
+Disposal cancels outside the lifetime lock and prevents later selection, activation, or zoom.
+Core alerts use observed nested modal loops and diagnose reload during a dialog.</p>
+<h3 id="mapping-execution">Mapping execution</h3>
+<p>RevitMappingPlanExecutor validates document identity and supplies document operations to MappingPlanExecutor.
+MappingPlanExecutor owns the stage loop, capture boundaries, and result builder.</p>
+<h4 id="result-accounting">Result accounting</h4>
+<p>The MappingApplyResult constructor validates and snapshots recorded operation results.
+Succeeded operations require positive affected counts. Skips require zero.
+Failed operations can retain counts for writes completed before failure.
+Root succeeded/failed/skipped and affected totals derive from one recorded-result snapshot.
+Caller collections cannot mutate the completed result.
+Family success requires changed work and a successful reload.
+Failed-rule totals and fatal operation diagnostics must agree.</p>
+<p>Exception-backed diagnostics retain the original exception internally.
+MappingApplyResultBuilder logs each exception reference once with operation context.
+Commit Review receives stable operation text, codes, IDs, and family context.
+Exception types, messages, and stacks stay in logs.
+Writer exceptions are attributed to every unrecorded operation owned by that writer.
+Family cleanup always attempts close and retains close diagnostics after primary errors.
+Cancellation plus cleanup failures propagate primary-first through family-batch and outer writer containment.</p>
+<p>Skipped group-owned references produce Mapping warnings.
+An Edit Group restriction rejecting a line-style transaction at commit fails that pair.
+Successful sibling results retain their affected counts, but Commit Review rolls back an attempt with fatal mapping diagnostics.</p>
+<h4 id="writer-failures">Writer failures</h4>
+<p>A writer exception after all owned operations are recorded is a workflow failure.
+The result builder logs writer/stage context once and rethrows the original exception with its stack.
+Recorded operations alone cannot produce a successful final result in this case.
+With unrecorded owned operations, the executor records their failures and continues to later writers.</p>
+<h4 id="population-capture">Population capture</h4>
+<p>Replacement capture precedes the first mutation that can change its population.
+<code>ApplyContext</code> captures the original symbol populations, target occupancy and
+type-parameter source values before the writer loop. Host material references
+are captured at the fixed boundary after Host recreation and before Nested
+Families or Type Replacements, including plans with no Host operations. They
+refer to recreated element IDs without consuming values introduced by later
+type-parameter migration or family reloads. Each family document captures all applicable material,
+object-style and nested-symbol references before its operation loop. Missing
+sources are explicit capture results. An absent source in a traversed
+family is zero work with a non-fatal reason. A missing host source or an
+ambiguous family material name remains an error. Apply never discovers an
+incoming population. Family material capture includes writable type parameters
+and the per-type defaults of instance material parameters. Revit does not allow
+formulas on Material data type parameters. Formula-determined parameters are
+outside this material replacement population. Reference kinds are explicit.
+Blank type names are valid and match ordinally. Capture does not change
+<code>FamilyManager.CurrentType</code>. Transactional apply restores the captured type. Object-style capture identifies the
+actual subcategory parameter or boundary curves of each filled region.</p>
+<p>Family-owned execution uses BatchOperationSet keyed by MappingOperation.OperationId and
+FamilyBatchResult.ResultsByOperationId. Style and prepared-material payloads use the same IDs.
+Nested, style, material, and embed dispatch uses canonical operation types and direct appliers.
+Intermediate counts must be nonnegative, and succeeded plus failed documents cannot exceed attempted.
+Invalid producer output fails validation.</p>
+<h4 id="family-document-lifetime">Family document lifetime</h4>
+<p>Family-owned batch execution discovers the complete applicable family tree and
+captures each original population before applying any family mutation.
+<code>FamilyBatchDocuments</code> retains one edit document for each family
+identity through capture, apply, and reload. Discovery spans the whole commit.
+After discovery, documents with no applicable work in themselves or their descendants
+are closed before apply. Remaining documents close after their last root-batch
+use. Final cleanup closes anything left, including after cancellation. Each
+release closes in reverse open order and reports individual close failures.
+Discovery logs the peak and retained counts and reports progress per root.
+Cleanup uses the underlying Revit gate without requiring the launch document
+to remain active or the work token to remain uncancelled. <code>EditFamily</code>
+creates independent copies, so no captured element key is carried into a second
+edit session. Family element references use <code>UniqueId</code> within their retained
+document plus parameter identity. Family type references use explicit reference
+kind, family type name, and family parameter name. Built-in parameter identity
+uses the typed Revit enum without narrowing its underlying 64-bit value.
+Document-local <code>ElementId</code> values remain diagnostics and population indexes
+only. Missing keys produce a diagnostic and do not trigger a live rescan.</p>
+<h4 id="shared-family-identity-and-reload">Shared family identity and reload</h4>
+<p>Shared nested families use a name/category identity. Nonshared copies
+include their embedding path. Discovery opens
+the project's shared definition when one exists, so a parent's stale embedded
+copy cannot become the original population for another root. If the same
+shared family is reached through several roots, applicable operation
+populations are merged and each normalized operation is applied once. An
+equivalent alias receives a merged notice. If its representative fails, the
+alias is reported as failed as well. Conflicting targets for the same source
+fail preflight. After a nested or root reload, the load
+allowlist selects <code>FamilySource.Family</code> only for shared identities changed by
+that target traversal. Unchanged shared children use <code>FamilySource.Project</code>,
+which preserves the target document's existing child instead of reloading a
+stale source copy. Parent material capture excludes shared-symbol projections:
+the child owns those values and only surviving writes count. Before
+reload, project-owned shared material projections are restored from the target
+document explicitly. Revit can otherwise propagate those type values even when
+the shared-family load callback selects Project. Nonshared symbol overrides
+remain part of the parent population.</p>
+<h4 id="family-results">Family results</h4>
+<p>Family-document success requires both changed work and a successful reload. A failed
+family traversal or reload marks every operation actually executed in that
+traversal as failed, including merged aliases. An affected count can
+show writes made before the failure. The original exception remains attached
+to the diagnostic for logging and review.</p>
+<p>Family-document attempt/success/failure counts include every examined root and
+child document, including zero-work captures. A reload or close failure keeps
+the completed affected counts and marks the affected document operation results failed.</p>
+<h4 id="material-projection-ownership">Material projection ownership</h4>
+<p>A parent FamilySymbol's material type value is a projection of the child's
+authored FamilyType value. When that child has the same planned material
+operation, the child owns the write and its count. For nonshared children,
+root-only operations and traversal-depth leaves retain their parent-side
+references. Shared projections are always child-owned. Missing captured
+host references produce a nonfatal diagnostic.</p>
+<h4 id="line-style-verification">Line-style verification</h4>
+<p>Line-style query snapshots retain curve IDs and per-source offered intersections,
+not Revit element wrappers or target sets per curve. A line-style apply performs
+one fresh discovery sweep, then verifies actual styles by reading the captured
+IDs. Complete original-source intersections are regrouped under the final source
+styles. Unexpected population splits or missing curves fail verification for
+the committed pairs. Their operation results retain the committed affected counts, and
+the writer returns the errors instead of throwing away those operation results.
+Commit Review and the subsequent accepted Usage refresh share this result. A
+rollback does not publish it. <code>CommitReviewLineStyleLifecycle</code> exports it once,
+and only while the session's query cache still holds the snapshot that was
+current when post-apply verification succeeded. Explicit Detect and Usage refresh boundaries
+invalidate prior snapshots.</p>
+<p>Object-style attribution identifies the family returned by <code>LoadFamily</code>, its retained name,
+and its ownership of original instances. Style availability depends on the family category and kind.</p>
+<h4 id="post-apply-verification">Post-apply verification</h4>
+<p>Commit Review checks operation identity and successful operation results for all
+replacement kinds, including runtime replacements created by Create Type.
+Symbol and line-style counts can be checked against incoming populations.
+Family material and object-style Usage count families while operation results count
+references. An overlapping successful target is therefore checked through its
+operation result and writer readback, not by equating those different quantities.</p>
+<h4 id="commit-review-results-and-finalization">Commit Review results and finalization</h4>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Completed</td>
+<td>Requires MappingApplyResult and derives success from Outcome</td>
+</tr>
+<tr>
+<td>Canceled</td>
+<td>Contains neither Mapping result nor failure prose</td>
+</tr>
+<tr>
+<td>WorkflowFailed</td>
+<td>Requires a nonblank reason. Can retain a rolled-back Mapping result for diagnostics</td>
+</tr>
+</tbody>
+</table>
+<p>Warnings can complete successfully and remain committable.
+Only positive succeeded operations without fatal diagnostics project applied or persistable intent.
+Verification requires no planned type, host, style, or material source references to remain.
+Otherwise the verifier's four-field failure summary blocks mapping projection.</p>
+<p>One <code>Global Mapper: Apply</code> session group stays open through modal review.
+Apply and Retry Apply execute and verify inside an inner attempt group.
+Failure or cancellation rolls back the attempt and permits retry.
+Retry reuses the reviewed plan but constructs a new apply context and rereads the document.</p>
+<p><strong>Keep + Continue</strong> and <strong>Keep + Close GM</strong> assimilate the session group into one Undo entry before recording mappings.
+<strong>Roll back</strong>, X's rollback answer, cancellation, and abnormal exit roll it back.
+An unknown rollback outcome propagates to the error banner rather than asserting that nothing was kept.
+Active-view refresh follows successful verification. A refresh warning does not disable Keep.
+After review closes, RefreshAfterReviewAsync refreshes GM after any admitted attempt, including failed or rolled-back attempts.</p>
+<p>Type replacements retain their selecting intent key, so acceptance records intent for its actual owner.
+Apply transactions log each Revit failure at Warning with definition ID and failing elements.
+Pre-commit issues retain their validation label.</p>
+<p>Family-document material replacement resolves source and target by material name.
+Errors retain planned operation ID and host source/target IDs.
+Family-document material IDs and affected elements are diagnostic details.
+Report grouping uses the owning operation even when operations share a host pair or family documents assign different IDs.</p>
+<h4 id="reloaded-family-identity">Reloaded family identity</h4>
+<p>Family-owned apply retains the family ID returned by Revit reload. Accepted mappings use that identity, including existing saved and pending mappings for the same family. Rollback leaves mapping identities unchanged.
+MappingApplyResult.ReloadedFamilyIds snapshots changed root identities.
+Finalization remaps applied/persistable family keys and targets before merging.
+MappingIntentStore also remaps existing saved/pending intents, manual family-apply state, and usage links.
+One replaced identity must not retain a second saved mapping.</p>
+<h4 id="host-replacement">Host replacement</h4>
+<p>Each host replacement is atomic per instance. Placement and required facing, hand, and
+point-rotation transfer must finish before source deletion. Ordinary parameter
+copies use best-effort transfer. A failed replacement becomes an item error only after its
+subtransaction reports a completed rollback. If rollback throws or reports any other
+status, the primary and rollback failures escape together so the enclosing transaction
+aborts instead of committing an uncertain document state.</p>
+<p><code>ParameterValueTransfer</code> reads the target after <code>Parameter.Set</code> returns false.
+It accepts the copy as a no-op
+only when its storage type and value exactly match the requested source value. It applies
+no numeric tolerance to <code>Double</code> values. A remaining mismatch becomes a nonfatal
+<code>HostParameterCopyWarning</code> with the source instance, parameter, and reason.
+Setter exceptions remain failures. These warnings
+appear only after the replacement subtransaction commits. A later required-state
+failure rolls back and retains the fatal replacement error. Commit Review preserves each
+distinct diagnostic, opens the operation diagnostics section, and reports <code>Completed with Warnings</code>.
+It counts nonfatal diagnostics. Within each diagnostic-code group, it includes distinct messages in first-seen order.
+Code groups sort by descending diagnostic count, then by code ignoring case.</p>
+<p>Host parameter transfer treats a writable instance <code>Phase Created</code> value as instance-owned
+even when the family symbol exposes the same built-in parameter ID.
+The type-bound rule excludes generated <code>IfcGUID</code>.</p>
+<h3 id="revit-read-scheduling">Revit read scheduling</h3>
+<p>GmSessionDocumentGate validates Action callbacks as synchronous before wrapping their launch-document check.
+It rejects async void before Core can see only the synchronous decorator.
+Generic results also undergo synchronous-result validation.</p>
+<p>Independent reads for one action start together and are awaited in original order,
+so the first read's failure/cancellation remains primary.
+Startup starts family-category, shared-parameter-category, and parameter-group reads together.
+Family expansion starts view and parameter-name reads together.
+Selected-type instance examples are read once through type selection.
+Core's queued-turn policy determines which waiting calls share a callback.</p>
+<h2 id="testing">Testing</h2>
+<p>See <a href="gm.html#testing">Global Mapper testing</a> for fixture ownership, hidden-desktop dialog hosting, model baselines, and run commands.</p>
+<h2 id="limitations">Limitations</h2>
+<p>Family-tree discovery retains edit documents through capture and applicable writes, so peak open-document count grows with the discovered tree. Grouped curves are eligible only when each enclosing group type has one placed instance. Family-document material replacement resolves by name, not host numeric ID.</p>
 
 </article>
 

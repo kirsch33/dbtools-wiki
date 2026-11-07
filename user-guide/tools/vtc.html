@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -177,13 +177,13 @@
 </table>
 <p>A merged template starts as a copy of the Left template, so settings VTC does not compare, such as the view scale, keep the Left values. Use <strong>Swap</strong> to choose the other base.</p>
 <p>For a row that has a selected side, the target takes that side's value. When the selected side lacks the setting (it is absent there), the row in the target is reset to its default, instead of keeping the base value. This applies to categories, worksets and Revit link settings.</p>
-<p>Each setting is applied in its own sub-transaction. A setting that cannot be applied is reported as a conflict and the others are applied. Any other failure rolls back the whole batch. Overwriting a template is one undo entry. <strong>Create Merged Template</strong> is one undo entry named <code>Create Merged View Template</code>. If it fails, no template remains, so you can retry with the same name.</p>
-<h2 id="imported-categories">Imported categories</h2>
+<p>A setting that cannot be applied is reported as a conflict, and the others are applied. Any other failure undoes the whole batch. Overwriting a template is one undo entry. <strong>Create Merged Template</strong> is one undo entry named <code>Create Merged View Template</code>. If it fails, no template remains, so you can retry with the same name.</p>
+<h3 id="imported-categories">Imported categories</h3>
 <p>Imported categories (DWG, DXF and other imports) appear under their own <strong>Imported Categories</strong> group. They use the same compare, edit, preview and process flow as other categories.</p>
-<h2 id="revit-links">Revit links</h2>
-<p>Revit link settings appear under <strong>Revit Links</strong>, grouped by link. Type-level and instance-level link targets are listed separately. VTC lists only the settings that the Revit API can both read and write in the running Revit version:</p>
+<h3 id="revit-links">Revit links</h3>
+<p>Revit link settings appear under <strong>Revit Links</strong>, grouped by link. Type-level and instance-level link targets are listed separately. VTC lists only the settings that the running Revit version lets add-ins both read and write:</p>
 <p><code>Visibility Mode</code>, <code>Linked View</code>, <code>Filters</code>, <code>Nested Links</code>, <code>Object Styles</code>, <code>Color Fill</code>, <code>View Range</code>, <code>Phase</code>, <code>Phase Filter</code>, <code>Detail Level</code>, <code>Discipline</code>.</p>
-<p>Links are matched by the canonical link name, not by element id. If a name is ambiguous, VTC stops instead of guessing.</p>
+<p>VTC matches links between the two templates by link name. If two links have the same name, VTC stops with an error.</p>
 <table>
 <thead>
 <tr>
@@ -204,7 +204,7 @@
 </table>
 <p>Loading a saved template from the library also remaps <code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> by name in the target linked model. If the saved name is not found there, the setting fails with a not-found error. If the snapshot holds no name (the linked document was unloaded), the stored id is reused.</p>
 <p>When only one template contains the link row, VTC uses that template. When both do and you have not selected a side, VTC asks which template to use.</p>
-<h2 id="library">Library</h2>
+<h3 id="library">Library</h3>
 <p>The <strong>Library</strong> tab saves template snapshots to disk and applies them back to a template.</p>
 <ul>
 <li><strong>Save Template</strong> &gt; Left Template, Right Template or Merged Template. An optional name field sets the saved name. When blank, the source template name is used.</li>
@@ -213,10 +213,123 @@
 </ul>
 <p>Snapshots are stored under <code>%APPDATA%\DBTools\Cache\VTC\</code>. VTC creates the folder on the first save. Saved names ignore case and surrounding spaces. Saving under an existing name asks <code>Replace saved template 'X'?</code>; Cancel saves nothing. If VTC cannot check the name, or another Revit session saves that name during your save, the save fails and nothing is overwritten. A snapshot that is incomplete or malformed fails to load with a storage error. VTC does not repair or migrate it.</p>
 <p>If a save or delete succeeds but the list cannot refresh, VTC shows a warning that names the template. A save or delete that fails shows an error.</p>
+<h2 id="result">Result</h2>
+<p><strong>Process</strong>, <strong>Apply to Template</strong> and <strong>Copy Revit Link Settings To...</strong> each make one undo entry. VTC reports each result in an alert titled <code>View Template Comparer</code>. Rows that failed to apply are conflicts; after <strong>Process</strong>, <strong>Show:</strong> Conflicts lists them.</p>
+<h2 id="messages">Messages</h2>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>No view templates found in the document.</code></td>
+<td>The project has no view templates. VTC does not open.</td>
+</tr>
+<tr>
+<td><code>Select two templates to compare first.</code></td>
+<td>Left or Right is not selected.</td>
+</tr>
+<tr>
+<td><code>Select at least one setting or make a local override edit before processing.</code></td>
+<td><strong>Process</strong> has nothing to apply.</td>
+</tr>
+<tr>
+<td><code>Created merged template '&lt;name&gt;'. &lt;n&gt; operations completed.</code></td>
+<td><strong>Create Merged Template</strong> finished with no conflict.</td>
+</tr>
+<tr>
+<td><code>Applied changes to '&lt;name&gt;'. &lt;n&gt; operations completed.</code></td>
+<td>Overwrite finished with no conflict.</td>
+</tr>
+<tr>
+<td><code>... &lt;n&gt; operations succeeded and &lt;n&gt; conflicts were reported.</code></td>
+<td>Some rows failed to apply. Use <strong>Show:</strong> Conflicts.</td>
+</tr>
+<tr>
+<td><code>... No operations succeeded and &lt;n&gt; conflicts were reported.</code></td>
+<td>No row was applied.</td>
+</tr>
+<tr>
+<td><code>Pending edits cleared because the template pairing changed.</code></td>
+<td>Changing Left or Right discarded staged edits.</td>
+</tr>
+<tr>
+<td><code>Pending edits cleared because the comparison was rebuilt.</code></td>
+<td>Refreshing the comparison discarded staged edits.</td>
+</tr>
+<tr>
+<td><code>Pending edits cleared during selection wipe.</code></td>
+<td><strong>Wipe</strong> discarded staged edits.</td>
+</tr>
+<tr>
+<td><code>No category override data is available on the &lt;Left/Right&gt; side for this row.</code></td>
+<td>The row cannot be edited on that side.</td>
+</tr>
+<tr>
+<td><code>This Revit link exists on both Left and Right. Choose which template should &lt;action&gt;.</code></td>
+<td>Choose the template for a link command.</td>
+</tr>
+<tr>
+<td><code>Select a specific Revit link row or setting to open.</code></td>
+<td><strong>Open Revit Link Settings...</strong> needs a link row.</td>
+</tr>
+<tr>
+<td><code>No supported Revit link settings were found for this node.</code></td>
+<td>The row has no supported link setting.</td>
+</tr>
+<tr>
+<td><code>No other Revit link targets are available to copy settings to.</code></td>
+<td><strong>Copy Revit Link Settings To...</strong> has no target.</td>
+</tr>
+<tr>
+<td><code>Applied &lt;n&gt; Revit link settings to &lt;name&gt;.</code></td>
+<td><strong>Apply to Template</strong> finished. A warning adds the number of settings that could not be applied.</td>
+</tr>
+<tr>
+<td><code>Copied Revit link settings from '&lt;source&gt;' to &lt;n&gt; target(s).</code></td>
+<td>The copy finished. A warning lists the failed targets.</td>
+</tr>
+<tr>
+<td><code>Revit link key '&lt;key&gt;' is ambiguous. Link names must resolve uniquely per target kind and setting.</code></td>
+<td>Two links have the same name. Rename one of them.</td>
+</tr>
+<tr>
+<td><code>Saved template '&lt;name&gt;' to cache.</code>, <code>Saved merged template '&lt;name&gt;' to cache.</code></td>
+<td>The library save finished.</td>
+</tr>
+<tr>
+<td><code>Replace saved template '&lt;name&gt;'?</code></td>
+<td>A saved template has this name. <strong>Replace</strong> overwrites it.</td>
+</tr>
+<tr>
+<td><code>Apply saved template '&lt;saved&gt;' to '&lt;template&gt;'? This will overwrite the current template settings in Revit.</code></td>
+<td>Confirm <strong>Load</strong>.</td>
+</tr>
+<tr>
+<td><code>Applied '&lt;saved&gt;' to &lt;template&gt;.</code></td>
+<td><strong>Load</strong> finished.</td>
+</tr>
+<tr>
+<td><code>Deleted saved template '&lt;name&gt;'.</code></td>
+<td>The delete finished.</td>
+</tr>
+<tr>
+<td><code>Failed to save template: &lt;reason&gt;</code>, <code>Failed to load template: &lt;reason&gt;</code>, <code>Failed to delete template '&lt;name&gt;': &lt;reason&gt;</code></td>
+<td>The library action failed and changed nothing.</td>
+</tr>
+<tr>
+<td><code>... but the displayed saved-template list could not refresh.</code></td>
+<td>The save or delete succeeded; click the refresh button.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="limitations">Limitations</h2>
 <ul>
 <li>VTC compares templates in the open project. It does not compare templates across projects, except through the library.</li>
-<li>Link settings that the Revit API cannot read and write are not shown.</li>
+<li>Link settings that Revit does not let add-ins read and write are not shown.</li>
 <li>Create Merged Template copies the Left template, so use <strong>Swap</strong> to base the merge on the other template.</li>
 </ul>
 

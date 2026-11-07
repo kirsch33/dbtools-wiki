@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,8 +89,10 @@
         <article data-uid="">
 <h1 id="developer-guide">Developer Guide</h1>
 
-<p>This guide describes how DBTools is built, structured and tested, and how to
-develop its tools.</p>
+<p>This guide describes how DB Tools is built, structured and tested, and how to
+develop its tools. Start with the
+<a href="architecture/overview.html">Architecture Overview</a>, which describes the
+components, startup and tool loading.</p>
 <table>
 <thead>
 <tr>
@@ -119,6 +121,10 @@ develop its tools.</p>
 <td><a href="troubleshooting.html">Troubleshooting</a></td>
 <td>Common errors and the logs</td>
 </tr>
+<tr>
+<td><a href="architecture/wiki-server.html">Wiki Server</a></td>
+<td>How a push to <code>kirsch33/dbtools-wiki</code> updates the published site</td>
+</tr>
 </tbody>
 </table>
 <h2 id="requirements">Requirements</h2>
@@ -126,7 +132,7 @@ develop its tools.</p>
 <li>the .NET SDK pinned in <code>global.json</code>; <code>build.sh</code> and <code>build.ps1</code> install it
 when it is missing;</li>
 <li>Python 3.10 or later on Linux and WSL;</li>
-<li>Desktop Revit 2026.5 or later, or Revit 2027, to run the add-in. Building does
+<li>Desktop Revit 2026 (2026.5 or later) or Revit 2027 to run the add-in. Building does
 not need Revit.</li>
 </ul>
 <h2 id="building">Building</h2>
@@ -145,30 +151,14 @@ fails. See
 ./test.sh test --filter &quot;FullyQualifiedName~SomeTestName&quot;
 ./test.sh test --scope all
 </code></pre>
-<p>Revit-hosted tests run on the dbtools-daemon fleet. See
-<a href="architecture/test-pipeline.html">Test Pipeline</a>.</p>
-<h2 id="architecture">Architecture</h2>
-<pre><code class="lang-text">Revit
- └─ DBTools.addin → DBTools.dll (App: entry, lifecycle, ribbon)
-     ├─ DBTools.Core.dll (execution, transactions, settings, logging, tool registry)
-     ├─ DBTools.Presentation.dll (stable WPF resources and shells)
-     │   └─ DBTools.HandyControl.dll
-     └─ Tools/DBTools.&lt;Tool&gt;.dll (one assembly per tool)
-</code></pre>
-<ul>
-<li><strong>Manifests.</strong> Each tool declares its assembly, module, ribbon commands,
-availability types, settings and Sandbox windows in <code>manifest.yml</code>. App embeds
-all manifests and loads each declared tool from <code>Tools/</code> by explicit path.</li>
-<li><strong>Product tree.</strong> Each supported year is one directory with <code>DBTools.addin</code>,
-the four top-level assemblies and <code>Tools/</code>. Third-party libraries are merged
-into their owner assemblies.</li>
-<li><strong>Window-scoped themes.</strong> Each window merges the theme into its own
-resources, not into <code>Application.Resources</code>, so DBTools does not change other
-add-ins.</li>
-</ul>
-<p>See <a href="architecture/overview.html">Architecture Overview</a>.</p>
+<p>Revit-hosted tests (the <code>local</code> scope) run on the dbtools-daemon fleet. See
+<a href="architecture/test-pipeline.html">Test Pipeline</a> for the design and
+<a href="developing/testing-tools.html">Testing Tools</a> for the options.</p>
 <h2 id="writing-documentation">Writing documentation</h2>
-<p>The wiki is built with DocFX from <code>wiki/</code>. Write developer and user pages in
+<p>The wiki is built with DocFX from <code>wiki/</code>. Run
+<code>bash .github/scripts/build-docs.sh conceptual</code> to build the pages into
+<code>wiki/_site</code>; the Documentation workflow publishes the site through the
+<a href="architecture/wiki-server.html">wiki server</a>. Write developer and user pages in
 the style of Unix reference documentation (Debian and GNU manuals, man pages):</p>
 <ul>
 <li>State what a component is, what it does, how it works, how to use it and its

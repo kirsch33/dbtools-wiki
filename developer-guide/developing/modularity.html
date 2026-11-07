@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -150,10 +150,10 @@ modeless session owns a run scope for Revit-dependent services.</p>
 </tbody>
 </table>
 <p>Use <code>ILogger&lt;T&gt;</code> through injection and <code>context.Logger</code> at command boundaries.
-Logging does not require a separate tool-owned lifetime.</p>
-<p>Do not capture <code>Document</code>, <code>UIDocument</code>, or a run scope in a singleton. Pass
-operation-specific document inputs or obtain verified current state from the run
-scope. Dispose the command/session scope only after its owned work and cleanup
+The application logging host owns logger lifetime.</p>
+<p>Keep <code>Document</code>, <code>UIDocument</code>, and run-scope references within their command or
+session lifetime. Pass operation-specific document inputs or obtain verified
+current state from the run scope. Dispose the command/session scope only after its owned work and cleanup
 finish.</p>
 <h2 id="safe-execution">Safe execution</h2>
 <p><code>DBTools.Core.SafeExecution.Domain.ISafeExecutor</code> defines two boundaries:</p>
@@ -232,14 +232,12 @@ constructing concrete logger or notification windows.</p>
 logger.LogError(exception, &quot;Inspection failed for {Document}&quot;, document.Title);
 </code></pre>
 <p>Use <code>IAlertService</code> for user decisions and <code>IErrorNotifier</code> for banners.
-Do not replace these boundaries with <code>Console.WriteLine</code>, raw message boxes,
-empty catches, or success-shaped defaults after a failure.</p>
+Propagate failures through the safe-execution boundary with their context.</p>
 <h2 id="revit-run-scopes-and-call-gates">Revit run scopes and call gates</h2>
 <p><code>IRevitRunScope</code> exposes <code>UIApplication</code>, <code>CallGate</code>, <code>GetActiveUiDocument()</code>,
 <code>GetActiveDocument()</code>, and <code>GetVerifiedActiveDocument(expectedDocument, context)</code>.
 The verification method checks validity and <code>DocumentSessionKey</code> equality
-before returning the active document. A retained document is a session identity,
-not proof that the current document still matches.</p>
+before returning the active document. Use the verification method before operating on a retained document.</p>
 <table>
 <thead>
 <tr>
@@ -312,11 +310,11 @@ Task FinalizeAsync(TransactionGroupFinalization finalization,
 Task&lt;bool&gt; IsGroupHealthyAsync(CancellationToken ct = default);
 </code></pre>
 <p>Finalize with <code>TransactionGroupFinalization.Commit</code> to assimilate the group or
-<code>Rollback</code> to discard it. The API takes an enum, not a Boolean.
+<code>Rollback</code> to discard it.
 <code>IsGroupHealthyAsync</code> returns true when no group exists and false when an active
 group has lost its healthy started state.</p>
 <p>The session/workflow owner must finalize on success, failure, and cancellation.
-Keep cleanup cancellation independent of an already-cancelled operation token.
+Use a separate cancellation token for cleanup when the operation is canceled.
 Attempt all owned cleanup and retain both the operation and finalization errors.
 Do not use an unguarded <code>finally</code> exception that hides the operation's failure.
 Long-lived tool sessions also own the ordering of persistence, window closure,
@@ -343,9 +341,7 @@ and owned window options. For example:</p>
     Message = &quot;Choose the target level.&quot;
 });
 </code></pre>
-<p>Core owns selection policy, body construction, and typed result extraction.
-Revit-hosted tests cannot show blocking dialogs. Test modal behavior with real
-WPF windows in Windows Pure fixtures.</p>
+<p>Core owns selection policy, body construction, and typed result extraction.</p>
 <h2 id="settings">Settings</h2>
 <p>Inject <code>ISettingsProvider</code> and the typed <code>SettingsSection&lt;T&gt;</code>. Call <code>Get(section)</code>
 at the operation boundary for a fresh snapshot. Reads layer <code>appsettings.json</code>

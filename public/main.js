@@ -1,7 +1,7 @@
 /*
- * DBTools Documentation - Theme Enforcement
+ * DB Tools documentation - theme enforcement
  *
- * This script forces dark mode to match the DBTools application theming;
+ * This script forces dark mode to match the DB Tools tool windows;
  * main.css hides the theme toggle. It also hides off-navbar logos,
  * hero/cover/banner sections and content background images, and sizes the
  * navbar logo.

@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,10 +89,51 @@
         <article data-uid="">
 <h1 id="organize-foundation-types">Organize Foundation Types</h1>
 
+<h2 id="overview">Overview</h2>
 <p>Organize Foundation Types renames foundation family types, assigns type marks, and merges types with equal dimensions.
 It processes all matching types in the active document. It does not use the current selection or persistent settings.</p>
-<h2 id="families-and-parameters">Families and parameters</h2>
-<p>Family names match exactly with ordinal comparison.</p>
+<h2 id="architecture">Architecture</h2>
+<h3 id="registration-and-ownership">Registration and ownership</h3>
+<p>Source: <code>src/Tools/Structural/OrganizeFoundationTypes/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Owner</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>App/Composition/OrganizeFoundationTypesCommand</code></td>
+<td>Manifest command, active-document availability</td>
+</tr>
+<tr>
+<td><code>Features/FoundationType/OrganizeFoundationTypesWorkflow</code></td>
+<td>Confirmation, organizer invocation, completion alert, Debug logger window</td>
+</tr>
+<tr>
+<td><code>Features/FoundationType/FoundationTypeOrganizer</code></td>
+<td>Collection, dimension comparison, rename, merge, deletion</td>
+</tr>
+<tr>
+<td><code>Features/TypeMark/TypeMarkGenerator</code></td>
+<td>Mark generation and pure formatting helper</td>
+</tr>
+<tr>
+<td><code>Features/TypeMark/TypeMarkPolicy</code></td>
+<td>Preserve or overwrite mode</td>
+</tr>
+</tbody>
+</table>
+<p><code>manifest.yml</code> registers <code>DBTools.OrganizeFoundationTypes</code> as an <code>InlineUi</code> split-button item
+in <code>foundation_tags</code>, order 2, icon key <code>organize_types</code>.
+Update Combined Foundation Tags and Move Combined Tags occupy orders 0 and 1.
+The <code>structural.foundation_tags</code> pack's <code>core.structural.combined_tags</code> warning disables all three commands.</p>
+<p>A typical documentation workflow runs this organizer, then
+<a href="foundation-tags.html">Update Combined Foundation Tags</a>, then Move Combined Tags.</p>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="families-and-parameters">Families and parameters</h3>
+<p>The family-name comparison uses <code>StringComparison.Ordinal</code>.</p>
 <table>
 <thead>
 <tr>
@@ -135,10 +176,9 @@ It processes all matching types in the active document. It does not use the curr
 </tbody>
 </table>
 <p>All sorts are ascending. Dimensions use Double parameters. Type marks use the String parameter <code>Type Mark</code>.
-Production dimension text comes from Revit's feet-and-fractional-inches formatter.
-Missing dimension parameters display <code>?</code>. Duplicate keys use the nullable raw dimension values,
-so types with the same missing dimensions can also compare equal.</p>
-<h2 id="marks-and-names">Marks and names</h2>
+Dimension text uses Revit's feet-and-fractional-inches formatter.
+Missing dimension parameters display <code>?</code>. Duplicate keys use the nullable raw dimension values.</p>
+<h3 id="marks-and-names">Marks and names</h3>
 <table>
 <thead>
 <tr>
@@ -176,7 +216,8 @@ for an unused mark in that set. It does not reserve marks on types that have not
 <code>TypeMarkPolicy.OverwriteExistingTypeMarks</code>. No selects <code>PreserveExistingTypeMarks</code>.
 Preserve mode generates marks only for blank values, but still renames types and merges duplicates.
 <code>SetParam</code> leaves a missing, non-String, or read-only Type Mark unchanged, so a generated name does not guarantee a mark write.</p>
-<h2 id="processing-and-transactions">Processing and transactions</h2>
+<h2 id="workflows">Workflows</h2>
+<h3 id="processing-and-transactions">Processing and transactions</h3>
 <ol>
 <li>Collect and sort the four family groups.</li>
 <li>Compare each type's dimension tuple with retained types in its group.</li>
@@ -192,48 +233,12 @@ The organizer deletes a duplicate only after all its instances change type.</p>
 A deletion error logs at Error and propagates, rolling back the complete operation.
 Per-type failures log at Debug and increment the skip count. The final warning and completion alert
 include skipped totals and up to five <code>type id: reason</code> samples. The alert also reports renamed and merged counts.</p>
-<h2 id="registration-and-ownership">Registration and ownership</h2>
-<p>Source: <code>src/Tools/Structural/OrganizeFoundationTypes/</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Owner</th>
-<th>Responsibility</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>App/Composition/OrganizeFoundationTypesCommand</code></td>
-<td>Manifest command, active-document availability</td>
-</tr>
-<tr>
-<td><code>Features/FoundationType/OrganizeFoundationTypesWorkflow</code></td>
-<td>Confirmation, organizer invocation, completion alert, Debug logger window</td>
-</tr>
-<tr>
-<td><code>Features/FoundationType/FoundationTypeOrganizer</code></td>
-<td>Collection, dimension comparison, rename, merge, deletion</td>
-</tr>
-<tr>
-<td><code>Features/TypeMark/TypeMarkGenerator</code></td>
-<td>Mark generation and pure formatting helper</td>
-</tr>
-<tr>
-<td><code>Features/TypeMark/TypeMarkPolicy</code></td>
-<td>Preserve or overwrite mode</td>
-</tr>
-</tbody>
-</table>
-<p><code>manifest.yml</code> registers <code>DBTools.OrganizeFoundationTypes</code> as an <code>InlineUi</code> split-button item
-in <code>foundation_tags</code>, order 2, icon key <code>organize_types</code>.
-Update Combined Foundation Tags and Move Combined Tags occupy orders 0 and 1.
-The <code>structural.foundation_tags</code> pack's <code>core.structural.combined_tags</code> warning disables all three commands.</p>
-<p>A typical documentation workflow runs this organizer, then
-<a href="foundation-tags.html">Update Combined Foundation Tags</a>, then Move Combined Tags.</p>
-<h2 id="tests">Tests</h2>
+<h2 id="testing">Testing</h2>
 <p>Pure <code>TypeMarkGeneratorTests</code> covers sequential numbering, gaps, width groups, prefixes, and invalid arguments.
-Hosted <code>OrganizeFoundationTypesTests</code> covers confirmation, completion reporting, duplicate merges,
+Revit-hosted <code>OrganizeFoundationTypesTests</code> covers confirmation, completion reporting, duplicate merges,
 and document changes inside a rolled-back fixture transaction group.</p>
+<h2 id="limitations">Limitations</h2>
+<p>Family names must match the four listed names exactly. Dimension equality is exact, including missing values; missing dimensions can therefore cause types to merge.</p>
 
 </article>
 

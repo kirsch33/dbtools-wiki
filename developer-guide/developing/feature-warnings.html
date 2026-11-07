@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -97,7 +97,7 @@ It is not persisted to settings.</p>
 icon, and the DB Tools tab receives a highlight when warnings exist. Command
 preflight and contextual edit flows use the same registered warning policy as
 ribbon controls.</p>
-<h2 id="defining-warnings-in-manifestyml">Defining warnings in manifest.yml</h2>
+<h2 id="defining-warnings-in-manifest.yml">Defining warnings in manifest.yml</h2>
 <p>Declare warnings under a settings pack:</p>
 <pre><code class="lang-yaml">tool:
   settingsPacks:
@@ -140,8 +140,8 @@ ribbon controls.</p>
 </table>
 <p>Use stable IDs such as <code>core.library.invalid</code>,
 <code>core.structural.elevation_tags</code>, and <code>core.structural.joist_girder</code>.
-List only commands that depend on the prerequisite. A warning message should
-name the problem, the affected operation, and the correction.</p>
+List only commands that depend on the prerequisite. Name the problem,
+the affected operation, and the correction in the warning message.</p>
 <p><code>ToolWarningManifest</code> carries the ID, title, message, and disabled-tool list.
 The manifest is metadata. It does not activate the warning by itself.</p>
 <h2 id="registering-warning-definitions">Registering warning definitions</h2>
@@ -313,8 +313,8 @@ delivery. <code>RibbonCompositionState</code> owns the registered controls and p
 <p>Command preflight checks every applicable active warning. Ribbon enablement
 instead applies each warning's latest update directly. If several warnings
 name one command, clearing one can visually enable its button while another
-still blocks execution. Current manifests do not share a disabled command
-between warnings.</p>
+still blocks execution. Give each disabled command one warning definition when its ribbon state must
+match command preflight.</p>
 <p><code>WarningChangedEventArgs</code> carries <code>WarningId</code>, <code>PackKey</code>, <code>IsActive</code>, and
 <code>ToolInternalNamesToDisable</code>. <code>WarningSetChangedEventArgs</code> carries aggregate
 <code>HasWarnings</code>. Treat these as published state, not persistence requests.</p>
@@ -340,30 +340,17 @@ construction. <code>SettingsWarningViewModel</code> invokes the provider, update
 state when the context changes, and logs action failures. Its <code>ActionFailed</code>
 event passes failures to Settings feedback. Disposal unsubscribes the context
 observer.</p>
-<p>Foundation Tags uses Fix for Install/Repair and explicit refresh for shared
+<p>Combined Foundation Tags uses Fix for Install/Repair and explicit refresh for shared
 parameter checks. Its constructor only prepares editor state. See
 <a href="settings-packs.html#runtime-and-context-ownership">Settings Packs</a> for host context
 and persistence ordering.</p>
-<h2 id="examples-and-tests">Examples and tests</h2>
-<p>Foundation Tags' <code>core.structural.combined_tags</code> warning disables Update Combined
-Foundation Tags, Move Combined Tags, and Organize Foundation Types. TDV's
-<code>core.library.invalid</code> warning protects Import From Library and Export To
-Library. Joist Girder Weight uses <code>core.structural.joist_girder</code> for its update
-command. Their live manifests under <code>src/Tools/</code> own the exact IDs and messages.</p>
-<p>Test these outcomes with real warning/catalog/context services:</p>
-<ul>
-<li>Invalid saved configuration activates its warning during startup.</li>
-<li>An unsaved invalid draft does not change shared command blocking.</li>
-<li>Save and Reset publish decisions for the committed values.</li>
-<li>Clear and Fix act on the matching context and report failures.</li>
-<li>Multiple applicable active warnings keep execution blocked. Ribbon enabled
-state follows the last warning update rather than aggregating those warnings.</li>
-<li>A runtime execution exception disables the task for its document session
-without fabricating a configuration warning.</li>
-<li>A startup validation exception remains an error rather than an invalid result.</li>
-</ul>
-<p>Use <a href="testing-tools.html">Testing Tools</a> for Pure and hosted execution. Use
-<a href="new-tool-guide.html">Creating New Tools</a> for manifest and command registration.</p>
+<h2 id="examples">Examples</h2>
+<p>Combined Combined Foundation Tags uses <code>core.structural.combined_tags</code> for Update Combined
+Foundation Tags, Move Combined Tags, and Organize Foundation Types. Transfer
+Drafting Views (TDV) uses <code>core.library.invalid</code> for Import From Library and
+Export To Library. Joist Girder Weights uses <code>core.structural.joist_girder</code> for
+its update command. Their manifests under <code>src/Tools/</code> define the IDs and messages.</p>
+<p>See <a href="testing-tools.html">Testing Tools</a> for warning-service test procedures.</p>
 
 </article>
 

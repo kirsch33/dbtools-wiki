@@ -65,9 +65,23 @@
     </header>
 
     <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
 
       <div class="content">
         <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
 
           <nav id="breadcrumb"></nav>
         </div>
@@ -77,10 +91,66 @@
 
 <p>This section is generated from the XML documentation comments in the source code. It lists the public types and members of the DBTools assemblies.</p>
 <h2 id="generating-the-reference">Generating the reference</h2>
-<p>Run DocFX from the <code>wiki</code> directory:</p>
-<pre><code>docfx docfx.json
+<p>Run the documentation build from the repository root:</p>
+<pre><code class="lang-bash">bash .github/scripts/build-docs.sh full-api
 </code></pre>
-<p><code>docfx.json</code> runs <code>docfx metadata</code> over the projects in <code>src/</code> (test projects excluded), writes the metadata to <code>wiki/api/</code>, and builds the site into <code>wiki/_site</code>. Do not use <code>docfx-conceptual.json</code> for this: it builds the articles without API metadata.</p>
+<p>Use the SDK pinned by <code>global.json</code>. The script restores DocFX 2.78.5 from
+<code>wiki/.config/dotnet-tools.json</code>. It builds the Release product and Sandbox for
+Revit 2026 to supply build tasks, dependency assemblies and generated WPF source.
+The build runs on Linux with Windows targeting enabled. It does not start Revit.</p>
+<p>The script restores each non-test project in <code>src/</code> with the metadata properties
+from <code>wiki/docfx.json</code>. DocFX's automatic restore is disabled because version
+2.78.5 does not pass these properties to <code>dotnet restore</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Configuration</code></td>
+<td><code>Release</code></td>
+<td>Match the prerequisite builds and DocFX's default configuration.</td>
+</tr>
+<tr>
+<td><code>RevitYear</code></td>
+<td><code>2026</code></td>
+<td>Select the Revit API packages and year-specific restore assets.</td>
+</tr>
+<tr>
+<td><code>EnableWindowsTargeting</code></td>
+<td><code>true</code></td>
+<td>Resolve Windows and WPF reference packs on Linux. Set for every project by <code>Directory.Build.props</code>.</td>
+</tr>
+<tr>
+<td><code>DesignTimeBuild</code></td>
+<td><code>false</code></td>
+<td>Include Revit source excluded by XAML designer builds.</td>
+</tr>
+<tr>
+<td><code>DBT_IsDesignerBuild</code></td>
+<td><code>false</code></td>
+<td>Use normal project paths and source inclusion.</td>
+</tr>
+<tr>
+<td><code>_DBT_MergeDesigner</code></td>
+<td><code>true</code></td>
+<td>Retain public package references for DocFX's unmerged project symbols.</td>
+</tr>
+</tbody>
+</table>
+<p><code>_DBT_MergeDesigner</code> controls package visibility separately from source inclusion.
+The product build merges public dependencies into their owning assemblies. DocFX
+reads project source, so its compilation needs those dependencies as package
+references. Keep the restore properties in the script aligned with the metadata
+properties in <code>wiki/docfx.json</code>.</p>
+<p>DocFX reads the projects in <code>src/</code>, excludes test projects, writes metadata to
+<code>wiki/api/</code>, and builds the site into <code>wiki/_site/</code>. Compilation errors fail the
+build. The <code>conceptual</code> script mode uses <code>docfx-conceptual.json</code> and builds the
+articles without API metadata or product builds.</p>
 <p>The reference covers the namespaces of <code>DBTools.Core</code>, <code>DBTools.App</code>, <code>DBTools.Presentation</code> and the tool assemblies (<code>DBTools.GM</code>, <code>DBTools.SGT</code> and others). Members without an XML comment appear without a description.</p>
 <h2 id="writing-documentation-comments">Writing documentation comments</h2>
 <p>Document each public type and member with <code>///</code> comments. Give a <code>&lt;summary&gt;</code> for every member, a <code>&lt;param&gt;</code> for every parameter, <code>&lt;returns&gt;</code> for non-void methods and <code>&lt;exception&gt;</code> for exceptions that callers handle:</p>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>View Template Comparer (VTC) | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="View Template Comparer (VTC) | DB Tools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="view-template-comparer-vtc">View Template Comparer (VTC)</h1>
+
+<h2 id="overview">Overview</h2>
+<p>View Template Comparer (VTC) compares two Revit view templates of the current document, stages category edits locally, and applies the selected differences and eligible pending overrides through one command, <code>ApplySelectedChangesCommand</code> (button label &quot;Process&quot;). It can also create a merged template and save templates to a local library.</p>
+<p>The data contract (tabs, imported categories, Revit-link settings, keys, apply and copy rules, library storage) is in the <a href="vtc-spec.html">VTC specification</a>.</p>
+<h2 id="architecture">Architecture</h2>
+<p>Source: <code>src/Tools/Experimental/VTC/</code>. The manifest registers <code>DBTools.VTC</code> on the Testing ribbon panel with <code>InlineUi</code>, order 50, and icon key <code>vtc</code>.</p>
+<h3 id="command-and-composition">Command and composition</h3>
+<ul>
+<li><code>VtcCommand</code> is the Revit entry point. It validates the command context and calls <code>App/Composition/VtcWindowLauncher</code>.</li>
+<li><code>VtcWindowLauncher</code> owns the modal launch: it resolves the document's templates, shows an alert when there are none, has <code>VtcWindowCompositionFactory</code> build the collaborators, and creates <code>VtcWindowSession</code> through Core's <code>ToolWindowFactory</code>. After the dialog closes it opens the logger window when Debug Mode is on. It always retires the comparer and linked-file windows; a dialog failure is reported before any retirement failure.</li>
+<li><code>VtcWindowCompositionFactory</code> creates one graph per document: <code>TemplateExtractor</code>, <code>RevitLinkSettingsAdapter</code>, <code>TemplateDifferenceEvaluator</code>, <code>TemplateApplier</code>, <code>TemplateMaterializer</code>, <code>TemplateStorage</code> (cache directory <code>AppPaths.GetToolCacheDir(&quot;VTC&quot;)</code>) and the one document facade, <code>TemplateRuntime</code>.</li>
+<li><code>TemplateRuntime</code> (<code>Revit/Template</code>) resolves template IDs and exposes compare, extract, batch apply, create merged, apply model, Revit-link targets and copy, and line and fill pattern queries. App batch-session code depends on the <code>App/Sessions/ITemplateSessionRuntime</code> port, which <code>TemplateRuntime</code> implements.</li>
+<li><code>VtcWindowSession</code> owns the modal window session. <code>ToolWindowFactory</code> supplies the stable shell for the raw VTC view. Comparison owns the workspace, Inspector and Preview views; Library owns its workspace view; the Revit-link modal reuses the Comparison diff control.</li>
+<li><code>AlertPresenter</code> is the only alert boundary in App. Composition gives the alert service only to the presenter; view models and workflows use the presenter for standard alerts, custom requests and selections.</li>
+<li><code>VtcWindowBatchWorkflow</code> handles App session reactions for Process and Library work. The App view model owns Revit-link prompts, modal hosting, refresh and result presentation. <code>TemplateRuntime</code> passes Revit-link batch apply and copy, and the classification of expected conflicts, to Template Apply.</li>
+<li><code>VtcWindowCommandRuntime</code> reports a refused operation through <code>SafeExecutionRefusalReporter</code> as <code>VTC {operation}</code>.</li>
+</ul>
+<p>Sources: <code>src/Tools/Experimental/VTC/Revit/Template/TemplateRuntime.cs</code>, <code>src/Tools/Experimental/VTC/Features/TemplateApply/Execution/TemplateApplier.Operations.cs</code>, <code>src/Tools/Experimental/VTC/App/Composition/VtcWindowCompositionFactory.cs</code>.</p>
+<h3 id="source-layout">Source layout</h3>
+<p>VTC has several features under <code>Features/</code>, each with its own domain, planning, state, Revit and UI code:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Features/Comparison</code></td>
+<td>Diff tree (<code>DiffTreeBuilder</code>, <code>DiffTreeIndex</code>, <code>DiffTreeNode</code>, <code>DiffTreeProjector</code>), preview projection, window comparison state (<code>VtcWindowComparisonCoordinator</code>), category tab classification and <code>RevitLinkActionSourceResolver</code></td>
+</tr>
+<tr>
+<td><code>Features/Library</code></td>
+<td><code>TemplateStorage</code>, <code>SavedTemplateInfo</code>, <code>TemplateStorageException</code></td>
+</tr>
+<tr>
+<td><code>Features/RevitLinks</code></td>
+<td><code>RevitLinkDiffEvaluator</code>, <code>RevitLinkSettingsAdapter</code>, <code>RevitLinkTargetResolver</code>, the Revit-link settings window</td>
+</tr>
+<tr>
+<td><code>Features/TemplateApply</code></td>
+<td><code>TemplateApplier</code> partials, pending overrides (<code>PendingOverrideState</code>), apply results and conflicts, <code>MergedTemplateBuilder</code>, <code>SnapshotSelectionPolicy</code>, pattern rendering and override editors</td>
+</tr>
+<tr>
+<td><code>Features/TemplateComparison.cs</code>, <code>Features/TemplateDifferenceEvaluator.cs</code></td>
+<td>Host-neutral comparison result and evaluator</td>
+</tr>
+<tr>
+<td><code>Domain/</code></td>
+<td>Tool-wide vocabulary: <code>TemplateSnapshot</code>, <code>SettingDifference</code>, <code>SettingValue</code>, <code>SettingTab</code>, <code>RevitLinkSetting</code>, <code>RevitLinkSettingKind</code>, <code>RevitLinkSettingValue</code>, <code>RevitLinkTarget</code>, <code>RevitLinkTargetKind</code> and the graphics data types</td>
+</tr>
+<tr>
+<td><code>Revit/Template</code></td>
+<td><code>TemplateExtractor</code>, <code>TemplateMaterializer</code>, <code>TemplateRuntime</code></td>
+</tr>
+<tr>
+<td><code>App/</code></td>
+<td>Composition, sessions, view models, views and design-time data</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>TemplateDifferenceEvaluator</code> is host-neutral. <code>TemplateExtractor</code> and <code>RevitLinkSettingsAdapter</code> own the Revit mechanics behind <code>TemplateRuntime</code>.</li>
+<li><code>SettingDifference.LeftValue</code> and <code>RightValue</code> hold typed <code>SettingValue</code> cases. Compare, apply and App code pattern-match these cases.</li>
+<li>Display settings use VTC enums (<code>DetailLevel</code>, <code>DisplayStyle</code>, <code>PartsVisibility</code>, <code>ViewDiscipline</code>, <code>ShowHiddenLinesMode</code>); conversion to Revit enums happens only at the Revit API boundary.</li>
+<li><code>SettingPreviewItem</code> and <code>DiffTreeProjector.ViewFilter</code> are Comparison contracts, so feature projections do not import App view models.</li>
+<li><code>DiffTreeNode</code> holds comparison and display state only. <code>PendingOverrideState</code> holds pending override DTOs with no tree or UI dependency. <code>TemplateApplyResult</code> is the only apply outcome; the App view model (<code>TemplateApplyOutcomeProjection</code>) projects it onto setting keys for row feedback and filters and stores no outcome on comparison nodes.</li>
+<li><code>DiffTreeBuilder</code> only builds a tree from differences. <code>DiffTreeIndex</code> keeps the rebuilt roots and owns key lookup, canonical node paths, selection collection in tree order and Revit-link subtree queries for the coordinator, the preview projection and the Revit-link modal.</li>
+<li><code>MergedTemplateBuilder</code> (<code>Features/TemplateApply/Planning/MergedTemplate</code>) builds the merged <code>TemplateSnapshot</code> from the comparison result, the selections, the base side and the name. View-model operations only orchestrate effects.</li>
+<li>App composes outcome templates into Comparison views at runtime; Comparison raises only selected-node, override-edit and preview-setting requests for App to coordinate across panes and modals.</li>
+</ul>
+<h3 id="views">Views</h3>
+<p>VTC views are raw XAML <code>EmbeddedResource</code> items with explicit logical names:</p>
+<ul>
+<li><code>DBTools.ToolViews.VTC.VtcWindow.xaml</code> (main view)</li>
+<li><code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.ComparisonWorkspaceView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.ComparisonInspectorView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.ComparisonPreviewView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.DiffViewControl.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.LibraryView.xaml</code></li>
+<li><code>DBTools.ToolViews.VTC.RevitLinkSettingsWindow.xaml</code></li>
+</ul>
+<p><code>VtcWindowSession</code> loads the main resource through <code>ToolWindowFactory</code> and owns the one-time owner attachment and cleanup. VTC has no custom close gate and no native pick loop.</p>
+<p>Shared resource dictionaries are in <code>DBTools.Presentation/Tools/VTC/</code>: <code>VtcDiffViewStyles.xaml</code> and <code>VtcComparisonViewStyles.xaml</code>. The namespace <code>DBTools.Presentation.Tools.VTC</code> holds the converters <code>VtcConflictConverter</code> and <code>VtcRawViewConverter</code>. <code>VtcResourceTemplateSelector</code> resolves App outcome templates and returns an empty template in a standalone view. Alert bodies use full type-name string keys with <code>TypeNameTemplateSelector</code>. Every content and item slot has an explicit template; immutable record values bind <code>OneTime</code> and mutable view-model state uses <code>INotifyPropertyChanged</code>.</p>
+<ul>
+<li>Each raw view merges Theme once, before the VTC dictionaries; the shared dictionaries do not merge Theme. <code>Vtc.TreeView</code> is based on the implicit TreeView style with VTC overrides; each tree sets its own scrolling and virtualization.</li>
+<li>Named item selectors set <code>TextSearch.TextPath</code> for prefix typing and automation names on their template text. <code>SavedTemplateInfo</code>, <code>ViewFilterOption</code>, <code>LinePattern</code>, <code>FillPatternData</code> and <code>TemplateOption</code> return their display label from <code>ToString()</code>, so automation peers and text fallbacks show the label.</li>
+<li>Preview navigation is available only for navigable setting keys. Double-click override editing responds to the left mouse button only, on eligible rows.</li>
+<li>Keyboard focus moves to the comparison row after the Inspector tab loads. Pending focus and close requests are canceled on retirement.</li>
+<li>The linked dialog's context-menu selection commands bind to its own view model. The raw linked view has the automation name &quot;Linked file override differences&quot;. The main window initializer uses the log prefix <code>VtcWindow</code>.</li>
+</ul>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<p>The <a href="vtc-spec.html#data-and-contracts">specification</a> defines tabs, typed setting values, imported categories, Revit-link identity, and library storage.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="process-and-merged-templates">Process and merged templates</h3>
+<ul>
+<li><code>ApplySelectedChangesCommand</code> applies the selections and eligible pending category overrides in one <code>VTC Process Apply</code> transaction, with one <code>SubTransaction</code> per setting so an expected conflict rolls back only that setting.</li>
+<li>An apply failure becomes a per-setting conflict only after its sub-transaction confirms <code>RolledBack</code>. If the rollback throws or reports another status, the batch stops with a <code>BatchApplyException</code> that contains the apply failure and then the rollback failure. An unconfirmed rollback never publishes a pending-override conflict key.</li>
+<li><strong>Create Merged</strong> (<code>TemplateRuntime.CreateMergedTemplate</code>) runs template creation and the pending-override batch in one transaction group, <code>Create Merged View Template</code>, started through <code>RevitTransactionGroups.Begin</code> and assimilated into one Undo entry. Expected per-setting conflicts are reported and the new template is kept. Any other fault rolls the group back and leaves no template, so a retry with the same name works.</li>
+<li><code>TemplateMaterializer</code> copies the Left template with <code>ElementTransformUtils.CopyElements</code> and a duplicate-type handler that keeps destination types, so Revit shows no dialog. It catches no copy failure: a fault rolls back the group and reaches <code>RunOrReport</code> as an Error alert.</li>
+<li><code>VtcWindowBatchWorkflow.SavedTemplates</code> treats template extraction or merge and the cache save or delete as the change. After that change, the list refresh has its own error boundary: a refresh failure is logged with the template name and shows one warning that the cache operation succeeded; success is shown only after the refresh succeeds. Both save commands ask <code>Replace saved template 'X'?</code> through <code>AlertPresenter</code> before they overwrite an existing name; Cancel writes nothing.</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<p><code>DBTools.VTC.Pure.Tests</code> (no Revit host):</p>
+<ul>
+<li><code>DiffTreeBuilderTests</code>, <code>DiffTreeIndexTests</code>, <code>DiffTreeNode*Tests</code>, <code>DiffTreeProjectorTests</code>: grouping, selection state and change notification, including imported-category tabs and Revit-link grouping by link name.</li>
+<li><code>PendingOverrideStateTests</code>, <code>PendingCategoryOverrideTests</code>: staging, eligibility, restore, clear, merge-save application and failed-pending collection.</li>
+<li><code>TemplateApplyOutcomeProjectionTests</code>: keyed conflict and success projection for row feedback and result filters.</li>
+<li><code>TemplateStorageTests</code>: the real storage service with a temporary cache directory, including imported-category data and <code>RevitLinks</code> rows. The project references the VTC product assembly directly, not <code>DBTools.App</code>.</li>
+<li><code>TemplateDiffEvaluatorTests</code>, <code>RevitLinkDiffEvaluatorTests</code>: snapshot comparison over <code>SettingDifference</code> rows.</li>
+<li><code>RevitLinkActionSourceResolverTests</code>: sole-side, selected-side, ambiguous-side and no-value resolution.</li>
+<li><code>AlertBodyTemplateProviderTests</code>: the provider and its raw <code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code> resource (WPF only).</li>
+<li><code>VtcRawXamlParseTests</code>: the linked-file view's accessible name and its view model passed to the composed diff view. Raw comparison view tests use the registered <code>ToolWindowFactory</code> session and the stable behavior bindings.</li>
+</ul>
+<p>Revit-hosted tests (the <code>local</code> scope) in <code>DBTools.VTC.Local.Tests</code> open the GM and SGT test models, create temporary templates and roll back every change after each run:</p>
+<ul>
+<li><code>VtcWindowViewModelTests</code>: Process, Create and link flows around real template extraction, apply and creation, alert orchestration and the Revit-link modal and copy.</li>
+<li><code>RevitLinkBaselineTests</code>: extract and apply round trips of <code>LinkVisibilityType</code> and <code>LinkedViewId</code> on <code>RevitLinkType</code> and <code>RevitLinkInstance</code> targets in <code>sgt_test_model.rvt</code>.</li>
+<li><code>RevitLinkExtendedTests</code>: the other <code>RevitLinkGraphicsSettings</code> members on the SGT linked model.</li>
+<li><code>RevitLinkSnapshotRemapTests</code>: snapshot compare and apply with deliberately mismatched target and linked-element IDs, <code>LinkName</code> pairing and linked-element-name remap failures.</li>
+<li><code>ImportedCategoryRoundTripTests</code>: imports a shared CAD file inside the rollback scope and checks that imported categories use the normal category compare and apply path.</li>
+<li><code>SgtModelExtractionTests</code>, <code>GmModelExtractionTests</code>: extraction from existing views and presence of link targets in the open models.</li>
+</ul>
+<h2 id="limitations">Limitations</h2>
+<p>Comparison requires two view templates in the same document. Revit-link settings are restricted to the public API; linked-element remapping requires a resolvable name or the same-model ID condition in the <a href="vtc-spec.html#limitations">specification</a>.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

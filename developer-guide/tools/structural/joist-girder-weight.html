@@ -2,16 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Joist Girder Weight | DB Tools </title>
+      <title>Joist Girder Weights | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Joist Girder Weight | DB Tools ">
+      <meta name="title" content="Joist Girder Weights | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,12 +87,79 @@
         </div>
 
         <article data-uid="">
-<h1 id="joist-girder-weight">Joist Girder Weight</h1>
+<h1 id="joist-girder-weights">Joist Girder Weights</h1>
 
-<p>Joist Girder Weight estimates pounds per linear foot and writes the result to a writable Double parameter named <code>Wt</code>.
+<h2 id="overview">Overview</h2>
+<p>Joist Girder Weights estimates pounds per linear foot and writes the result to a writable Double parameter named <code>Wt</code>.
 It scans structural framing in the active document. The ribbon command runs manually.
 A view-activation task runs automatically when enabled.</p>
-<h2 id="inputs">Inputs</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="ownership-and-registration">Ownership and registration</h3>
+<p>Source: <code>src/Tools/Structural/JoistGirderWeight/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Owner</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>App/Composition/JoistGirderWeightToolModule</code></td>
+<td>Module, settings pack, hooks, and warning registration</td>
+</tr>
+<tr>
+<td><code>App/Composition/ServiceCollectionExtensions</code></td>
+<td>Dependency registration</td>
+</tr>
+<tr>
+<td><code>App/Composition/UpdateJoistGirderWeightsCommand</code></td>
+<td>Manual command</td>
+</tr>
+<tr>
+<td><code>Features/Workflow/WeightUpdateWorkflow</code></td>
+<td>Settings retrieval, update, completion/configuration banners</td>
+</tr>
+<tr>
+<td><code>Features/AutoUpdate/AutoUpdateTask</code></td>
+<td>View-activation execution</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/JoistGirderClassifier</code></td>
+<td>Family and load-name classification</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/JoistGirderWeightUpdater</code></td>
+<td>Revit collection, validation, and writes</td>
+</tr>
+<tr>
+<td><code>Features/Load/Operations/ElementLoadReader</code></td>
+<td>Parameter and unit resolution</td>
+</tr>
+<tr>
+<td><code>Features/Load/LoadParser</code></td>
+<td>Text parsing</td>
+</tr>
+<tr>
+<td><code>Features/Load/LoadResolutionEvaluator</code></td>
+<td>Load group ambiguity and precedence</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/JoistGirderWeightEvaluator</code></td>
+<td>Pure formula</td>
+</tr>
+<tr>
+<td><code>Features/JoistGirder/Settings/Views/JoistGirderWeightSettingsView.xaml</code></td>
+<td>Settings view</td>
+</tr>
+</tbody>
+</table>
+<p><code>manifest.yml</code> registers assembly <code>DBTools.JoistGirderWeight</code> and module
+<code>DBTools.JoistGirderWeight.App.Composition.JoistGirderWeightToolModule</code>.
+The command uses <code>InlineUi</code>, icon key <code>joist_girder</code>, and ribbon order 30.
+The asset is <code>Assets/joist_girder_icon.png</code>.</p>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="inputs">Inputs</h3>
 <p>The configured regex tests the family name. It tests the type name only when the family name is blank.
 The default family pattern is:</p>
 <pre><code class="lang-regex">^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
@@ -164,7 +231,7 @@ Unitless numeric values are kips. Text uses invariant numeric parsing and accept
 </table>
 <p>Examples are <code>10</code>, <code>10 kips</code>, <code>10000 lb</code>, and <code>45 kN</code>.
 Blank, negative, malformed, or unsupported-unit text produces an input issue.</p>
-<h2 id="formula">Formula</h2>
+<h3 id="formula">Formula</h3>
 <p><code>Features/JoistGirder/JoistGirderWeightEvaluator.EstimateWeight(n, load, lengthFeet, depthFeet)</code> returns lb/ft.
 The calculation converts length and depth to inches.</p>
 <pre><code class="lang-text">panelSpacing = lengthInches / n
@@ -183,21 +250,8 @@ webWeight = topChordWeight * 0.7
 weightPoundsPerFoot = (topChordWeight + bottomChordWeight + webWeight) / lengthFeet
 </code></pre>
 <p><code>50.0</code> is the stress constant in ksi. <code>0.28356</code> is steel density in lb/in³.
-The remaining constants are depth, connection, and member multipliers.
-This is one estimation formula. It does not select manufacturer sections or validate SJI load tables.</p>
-<h2 id="update-and-failure-behavior">Update and failure behavior</h2>
-<p><code>JoistGirderWeightUpdater</code> validates candidates and computes weights before opening a transaction.
-Invalid candidates become skipped items. Valid candidates share <code>Auto Update Joist Girder Weights</code>.
-An unexpected transaction or setter exception propagates and rolls back that transaction.
-The updater calls <code>Parameter.Set</code> without checking its Boolean result.</p>
-<p>The returned summary contains Candidates, Updated, Skipped, and up to five sample issues.
-Zero candidates returns an empty summary. All-invalid candidates return skipped counts.
-The manual workflow displays an Info toast when nothing updates, Warning for mixed updated/skipped results,
-and Success when all candidates update. Configuration exceptions produce a ten-second Warning toast.</p>
-<p>Automatic execution catches configuration exceptions, sets the configured warning, and shows a banner.
-Other runtime faults propagate to Core's view-activation handling.
-Warning <code>core.structural.joist_girder</code> disables <code>DBTools.UpdateJoistGirderWeights</code> and automatic updates.</p>
-<h2 id="settings">Settings</h2>
+The remaining constants are depth, connection, and member multipliers.</p>
+<h3 id="settings">Settings</h3>
 <p>Configuration section: <code>Tools.JoistGirderWeight</code>.
 Pack key: <code>structural.joist_girder_weight</code>, titled <strong>Joist Girder Weights</strong>.</p>
 <table>
@@ -241,76 +295,27 @@ Pack key: <code>structural.joist_girder_weight</code>, titled <strong>Joist Gird
 <code>SettingsPackAutoUpdateContext&lt;JoistGirderWeightSettings&gt;</code> and owns pattern editing,
 empty-value defaulting, regex validation, snapshots, and baseline comparison.
 The Core base owns the toggle, warning, pending-change, and notification state.</p>
-<h2 id="ownership-and-registration">Ownership and registration</h2>
-<p>Source: <code>src/Tools/Structural/JoistGirderWeight/</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Owner</th>
-<th>Responsibility</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>App/Composition/JoistGirderWeightToolModule</code></td>
-<td>Module, settings pack, hooks, and warning registration</td>
-</tr>
-<tr>
-<td><code>App/Composition/ServiceCollectionExtensions</code></td>
-<td>Dependency registration</td>
-</tr>
-<tr>
-<td><code>App/Composition/UpdateJoistGirderWeightsCommand</code></td>
-<td>Manual command</td>
-</tr>
-<tr>
-<td><code>Features/Workflow/WeightUpdateWorkflow</code></td>
-<td>Settings retrieval, update, completion/configuration banners</td>
-</tr>
-<tr>
-<td><code>Features/AutoUpdate/AutoUpdateTask</code></td>
-<td>View-activation execution</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/JoistGirderClassifier</code></td>
-<td>Family and load-name classification</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/JoistGirderWeightUpdater</code></td>
-<td>Revit collection, validation, and writes</td>
-</tr>
-<tr>
-<td><code>Features/Load/Operations/ElementLoadReader</code></td>
-<td>Parameter and unit resolution</td>
-</tr>
-<tr>
-<td><code>Features/Load/LoadParser</code></td>
-<td>Text parsing</td>
-</tr>
-<tr>
-<td><code>Features/Load/LoadResolutionEvaluator</code></td>
-<td>Load group ambiguity and precedence</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/JoistGirderWeightEvaluator</code></td>
-<td>Pure formula</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/Settings/Views/JoistGirderWeightSettingsView.xaml</code></td>
-<td>Settings view</td>
-</tr>
-</tbody>
-</table>
-<p><code>manifest.yml</code> registers assembly <code>DBTools.JoistGirderWeight</code> and module
-<code>DBTools.JoistGirderWeight.App.Composition.JoistGirderWeightToolModule</code>.
-The command uses <code>InlineUi</code>, icon key <code>joist_girder</code>, and ribbon order 30.
-The asset is <code>Assets/joist_girder_icon.png</code>.</p>
-<h2 id="tests">Tests</h2>
+<h2 id="workflows">Workflows</h2>
+<h3 id="update-and-failure-behavior">Update and failure behavior</h3>
+<p><code>JoistGirderWeightUpdater</code> validates candidates and computes weights before opening a transaction.
+Invalid candidates become skipped items. Valid candidates share <code>Auto Update Joist Girder Weights</code>.
+An unexpected transaction or setter exception propagates and rolls back that transaction.
+Updated increments after each setter call returns. See <a href="#limitations">Limitations</a> for count semantics.</p>
+<p>The returned summary contains Candidates, Updated, Skipped, and up to five sample issues.
+Zero candidates returns an empty summary. All-invalid candidates return skipped counts.
+The manual workflow displays an Info toast when nothing updates, Warning for mixed updated/skipped results,
+and Success when all candidates update. Configuration exceptions produce a ten-second Warning toast.</p>
+<p>Automatic execution catches configuration exceptions, sets the configured warning, and shows a banner.
+Other runtime faults propagate to Core's view-activation handling.
+Warning <code>core.structural.joist_girder</code> disables <code>DBTools.UpdateJoistGirderWeights</code> and automatic updates.</p>
+<h2 id="testing">Testing</h2>
 <p>Pure tests cover the evaluator, classifier, patterns, load parsing and resolution, and settings context.
-Hosted updater and workflow tests use real Revit parameters and roll back model changes.
+Revit-hosted updater and workflow tests use real Revit parameters and roll back model changes.
 The workflow fixture supplies a WPF owner for banners and closes its own windows after each test.</p>
 <pre><code class="lang-bash">./test.sh test --tool JoistGirderWeight --scope local -y 2026
 </code></pre>
+<h2 id="limitations">Limitations</h2>
+<p>The formula estimates weight; it does not select manufacturer sections or validate SJI load tables. Updated counts reflect attempted writes whose setters did not throw, including a false <code>Parameter.Set</code> result that leaves the value unchanged.</p>
 
 </article>
 

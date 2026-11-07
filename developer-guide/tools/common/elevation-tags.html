@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,139 +89,11 @@
         <article data-uid="">
 <h1 id="elevation-tags">Elevation Tags</h1>
 
+<h2 id="overview">Overview</h2>
 <p>Elevation Tags aligns spot elevation text relative to leader endpoints in floor, structural, and ceiling plans.
 Manual alignment runs on the active view. Automatic alignment runs when a supported view activates.</p>
-<h2 id="use-and-settings">Use and settings</h2>
-<ol>
-<li>Open a FloorPlan, EngineeringPlan, or CeilingPlan view.</li>
-<li>Configure <strong>Elevation Tags</strong> in Settings.</li>
-<li>Run <strong>Align Elevation Tags</strong>, or enable automatic updates.</li>
-</ol>
-<p>The command requires an active view. An unsupported view produces a warning toast without running alignment.
-The settings preview redraws as per-type offsets change.</p>
-<p>Settings use configuration section <code>Tools.ElevationTags</code> and pack key <code>common.elevation_tags</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>AutoUpdateEnabled</code></td>
-<td><code>true</code></td>
-<td>Run on supported view activation</td>
-</tr>
-<tr>
-<td><code>TagNamePatterns</code></td>
-<td>Empty list</td>
-<td>Regex patterns. An empty or all-blank list uses the static defaults</td>
-</tr>
-<tr>
-<td><code>TypeOffsets</code></td>
-<td>Empty dictionary</td>
-<td><code>TypeAlignmentOffsets</code> keyed by spot elevation type name</td>
-</tr>
-</tbody>
-</table>
-<p>The default pattern is:</p>
-<pre><code class="lang-regex">^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$
-</code></pre>
-<p>The UI permits up to three patterns and validates their syntax. At least one nonblank pattern is required to save settings.
-Runtime compiles nonblank patterns case-insensitively. Invalid patterns log warnings and are skipped.
-With no valid compiled patterns, no tags match.</p>
-<p><code>TypeAlignmentOffsets</code> contains <code>AlongLeaderOffset</code> and <code>PerpendicularOffset</code>.
-Both default to zero for an unconfigured type. Runtime multiplies these values by <code>view.Scale / 12</code>.
-The signs follow the computed text side relative to the leader endpoint.</p>
-<h2 id="filtering">Filtering</h2>
-<p><code>AutoUpdater</code> collects non-type <code>OST_SpotElevations</code> elements from the active view as <code>SpotDimension</code> instances.
-A match against any configured regex includes the spot.
-Candidate strings include the spot name, spot type and family names, and resolved marker-symbol type and family names.
-The matcher tests these strings separately.</p>
-<p>A failure reading a spot's names increments <code>FailedCount</code>.
-The first such failure in a run logs its exception. Leaderless spots, missing types, and Relative-base spots require no update.</p>
-<h2 id="alignment-algorithm">Alignment algorithm</h2>
-<ol>
-<li>Read the origin, leader end, current text position, and spot type.</li>
-<li>Resolve elevation and format its text using document units and the type's unit options.</li>
-<li>Measure the text with GDI+ using font, text size, width scale, and display DPI.</li>
-<li>Compute placement relative to the leader end and current above/below text side.</li>
-<li>Apply the configured per-type offsets.</li>
-<li>Write <code>TextPosition</code> when X or Y differs after rounding to two decimal places in internal coordinates.</li>
-</ol>
-<p>Z remains the existing text Z. The view factor is <code>view.Scale / 12</code>.
-The measured horizontal half-width receives margins of <code>2 * factor / 128 + factor / 8</code>.
-The vertical margin is <code>factor / 64</code>. Placement below the leader also accounts for measured text height.</p>
-<p>The elevation base uses the type's displayed <code>SPOT_ELEV_BASE</code> value:</p>
-<table>
-<thead>
-<tr>
-<th>Display value</th>
-<th>Calculation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Project Base Point</code></td>
-<td>Subtract project base point Z only when project and survey point positions differ by at least <code>1e-9</code> on an axis</td>
-</tr>
-<tr>
-<td><code>Relative</code></td>
-<td>Skip alignment</td>
-</tr>
-<tr>
-<td>Other values, including Survey Point</td>
-<td>Use spot origin Z</td>
-</tr>
-</tbody>
-</table>
-<p>These comparisons use English display strings with ordinal matching.
-An <code>Elevation Indicator</code> becomes the prefix only when <code>Elevation Indicator as Prefix/Suffix</code> equals <code>Prefix</code> and the indicator is nonblank.
-Otherwise the measured prefix is <code>EL. </code>. The calculation does not append a configured suffix.
-Font defaults to Arial and width scale defaults to 1 when their parameters are absent.
-A units-format lookup failure logs once and uses default formatting.</p>
-<h2 id="results-and-errors">Results and errors</h2>
-<p><code>AutoUpdater.Run()</code> returns <code>ElevationTagRunResult</code> with:</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TotalSpotsInView</code></td>
-<td>Collected spots</td>
-</tr>
-<tr>
-<td><code>PatternMatches</code></td>
-<td>Spots accepted by name patterns</td>
-</tr>
-<tr>
-<td><code>UpdatedCount</code></td>
-<td>Spots whose position changed</td>
-</tr>
-<tr>
-<td><code>FailedCount</code></td>
-<td>Name-reading or per-spot update failures</td>
-</tr>
-</tbody>
-</table>
-<p>Candidate updates share <code>DB Tools - Autoupdating spot elevations</code>.
-The updater catches per-spot update faults, counts them, and continues. The first update fault logs its exception.
-Collection, layout preparation, and transaction-level failures can propagate.</p>
-<p>The manual workflow shows a Warning toast when failures exist, Success when tags change,
-and Info for no spots, no pattern matches, or matching spots requiring no changes.
-The last case includes already aligned, leaderless, and Relative-base spots. Counts do not distinguish those cases.
-Automatic updates log a summary warning for partial failures.
-Uncaught automatic-update failures reach Core's view-activation handling, which shows a runtime-failure banner
-and skips that task for the document session. This runtime failure does not set a persistent settings warning.</p>
-<p>Warning <code>core.structural.elevation_tags</code> disables <code>DBTools.AlignElevationTagsInView</code> and automatic updates.
-The settings context exposes the warning state and disables its automatic-update toggle while the warning is active.</p>
-<h2 id="ownership-and-registration">Ownership and registration</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="ownership-and-registration">Ownership and registration</h3>
 <p>Source: <code>src/Tools/Structural/ElevationTags/</code>. The manifest places the tool on the <strong>Common</strong> panel.</p>
 <table>
 <thead>
@@ -298,7 +170,139 @@ The module type is <code>DBTools.ElevationTags.App.Composition.ElevationTagsTool
 Command and availability both use <code>DBTools.ElevationTags.App.Composition.ElevationTagsCommand</code>.
 The button uses <code>InlineUi</code>, icon key <code>align_elevation_tags</code>, and order 20.
 The icon asset is <code>Assets/align_elevation_tags_icon.png</code>.</p>
-<h2 id="troubleshooting-and-tests">Troubleshooting and tests</h2>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="settings">Settings</h3>
+<p>Settings use configuration section <code>Tools.ElevationTags</code> and pack key <code>common.elevation_tags</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AutoUpdateEnabled</code></td>
+<td><code>true</code></td>
+<td>Run on supported view activation</td>
+</tr>
+<tr>
+<td><code>TagNamePatterns</code></td>
+<td>Empty list</td>
+<td>Regex patterns. An empty or all-blank list uses the static defaults</td>
+</tr>
+<tr>
+<td><code>TypeOffsets</code></td>
+<td>Empty dictionary</td>
+<td><code>TypeAlignmentOffsets</code> keyed by spot elevation type name</td>
+</tr>
+</tbody>
+</table>
+<p>The default pattern is:</p>
+<pre><code class="lang-regex">^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$
+</code></pre>
+<p>The UI permits up to three patterns and validates their syntax. At least one nonblank pattern is required to save settings.
+Runtime compiles nonblank patterns case-insensitively. Invalid patterns log warnings and are skipped.
+With no valid compiled patterns, no tags match.</p>
+<p><code>TypeAlignmentOffsets</code> contains <code>AlongLeaderOffset</code> and <code>PerpendicularOffset</code>.
+Both default to zero for an unconfigured type. Runtime multiplies these values by <code>view.Scale / 12</code>.
+The signs follow the computed text side relative to the leader endpoint.</p>
+<h3 id="filtering">Filtering</h3>
+<p><code>AutoUpdater</code> collects non-type <code>OST_SpotElevations</code> elements from the active view as <code>SpotDimension</code> instances.
+A match against any configured regex includes the spot.
+Candidate strings include the spot name, spot type and family names, and resolved marker-symbol type and family names.
+The matcher tests these strings separately.</p>
+<p>A failure reading a spot's names increments <code>FailedCount</code>.
+The first such failure in a run logs its exception. Leaderless spots, missing types, and Relative-base spots require no update.</p>
+<h3 id="results-and-errors">Results and errors</h3>
+<p><code>AutoUpdater.Run()</code> returns <code>ElevationTagRunResult</code> with:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TotalSpotsInView</code></td>
+<td>Collected spots</td>
+</tr>
+<tr>
+<td><code>PatternMatches</code></td>
+<td>Spots accepted by name patterns</td>
+</tr>
+<tr>
+<td><code>UpdatedCount</code></td>
+<td>Spots whose position changed</td>
+</tr>
+<tr>
+<td><code>FailedCount</code></td>
+<td>Name-reading or per-spot update failures</td>
+</tr>
+</tbody>
+</table>
+<p>Candidate updates share <code>DB Tools - Autoupdating spot elevations</code>.
+The updater catches per-spot update faults, counts them, and continues. The first update fault logs its exception.
+Collection, layout preparation, and transaction-level failures can propagate.</p>
+<p>The manual workflow shows a Warning toast when failures exist, Success when tags change,
+and Info for no spots, no pattern matches, or matching spots requiring no changes.
+See <a href="#limitations">Limitations</a> for cases that require no position change.
+Automatic updates log a summary warning for partial failures.
+Uncaught automatic-update failures reach Core's view-activation handling, which shows a runtime-failure banner
+and skips that task for the document session. This runtime failure does not set a persistent settings warning.</p>
+<p>Warning <code>core.structural.elevation_tags</code> disables <code>DBTools.AlignElevationTagsInView</code> and automatic updates.
+The settings context exposes the warning state and disables its automatic-update toggle while the warning is active.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="use">Use</h3>
+<ol>
+<li>Open a FloorPlan, EngineeringPlan, or CeilingPlan view.</li>
+<li>Configure <strong>Elevation Tags</strong> in Settings.</li>
+<li>Run <strong>Align Elevation Tags</strong>, or enable automatic updates.</li>
+</ol>
+<p>The command requires an active view. An unsupported view produces a warning toast without running alignment.
+The settings preview redraws as per-type offsets change.</p>
+<h3 id="alignment-algorithm">Alignment algorithm</h3>
+<ol>
+<li>Read the origin, leader end, current text position, and spot type.</li>
+<li>Resolve elevation and format its text using document units and the type's unit options.</li>
+<li>Measure the text with GDI+ using font, text size, width scale, and display DPI.</li>
+<li>Compute placement relative to the leader end and current above/below text side.</li>
+<li>Apply the configured per-type offsets.</li>
+<li>Write <code>TextPosition</code> when X or Y differs after rounding to two decimal places in internal coordinates.</li>
+</ol>
+<p>Z remains the existing text Z. The view factor is <code>view.Scale / 12</code>.
+The measured horizontal half-width receives margins of <code>2 * factor / 128 + factor / 8</code>.
+The vertical margin is <code>factor / 64</code>. Placement below the leader also accounts for measured text height.</p>
+<p>The elevation base uses the type's displayed <code>SPOT_ELEV_BASE</code> value:</p>
+<table>
+<thead>
+<tr>
+<th>Display value</th>
+<th>Calculation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Project Base Point</code></td>
+<td>Subtract project base point Z only when project and survey point positions differ by at least <code>1e-9</code> on an axis</td>
+</tr>
+<tr>
+<td><code>Relative</code></td>
+<td>Skip alignment</td>
+</tr>
+<tr>
+<td>Other values, including Survey Point</td>
+<td>Use spot origin Z</td>
+</tr>
+</tbody>
+</table>
+<p>An <code>Elevation Indicator</code> becomes the prefix only when <code>Elevation Indicator as Prefix/Suffix</code> equals <code>Prefix</code> and the indicator is nonblank.
+Otherwise the measured prefix is <code>EL. </code>. The calculation does not append a configured suffix.
+Font defaults to Arial and width scale defaults to 1 when their parameters are absent.
+A units-format lookup failure logs once and uses default formatting.</p>
+<h3 id="troubleshooting">Troubleshooting</h3>
 <table>
 <thead>
 <tr>
@@ -321,14 +325,17 @@ The icon asset is <code>Assets/align_elevation_tags_icon.png</code>.</p>
 </tr>
 <tr>
 <td>Partial alignment</td>
-<td>Inspect the first filtering or update exception in the DBTools log</td>
+<td>Inspect the first filtering or update exception in the DB Tools log</td>
 </tr>
 </tbody>
 </table>
+<h2 id="testing">Testing</h2>
 <p>Pure tests cover the runner, symbol resolution, settings state, preview, and manual summaries.
-Hosted tests under <code>Tests/Integration/Revit/</code> cover the command, module, workflow, view activation,
+Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover the command, module, workflow, view activation,
 live updater, and type projection.</p>
 <p>See <a href="../../architecture/overview.html">architecture</a> and <a href="../../architecture/theme-system.html">themes</a>.</p>
+<h2 id="limitations">Limitations</h2>
+<p>Elevation-base and prefix comparisons require English display strings and use ordinal matching. No-change counts combine already aligned spots, leaderless spots, and spots with a Relative elevation base.</p>
 
 </article>
 

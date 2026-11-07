@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,7 +89,7 @@
         <article data-uid="">
 <h1 id="architecture-overview">Architecture Overview</h1>
 
-<p>DBTools is a suite of Revit add-in tools. Revit loads one entry assembly,
+<p>DB Tools is a suite of Revit add-in tools. Revit loads one entry assembly,
 <code>DBTools.dll</code>, built from <code>src/DBTools.App</code>. App loads shared infrastructure
 from <code>DBTools.Core.dll</code>, stable WPF types from <code>DBTools.Presentation.dll</code>, and
 each tool from its own assembly in the <code>Tools/</code> directory.</p>
@@ -145,26 +145,20 @@ each tool from its own assembly in the <code>Tools/</code> directory.</p>
 </table>
 <p>Presentation references only WPF and HandyControl. App, Core and the tools may
 reference Presentation. See <a href="project-references.html">Project References</a>.</p>
+<p>Each window merges the theme into its own resources, not into
+<code>Application.Resources</code>, so DB Tools does not change other add-ins. See
+<a href="theme-system.html">Theme System</a>.</p>
 <h2 id="product-tree">Product tree</h2>
-<p>Each supported Revit year has one directory:</p>
-<pre><code class="lang-text">&lt;year&gt;/
-├── DBTools.addin
-├── DBTools.dll
-├── DBTools.Core.dll
-├── DBTools.Presentation.dll
-├── DBTools.HandyControl.dll
-└── Tools/
-    └── DBTools.&lt;Tool&gt;.dll        (14 tool assemblies)
-</code></pre>
-<p>The build merges every third-party runtime library into one owner assembly, so
-the directory contains no other DLLs. The same tree is used by the installer,
-hosted test staging, Sandbox and Dev Mode. See
-<a href="assembly-loading.html">Assembly Loading Contract</a> and
-<a href="build-pipeline.html">Build Pipeline</a>.</p>
+<p>Each supported Revit year has one directory with <code>DBTools.addin</code>, the four
+top-level assemblies and the 14 tool assemblies in <code>Tools/</code>; see
+<a href="assembly-loading.html#installed-layout">Installed layout</a>. The build merges
+every third-party runtime library into one owner assembly, so the directory
+contains no other DLLs. The installer, Revit-hosted test staging, Sandbox and
+Dev Mode use the same tree. See <a href="build-pipeline.html">Build Pipeline</a>.</p>
 <h2 id="load-contexts">Load contexts</h2>
-<p>The installed add-in runs in Revit's default <code>AssemblyLoadContext</code>. For hosted
-tests and Dev Mode, the dbtools-daemon loads the product into its own context
-(<code>ProductLoadContext</code> or <code>DevModeLoadContext</code>). DBTools creates no load context
+<p>The installed add-in runs in Revit's default <code>AssemblyLoadContext</code>. For
+Revit-hosted tests and Dev Mode, the dbtools-daemon loads the product into its own context
+(<code>ProductLoadContext</code> or <code>DevModeLoadContext</code>). DB Tools creates no load context
 of its own. App loads each tool assembly into the context that already holds
 <code>DBTools.dll</code>.</p>
 <h2 id="startup">Startup</h2>
@@ -235,7 +229,7 @@ scope (<code>IRevitRunScope</code>), its <code>IRevitCallGate</code>, <code>ITra
 has only the folders it needs. Generic folders such as <code>Helpers</code>, <code>Models</code> or
 <code>Infrastructure</code> are not used for production code.</p>
 <h2 id="supported-years">Supported years</h2>
-<p>Desktop Revit 2026.5 and later, and Revit 2027, both target
+<p>Desktop Revit 2026 (2026.5 or later) and Revit 2027 both target
 <code>net10.0-windows</code>. <code>build/Distribution/RevitYearContract.cs</code> defines the
 supported years. APS Design Automation tests use a separate Revit 2026
 <code>net8.0-windows</code> profile.</p>

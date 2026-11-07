@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,11 +89,13 @@
         <article data-uid="">
 <h1 id="global-mapper-gm">Global Mapper (GM)</h1>
 
+<h2 id="overview">Overview</h2>
 <p>Global Mapper finds duplicate or related Revit content, captures mapping intent, and previews and applies replacements through Commit Review.
 Its main window is modeless. Commit Review is modal and keeps a reversible apply group open until the user keeps or rolls back changes.
 The <a href="gm-spec.html">architecture specification</a> defines state, capture, execution, and lifetime contracts.
 The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping workflows.</p>
-<h2 id="source-and-registration">Source and registration</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="source-and-registration">Source and registration</h3>
 <p>Source: <code>src/Tools/Common/GM/</code>. The assembly and tool ID are <code>DBTools.GM</code>.
 <code>manifest.yml</code> registers:</p>
 <table>
@@ -133,10 +135,8 @@ The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping
 <p>Sandbox uses internal design-time view models with public binding properties:
 <code>DBTools.GM.App.DesignTime.GmWindowDesignTimeViewModel</code> and
 <code>DBTools.GM.Features.CommitReview.DesignTime.GmCommitReviewWindowDesignTimeViewModel</code>.</p>
-<p>CANON governs naming and placement. Generated <code>src/Tools/Common/GM/MAP.md</code> lists current files and manifest values.
-Regenerate the maps with <code>python3 .agents/work/canon_source_maps.py</code>. Do not hand-edit MAP.md.
-The pre-push/CI map check rejects stale generated maps. Product builds do not run that check.</p>
-<h2 id="ownership">Ownership</h2>
+<p>Generated <code>src/Tools/Common/GM/MAP.md</code> indexes source files and manifest values.</p>
+<h3 id="ownership">Ownership</h3>
 <table>
 <thead>
 <tr>
@@ -225,7 +225,7 @@ The pre-push/CI map check rejects stale generated maps. Product builds do not ru
 </table>
 <p>Feature packages own their local domain, planning, execution, Revit, views, and workflow where present.
 App composes cross-feature sequences through feature-owned ports. Features do not import App.</p>
-<h2 id="wpf-presentation">WPF presentation</h2>
+<h3 id="wpf-presentation">WPF presentation</h3>
 <p><code>GmWindowPresenter</code> loads <code>App/Views/GmWindow.xaml</code> through <code>ToolWindowFactory</code>.
 Its binding source is App/ViewModels/GmWindowViewModel. Commit Review binds to
 Features/CommitReview/ViewModels/GmCommitReviewWindowViewModel.
@@ -256,7 +256,10 @@ Cleanup requests cancellation, waits for a safe rollback boundary, and propagate
 A failed cleanup leaves the review window open. Row refresh and owner closure follow successful cleanup.</p>
 <p>Design-time shared-parameter composition uses the production feature/projection graph with explicit host replacements,
 including NoopFamilyParameterQuery. Authoring receives a registered parameter-signature provider.</p>
-<h2 id="startup-performance">Startup performance</h2>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<p>The <a href="gm-spec.html#data-and-contracts">architecture specification</a> defines project state, mapping intent, persistence, and execution results.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="startup-performance">Startup performance</h3>
 <p>Startup logs Information-level elapsed time for five overlay steps.
 Usage indexing logs each catalog/index source duration and completion state.
 Failure or cancellation records the interrupted step and elapsed time, including queued Revit-call time.
@@ -266,7 +269,7 @@ View-owned collection discovers owner IDs through a quick filter, then visits el
 retaining Revit view-visibility filtering. Style/material indexing share one capped sample and 25-instance chunks
 with separate geometry options. Family-dependent styles are visited once per usage build.
 Each option-building pass owns immutable name profiles and retains numeric-suffix and multiset-bigram scoring.</p>
-<h2 id="tests">Tests</h2>
+<h2 id="testing">Testing</h2>
 <p>Pure tests mirror App, Domain, and Features owners. Test builders, external fakes, and assertions live in Tests/Support.
 Project-state and name-cache tests live under Tests/Domain. Duplicate projection tests live under Tests/Features/Duplicates.
 The root Revit name adapter mirrors its complete path at
@@ -280,25 +283,27 @@ Normal-close tests overlap close requests and await shared completion, shutdown,
 Retirement tests wait for Idle, retire synchronously, and check collection without another dispatcher pump.
 ForcedRetirement_AfterApply_RollsBackTheOpenGroupAndReturnsWithoutHanging retires after a real apply
 and checks model restoration and group finalization before child-scope disposal in the same Revit turn.</p>
-<p>Hosted Commit Review tests use <code>testing/TestSupport/GM/Fakes/HiddenCommitReviewDialogHost</code>
+<p>Revit-hosted Commit Review tests use <code>testing/TestSupport/GM/Fakes/HiddenCommitReviewDialogHost</code>
 in place of ShowDialog to satisfy hidden-desktop window ownership.
 Its dispatcher frame ends on retirement. IToolWindowSession.Closed does not complete after forced retirement,
 so awaiting that event would retain the Revit callback until timeout.
 A 60-second deadline retires a session left open and fails the test.</p>
-<p>GM Revit-local fixture models, named views, family symbols, line styles, materials, and
+<p>GM Revit-hosted fixture models, named views, family symbols, line styles, materials, and
 expected production outcomes are required repository baselines. Missing baselines and
 false production results fail with the model path and running year. Fixture teardown and
 transaction-group finalization failures also fail and are aggregated with a primary test
 failure when both occur.</p>
-<p><code>DBTools.GM.Pure.Tests.csproj</code> contains only owner-local fixtures and shared test support, then references the normal desktop <code>DBTools.GM.csproj</code>. The production owner grants the pure assembly internal access. There is no second production-source map in the test project. Revit is compile-only, so a Pure test cannot load a Revit-typed member on the Revit-free Windows runner.</p>
+<p><code>DBTools.GM.Pure.Tests.csproj</code> contains owner-local fixtures and shared test support and references the desktop <code>DBTools.GM.csproj</code>. The production assembly grants the Pure assembly internal access. Revit references are compile-only; loading a Revit-typed member requires a Revit host.</p>
 <p>Run the supported gates through the repository wrappers:</p>
 <pre><code class="lang-bash">./build.sh BuildApp
 ./build.sh BuildTests
 ./test.sh test --tool GM --scope pure
 ./test.sh test --tool GM --scope local -y 2026
 </code></pre>
-<p>The Pure project targets <code>net10.0-windows</code> and requires Microsoft.WindowsDesktop.App to execute.
-Linux compilation does not establish Windows test execution. RevitLocal tests run through the daemon fleet.</p>
+<p>The Pure project targets <code>net10.0-windows</code> and requires Microsoft.WindowsDesktop.App.
+Revit-hosted tests use the <code>local</code> scope through the daemon fleet.</p>
+<h2 id="limitations">Limitations</h2>
+<p>The session key uses the document hash code, which can collide. The <a href="gm-spec.html#limitations">specification</a> describes family-document and line-style limits.</p>
 
 </article>
 

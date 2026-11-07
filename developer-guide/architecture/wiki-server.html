@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Wiki Server | DB Tools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Wiki Server | DB Tools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
+            DB Tools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="wiki-server">Wiki Server</h1>
+
+<p><code>wiki/server-config/</code> holds the configuration of the web server that serves
+this documentation site at <code>https://dbtools.greatwhitelab.net</code>. The server runs
+Caddy for the static files and a webhook container that updates them. A push to
+the <code>main</code> branch of the <code>kirsch33/dbtools-wiki</code> repository makes the server
+pull the new site.</p>
+<h2 id="publishing-flow">Publishing flow</h2>
+<ol>
+<li>The Documentation workflow (<code>.github/workflows/documentation.yml</code>, manual
+dispatch) builds the site with <code>.github/scripts/build-docs.sh</code> and pushes
+<code>wiki/_site</code> to the <code>main</code> branch of <code>kirsch33/dbtools-wiki</code>. It
+authenticates with the deploy key in the <code>WIKI_DEPLOY_KEY</code> secret.</li>
+<li>GitHub sends the push event of <code>kirsch33/dbtools-wiki</code> to
+<code>https://dbtools.greatwhitelab.net/hooks/dbtools-wiki</code>, signed with the
+shared secret in the <code>X-Hub-Signature-256</code> header.</li>
+<li>Caddy proxies <code>/hooks/*</code> to the webhook container on port 9000.</li>
+<li>The <code>dbtools-wiki</code> hook runs only when the HMAC-SHA256 signature is valid,
+<code>repository.full_name</code> is <code>kirsch33/dbtools-wiki</code> and <code>ref</code> is
+<code>refs/heads/main</code>. It then runs <code>/scripts/pull-site.sh dbtools-wiki</code>.</li>
+<li><code>pull-site.sh</code> reads the site entry from <code>sites.json</code>. On first use it
+clones the branch with depth 1 into the web directory; after that it fetches
+the branch and runs <code>git reset --hard origin/&lt;branch&gt;</code>.</li>
+<li>Caddy serves <code>/web/dbtools-wiki</code> as static files. A path that matches no
+file or directory returns <code>/index.html</code>.</li>
+</ol>
+<h2 id="files">Files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dockerfile</code></td>
+<td>The webhook image: <code>almir/webhook</code>, pinned by digest, plus <code>bash</code>, <code>git</code> and <code>jq</code>. It runs as the base image's unprivileged <code>webhook</code> user.</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>The <code>webhook</code> service: builds the image, runs <code>webhook -verbose -template -hooks=/etc/webhook/hooks.json -hotreload</code>, mounts <code>config/</code> and <code>scripts/</code> read-only and <code>/web</code> read-write, reads <code>webhook.env</code>, and joins the external <code>caddy_default</code> network.</td>
+</tr>
+<tr>
+<td><code>webhook.env.example</code></td>
+<td>Template for <code>webhook.env</code>, which sets <code>WEBHOOK_SECRET</code>.</td>
+</tr>
+<tr>
+<td><code>config/hooks.json</code></td>
+<td>The hook definitions. <code>-template</code> lets each hook read <code>WEBHOOK_SECRET</code> with <code>getenv</code>.</td>
+</tr>
+<tr>
+<td><code>config/sites.json</code></td>
+<td>Maps a site name to <code>repo</code> (GitHub owner/name), <code>web_dir</code> and <code>branch</code> (default <code>main</code>).</td>
+</tr>
+<tr>
+<td><code>scripts/pull-site.sh</code></td>
+<td><code>pull-site.sh &lt;site-name&gt;</code>: clones or updates one site from <code>sites.json</code>. It exits with status 1 when the name is missing or unknown, or <code>sites.json</code> is absent.</td>
+</tr>
+<tr>
+<td><code>caddy-snippet.txt</code></td>
+<td>The Caddy site block for <code>dbtools.greatwhitelab.net</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>hooks.json</code> and <code>sites.json</code> also define a <code>blog</code> site (<code>kirsch33/blog</code>,
+served from <code>/web/blog</code>) that uses the same script.</p>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Docker with Compose, and a Caddy container on the external Docker network
+<code>caddy_default</code>.</li>
+<li>The image needs <code>bash</code>, <code>git</code> and <code>jq</code>, because <code>pull-site.sh</code> uses all
+three. The base image has only the webhook binary and <code>/bin/sh</code>; the
+<code>Dockerfile</code> adds them with <code>apk</code>.</li>
+<li>The host directory <code>/web</code> must be writable by the UID:GID in the <code>user</code>
+field of <code>docker-compose.yml</code> (<code>1001:1001</code>). Set it to the server user that
+owns the bind mounts.</li>
+<li>The site repository must be readable over anonymous HTTPS, because
+<code>pull-site.sh</code> clones <code>https://github.com/&lt;repo&gt;.git</code> without credentials.</li>
+<li>The GitHub webhook and <code>webhook.env</code> must use the same secret.</li>
+</ul>
+<h2 id="setup">Setup</h2>
+<ol>
+<li><p>Copy <code>webhook.env.example</code> to <code>webhook.env</code> and set <code>WEBHOOK_SECRET</code>, for
+example from <code>openssl rand -hex 32</code>.</p>
+</li>
+<li><p>Check and start the service:</p>
+<pre><code class="lang-bash">docker compose config --quiet
+docker compose up -d --build
+</code></pre>
+</li>
+<li><p>Add the block from <code>caddy-snippet.txt</code> to the Caddyfile and reload Caddy.</p>
+</li>
+<li><p>On <code>kirsch33/dbtools-wiki</code>, add a webhook for push events with the payload
+URL <code>https://dbtools.greatwhitelab.net/hooks/dbtools-wiki</code>, the content type
+<code>application/json</code> and the same secret.</p>
+</li>
+</ol>
+<p><code>-hotreload</code> makes the webhook reload <code>hooks.json</code> when the file changes. A
+change to the <code>Dockerfile</code> needs <code>docker compose up -d --build</code>. To move to
+another base image, resolve its digest and rebuild on the wiki host.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          DB Tools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

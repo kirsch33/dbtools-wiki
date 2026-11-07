@@ -2,16 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>TDV - Transfer Drafting Views | DB Tools </title>
+      <title>Transfer Drafting Views (TDV) | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="TDV - Transfer Drafting Views | DB Tools ">
+      <meta name="title" content="Transfer Drafting Views (TDV) | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,61 +87,15 @@
         </div>
 
         <article data-uid="">
-<h1 id="tdv---transfer-drafting-views">TDV - Transfer Drafting Views</h1>
+<h1 id="transfer-drafting-views-tdv">Transfer Drafting Views (TDV)</h1>
 
-<p>TDV (Transfer Drafting Views) copies drafting views between the active Revit document and a library <code>.rvt</code> file. Teams keep standard drafting views in the library and import them into projects.</p>
+<h2 id="overview">Overview</h2>
+<p>Transfer Drafting Views (TDV) copies drafting views between the active Revit document and a library <code>.rvt</code> file. Teams keep standard drafting views in the library and import them into projects.</p>
 <ul>
 <li><strong>Export to Library</strong> copies drafting views from the active document to a library file.</li>
 <li><strong>Import from Library</strong> copies drafting views from a library file to the active document.</li>
 </ul>
 <p>For a workshared library, TDV creates a local copy, and after an export it synchronizes the changes with central.</p>
-<h2 id="transfer">Transfer</h2>
-<h3 id="capabilities">Capabilities</h3>
-<ul>
-<li>Import and export of drafting views, several views in one batch.</li>
-<li>View type mapping: each row selects a destination drafting view type, or <code>Retain Original</code>.</li>
-<li>Conflict detection while editing: names that exist in the destination, and duplicate destination names in the current selection.</li>
-<li>Replace mode for views with the same name.</li>
-<li>A preview of the selected view, with pan and zoom.</li>
-<li>One destination transaction group per batch, bound to the explicit destination document (also a non-active library).</li>
-<li>Per-view progress during transfer.</li>
-</ul>
-<h3 id="callback-requirement">Callback requirement</h3>
-<p><code>Transfer.ApplySelectionAsync</code> must start inside an active Revit API callback, and the supplied call gate and transaction runner must keep the whole transfer in that callback. Before it reads a document or starts the destination group, it throws <code>OperationCanceledException</code> if the request token is canceled and <code>InvalidOperationException</code> (&quot;TDV transfer requires one continuous Revit API callback.&quot;) if <code>RevitCallGateApiContext.IsActive</code> is <code>false</code>. Both ribbon commands use the <code>InlineUi</code> profile. The query methods (<code>BuildViewItemsAsync</code>, <code>WouldConflictAsync</code>, <code>ExportPreviewAsync</code>) can each queue as one complete operation.</p>
-<p><code>ApplySelectionAsync</code> also checks that the source and destination are valid, open documents and not the same document. The run-start log entry contains a run ID and the title and path of the source and destination.</p>
-<h3 id="per-view-steps">Per-view steps</h3>
-<p>For each selected row, TDV:</p>
-<ol>
-<li>validates the destination name before the transfer transaction;</li>
-<li>creates or prepares the destination view with the selected view type;</li>
-<li>copies the view scale and description parameters;</li>
-<li>copies the elements of the source view, except skipped categories;</li>
-<li>copies element graphic overrides from source to destination.</li>
-</ol>
-<p>If a step fails, the per-view transaction rolls back and the row is recorded as failed.</p>
-<p><code>DestinationTransactionGroup</code> receives the destination <code>Document</code> at begin, rejects item and finalization calls for any other document and runs each item transaction against that document. Import (library to host) and export (host to a non-active library) therefore use the same real Revit group; the group is never resolved from <code>ActiveUIDocument</code>. It creates the Revit group through <code>RevitTransactionGroups.Begin</code>.</p>
-<ul>
-<li>Successful row states and the add and replace counts are held until the group reports <code>Committed</code>.</li>
-<li>A <code>RolledBack</code> outcome marks the attempted rows discarded.</li>
-<li>An unknown or failed finalization withholds success and claims neither commit nor rollback.</li>
-<li>Operation, finalization and disposal failures stay ordered in the logged exception chain; the row result keeps its stable per-view error code and message.</li>
-</ul>
-<p>Sources: <code>src/Tools/Common/TDV/Features/Transfer/Execution/{DestinationTransactionGroup,Transfer.ApplySelection,Transfer.RunState}.cs</code>, <code>src/Tools/Common/TDV/Features/Transfer/Domain/TransferResult.cs</code>.</p>
-<h3 id="destination-names">Destination names</h3>
-<p>TDV does not add suffixes to destination names. A row fails when its destination name is blank (<code>DestinationNameRequired</code>), exists in the destination while <code>Replace</code> is off (<code>DestinationNameConflict</code>), or duplicates the destination name of another selected row (<code>DuplicateTargetName</code>).</p>
-<h3 id="view-types">View types</h3>
-<p>The row <code>View Type</code> list contains the drafting view types of the destination: the host document for an import, the library document for an export.</p>
-<p><code>Retain Original</code> resolves to the drafting type name of the source view. If the destination has no type with that name, TDV duplicates an existing destination drafting <code>ViewFamilyType</code> and gives the duplicate that name. If the source type name cannot be read, the row fails with <code>SourceTypeNameUnavailable</code>.</p>
-<h3 id="copying-view-contents">Copying view contents</h3>
-<p>TDV collects the elements owned by the source view and copies them with <code>ElementTransformUtils.CopyElements</code> and a <code>UseDestinationTypesHandler</code> (an <code>IDuplicateTypeNamesHandler</code> that keeps destination types when type names collide). Groups are copied before other elements; group members are paired with their copies so overrides apply to them.</p>
-<p>Skipped elements: viewports, elements whose category name is <code>Title Blocks</code>, <code>Viewports</code>, <code>Views</code>, <code>Schedules</code> or <code>Guide Grids</code>, and elements whose name contains <code>ExtentElem</code>. The category check compares English category names.</p>
-<p>Drafting views are collected with:</p>
-<pre><code class="lang-csharp">new FilteredElementCollector(doc)
-    .OfClass(typeof(View))
-    .WhereElementIsNotElementType()
-    .Cast&lt;View&gt;()
-    .Where(v =&gt; v.ViewType == ViewType.DraftingView &amp;&amp; !v.IsTemplate)
-</code></pre>
 <h2 id="architecture">Architecture</h2>
 <h3 id="project-structure">Project structure</h3>
 <pre><code class="lang-text">src/Tools/Common/TDV/
@@ -247,8 +201,228 @@ services.AddScoped&lt;ITransferDialog&gt;(sp =&gt; sp.GetRequiredService&lt;Wind
 </tr>
 </tbody>
 </table>
-<h2 id="ui">UI</h2>
-<h3 id="main-window-tdvwindow">Main window (<code>TdvWindow</code>)</h3>
+<h3 id="manifest">Manifest</h3>
+<pre><code class="lang-yaml">id: DBTools.TDV
+assembly: DBTools.TDV
+moduleType: DBTools.TDV.App.Composition.TdvToolModule
+order: 0
+panel: Common
+sandboxWindows:
+  - id: DBTools.TDV.Main
+    displayName: &quot;Transfer Drafting Views&quot;
+    group: &quot;Common&quot;
+    xamlResource: &quot;DBTools.ToolViews.TDV.TdvWindow.xaml&quot;
+    windowKind: Modal
+    width: 1400
+    height: 700
+    minWidth: 1200
+    minHeight: 600
+    showInTaskbar: true
+    startupLocation: CenterScreen
+    designTimeViewModelType: &quot;DBTools.TDV.App.DesignTime.TdvWindowDesignTimeViewModel&quot;
+    designTimeViewModelAssembly: &quot;DBTools.TDV&quot;
+    designTimeViewModelVisibility: Public
+tool:
+  settings:
+    configSection: Core.MasterLibrary
+  settingsPacks:
+    - key: core.library
+      title: &quot;Library Files&quot;
+      warnings:
+        - id: core.library.invalid
+          title: &quot;Library Paths Invalid&quot;
+          message: &quot;One or more saved library file paths are invalid. Fix the paths and save the settings to re-enable import/export.&quot;
+          disableTools:
+            - DBTools.ExportToLibrary
+            - DBTools.ImportFromLibrary
+  ribbonTools:
+    - internalName: DBTools.ExportToLibrary
+      commandType: DBTools.TDV.App.Composition.TdvExportCommand
+      availabilityType: DBTools.TDV.App.Composition.TdvExportCommand
+      runProfile: InlineUi
+      displayText: &quot;Export\nTo Library&quot;
+      iconBaseKey: export
+      tooltip: &quot;Export drafting views to the library&quot;
+      controlKind: StackedButtonItem
+      splitGroup: library_transfer
+      order: 0
+    - internalName: DBTools.ImportFromLibrary
+      commandType: DBTools.TDV.App.Composition.TdvImportCommand
+      availabilityType: DBTools.TDV.App.Composition.TdvImportCommand
+      runProfile: InlineUi
+      displayText: &quot;Import\nFrom Library&quot;
+      iconBaseKey: import
+      tooltip: &quot;Import drafting views from the library&quot;
+      controlKind: StackedButtonItem
+      splitGroup: library_transfer
+      order: 1
+</code></pre>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="capabilities">Capabilities</h3>
+<ul>
+<li>Import and export of drafting views, several views in one batch.</li>
+<li>View type mapping: each row selects a destination drafting view type, or <code>Retain Original</code>.</li>
+<li>Conflict detection while editing: names that exist in the destination, and duplicate destination names in the current selection.</li>
+<li>Replace mode for views with the same name.</li>
+<li>A preview of the selected view, with pan and zoom.</li>
+<li>One destination transaction group per batch, bound to the explicit destination document (also a non-active library).</li>
+<li>Per-view progress during transfer.</li>
+</ul>
+<h3 id="callback-requirement">Callback requirement</h3>
+<p><code>Transfer.ApplySelectionAsync</code> must start inside an active Revit API callback, and the supplied call gate and transaction runner must keep the whole transfer in that callback. Before it reads a document or starts the destination group, it throws <code>OperationCanceledException</code> if the request token is canceled and <code>InvalidOperationException</code> (&quot;TDV transfer requires one continuous Revit API callback.&quot;) if <code>RevitCallGateApiContext.IsActive</code> is <code>false</code>. Both ribbon commands use the <code>InlineUi</code> profile. The query methods (<code>BuildViewItemsAsync</code>, <code>WouldConflictAsync</code>, <code>ExportPreviewAsync</code>) can each queue as one complete operation.</p>
+<p><code>ApplySelectionAsync</code> also checks that the source and destination are valid, open documents and not the same document. The run-start log entry contains a run ID and the title and path of the source and destination.</p>
+<h3 id="destination-names">Destination names</h3>
+<p>TDV does not add suffixes to destination names. A row fails when its destination name is blank (<code>DestinationNameRequired</code>), exists in the destination while <code>Replace</code> is off (<code>DestinationNameConflict</code>), or duplicates the destination name of another selected row (<code>DuplicateTargetName</code>).</p>
+<h3 id="view-types">View types</h3>
+<p>The row <code>View Type</code> list contains the drafting view types of the destination: the host document for an import, the library document for an export.</p>
+<p><code>Retain Original</code> resolves to the drafting type name of the source view. If the destination has no type with that name, TDV duplicates an existing destination drafting <code>ViewFamilyType</code> and gives the duplicate that name. If the source type name cannot be read, the row fails with <code>SourceTypeNameUnavailable</code>.</p>
+<h3 id="settings">Settings</h3>
+<h4 id="library-options">Library options</h4>
+<p>The <code>Core.MasterLibrary</code> section stores <code>LibraryOptions</code>:</p>
+<pre><code class="lang-csharp">public sealed class LibraryOptions
+{
+    public IList&lt;LibraryFile&gt; Files { get; set; } = new List&lt;LibraryFile&gt;();
+}
+
+public sealed class LibraryFile
+{
+    public string? MainPath { get; set; }      // primary library .rvt path
+    public string? FallbackPath { get; set; }  // alternative path, for example another network location
+    public string? Alias { get; set; }         // short name in the library picker
+}
+</code></pre>
+<h4 id="settings-pack">Settings pack</h4>
+<p><code>LibrarySettingsContext</code> gives the settings page a tree of library files with add and remove for files and fallback paths, path validation as the user edits, and pending-change tracking. The settings-pack factory receives the Revit year and year probe from the TDV composition root, so settings validation matches the runtime checks. <code>LibraryTransferWorkflow</code> receives a <code>Func&lt;LibraryCatalog&gt;</code> from the composition root and does not read the settings type.</p>
+<p>Each tree row shows a validation icon (green check or red error), a tooltip with the full path, and a short display text: the root, the file name and the last three folder levels.</p>
+<h4 id="path-validation">Path validation</h4>
+<p><code>LibraryCatalog</code> marks a path invalid, with a failure reason, when:</p>
+<ul>
+<li>the file does not exist (<code>File not found</code>);</li>
+<li>the extension is not <code>.rvt</code> (<code>Not a .rvt file</code>);</li>
+<li>the year probe cannot read the saved Revit version (the probe's failure reason; TDV logs the exception);</li>
+<li>the saved version differs from the session (<code>Revit version mismatch (file: {0}, current: {1})</code>).</li>
+</ul>
+<p>An invalid path raises the <code>core.library.invalid</code> settings warning, which disables both ribbon commands. Warnings are evaluated at startup, so the commands can be disabled as soon as Revit starts.</p>
+<p><code>LibraryDocumentService.OpenLibraryAsync</code> checks the version again before it opens the file and throws <code>InvalidOperationException</code> (&quot;Library file was saved in Revit {0} but the current session is Revit {1}. ...&quot;) on a mismatch. The command's <code>ISafeExecutor</code> boundary shows it as a banner. The check prevents two failures:</p>
+<ul>
+<li>for a workshared file, <code>WorksharingUtils.CreateNewLocal()</code> fails with a version error;</li>
+<li>for a non-workshared file, Revit upgrades the library file when it opens it.</li>
+</ul>
+<p>Open failures propagate through the import or export workflow to the command boundary; they are not treated as a canceled library selection.</p>
+<h3 id="errors">Errors</h3>
+<h4 id="per-view-error-codes-transfererrorcode">Per-view error codes (<code>TransferErrorCode</code>)</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Unknown</code></td>
+<td>Unspecified error, or the finalization outcome is unknown</td>
+</tr>
+<tr>
+<td><code>DestinationTypeMissing</code></td>
+<td>Destination view type not found</td>
+</tr>
+<tr>
+<td><code>SourceTypeNameUnavailable</code></td>
+<td>Source view type name cannot be read</td>
+</tr>
+<tr>
+<td><code>CreateViewFailed</code></td>
+<td>Destination view could not be created or prepared</td>
+</tr>
+<tr>
+<td><code>CopyElementsFailed</code></td>
+<td>View elements could not be copied</td>
+</tr>
+<tr>
+<td><code>OverridesFailed</code></td>
+<td>Graphic overrides could not be copied</td>
+</tr>
+<tr>
+<td><code>ValidationFailed</code></td>
+<td>Row validation failed</td>
+</tr>
+<tr>
+<td><code>ClearDestinationViewFailed</code></td>
+<td>Contents of the existing destination view could not be cleared</td>
+</tr>
+<tr>
+<td><code>MetadataCopyFailed</code></td>
+<td>View scale or description could not be copied</td>
+</tr>
+<tr>
+<td><code>DestinationNameRequired</code></td>
+<td>Destination name is blank</td>
+</tr>
+<tr>
+<td><code>DuplicateTargetName</code></td>
+<td>Another selected row has the same destination name</td>
+</tr>
+<tr>
+<td><code>DestinationNameConflict</code></td>
+<td>Destination view exists and Replace is off</td>
+</tr>
+<tr>
+<td><code>TransactionRolledBack</code></td>
+<td>Revit discarded the attempted changes of the run</td>
+</tr>
+</tbody>
+</table>
+<h4 id="result-reporting">Result reporting</h4>
+<p>After each transfer, TDV shows:</p>
+<ul>
+<li>a banner on the TDV window (success or warning) with the selected, processed and result counts;</li>
+<li>a summary alert with the selected, processed, added, replaced, failed and not-attempted counts, a table of per-view issues when there are failures (rows can be copied to the clipboard), and the buttons <strong>Accept and Transfer More</strong> and <strong>Close Tool</strong>.</li>
+</ul>
+<p><code>TransferResult</code> carries <code>SelectedCount</code>, <code>ProcessedCount</code>, <code>Added</code>, <code>Replaced</code>, <code>FailedCount</code>, <code>UnprocessedCount</code>, <code>Cancelled</code>, <code>FinalizationOutcome</code> (<code>Unknown</code>, <code>Committed</code>, <code>RolledBack</code>), <code>Errors</code> and <code>ErrorDetails</code>. <code>AllChangesDiscarded</code> is <code>true</code> only for <code>RolledBack</code>.</p>
+<ul>
+<li>Transfer logs include the identifiers and names of the selected views (a bounded list).</li>
+<li>Row state flows from <code>Transfer</code> to the row view models and XAML triggers as <code>TransferRowState</code>.</li>
+<li>TDV logs each per-view failure with its exception and records only the stable code and message in the row result.</li>
+<li>Success callbacks and committed add and replace counts are published only after a <code>Committed</code> outcome. A rollback marks attempted rows discarded. An unknown finalization sets the projected successes to zero, marks attempted rows failed with <code>Unknown</code> and reports that the destination state is not verified.</li>
+</ul>
+<h4 id="library-close">Library close</h4>
+<ul>
+<li>Save and sync always attempt to close the library document. <code>Document.Close(...) == false</code> is a failure of a required close.</li>
+<li>A single save, sync or close failure keeps its original exception. When the operation and the close both fail, TDV throws one ordered <code>AggregateException</code> with the operation failure first.</li>
+<li>Best-effort cleanup (<code>TryCloseAsync</code>) returns <code>false</code> only when Revit refuses to close the active document. Other cleanup failures propagate; after a failed export, TDV reports one ordered <code>AggregateException</code> with the export failure first and the cleanup failure second.</li>
+</ul>
+<h2 id="workflows">Workflows</h2>
+<h3 id="per-view-steps">Per-view steps</h3>
+<p>For each selected row, TDV:</p>
+<ol>
+<li>validates the destination name before the transfer transaction;</li>
+<li>creates or prepares the destination view with the selected view type;</li>
+<li>copies the view scale and description parameters;</li>
+<li>copies the elements of the source view, except skipped categories;</li>
+<li>copies element graphic overrides from source to destination.</li>
+</ol>
+<p>If a step fails, the per-view transaction rolls back and the row is recorded as failed.</p>
+<p><code>DestinationTransactionGroup</code> receives the destination <code>Document</code> at begin, rejects item and finalization calls for any other document and runs each item transaction against that document. Import (library to host) and export (host to a non-active library) therefore use the same real Revit group; the group is never resolved from <code>ActiveUIDocument</code>. It creates the Revit group through <code>RevitTransactionGroups.Begin</code>.</p>
+<ul>
+<li>Successful row states and the add and replace counts are held until the group reports <code>Committed</code>.</li>
+<li>A <code>RolledBack</code> outcome marks the attempted rows discarded.</li>
+<li>An unknown or failed finalization withholds success and claims neither commit nor rollback.</li>
+<li>Operation, finalization and disposal failures stay ordered in the logged exception chain; the row result keeps its stable per-view error code and message.</li>
+</ul>
+<p>Sources: <code>src/Tools/Common/TDV/Features/Transfer/Execution/{DestinationTransactionGroup,Transfer.ApplySelection,Transfer.RunState}.cs</code>, <code>src/Tools/Common/TDV/Features/Transfer/Domain/TransferResult.cs</code>.</p>
+<h3 id="copying-view-contents">Copying view contents</h3>
+<p>TDV collects the elements owned by the source view and copies them with <code>ElementTransformUtils.CopyElements</code> and a <code>UseDestinationTypesHandler</code> (an <code>IDuplicateTypeNamesHandler</code> that keeps destination types when type names collide). Groups are copied before other elements; group members are paired with their copies so overrides apply to them.</p>
+<p>Skipped elements: viewports, elements whose category name is <code>Title Blocks</code>, <code>Viewports</code>, <code>Views</code>, <code>Schedules</code> or <code>Guide Grids</code>, and elements whose name contains <code>ExtentElem</code>. The category check compares English category names.</p>
+<p>Drafting views are collected with:</p>
+<pre><code class="lang-csharp">new FilteredElementCollector(doc)
+    .OfClass(typeof(View))
+    .WhereElementIsNotElementType()
+    .Cast&lt;View&gt;()
+    .Where(v =&gt; v.ViewType == ViewType.DraftingView &amp;&amp; !v.IsTemplate)
+</code></pre>
+<h3 id="ui">UI</h3>
+<h4 id="main-window-tdvwindow">Main window (<code>TdvWindow</code>)</h4>
 <p>The registered modal shell has the title &quot;Transfer Drafting Views&quot;, an initial size of 1400 × 700, a minimum size of 1200 × 600, centered placement, a taskbar entry and a resizable layout. The Sandbox manifest declares the same dimensions, taskbar visibility and placement. The raw view has these sections:</p>
 <ul>
 <li><code>TransferHeaderView</code>: conflict warning, type filter, search and separator.</li>
@@ -257,7 +431,7 @@ services.AddScoped&lt;ITransferDialog&gt;(sp =&gt; sp.GetRequiredService&lt;Wind
 <li><code>TransferPreviewView</code>: the preview panel, cursor-relative wheel zoom, mouse panning, a zoom button and zoom on image update.</li>
 </ul>
 <p>The main view merges Presentation's theme once at its root; the library settings view merges its own. String item lists and tooltips use explicit text templates. Row-state triggers compare enum names as strings. <code>PreviewZoomBehavior</code> (Presentation) zooms on image update, deferred until layout. <code>DBTools.Presentation.Tools.TDV.TdvPanZoomBehavior</code> handles mouse pan and zoom and releases capture, cursor state and subscriptions on retirement.</p>
-<h3 id="window-lifetime">Window lifetime</h3>
+<h4 id="window-lifetime">Window lifetime</h4>
 <p><code>ProgressOverlay.For(session.Window)</code> attaches after the view loads and before the dialog shows. The normal <code>Closed</code> notification clears UI actions, cancels outdated preview and conflict requests, disposes the view model and deletes its cache files. The host then retires the session and releases subscriptions, behavior state, the initializer, the overlay registration and the owner.</p>
 <ul>
 <li>Cleanup and the result depend on the <code>Closed</code> notification, also for a window closed before <code>ShowDialog</code>; an early normal close still allows library-document cleanup.</li>
@@ -265,7 +439,7 @@ services.AddScoped&lt;ITransferDialog&gt;(sp =&gt; sp.GetRequiredService&lt;Wind
 <li>Dev Mode retirement logs a pending load, preview, conflict refresh or transfer instead of canceling it. Idle retirement is synchronous and does not pump the dispatcher.</li>
 </ul>
 <p>The library settings page uses stable tree selection and a focus-request counter. Selecting a main library entry whose alias is empty or whitespace focuses and selects the alias text at Background priority. Entries with an alias, and fallback entries, do not take focus.</p>
-<h3 id="tdvwindowviewmodel"><code>TdvWindowViewModel</code></h3>
+<h4 id="tdvwindowviewmodel"><code>TdvWindowViewModel</code></h4>
 <table>
 <thead>
 <tr>
@@ -354,7 +528,7 @@ services.AddScoped&lt;ITransferDialog&gt;(sp =&gt; sp.GetRequiredService&lt;Wind
 </tr>
 </tbody>
 </table>
-<h3 id="transferrowviewmodel"><code>TransferRowViewModel</code></h3>
+<h4 id="transferrowviewmodel"><code>TransferRowViewModel</code></h4>
 <table>
 <thead>
 <tr>
@@ -416,8 +590,8 @@ services.AddScoped&lt;ITransferDialog&gt;(sp =&gt; sp.GetRequiredService&lt;Wind
 </tr>
 </tbody>
 </table>
-<p>The row view model has no Revit or WPF visibility types and is tested in <code>DBTools.TDV.Pure.Tests</code>. <code>TransferProjector</code> owns conflict refresh (duplicate and blank names) and projects transfer results onto rows. The designer uses its own design-time row type (<code>DesignViewItem</code>) with the same binding shape and does not reference the production row or domain types.</p>
-<h3 id="preview">Preview</h3>
+<p>The row view model has no Revit or WPF visibility types. <code>TransferProjector</code> owns conflict refresh (duplicate and blank names) and projects transfer results onto rows. The designer uses its own design-time row type (<code>DesignViewItem</code>) with the same binding shape and does not reference the production row or domain types.</p>
+<h4 id="preview">Preview</h4>
 <ul>
 <li>Loading is debounced by 200 ms.</li>
 <li><code>PreviewCache</code> keeps up to 32 exported images in first-in-first-out order; a cache hit does not refresh its position.</li>
@@ -427,188 +601,16 @@ services.AddScoped&lt;ITransferDialog&gt;(sp =&gt; sp.GetRequiredService&lt;Wind
 <li>Each debounced request owns one cancellation source. Every result (image, unavailable, exception) checks that token and the request sequence before it publishes, so a superseded request can log its fault but cannot replace the latest preview. Expected cancellation logs no stack trace.</li>
 </ul>
 <p>Source: <code>src/Tools/Common/TDV/App/ViewModels/TdvWindowViewModel.Preview.cs</code>.</p>
-<h3 id="cache-locations">Cache locations</h3>
+<h4 id="cache-locations">Cache locations</h4>
 <p>Transient files are under <code>%APPDATA%\DBTools\Cache\TDV\</code> (<code>AppPaths.GetToolCacheDir(&quot;TDV&quot;)</code>):</p>
 <ul>
 <li><code>LibraryLocals\</code>: workshared local copies, one per operation, deleted after the operation closes the library document.</li>
 <li><code>Preview\</code>: preview images of one window.</li>
 </ul>
-<h2 id="settings">Settings</h2>
-<h3 id="library-options">Library options</h3>
-<p>The <code>Core.MasterLibrary</code> section stores <code>LibraryOptions</code>:</p>
-<pre><code class="lang-csharp">public sealed class LibraryOptions
-{
-    public IList&lt;LibraryFile&gt; Files { get; set; } = new List&lt;LibraryFile&gt;();
-}
-
-public sealed class LibraryFile
-{
-    public string? MainPath { get; set; }      // primary library .rvt path
-    public string? FallbackPath { get; set; }  // alternative path, for example another network location
-    public string? Alias { get; set; }         // short name in the library picker
-}
-</code></pre>
-<h3 id="settings-pack">Settings pack</h3>
-<p><code>LibrarySettingsContext</code> gives the settings page a tree of library files with add and remove for files and fallback paths, path validation as the user edits, and pending-change tracking. The settings-pack factory receives the Revit year and year probe from the TDV composition root, so settings validation matches the runtime checks. <code>LibraryTransferWorkflow</code> receives a <code>Func&lt;LibraryCatalog&gt;</code> from the composition root and does not read the settings type.</p>
-<p>Each tree row shows a validation icon (green check or red error), a tooltip with the full path, and a short display text: the root, the file name and the last three folder levels.</p>
-<h3 id="path-validation">Path validation</h3>
-<p><code>LibraryCatalog</code> marks a path invalid, with a failure reason, when:</p>
-<ul>
-<li>the file does not exist (<code>File not found</code>);</li>
-<li>the extension is not <code>.rvt</code> (<code>Not a .rvt file</code>);</li>
-<li>the year probe cannot read the saved Revit version (the probe's failure reason; TDV logs the exception);</li>
-<li>the saved version differs from the session (<code>Revit version mismatch (file: {0}, current: {1})</code>).</li>
-</ul>
-<p>An invalid path raises the <code>core.library.invalid</code> settings warning, which disables both ribbon commands. Warnings are evaluated at startup, so the commands can be disabled as soon as Revit starts.</p>
-<p><code>LibraryDocumentService.OpenLibraryAsync</code> checks the version again before it opens the file and throws <code>InvalidOperationException</code> (&quot;Library file was saved in Revit {0} but the current session is Revit {1}. ...&quot;) on a mismatch. The command's <code>ISafeExecutor</code> boundary shows it as a banner. The check prevents two failures:</p>
-<ul>
-<li>for a workshared file, <code>WorksharingUtils.CreateNewLocal()</code> fails with a version error;</li>
-<li>for a non-workshared file, Revit upgrades the library file when it opens it.</li>
-</ul>
-<p>Open failures propagate through the import or export workflow to the command boundary; they are not treated as a canceled library selection.</p>
-<h2 id="manifest">Manifest</h2>
-<pre><code class="lang-yaml">id: DBTools.TDV
-assembly: DBTools.TDV
-moduleType: DBTools.TDV.App.Composition.TdvToolModule
-order: 0
-panel: Common
-sandboxWindows:
-  - id: DBTools.TDV.Main
-    displayName: &quot;Transfer Drafting Views&quot;
-    group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.TDV.TdvWindow.xaml&quot;
-    windowKind: Modal
-    width: 1400
-    height: 700
-    minWidth: 1200
-    minHeight: 600
-    showInTaskbar: true
-    startupLocation: CenterScreen
-    designTimeViewModelType: &quot;DBTools.TDV.App.DesignTime.TdvWindowDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.TDV&quot;
-    designTimeViewModelVisibility: Public
-tool:
-  settings:
-    configSection: Core.MasterLibrary
-  settingsPacks:
-    - key: core.library
-      title: &quot;Library Files&quot;
-      warnings:
-        - id: core.library.invalid
-          title: &quot;Library Paths Invalid&quot;
-          message: &quot;One or more saved library file paths are invalid. Fix the paths and save the settings to re-enable import/export.&quot;
-          disableTools:
-            - DBTools.ExportToLibrary
-            - DBTools.ImportFromLibrary
-  ribbonTools:
-    - internalName: DBTools.ExportToLibrary
-      commandType: DBTools.TDV.App.Composition.TdvExportCommand
-      availabilityType: DBTools.TDV.App.Composition.TdvExportCommand
-      runProfile: InlineUi
-      displayText: &quot;Export\nTo Library&quot;
-      iconBaseKey: export
-      tooltip: &quot;Export drafting views to the library&quot;
-      controlKind: StackedButtonItem
-      splitGroup: library_transfer
-      order: 0
-    - internalName: DBTools.ImportFromLibrary
-      commandType: DBTools.TDV.App.Composition.TdvImportCommand
-      availabilityType: DBTools.TDV.App.Composition.TdvImportCommand
-      runProfile: InlineUi
-      displayText: &quot;Import\nFrom Library&quot;
-      iconBaseKey: import
-      tooltip: &quot;Import drafting views from the library&quot;
-      controlKind: StackedButtonItem
-      splitGroup: library_transfer
-      order: 1
-</code></pre>
-<h2 id="errors">Errors</h2>
-<h3 id="per-view-error-codes-transfererrorcode">Per-view error codes (<code>TransferErrorCode</code>)</h3>
-<table>
-<thead>
-<tr>
-<th>Code</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Unknown</code></td>
-<td>Unspecified error, or the finalization outcome is unknown</td>
-</tr>
-<tr>
-<td><code>DestinationTypeMissing</code></td>
-<td>Destination view type not found</td>
-</tr>
-<tr>
-<td><code>SourceTypeNameUnavailable</code></td>
-<td>Source view type name cannot be read</td>
-</tr>
-<tr>
-<td><code>CreateViewFailed</code></td>
-<td>Destination view could not be created or prepared</td>
-</tr>
-<tr>
-<td><code>CopyElementsFailed</code></td>
-<td>View elements could not be copied</td>
-</tr>
-<tr>
-<td><code>OverridesFailed</code></td>
-<td>Graphic overrides could not be copied</td>
-</tr>
-<tr>
-<td><code>ValidationFailed</code></td>
-<td>Row validation failed</td>
-</tr>
-<tr>
-<td><code>ClearDestinationViewFailed</code></td>
-<td>Contents of the existing destination view could not be cleared</td>
-</tr>
-<tr>
-<td><code>MetadataCopyFailed</code></td>
-<td>View scale or description could not be copied</td>
-</tr>
-<tr>
-<td><code>DestinationNameRequired</code></td>
-<td>Destination name is blank</td>
-</tr>
-<tr>
-<td><code>DuplicateTargetName</code></td>
-<td>Another selected row has the same destination name</td>
-</tr>
-<tr>
-<td><code>DestinationNameConflict</code></td>
-<td>Destination view exists and Replace is off</td>
-</tr>
-<tr>
-<td><code>TransactionRolledBack</code></td>
-<td>Revit discarded the attempted changes of the run</td>
-</tr>
-</tbody>
-</table>
-<h3 id="result-reporting">Result reporting</h3>
-<p>After each transfer, TDV shows:</p>
-<ul>
-<li>a banner on the TDV window (success or warning) with the selected, processed and result counts;</li>
-<li>a summary alert with the selected, processed, added, replaced, failed and not-attempted counts, a table of per-view issues when there are failures (rows can be copied to the clipboard), and the buttons <strong>Accept and Transfer More</strong> and <strong>Close Tool</strong>.</li>
-</ul>
-<p><code>TransferResult</code> carries <code>SelectedCount</code>, <code>ProcessedCount</code>, <code>Added</code>, <code>Replaced</code>, <code>FailedCount</code>, <code>UnprocessedCount</code>, <code>Cancelled</code>, <code>FinalizationOutcome</code> (<code>Unknown</code>, <code>Committed</code>, <code>RolledBack</code>), <code>Errors</code> and <code>ErrorDetails</code>. <code>AllChangesDiscarded</code> is <code>true</code> only for <code>RolledBack</code>.</p>
-<ul>
-<li>Transfer logs include the identifiers and names of the selected views (a bounded list).</li>
-<li>Row state flows from <code>Transfer</code> to the row view models and XAML triggers as <code>TransferRowState</code>.</li>
-<li>TDV logs each per-view failure with its exception and records only the stable code and message in the row result.</li>
-<li>Success callbacks and committed add and replace counts are published only after a <code>Committed</code> outcome. A rollback marks attempted rows discarded. An unknown finalization sets the projected successes to zero, marks attempted rows failed with <code>Unknown</code> and reports that the destination state is not verified.</li>
-</ul>
-<h3 id="library-close">Library close</h3>
-<ul>
-<li>Save and sync always attempt to close the library document. <code>Document.Close(...) == false</code> is a failure of a required close.</li>
-<li>A single save, sync or close failure keeps its original exception. When the operation and the close both fail, TDV throws one ordered <code>AggregateException</code> with the operation failure first.</li>
-<li>Best-effort cleanup (<code>TryCloseAsync</code>) returns <code>false</code> only when Revit refuses to close the active document. Other cleanup failures propagate; after a failed export, TDV reports one ordered <code>AggregateException</code> with the export failure first and the cleanup failure second.</li>
-</ul>
-<h2 id="command-flows">Command flows</h2>
+<h3 id="command-flows">Command flows</h3>
 <p>The library picker is an alert sized 520 × 420 (minimum 480 × 340). Each entry shows <code>&lt;name&gt; - &lt;path&gt;</code>: the name is the alias, or the file name up to the first <code>_R</code> (<code>LibraryCatalog.TrimLibraryName</code>) when there is no alias, and the path is shortened to its last two folders (<code>LibraryPathFormatter.FormatPath</code>). When some configured paths are invalid, the message reports how many.</p>
 <p>TDV opens library files with <code>Application.OpenDocumentFile(...)</code>, without activating them, so the host model stays active during transfer and cleanup.</p>
-<h3 id="export">Export</h3>
+<h4 id="export">Export</h4>
 <ol>
 <li>Check that library paths are configured.</li>
 <li>Select a library file.</li>
@@ -619,7 +621,7 @@ tool:
 <li>Reactivate the original document.</li>
 <li>Show a warning only when Revit refuses to close the library because it is active. Any other close failure propagates, so an export is never reported as successful after a required close failed.</li>
 </ol>
-<h3 id="import">Import</h3>
+<h4 id="import">Import</h4>
 <ol>
 <li>Check that library paths are configured.</li>
 <li>Select a library file.</li>
@@ -629,16 +631,17 @@ tool:
 <li>Close the library without saving.</li>
 <li>Show a cleanup warning if the library document could not be closed.</li>
 </ol>
-<h2 id="tests">Tests</h2>
+<h2 id="testing">Testing</h2>
 <p><code>DBTools.TDV.Pure.Tests</code> and <code>DBTools.TDV.Local.Tests</code> cover, among others:</p>
 <ul>
 <li><code>TransferRowViewModelTests</code>, <code>TransferProjectorTests</code>: row state, duplicate and blank names, and result projection.</li>
 <li><code>LibraryCatalogTests</code>: path validation and catalog projection.</li>
-<li><code>TransferTests</code>, <code>Transfer.ExecutionTests</code>: hosted transfers between source and destination documents.</li>
-<li><code>Transfer.ApplySelectionTests</code>: hosted admission tests with real scopes, gates, transaction runners and destination groups: an off-thread call with an inherited API context, a canceled request, and a drafting-view transfer between two models.</li>
-<li><code>LibraryDocumentServiceTests</code>: hosted document lifecycle: non-workshared library open, rejection of a Revit-year mismatch (through the injected year probe), aggregation of save-and-close failures, refusal to close the active library, and host reactivation. The fixtures use temporary copies of non-workshared test models. <code>SyncAndCloseAsync</code> has no test, because the test models include no workshared central file.</li>
+<li><code>TransferTests</code> and the <code>Transfer</code> fixture in <code>Transfer.ExecutionTests.cs</code>: Revit-hosted transfers between source and destination documents.</li>
+<li>The <code>Transfer</code> fixture in <code>Transfer.ApplySelectionTests.cs</code>: Revit-hosted admission tests with real scopes, gates, transaction runners and destination groups: an off-thread call with an inherited API context, a canceled request, and a drafting-view transfer between two models.</li>
+<li><code>LibraryDocumentServiceTests</code>: Revit-hosted document lifecycle: non-workshared library open, rejection of a Revit-year mismatch (through the injected year probe), aggregation of save-and-close failures, refusal to close the active library, and host reactivation. The workshared round-trip fixture creates a temporary central model, opens a local workspace, creates a drafting view, calls <code>SyncAndCloseAsync</code>, reopens the central through the service, checks the saved view, and verifies local-workspace removal. Non-workshared cases use temporary copies of test models.</li>
 </ul>
-<h2 id="see-also">See also</h2>
+<h2 id="limitations">Limitations</h2>
+<p>Library files must be saved in the running Revit year. Transfer requires one continuous Revit API callback and distinct open source and destination documents. Category exclusions compare English category names. Destination-name conflicts require a rename or Replace; TDV does not allocate suffixes.</p>
 <ul>
 <li><a href="../../architecture/overview.html">Architecture Overview</a></li>
 <li><a href="../../projects/app.html">DBTools.App</a></li>

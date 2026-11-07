@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -89,7 +89,7 @@
         <article data-uid="">
 <h1 id="settings-packs">Settings Packs</h1>
 
-<p>A settings pack supplies a tool's editor in the DBTools Settings window. It
+<p>A settings pack supplies a tool's editor in the DB Tools Settings window. It
 binds a typed settings section, an editor context, a WPF view, and optional
 warnings. Packs appear as cards grouped by their registered ribbon panel.</p>
 <p><code>ISettingsProvider</code> reads current settings and commits section batches.
@@ -146,12 +146,12 @@ to editor/session state and must not be added as a persisted warning flag.</p>
 nested DTOs must resolve to those leaf types. Add-in enums and custom
 TypeConverter/JsonConverter implementations are not supported settings types.
 Use settable properties with initialized defaults so missing keys retain those defaults.
-Pure and Local executables disable reflection-based JSON serialization.</p>
+Pure and Revit-hosted test executables disable reflection-based JSON serialization.</p>
 <h3 id="read-semantics-and-failures">Read semantics and failures</h3>
 <p>The reader recursively overlays objects and merges arrays by index. A shorter
 override array retains the default array's remaining elements. A later scalar
 or null does not replace an earlier object or array. A different container kind
-replaces the earlier container. Test layered collections explicitly.</p>
+replaces the earlier container.</p>
 <p>Normalization preserves scalar conversions for strings, Booleans, and doubles.
 String nulls become empty strings. Boolean and double values parse from scalar
 text. Doubles use invariant culture. Invalid values fail the section read.
@@ -302,9 +302,10 @@ cannot pair an unrelated context with a warning definition.</p>
 factory into runtime creation. Use <code>SettingsPackHostContext.Empty</code> without a
 host or <code>FromApplication(application)</code> with one. A context extracts the typed
 application through <code>TryGetApplication&lt;TApplication&gt;()</code>.</p>
-<p>Constructors should initialize bindable state without modifying the Revit model.
+<p>Initialize bindable state in constructors. Perform model changes through
+explicit editor actions.
 Elevation Tags uses host data for preview snapshots and accepts no active
-document as an empty preview. Foundation Tags uses explicit Refresh, Clear
+document as an empty preview. Combined Foundation Tags uses explicit Refresh, Clear
 Warning, and Install/Repair actions for prerequisite work. It reports that an
 action is unavailable when it needs an active document.</p>
 <h3 id="context-interfaces">Context interfaces</h3>
@@ -364,7 +365,7 @@ public interface ISettingsPackContext&lt;TOptions&gt; : ISettingsPackContext
 validation failed to run. They are not an invalid-result substitute.
 Honor cancellation and return messages that identify the invalid value and
 its correction.</p>
-<h3 id="production-base-settingspackautoupdatecontext">Production Base: SettingsPackAutoUpdateContext</h3>
+<h3 id="auto-update-editor-base">Auto-update editor base</h3>
 <p><code>SettingsPackAutoUpdateContext&lt;TOptions&gt;</code> in
 <code>DBTools.Core.Settings.SettingsPack.AutoUpdate</code> implements the common toggle
 editor. It owns title/description/tooltip text, <code>AutoUpdateEnabled</code>, <code>HasWarning</code>,
@@ -384,23 +385,21 @@ public abstract TOptions BuildOptionsSnapshot();
 notifies state changes. <code>LoadCore</code> sets a baseline through <code>SetBaseline</code>.
 <code>MarkSaved</code> uses the exact committed options, not the latest editable snapshot.
 Edits made while a commit is pending therefore remain dirty.</p>
-<p>Elevation Tags and Joist Girder Weight use this base. Foundation Tags implements
+<p>Elevation Tags and Joist Girder Weights use this base. Combined Foundation Tags implements
 the interfaces directly because its prerequisite state and repair actions need
-a different context. The <code>AutoUpdateViewModel&lt;TSettings&gt;</code> under
-<code>Settings/DesignTime</code> is a designer sample, not a production base.</p>
+a different context.</p>
 <h3 id="regex-pattern-lists">Regex pattern lists</h3>
 <p><code>RegexPatternListContext</code> owns bindable <code>RegexPatternEntry</code> rows, add/remove
 commands, a configured maximum, empty-list default seeding, snapshots that omit
 blank rows, and state-change events. <code>Load</code> takes at most the configured maximum.
 Removal retains at least one row. Tool contexts retain their binding property
 names and validation rules.</p>
-<p>Elevation Tags and Foundation Tags use the shared list mechanics with at most
+<p>Elevation Tags and Combined Foundation Tags use the shared list mechanics with at most
 three rows per pattern list. Do not copy those mechanics into a new context.
-Joist Girder Weight's settings use
-individual <code>FamilyNamePattern</code>, <code>DeadLoadPattern</code>, <code>LiveLoadPattern</code>, and
+Joist Girder Weights uses individual <code>FamilyNamePattern</code>, <code>DeadLoadPattern</code>, <code>LiveLoadPattern</code>, and
 <code>TotalLoadPattern</code> strings rather than pattern lists.</p>
 <h3 id="tool-settings-examples">Tool settings examples</h3>
-<p>Foundation Tags persists <code>TagFamilyPatterns</code>, <code>PierFamilyPatterns</code>, and
+<p>Combined Foundation Tags persists <code>TagFamilyPatterns</code>, <code>PierFamilyPatterns</code>, and
 <code>FootingFamilyPatterns</code>. Empty lists select these tool defaults:</p>
 <pre><code class="lang-text">TagFamilyPatterns      ^DB Pier and Foundation Combined Tag(?: No Elevations)?$
 PierFamilyPatterns     ^Foundation Pier(?: - Round)?$
@@ -408,14 +407,14 @@ FootingFamilyPatterns  ^(?:Footing|Pile Cap)-Rectangular$
 </code></pre>
 <p>Elevation Tags uses <code>TagNamePatterns</code> with default
 <code>^DB Elevation Tag - (?:Concrete|Steel|Wall) Label$</code>, plus <code>TypeOffsets</code> keyed
-by spot-elevation type name. Joist Girder Weight supplies these defaults for
+by spot-elevation type name. Joist Girder Weights supplies these defaults for
 blank individual patterns:</p>
 <pre><code class="lang-text">FamilyNamePattern  ^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
 DeadLoadPattern    (?:^DL$|Dead\s*Load)
 LiveLoadPattern    (?:^LL$|Live\s*Load)
 TotalLoadPattern   (?:Point\s*Load|Total\s*Load)
 </code></pre>
-<p>TDV's <code>LibraryOptions</code> contains a <code>Files</code> list of
+<p>Transfer Drafting Views (TDV) uses <code>LibraryOptions</code>, which contains a <code>Files</code> list of
 <code>LibraryFile</code> values. Its pack owns file selection, validation, and pending
 changes. Read each tool's DTO and generated JSON context when extending it.</p>
 <h2 id="runtime-reads-and-programmatic-writes">Runtime reads and programmatic writes</h2>
@@ -505,18 +504,11 @@ lock preserves other sections published by the previous writer. A case-variant
 section name replaces that section in place. An absent file starts an empty
 object. An existing empty, whitespace-only, malformed, or non-object file is
 corrupt and is not silently reset.</p>
-<h2 id="views-and-tests">Views and tests</h2>
+<h2 id="editor-views">Editor views</h2>
 <p>Create a tool-owned view for the editor. Bind the auto-update toggle to
 <code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit
-properties and commands. The design-time AutoUpdate view is only a Settings
-designer sample. Pack views created by <code>ViewFactory</code> are distinct from the raw
-top-level tool-window resources described in <a href="modularity.html">Modularity</a>.</p>
-<p>Test real readers and writers with isolated files. Cover defaults, layering,
-case-insensitive keys, source-generated serialization, invalid values, atomic
-batches, competing writes, cancellation, and corrupt files. Exercise the real
-context and persistence workflow for pending changes and post-commit failures.
-Stub only true externals. Use Windows Pure tests for WPF binding and owner
-behavior, and hosted tests for actual Revit prerequisite actions.</p>
+properties and commands. Pack views created by <code>ViewFactory</code> are embedded editors. See
+<a href="modularity.html">Modularity</a> for top-level tool-window resources.</p>
 <p>See <a href="testing-tools.html">Testing Tools</a> for execution commands and
 <a href="feature-warnings.html">Feature Warnings</a> for warning publication and Fix actions.</p>
 

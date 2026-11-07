@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,7 +87,7 @@
         </div>
 
         <article data-uid="">
-<h1 id="dbtoolspresentation">DBTools.Presentation</h1>
+<h1 id="dbtools.presentation">DBTools.Presentation</h1>
 
 <p><code>DBTools.Presentation.dll</code> is the WPF assembly that stays loaded for the life
 of the Revit process. It is staged at the root of each product year, beside
@@ -110,7 +110,7 @@ of the Revit process. It is staged at the root of each product year, beside
 </tr>
 <tr>
 <td>Target framework</td>
-<td><code>net10.0-windows</code> (Revit 2026.5 and later, Revit 2027)</td>
+<td><code>net10.0-windows</code> (Revit 2026 (2026.5 or later) and Revit 2027)</td>
 </tr>
 <tr>
 <td>References</td>
@@ -125,7 +125,8 @@ of the Revit process. It is staged at the root of each product year, beside
 <li>controls whose code-behind is limited to binding, dependency-property,
 routed-event, input and lifecycle mechanics;</li>
 <li>the <code>ModalWindow</code> and <code>ModelessWindow</code> base types with their owner-handle
-contracts, and the modal and modeless <code>ToolWindowSession</code> shells;</li>
+contracts, and the tool window shells <code>ToolWindowModalShell</code> and
+<code>ToolWindowModelessShell</code>;</li>
 <li>tool-specific behaviors, converters and controls under <code>Tools/&lt;TOOL&gt;/</code>;</li>
 <li>the structural 3D viewport (see <a href="../architecture/structural-preview.html">Structural Preview</a>).</li>
 </ul>
@@ -152,12 +153,10 @@ callbacks. See <a href="../architecture/theme-system.html#tool-views">Theme Syst
 <p>Retirement does not clear cached automation peers. In WPF 10.0.0, item peers
 hold reference-type rows weakly (<code>ItemAutomationPeer._item</code> uses
 <code>ItemWeakReference</code>, and <code>DataGridCellItemAutomationPeer._item</code> is weak), and
-teardown cuts the strong column, row-item and <code>DataContext</code> references.
-<code>ToolWindowCollectibleReleaseTests</code> (Windows Pure) and
-<code>ToolWindowHostReleaseTests</code> (Revit), both through
-<code>ToolWindowHostReleaseHarness</code>, drive <code>DataGrid</code>, <code>ListBox</code> and <code>TreeView</code> with
-a real UI Automation client, retire without pumping messages, and check that
-every tool item, type and the collectible context can be released.</p>
+teardown cuts the strong column, row-item and <code>DataContext</code> references. Tool
+items in a <code>DataGrid</code>, <code>ListBox</code> or <code>TreeView</code>, their types and a collectible
+tool context can therefore be released after retirement, also while a UI
+Automation client is attached.</p>
 <p>Rows are held strongly, and a collectible tool assembly stays loaded, in these
 cases:</p>
 <ul>

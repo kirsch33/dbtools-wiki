@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -203,7 +203,7 @@
 </tr>
 <tr>
 <td>Preview updates</td>
-<td>When you change the selection quickly, TDV cancels the older preview request. A late result of an older request, success or failure, never replaces the preview of the current row.</td>
+<td>The preview always shows the current row. When you change the selection quickly, TDV skips the older previews.</td>
 </tr>
 <tr>
 <td><strong>Errors</strong></td>
@@ -212,7 +212,7 @@
 </tbody>
 </table>
 <p>The status bar shows <code>&lt;views&gt; | Selected: &lt;n&gt; | Replace: &lt;n&gt; | Adds: &lt;n&gt;</code>, and during a transfer the count of finished views.</p>
-<p>A status icon in front of each name shows the row state: pending, success, failure, or conflict. Success icons appear only after Revit commits the whole transaction group, not when a single view finishes.</p>
+<p>A status icon in front of each name shows the row state: pending, success, failure, or conflict. Success icons appear when the whole transfer is committed, not when a single view finishes.</p>
 <h3 id="conflicts">Conflicts</h3>
 <p>A checked row has a conflict, and a warning bar asks you to resolve it before continuing, when:</p>
 <ul>
@@ -234,10 +234,10 @@
 </ol>
 <p>Not copied: viewports, title blocks, schedules, guide grids, other views, and view templates. The transfer copies the view's type but not a view template assignment.</p>
 <p>If a family used in the view is missing in the destination, Revit copies the family with the element. A detail array arrives as its groups, without the editable array association.</p>
-<p>The transfer is processed row by row inside one transaction group named <code>Transfer Drafting Views</code>, with one sub-transaction per view. A failed view is rolled back alone: nothing from that view is added, and a view you chose to replace keeps its old content. The other views still transfer. If Revit discards the whole group, TDV reports <code>All attempted changes were rolled back</code>, and no view is added.</p>
-<p>You can cancel a running transfer from the progress overlay. The views processed so far are rolled back with the group.</p>
+<p>The transfer is processed row by row and is one undo entry named <code>Transfer Drafting Views</code>. A failed view is rolled back alone: nothing from that view is added, and a view you chose to replace keeps its old content. The other views still transfer. If Revit discards the whole transfer, TDV reports <code>All attempted changes were rolled back</code>, and no view is added.</p>
+<p>You can cancel a running transfer from the progress overlay. The views processed so far are rolled back.</p>
 <h2 id="result">Result</h2>
-<p>The dialog title is <code>Transfer Completed</code> or, if any view failed, was not attempted or the run was cancelled or rolled back, <code>Transfer Completed with Issues</code>. Its text is:</p>
+<p>The dialog title is <code>Transfer Completed</code> or, if any view failed, was not attempted or the run was canceled or rolled back, <code>Transfer Completed with Issues</code>. Its text is:</p>
 <pre><code>Selected &lt;n&gt;, Processed &lt;n&gt;, Added &lt;n&gt;, Replaced &lt;n&gt;, Failed &lt;n&gt;, Not Attempted &lt;n&gt;
 </code></pre>
 <p>followed by <code> (All attempted changes were rolled back)</code> or <code> (Cancelled by user)</code> when that applies. A <strong>Per-View Issues</strong> table lists each failed view with the error code and reason. <strong>Copy Details</strong> copies the table to the clipboard.</p>
@@ -283,7 +283,7 @@
 </tr>
 <tr>
 <td><code>TransactionRolledBack</code></td>
-<td>Revit discarded the transaction group.</td>
+<td>Revit discarded the whole transfer.</td>
 </tr>
 </tbody>
 </table>
@@ -296,7 +296,7 @@
 <li>a workshared library is synchronized with central, relinquishing all borrowed elements, with the comment <code>DB TOOLS - ADDED [&lt;n&gt;] DETAILS AND REPLACED [&lt;n&gt;] DETAILS.</code>;</li>
 <li>a library that is not workshared is saved in place.</li>
 </ul>
-<p>If the library cannot be saved, synchronized or closed, the export fails and is not reported as successful. If the cleanup fails as well, the error report holds both failures. TDV then reactivates the project you started from. An export cannot be undone with <code>Ctrl+Z</code> once it is saved or synchronized. If nothing was added or replaced, the library is closed without saving.</p>
+<p>If the library cannot be saved, synchronized or closed, the export fails and the error report names each failure. TDV then reactivates the project you started from. An export cannot be undone with <code>Ctrl+Z</code> once it is saved or synchronized. If nothing was added or replaced, the library is closed without saving.</p>
 <h2 id="library-files-and-worksharing">Library files and worksharing</h2>
 <p>For a workshared library, TDV creates a temporary local copy named <code>&lt;library&gt;_&lt;user&gt;.rvt</code> under <code>%APPDATA%\DBTools\Cache\TDV\LibraryLocals\&lt;id&gt;\</code>, opens it with all worksets, and deletes the copy after it closes. A library that is not workshared is opened directly.</p>
 <p>If two users export to the same library at the same time, one synchronization can fail. Coordinate export times.</p>

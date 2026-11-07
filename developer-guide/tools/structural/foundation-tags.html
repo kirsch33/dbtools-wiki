@@ -2,16 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Foundation Tags | DB Tools </title>
+      <title>Combined Foundation Tags | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Foundation Tags | DB Tools ">
+      <meta name="title" content="Combined Foundation Tags | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
       <link rel="stylesheet" href="../../../public/docfx.min.css">
       <link rel="stylesheet" href="../../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../../toc.html">
-      <meta name="docfx:tocrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
       
       <meta name="docfx:rel" content="../../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -87,11 +87,20 @@
         </div>
 
         <article data-uid="">
-<h1 id="foundation-tags">Foundation Tags</h1>
+<h1 id="combined-foundation-tags">Combined Foundation Tags</h1>
 
-<p>Foundation Tags updates pier/footing association parameters and moves combined tags to footing corners.
+<h2 id="overview">Overview</h2>
+<p>Combined Foundation Tags updates pier/footing association parameters and moves combined tags to footing corners.
 Source: <code>src/Tools/Structural/FoundationTags/</code>. The assembly and tool ID are <code>DBTools.FoundationTags</code>.</p>
-<h2 id="commands">Commands</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="ownership">Ownership</h3>
+<p><code>App/Composition/FoundationTagsToolModule</code> binds settings, registers the pack, and delegates feature registration
+to <code>ServiceCollectionExtensions.AddFoundationTagsFeatures</code>.
+<code>Features/UpdateCombinedFoundationTagsWorkflow</code> and <code>Features/Move/MoveCombinedFoundationTagsWorkflow</code>
+own manual execution and completion reporting. Queued result-selection gates receive the workflow logger.</p>
+<p>Pure geometry types are <code>Point2D</code>, <code>FoundationTagsPoint</code>, <code>FootingCornerPoints</code>, and <code>NearestPointResult</code>.
+<code>FoundationTagsGeometry</code> owns <code>SelectCornerByViewOrientation</code>, <code>FindNearestPoint2D</code>, and <code>IsValidCornerName</code>.</p>
+<h3 id="commands">Commands</h3>
 <table>
 <thead>
 <tr>
@@ -118,7 +127,36 @@ Their command and availability classes are <code>UpdateCombinedFoundationTagsCom
 <code>MoveCombinedFoundationTagsCommand</code> under <code>App/Composition</code>.
 Icon keys are <code>update_combined</code> and <code>move_combined</code>.
 <a href="organize-foundation.html">Organize Foundation Types</a> occupies order 2 in the same group.</p>
-<h2 id="update">Update</h2>
+<h2 id="data-and-contracts">Data and contracts</h2>
+<h3 id="settings">Settings</h3>
+<p>Configuration section: <code>Tools.FoundationTags</code>. Pack: <code>structural.foundation_tags</code>, titled <strong>Combined Foundation Tags</strong>.
+<code>AutoUpdateEnabled</code> defaults to <code>true</code>. Pattern lists default empty and resolve to:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Default pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TagFamilyPatterns</code></td>
+<td><code>^DB Pier and Foundation Combined Tag(?: No Elevations)?$</code></td>
+</tr>
+<tr>
+<td><code>PierFamilyPatterns</code></td>
+<td><code>^Foundation Pier(?: - Round)?$</code></td>
+</tr>
+<tr>
+<td><code>FootingFamilyPatterns</code></td>
+<td><code>^(?:Footing\|Pile Cap)-Rectangular$</code></td>
+</tr>
+</tbody>
+</table>
+<p>The UI allows three patterns per group through Core <code>RegexPatternListContext</code>.
+It validates syntax and tracks pending changes. <code>FamilyNameClassifier</code> compiles the configured patterns for both workflows.</p>
+<h2 id="workflows">Workflows</h2>
+<h3 id="update">Update</h3>
 <p><code>Features/CombinedFoundationTagsUpdater</code> collects visible <code>FamilyInstance</code> elements from the active view.
 Configured family patterns classify piers and footings. Updates affect host-document instances.</p>
 <ol>
@@ -151,7 +189,7 @@ With no updates, it shows an Info or Warning toast without selection actions.</p
 <code>DB Tools - FoundationTags - Skipped Elements (...)</code> names with Eastern-time timestamps.
 Repeated names receive suffixes starting at <code>(2)</code>.
 Pruning retains five sets across both kinds, ordered by descending element ID.</p>
-<h2 id="move">Move</h2>
+<h3 id="move">Move</h3>
 <p><code>Features/Move/MoveCombinedFoundationTagsRunner</code> collects visible <code>IndependentTag</code> instances,
 resolves a tagged host or linked structural foundation, and filters tag family/type names by the configured patterns.
 Only the host tag moves. Linked footing geometry transforms into host coordinates.</p>
@@ -167,7 +205,7 @@ All candidate moves share <code>DB Tools - Move Combined Foundation Tags</code>.
 Unexpected transform, geometry, tessellation, or tag-write errors log the tag ID and propagate, rolling back every move.
 <code>MoveRunResult</code> separates moved, skipped, candidate, total-view-tag, structural-foundation, and pattern-rejection counts,
 with rejected-name samples for diagnostics.</p>
-<h2 id="prerequisites-and-repair">Prerequisites and repair</h2>
+<h3 id="prerequisites-and-repair">Prerequisites and repair</h3>
 <p>Manual commands and automatic updates validate shared parameters without modifying them.
 The required definitions are owned by <code>Features/Prerequisite/PrerequisiteRequiredParameters</code>:</p>
 <table>
@@ -215,7 +253,7 @@ Refresh replaces immutable <code>RequiredParameters</code> status rows. Their si
 <code>HasWarning</code> belongs to the session context and is not persisted in <code>FoundationTagsSettings</code>.</p>
 <p>Install/Repair uses embedded definitions in group <code>DBTools.Structural.FoundationTags</code>.
 It creates a temporary shared-parameter file, restores Revit's original shared-parameter path,
-and attempts temporary-file deletion. No startup deployment is required.</p>
+and attempts temporary-file deletion. The embedded definitions supply the required parameters.</p>
 <p>Repair deletes conflicting definitions with the same required name and a different GUID, including duplicate-name collisions.
 It preserves other categories and the existing group when extending a binding.
 An instance binding already containing the required category remains unchanged.
@@ -224,7 +262,7 @@ Revit drops the type values and the installer logs a Warning naming the paramete
 The updater accesses these parameters by GUID.</p>
 <p>The warning disables Update, Move, and Organize Foundation Types.
 Its title is <strong>Combined Foundation Tags Disabled</strong>. Clear it after resolving the prerequisite issue.</p>
-<h2 id="automatic-updates-and-monitoring">Automatic updates and monitoring</h2>
+<h3 id="automatic-updates-and-monitoring">Automatic updates and monitoring</h3>
 <p><code>CombinedFoundationTagsAutoUpdateTask</code> runs Update in FloorPlan and CeilingPlan views when enabled and no warning blocks it.
 Invalid prerequisites set the warning and show a banner once per document session through <code>PrerequisiteBannerLedger</code>.
 NotApplicable and TransientNotReady evaluations skip execution.
@@ -235,44 +273,13 @@ Evaluation faults log and can be checked again on the next view activation.
 The monitor disposes its own retry coordinator at synchronous App shutdown. An injected coordinator remains caller-owned.
 Disposed lifetimes reject scheduling. Failed-detach entries retain cleanup state without retry work.
 A late Idling event can retry detachment.</p>
-<h2 id="settings">Settings</h2>
-<p>Configuration section: <code>Tools.FoundationTags</code>. Pack: <code>structural.foundation_tags</code>, titled <strong>Combined Foundation Tags</strong>.
-<code>AutoUpdateEnabled</code> defaults to <code>true</code>. Pattern lists default empty and resolve to:</p>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Default pattern</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TagFamilyPatterns</code></td>
-<td><code>^DB Pier and Foundation Combined Tag(?: No Elevations)?$</code></td>
-</tr>
-<tr>
-<td><code>PierFamilyPatterns</code></td>
-<td><code>^Foundation Pier(?: - Round)?$</code></td>
-</tr>
-<tr>
-<td><code>FootingFamilyPatterns</code></td>
-<td><code>^(?:Footing\|Pile Cap)-Rectangular$</code></td>
-</tr>
-</tbody>
-</table>
-<p>The UI allows three patterns per group through Core <code>RegexPatternListContext</code>.
-It validates syntax and tracks pending changes. <code>FamilyNameClassifier</code> compiles the configured patterns for both workflows.</p>
-<h2 id="ownership-and-tests">Ownership and tests</h2>
-<p><code>App/Composition/FoundationTagsToolModule</code> binds settings, registers the pack, and delegates feature registration
-to <code>ServiceCollectionExtensions.AddFoundationTagsFeatures</code>.
-<code>Features/UpdateCombinedFoundationTagsWorkflow</code> and <code>Features/Move/MoveCombinedFoundationTagsWorkflow</code>
-own manual execution and completion reporting. Queued result-selection gates receive the workflow logger.</p>
-<p>Pure geometry types are <code>Point2D</code>, <code>FoundationTagsPoint</code>, <code>FootingCornerPoints</code>, and <code>NearestPointResult</code>.
-<code>FoundationTagsGeometry</code> owns <code>SelectCornerByViewOrientation</code>, <code>FindNearestPoint2D</code>, and <code>IsValidCornerName</code>.</p>
+<h2 id="testing">Testing</h2>
 <p>Pure tests cover geometry, rotated views, corner names, regex classification, prerequisite lifecycle, and write results.
-Hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.</p>
+Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.</p>
 <pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope local -y 2026
 </code></pre>
+<h2 id="limitations">Limitations</h2>
+<p>Association updates use host-document pier and footing instances. Move supports host tags referencing host or linked foundations and only the four listed corner names. Length values cannot be cleared with the shipped shared-parameter definitions.</p>
 
 </article>
 

@@ -11,7 +11,7 @@
       <link rel="stylesheet" href="../../public/docfx.min.css">
       <link rel="stylesheet" href="../../public/main.css?v=20261030">
       <meta name="docfx:navrel" content="../../toc.html">
-      <meta name="docfx:tocrel" content="toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
       
       <meta name="docfx:rel" content="../../">
       
@@ -41,7 +41,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -168,10 +168,8 @@ definitions. The task registry validates these identities at construction.</p>
 <code>ViewActivationAdmission</code> captures the state that attempt will use:</p>
 <pre><code class="lang-csharp">new ViewActivationAdmission(executionCt =&gt; ExecuteAsync(snapshot, executionCt));
 </code></pre>
-<p><code>IViewActivationTask</code> has no separate Execute method. The hook executes the
-returned admission once for that attempt. Do not store an admission on a
-singleton task or reuse it for another event. The admission wraps a callback.
-The hook owns the once-per-attempt invocation.</p>
+<p>The hook invokes the returned admission callback once for that attempt.
+Create a new admission for each event so it captures that event's state.</p>
 <h3 id="viewactivationtask">ViewActivationTask</h3>
 <p>Derive from <code>ViewActivationTask&lt;TSettings&gt;</code> for an auto-update task with typed
 settings. <code>TSettings</code> must implement <code>IAutoUpdateSettings</code> and have a public
@@ -295,13 +293,13 @@ A failed callback remains available for retry. Late asynchronous attachment
 completion cannot invoke Revit shutdown callbacks from a background thread.
 <code>HookLifecycleCoordinator</code> attempts every reverse-order teardown action and
 aggregates contextual failures.</p>
-<p>Do not depend on an independent priority property: hooks and view tasks follow
-registration order. Coordinate dependent operations inside one owner when
-ordering is part of their behavior.</p>
+<p>Hooks and view tasks follow registration order. Group dependent operations
+in one hook or task when their ordering is part of the behavior.</p>
 <h2 id="contextual-ribbon-injectors">Contextual ribbon injectors</h2>
 <p><code>DBTools.Core.Tools.Hooks.ContextualRibbon.ContextualRibbonInjector</code> implements
 <code>IHookLifecycle</code> and <code>IDisposable</code>. Derive from it for tool-specific Edit buttons
-on contextual tabs. SGT's <code>ContextualEditHook</code> is a concrete example.</p>
+on contextual tabs. Super Girt Tool (SGT) supplies <code>ContextualEditHook</code> as an
+example.</p>
 <p>The derived type supplies tool/button/event names, the registered contextual
 command type, target tabs, selection evaluation, button construction, and edit
 flow. The base owns selection-change observation, injected controls, system-ID
@@ -379,10 +377,8 @@ contract. Registering it alone cannot attach an event.</p>
 </table>
 <p>Inspect <code>%APPDATA%/DBTools/Logs/</code> first. Use the Settings Debug Mode control for
 runtime diagnostics rather than adding an unrelated logging configuration.</p>
-<p>Test admission, settings snapshots, warning policy, and ordering with real
-services in Pure fixtures. Test Revit event attachment, API callbacks, and
-contextual ribbon behavior with <code>[RevitLocal]</code> fixtures. See
-<a href="testing-tools.html">Testing Tools</a> for compilation and execution access.</p>
+<p>See <a href="testing-tools.html">Testing Tools</a> for fixture placement, compilation, and
+execution commands.</p>
 
 </article>
 
