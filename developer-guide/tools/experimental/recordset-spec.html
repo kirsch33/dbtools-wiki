@@ -271,7 +271,7 @@ Malformed or incompatible policy throws. It is not normalized into valid data.</
 The containment predicate admits equality with the root and descendants.
 Before acquiring the lock, execution checks every output-bearing plan path:
 directories, copy destinations, CAD repath hosts/roots, bind hosts, Revit hosts, and mapping destinations.
-Copy sources, mapping keys, and Revit source hosts remain source paths.</p>
+Copy sources, mapping keys, Revit source hosts, and Bind All source paths remain source paths.</p>
 <p>Execution requires free space minus <code>max(TotalBytes, PredictedOutputBytes)</code> to meet MinFreeBytes.
 Safe filesystem operations resolve existing file and directory redirects before checking containment.
 Recursive copies carry destination checks into every nested operation.
@@ -369,16 +369,16 @@ These are preview limits, not guarantees of final package size.</p>
 </tr>
 <tr>
 <td><code>CadRepathItem</code></td>
-<td>Host, NewRoot</td>
+<td>Host, Xrefs (<code>CadXrefRepath</code> Name, StoredPath, NewPath)</td>
 <td><code>cad_repath</code></td>
-<td><code>host</code>, <code>new_root</code></td>
+<td><code>host</code>, <code>xref:{name}</code> as <code>{stored}&gt;{new}</code> per Xref</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr>
 <td><code>CadBindAllItem</code></td>
-<td>Host, BindType</td>
+<td>Host, BindType, Xrefs (<code>CadXrefRepath</code>)</td>
 <td><code>cad_bind_all</code></td>
-<td><code>host</code>, <code>bindtype</code> as invariant numeric enum text</td>
+<td><code>host</code>, <code>bindtype</code> as invariant numeric enum text, <code>xref:{name}</code> as <code>{stored}&gt;{new}</code> per Xref</td>
 <td style="text-align: right;">4</td>
 </tr>
 <tr>
@@ -412,11 +412,29 @@ without an extra separator between segments, and keeps the first 16 lowercase he
 It records plan identity for the audit output. Execution does not use it as a content checksum.</p>
 <h3 id="cad-planning">CAD planning</h3>
 <p>For AddXrefs, the planner copies the DWG and allowed manual Xrefs beside it.
-With discovery enabled and Core Console available, it scans the tree and copies unique referenced paths
-beside the destination DWG, allocating collision suffixes when necessary.
-When repath is enabled, it appends <code>CadRepathItem</code> using the destination DWG directory as NewRoot.
-The shipped scanner aborts on any DWG with a nonempty Xref path (see <a href="#limitations">Limitations</a>),
-so a successful scan finds no Xref files and the repath item only re-saves the copy.</p>
+With discovery enabled and Core Console available, <code>CadXrefDiscovery</code> lists the Xrefs of the DWG,
+then of every found Xref DWG, breadth first. Each DWG gets one <code>ICadPreviewer.ListXrefsAsync</code> run per preview,
+also when several linked DWGs or the Bind All estimate reach it, and a cycle ends at a DWG already listed.
+Paths compare without case.</p>
+<p>A block table also lists the Xrefs nested in its attached Xrefs. <code>CadXrefDiscovery</code> keeps an entry for a DWG
+when the DWG inserts it in model space, a layout (<code>Inserted</code>) or one of its own block definitions (<code>InsertedInBlock</code>),
+or when no such referenced, attached, found Xref of the DWG lists an entry with the same name.
+Other entries belong to the Xref that lists them.</p>
+<p><code>PreviewPlanBuilder</code> then walks the result from the linked DWG:</p>
+<ol>
+<li>A not-found Xref adds the Warning <code>Xref {name} in {dwg} not found: {stored path}</code>.</li>
+<li>A policy-denied Xref adds <code>Policy denied CAD Xref: {file}</code>.</li>
+<li>Every other Xref file is copied once, as <code>CadCopyItem</code>, into the folder of the linked DWG copy,
+with collision suffixes when necessary, and appears in the preview tree as a discovered DWG.</li>
+<li>Each Xref adds the Info <code>Xref {name} in {dwg} ({stored path}): copy to {target-relative copy}, repath to {new path}.</code>,
+or <code>..., path unchanged.</code> when repath is disabled.</li>
+<li>With repath enabled, each copied DWG with at least one copied Xref gets one <code>CadRepathItem</code>.
+Its entries map the stored path, exactly as discovery reported it, to the copy relative to the folder of the DWG copy,
+with a <code>.\</code> prefix for the same folder.</li>
+</ol>
+<p>A copied Xref DWG whose destination is also the destination of a linked DWG is not walked further;
+the linked DWG's own planning owns its CAD mode. Other Xref DWG copies join <code>PlannedCadDestinations</code>.
+Preview tree CAD actions apply only to linked DWGs and their manual Xrefs.</p>
 <p>Discovery failure adds a Warning message, uses heuristic copying and plans no repath.
 Disabled discovery or unavailable Core Console also uses heuristic copying:
 copy existing sibling directories named <code>xrefs</code>, <code>xref</code>, <code>refs</code>, <code>ref</code>, <code>external</code>, <code>dwg</code>, or <code>cad</code>.
@@ -426,6 +444,11 @@ or <code>AutoCAD Core Console not found. DWG Xrefs copied by heuristic only.</co
 Explicitly enabling both discovery and repath without Core Console produces Block.</p>
 <p>BindAll requires Core Console. Without it, preview produces Block and schedules no bind operation.
 With it, the plan copies the DWG and appends bind work, without manual or discovered Xref copy work.
+The bind work lists each Xref that the DWG itself owns, has a found file and stores a path other than that full path,
+mapped to the found source path: a relative path does not resolve from the copy, and nested Xrefs then resolve from
+the source folder of their parent. A discovery failure adds the Warning
+<code>CAD Xref discovery failed for {dwg}: {error}. Bind All uses the stored Xref paths.</code> and an empty list.
+The bound-output estimate uses the same discovery and adds the not-found Warnings.
 Selecting BindAll clears manual children. Bind and Insert select AutoCAD BINDTYPE 0 and 1 respectively.
 Bind preserves Xref-prefixed names. Insert merges names and can produce naming conflicts.</p>
 <h4 id="core-console-boundary">Core Console boundary</h4>
@@ -436,51 +459,71 @@ Bind preserves Xref-prefixed names. Insert merges names and can produce naming c
 <li>AutoCAD 2026, 2025, and 2024 under <code>C:\Program Files\Autodesk</code>.</li>
 <li>DWG TrueView 2025 under the same directory.</li>
 </ol>
-<p>Each run extracts an embedded <code>DBTools.ToolCad.RecordSet.*</code> script to a unique temporary <code>.lsp</code> file
+<p>Each run extracts the embedded <code>DBTools.ToolCad.RecordSet.rs_xrefs.lsp</code> to a unique temporary <code>.lsp</code> file
 and attempts deletion in <code>finally</code>. Deletion failures log a Warning.
-<code>CoreConsoleRunner</code> starts both redirected reads immediately and returns immutable standard output,
-standard error, and exit code. It creates a temporary .scr file that loads and invokes the extracted LISP script:</p>
-<pre><code class="lang-text">accoreconsole.exe /i &quot;&lt;input.dwg&gt;&quot; /s &quot;&lt;temporary.scr&gt;&quot;
+<code>CoreConsoleRunner</code> writes its other temporary files under one stem in the temporary folder:
+<code>{stem}.scr</code>, <code>{stem}.input.txt</code> and <code>{stem}.result.json</code>. The <code>.scr</code> file loads the script and calls one function:</p>
+<pre><code class="lang-text">accoreconsole.exe /i &quot;&lt;input.dwg&gt;&quot; /s &quot;&lt;stem&gt;.scr&quot;
+(load &quot;&lt;script.lsp&gt;&quot;) (princ) (&lt;function&gt; &quot;&lt;stem&gt;.result.json&quot; [&quot;&lt;stem&gt;.input.txt&quot;] [&lt;arguments&gt;]) (princ)
 </code></pre>
-<p>Cancellation terminates the owned process tree and observes terminal stream completion.
-The runner attempts .scr cleanup on every exit and logs deletion failures.
-Execution rechecks Core Console availability for each CAD repath or bind item.
-If it is missing, the executor logs the affected DWG path and throws InvalidOperationException rather than using heuristic copying.</p>
+<p>Arguments use forward slashes and cannot contain a double quote; input lines cannot contain a line break.
+The input and result files are UTF-8 without a byte order mark. The runner starts both redirected reads immediately,
+returns standard output, standard error, the exit code and the result text, and deletes the temporary files.
+Cancellation terminates the owned process tree, observes terminal stream completion and deletes the files.</p>
+<p><code>CoreConsoleRuntime.RunScriptAsync</code> accepts a run only when the exit code is 0 and the result file holds a JSON object
+with <code>&quot;ok&quot;: true</code> and the members the caller reads. A missing, empty, malformed or failed result throws
+<code>InvalidOperationException</code> with the function, DWG, reason, exit code, result text, standard error and standard output.
+Standard output and standard error are diagnostics only: their encoding is not fixed, and NUL characters are removed
+and each is cut to its last 2,000 characters in the message.</p>
 <table>
 <thead>
 <tr>
-<th>Script and function</th>
-<th>Argument</th>
-<th>Behavior</th>
+<th>Function</th>
+<th>Input</th>
+<th>Result file</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>rs_list_xrefs.lsp</code>, <code>rs-list-xrefs</code></td>
-<td>Host DWG path</td>
-<td>Enumerates Xref blocks and emits nested JSON</td>
+<td><code>rs-list-xrefs</code></td>
+<td>none</td>
+<td><code>xrefs</code>: <code>name</code>, <code>path</code> (stored), <code>found</code> (full path or empty), <code>overlay</code>, <code>inserted</code>, <code>inblock</code></td>
 </tr>
 <tr>
-<td><code>rs_repath_xrefs.lsp</code>, <code>rs-repath-xrefs</code></td>
-<td><code>host.dwg\|new_root</code></td>
-<td>Strips matching root prefixes from Xref paths and saves</td>
+<td><code>rs-repath-xrefs</code></td>
+<td>Three lines per Xref: name, stored path, new path</td>
+<td><code>changed</code>, <code>unmatched</code>, <code>failed</code> (name and stored path after the change)</td>
 </tr>
 <tr>
-<td><code>rs_bind_all_xrefs.lsp</code>, <code>rs-bind-all-xrefs</code></td>
-<td><code>host.dwg\|BIND</code> or <code>host.dwg\|INSERT</code></td>
-<td>Sets BINDTYPE, binds <code>*</code>, purges three times, quick-saves</td>
+<td><code>rs-bind-all-xrefs</code></td>
+<td>The same lines, with source paths; argument <code>BIND</code> or <code>INSERT</code></td>
+<td><code>changed</code>, <code>unmatched</code>, <code>failed</code>, <code>bound</code>, <code>unbound</code></td>
 </tr>
 </tbody>
 </table>
-<p>Discovery requires a zero exit code and parseable JSON between the first <code>{</code> and last <code>}</code> in output.
-The root requires an <code>xrefs</code> array. Every node requires a non-null <code>children</code> array with non-null nodes.
-Host, node name, and node path can be blank. Blank paths do not expand into copy work.
-The JSON fields are <code>host</code>, <code>xrefs</code>, <code>name</code>, <code>path</code>, <code>overlay</code>, and <code>children</code>.
-The shipped scanner emits <code>overlay: false</code> rather than detecting overlay state.</p>
-<p>See <a href="#limitations">Limitations</a> for the scanner failure and the paths repath cannot resolve.
-The repath script receives a root rather than the planner's source-to-copy mapping and strips a case-insensitive matching root prefix.
-<code>CadExecutor</code> checks only the repath process exit code.
-Bind requires both a zero exit code and an output marker containing <code>&quot;ok&quot;:true</code>.</p>
+<p>The script uses core AutoLISP and AutoCAD commands only, because Core Console has no ActiveX layer.
+It writes the result with <code>(open result &quot;w&quot; &quot;utf8&quot;)</code>, which needs the Unicode AutoLISP engine (<code>LISPSYS</code> 1 or 2).</p>
+<ul>
+<li><code>rs-list-xrefs</code> reads the block table with <code>tblnext</code>. Group 70 flag 4 marks an Xref and flag 8 an overlay;
+group 1 is the stored path. <code>found</code> is <code>findfile</code> of the stored path (relative paths from <code>DWGPREFIX</code>),
+then of the file name in <code>DWGPREFIX</code>. <code>inserted</code> is true when <code>ssget &quot;X&quot;</code> finds an INSERT of the block name,
+with wild-card characters escaped. <code>inblock</code> is true when a block definition of the drawing has an INSERT of it;
+the script walks each block definition with <code>entnext</code> from its -2 group and skips Xref blocks, blocks from an Xref
+(group 70 flags 4 and 16) and the layout blocks.</li>
+<li><code>rs-repath-xrefs</code> reads the input with <code>read-line</code>. For each entry whose block is an Xref with the given stored path,
+it runs <code>-XREF</code> Path with the escaped name and the new path, cancels a command that is still active,
+and reads the stored path back. A changed path must equal the new path, without case.
+Only when every entry changed does it run <code>QSAVE</code> and check that <code>DBMOD</code> is 0; then <code>ok</code> is true.</li>
+<li><code>rs-bind-all-xrefs</code> first changes the listed paths as <code>rs-repath-xrefs</code> does. Only when every entry changed does it set
+<code>BINDTYPE</code> and run <code>-XREF</code> Bind <code>*</code>. It then lists the Xrefs that remain, and only when none remain does it run
+<code>QSAVE</code> and check <code>DBMOD</code>.</li>
+</ul>
+<p><code>CadPreviewer</code> requires every listed Xref to have a nonblank name and an empty or fully qualified <code>found</code> path,
+which it normalizes. <code>CadExecutor.RepathXrefsAsync</code> and <code>BindAllAsync</code> also require <code>changed</code> to name every listed
+Xref, and <code>BindAllAsync</code> requires an empty <code>unbound</code>.
+Execution rechecks Core Console availability for each CAD repath or bind item.
+If it is missing, the executor logs the affected DWG path and throws InvalidOperationException rather than using heuristic copying.
+Before the lock, execution checks that each repath host and each Xref copy that a new path names are under the target.</p>
 <h3 id="revit-repath">Revit repath</h3>
 <p><code>RevitRepathItem.SourceHost</code> preserves the source reference base while Host names the copied RVT.
 Mapping keys are normalized source paths and values are allocated output paths.
@@ -584,7 +627,10 @@ Execution progress appears in the main window overlay.</p>
 <h2 id="testing">Testing</h2>
 <p>See <a href="recordset.html#testing">Record Set testing</a> for fixture boundaries and window lifetime requirements.</p>
 <h2 id="limitations">Limitations</h2>
-<p>The scanner calls the undefined AutoLISP function <code>vl-file-syst-exists-p</code> before opening an Xref. DWGs with Xref paths therefore fail discovery and use heuristic copying. CAD repath cannot repair relocated or collision-renamed Xrefs.</p>
+<p>No automated test runs <code>rs_xrefs.lsp</code> in AutoCAD Core Console. The AutoCAD command reference does not list the
+<code>-XREF</code> Path prompts; the script answers with the Xref name and then the new path, cancels a command that is still
+active, and accepts a change only when the block table reads back the new path. Bind is accepted only when no Xref
+block remains.</p>
 <p>Execution leaves completed file mutations in place after a failure; its manifest is not a rollback journal. Containment checks and filesystem writes are separate operations, so concurrent path replacement can race validation.</p>
 
 </article>

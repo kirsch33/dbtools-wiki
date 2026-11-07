@@ -179,11 +179,11 @@
 </tr>
 <tr>
 <td><strong>Auto-discover CAD Xrefs</strong></td>
-<td>Read the Xrefs of each DWG with AutoCAD Core Console and copy them beside the DWG. The scan fails on a DWG that has Xrefs; see <a href="#dwg-files">DWG files</a>.</td>
+<td>Find the Xrefs of each DWG, and of each Xref DWG, with AutoCAD Core Console and copy them beside the DWG. See <a href="#dwg-files">DWG files</a>.</td>
 </tr>
 <tr>
 <td><strong>Allow CAD repath</strong></td>
-<td>Rewrite Xref paths in the copied DWG files.</td>
+<td>Change each Xref path in the copied DWG files to the copy of that Xref. Needs <strong>Auto-discover CAD Xrefs</strong>.</td>
 </tr>
 </tbody>
 </table>
@@ -199,7 +199,7 @@
 <tbody>
 <tr>
 <td><strong>CAD: Keep Xrefs</strong></td>
-<td>Copy the DWG and its Xrefs (the default). Xrefs are found by discovery or by the folder heuristic; see <a href="#dwg-files">DWG files</a>.</td>
+<td>Copy the DWG and its Xrefs (the default). Xrefs are found by discovery or by the folder heuristic; see <a href="#dwg-files">DWG files</a>. Discovered Xrefs in the tree have no CAD actions.</td>
 </tr>
 <tr>
 <td><strong>CAD: Bind All</strong></td>
@@ -222,6 +222,8 @@
 <li>a planned source file that does not exist (Block);</li>
 <li>a destination name collision; the second file is renamed <code>name (2).ext</code>, <code>name (3).ext</code> and so on (Warning);</li>
 <li><code>Auto-discover CAD Xrefs disabled.</code> or <code>AutoCAD Core Console not found. DWG Xrefs copied by heuristic only.</code> (Info);</li>
+<li>each discovered Xref, with its copy and its new path, for example <code>Xref Grid in Plan.dwg (refs\Grid.dwg): copy to STR\Linked Files\Grid.dwg, repath to .\Grid.dwg.</code> (Info);</li>
+<li>an Xref file that was not found: <code>Xref &lt;name&gt; in &lt;dwg&gt; not found: &lt;stored path&gt;</code> (Warning);</li>
 <li><strong>CAD: Bind All</strong>, or discovery together with repath, without Core Console (Block);</li>
 <li>a plan larger than 80 GiB or more than 10,000 items (Block).</li>
 </ul>
@@ -253,11 +255,14 @@
 <p>A <code>-</code> building and an empty discipline add no folder. A link counts as common when the same full path and type appear at least twice, also twice in one host.</p>
 <h3 id="dwg-files">DWG files</h3>
 <ul>
-<li><strong>Keep Xrefs</strong> with discovery and Core Console: Record Set scans the DWG for Xrefs. The scanner fails on any DWG that has a nonempty Xref path, so it succeeds only for a DWG without Xrefs. On a successful scan, <strong>Allow CAD repath</strong> re-saves the copied DWG. A failed scan adds the Warning <code>CAD Xref discovery failed for &lt;name&gt;: &lt;error&gt;. Using fallback.</code>, uses the folder heuristic below and skips repath.</li>
-<li><strong>Keep Xrefs</strong> without discovery, without Core Console or after a failed scan: Record Set copies sibling folders named <code>xrefs</code>, <code>xref</code>, <code>refs</code>, <code>ref</code>, <code>external</code>, <code>dwg</code> or <code>cad</code> next to the DWG. Xref paths are not rewritten, so references can break.</li>
-<li><strong>Bind All</strong>: the DWG is copied and its Xrefs are bound into the copy. No Xref files are copied.</li>
+<li><strong>Keep Xrefs</strong> with discovery and Core Console: Record Set lists the Xrefs of the DWG in one Core Console run, then the Xrefs of each Xref DWG in its own run, so nested Xrefs are found too. Each DWG is scanned once, also when Xrefs form a cycle. A relative Xref path is resolved from the folder of the DWG that stores it; when the stored path does not find the file, Record Set looks for the file name in that folder. Every found Xref file is copied once into the folder of the DWG copy. A name that is already used there gets <code>name (2).dwg</code>, <code>name (3).dwg</code> and so on.</li>
+<li><strong>Allow CAD repath</strong> with discovery: at Execute, each copied DWG that has copied Xrefs is opened in Core Console. Record Set changes each of its Xref paths to the copy, as a path relative to the folder of the DWG copy (for example <code>.\Grid.dwg</code>), and saves the DWG. A nested Xref is changed in the copy of the DWG that references it. The run fails when the DWG does not contain a planned Xref or the stored path afterwards does not equal the planned path; the DWG copy is then not saved.</li>
+<li>An Xref that was not found, or that the safety policy excludes, is not copied, and the copied DWG keeps its stored path. A not-found Xref adds a Warning.</li>
+<li><strong>Keep Xrefs</strong> without discovery, without Core Console or after a failed scan: Record Set copies sibling folders named <code>xrefs</code>, <code>xref</code>, <code>refs</code>, <code>ref</code>, <code>external</code>, <code>dwg</code> or <code>cad</code> next to the DWG. Xref paths are not changed, so references can break. A failed scan adds the Warning <code>CAD Xref discovery failed for &lt;name&gt;: &lt;error&gt;. Using fallback.</code></li>
+<li><strong>Bind All</strong>: the DWG is copied and all its Xrefs are bound into the copy. A relative Xref path does not resolve from the copy, so Record Set first points each Xref of the copy at the file that discovery found. Nested Xrefs then resolve from the source folder of their parent. No Xref files are copied. The run fails when an Xref stays unbound, for example because its file is not found; the copy is then not saved.</li>
+<li>An Xref DWG that is also a linked DWG in the same output folder is copied once and keeps the CAD handling of the link.</li>
 </ul>
-<p>Core Console is found through the <code>ACCORECONSOLE</code> environment variable, then <code>accoreconsole.exe</code> on <code>PATH</code>, then AutoCAD 2026, 2025 or 2024, then DWG TrueView 2025 under <code>C:\Program Files\Autodesk</code>.</p>
+<p>The CAD operations need the Unicode AutoLISP engine in AutoCAD (<code>LISPSYS</code> 1 or 2, the default). Core Console is found through the <code>ACCORECONSOLE</code> environment variable, then <code>accoreconsole.exe</code> on <code>PATH</code>, then AutoCAD 2026, 2025 or 2024, then DWG TrueView 2025 under <code>C:\Program Files\Autodesk</code>.</p>
 <h3 id="revit-references">Revit references</h3>
 <p>In each copied host, Record Set rewrites the external references that point to copied files and leaves the loaded or unloaded state unchanged. A host with at least one rewritten reference is saved as transmitted. A transmitted workshared copy opens detached and cannot create new local files. Library references (for example keynote and assembly-code tables in a content library) are not copied or changed.</p>
 <h2 id="safety-checks">Safety checks</h2>
@@ -283,7 +288,7 @@
 <li>If a run stops without removing <code>.recordset.lock</code>, the next run at that target fails. Delete the lock only when no run is active.</li>
 <li>There is no cancel action during Execute.</li>
 <li>The size and item limits are preview estimates, not limits on the final package size.</li>
-<li>Xref discovery fails on every DWG that has Xrefs, so Record Set copies its Xrefs only by the folder heuristic or <strong>Add Xref...</strong>, and CAD repath never rewrites an Xref path. References in the copied DWGs can break.</li>
+<li>No automated test runs the CAD scripts in AutoCAD Core Console. Open the copied DWGs in AutoCAD and check their Xrefs before you hand over the output.</li>
 <li>Linked RVT models are not scanned for their own links.</li>
 <li>The safety policy and its allowed root are fixed in the tool.</li>
 </ul>
