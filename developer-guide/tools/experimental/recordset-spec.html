@@ -443,12 +443,30 @@ The planner emits Info messages <code>Auto-discover CAD Xrefs disabled.</code> w
 or <code>AutoCAD Core Console not found. DWG Xrefs copied by heuristic only.</code> when Core Console is absent.
 Explicitly enabling both discovery and repath without Core Console produces Block.</p>
 <p>BindAll requires Core Console. Without it, preview produces Block and schedules no bind operation.
-With it, the plan copies the DWG and appends bind work, without manual or discovered Xref copy work.
-The bind work lists each Xref that the DWG itself owns, has a found file and stores a path other than that full path,
+With it, the plan copies the DWG and runs discovery for it,
+also when <code>AutoDiscoverCadXrefs</code> and <code>AllowCadRepath</code> are false.
+<code>rs-bind-all-xrefs</code> binds every Xref of the copy, so the plan approves the bind only when discovery lists the
+complete graph and the file policy admits the found file of every direct and nested Xref, also when the stored path
+already equals the found path. An empty graph and a graph with cycles can be approved. Each refusal adds a Block
+that names the linked DWG path:</p>
+<ul>
+<li><code>Bind All blocked for {dwg}: CAD Xref discovery failed: {error}</code> for a failed listing of any reached DWG;</li>
+<li><code>Bind All blocked for {dwg}: Xref {name} in {drawing} not found: {stored path}</code> for a null or blank found path;</li>
+<li><code>Bind All blocked for {dwg}: Policy denied Xref {name} in {drawing} ({stored path}): {found path}</code>.</li>
+</ul>
+<p><code>{drawing}</code> is the full path of the DWG that owns the Xref. A refused DWG gets no bind work and no size estimate,
+and its Block prevents execution. Approved bind work has no manual or discovered Xref copy work.</p>
+<p>The source drawings can change after the preview, so <code>ExecutionPlanExecutor</code> checks the graph again before each
+<code>BindAllAsync</code> call. A new <code>CadXrefDiscovery</code> lists the copy and every DWG that its Xrefs reach. The bind work's
+source paths first apply to the Xrefs of the copy, with the name and stored-path match of <code>rs-apply-paths</code>.
+The file policy of the run must admit every Xref, with the preview rules. Otherwise the item throws
+<code>InvalidOperationException</code> before the bind, with <code>Bind All blocked for {copy}: {reasons}</code>, reasons joined by <code>; </code>,
+or <code>Bind All blocked for {copy}: CAD Xref discovery failed: {error}</code>. The run then fails and the copy stays unbound.
+The check and the bind are separate Core Console runs, so a source change between them can race the check.
+It lists each Xref that the DWG itself owns and that stores a path other than its found full path,
 mapped to the found source path: a relative path does not resolve from the copy, and nested Xrefs then resolve from
-the source folder of their parent. A discovery failure adds the Warning
-<code>CAD Xref discovery failed for {dwg}: {error}. Bind All uses the stored Xref paths.</code> and an empty list.
-The bound-output estimate uses the same discovery and adds the not-found Warnings.
+the source folder of their parent. The bound-output estimate reuses the discovery listings of approved bind work.
+An estimate failure adds the Warning <code>Bind selected for {dwg}, but size estimate unavailable: {error}</code>.
 Selecting BindAll clears manual children. Bind and Insert select AutoCAD BINDTYPE 0 and 1 respectively.
 Bind preserves Xref-prefixed names. Insert merges names and can produce naming conflicts.</p>
 <h4 id="core-console-boundary">Core Console boundary</h4>
