@@ -689,10 +689,15 @@ The type-bound rule excludes generated <code>IfcGUID</code>.</p>
 <p>GmSessionDocumentGate validates Action callbacks as synchronous before wrapping their launch-document check.
 It rejects async void before Core can see only the synchronous decorator.
 Generic results also undergo synchronous-result validation.</p>
-<p>Independent reads for one action start together and are awaited in original order,
-so the first read's failure/cancellation remains primary.
-Startup starts family-category, shared-parameter-category, and parameter-group reads together.
-Family expansion starts view and parameter-name reads together.
+<p>Independent reads for one action start together.
+Startup waits for every family-category, shared-parameter-category, and parameter-group read to settle.
+Ordinary startup faults take priority over cancellation.
+Aggregate faults contribute their non-cancellation leaves recursively.
+A single ordinary fault keeps its identity and stack.
+Multiple ordinary faults form an aggregate in family-category, shared-parameter-category, then parameter-group order, regardless of completion order.
+Other exception wrappers keep their context.
+With cancellation alone, the first cancellation in that order keeps its token.
+Family expansion starts view and parameter-name reads together and awaits them in original order, so the first read's failure or cancellation remains primary.
 Selected-type instance examples are read once through type selection.
 Core's queued-turn policy determines which waiting calls share a callback.</p>
 <h2 id="testing">Testing</h2>

@@ -235,6 +235,10 @@ var wallId = await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall
     Wall.Create(context.Document, curve, levelId, false).Id);
 </code></pre>
 <h3 id="failure-handling">Failure handling</h3>
+<p><code>TransactionRunner</code> collects failures through transaction or subtransaction disposal before returning a result.
+The first operation failure stops further work. Existing work/rollback aggregates precede any disposal failure.
+A single failure keeps its identity, type and original stack. Multiple failures propagate in an ordered aggregate.
+A disposal failure after commit propagates without undoing the committed write.</p>
 <p><code>TransactionFailurePreprocessor.AttachToTransaction</code> sets clear-after-rollback before failure processing starts.</p>
 <ul>
 <li>A warning is reported as suppressed only after Revit deletes it.</li>
