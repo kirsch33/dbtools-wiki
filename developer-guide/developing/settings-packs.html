@@ -423,6 +423,8 @@ changes. Read each tool's DTO and generated JSON context when extending it.</p>
     where TSettings : class, new();
 Task CommitAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes,
     CancellationToken ct = default);
+Task&lt;string?&gt; RecoverAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes,
+    CancellationToken ct = default);
 </code></pre>
 <p>Inject the provider and typed section. Read once per operation, then pass that
 snapshot to the work:</p>
@@ -474,7 +476,11 @@ to apply all committed defaults before warning validation and aggregates
 application failures. A pack reset commits only that pack. Both actions ask for
 confirmation and use the normal warning/feedback path. Cancel preserves current
 state and feedback. Choosing Reset Settings in the load-problem alert already
-confirms the reset, so it does not prompt twice.</p>
+confirms recovery, so it does not prompt twice. This action uses <code>RecoverAsync</code>
+to recover the per-year override. Normal reset uses <code>CommitAsync</code> and rejects
+corrupt documents. Both operations apply defaults only after persistence succeeds.
+Post-commit application or warning failures report the failed phase and retain the
+committed defaults. They do not retry persistence.</p>
 <h2 id="atomic-persistence">Atomic persistence</h2>
 <p><code>SettingsSectionWriter</code> performs these steps:</p>
 <ol>
@@ -497,13 +503,37 @@ sibling lock file coordinates separate processes.</p>
 <p><code>TextFileIO</code> allows at most six publication attempts for transient sharing,
 locking, and access-denied failures. It refuses known read-only destinations
 immediately and surfaces publication access denial as <code>IOException</code> with the
-original cause. Cleanup does not replace the primary failure. No backup file is
-retained.</p>
+original cause. Cleanup does not replace the primary failure. Ordinary commits retain no backup
+file. Explicit load-problem recovery retains preservation copies as described below.</p>
 <p>Same-year Revit processes share this file. Re-reading under the cross-process
 lock preserves other sections published by the previous writer. A case-variant
 section name replaces that section in place. An absent file starts an empty
 object. An existing empty, whitespace-only, malformed, or non-object file is
-corrupt and is not silently reset.</p>
+corrupt and is not silently reset. A file that repeats a top-level name, also with
+different letter case, is corrupt too. <code>SettingsJson.RequireObject</code> applies this
+rule to reads and commits.</p>
+<p><code>RecoverAsync</code> serializes the default sections before changing files. It holds
+the writer semaphore and the same exclusive sibling lock through source preservation and defaults publication. It reads the per-year source as raw
+bytes, including invalid UTF-8. It writes and flushes a complete sibling stage,
+then publishes it without overwrite as <code>settings.&lt;year&gt;.json.recovery-&lt;guid&gt;.bak</code>.
+Each recovery keeps all earlier completed copies. An absent source needs no copy.
+Other source or preservation failures include the path and stop recovery.</p>
+<p>After preservation, recovery parses the exact preserved source under the same
+locks. When reads accept the source, recovery keeps every unwritten top-level
+value with its original JSON text, including whitespace, numeric spelling and
+string escapes. Supplied section names match case-insensitively and receive
+defaults. Recovery replaces any other source in full: invalid JSON, a non-object
+root, or a repeated top-level name. Recovery returns the completed copy
+path, or null when the source was absent.</p>
+<p>Only after preservation succeeds does <code>TextFileIO.WriteAllTextAtomicAsync</code>
+publish defaults. Recovery never removes or renames the active source first.
+Failure or cancellation before publication leaves the active bytes unchanged.
+Completed copies remain if publication fails or is cancelled. Incomplete stages
+are removed without replacing the primary error. Recovery affects only the
+per-year override. It does not repair corrupt <code>appsettings.json</code> or bypass access
+failures. After successful publication, the writer logs the preservation path at
+Information. The recovery success banner includes that path. A later state or
+warning failure does not remove the committed defaults or the preservation log entry.</p>
 <h2 id="editor-views">Editor views</h2>
 <p>Create a tool-owned view for the editor. Bind the auto-update toggle to
 <code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit

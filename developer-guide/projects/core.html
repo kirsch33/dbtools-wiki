@@ -470,8 +470,10 @@ dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}-manual-{timestamp}.log   # 
 {
     TSettings Get&lt;TSettings&gt;(SettingsSection&lt;TSettings&gt; section) where TSettings : class, new();
     Task CommitAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes, CancellationToken ct = default);
+    Task&lt;string?&gt; RecoverAsync(IReadOnlyCollection&lt;SettingsSectionWrite&gt; writes, CancellationToken ct = default);
 }
 </code></pre>
+<p><code>RecoverAsync</code> preserves source bytes, retains unwritten sections when reads accept the source, and replaces any other document in full.</p>
 <p><code>SettingsSection&lt;T&gt;</code> identifies a settings section for reads and persistence. Its source-generated JSON metadata keeps defaults and typed values. <code>CreateWrite(value)</code> carries the section name, declared type and value into an atomic commit. <code>Get(section)</code> returns the current file values.</p>
 <h3 id="settingscatalog"><code>SettingsCatalog</code></h3>
 <p>The internal, read-only catalog of settings pack definitions. The Settings window, <code>SettingsWarningService</code> and <code>SettingsStartupWarningWorkflow</code> all use it. It rejects null pack definitions, duplicate pack keys, null warning definitions, warning pack-key mismatches and duplicate warning IDs before warning publication or startup evaluation.</p>
@@ -675,6 +677,12 @@ dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}-manual-{timestamp}.log   # 
 </ul>
 <p>Sources: <code>src/DBTools.Core/Tools/Hooks/{Lifecycle,Host,ContextualRibbon}/</code>, <code>src/Tools/Services/DialogSuppression/Features/DialogSuppressionHook.cs</code>.</p>
 <h2 id="ui-components">UI components</h2>
+<h3 id="color-picker">Color picker</h3>
+<p><code>ColorPickerViewModel</code> synchronizes RGB, HSV and hex before raising <code>ColorChanged</code>.
+A component edit inside the callback synchronizes state and notifies <code>PreviewBrush</code>
+and <code>HueBrush</code> again. A notification guard suppresses nested <code>ColorChanged</code> events.
+Callback exceptions propagate. Invalid hex text remains visible without changing
+the color state or raising the event.</p>
 <h3 id="windows">Windows</h3>
 <p>Presentation (<code>DBTools.Presentation.Windows</code>) owns the stable window surface: WPF <code>Window</code> inheritance, owner-handle support through <code>IWindowOwnerHandleTarget</code> and the <code>IThemeOptOut</code> contract.</p>
 <pre><code class="lang-csharp">public class ModalWindow : Window, IWindowOwnerHandleTarget, IThemeOptOut
