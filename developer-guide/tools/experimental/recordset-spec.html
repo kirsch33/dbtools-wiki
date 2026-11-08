@@ -296,14 +296,19 @@ A moved package with intact relative structure therefore resolves its own files.
 <p>The scan creates discovered links using their resolved paths and host metadata.
 It classifies RVT, DWG, and Other external references. It does not recursively scan linked RVT models.</p>
 <h3 id="plan-construction-and-limits">Plan construction and limits</h3>
-<p><code>Features/Planning/Preview/PreviewPlanBuilder.BuildPlanAsync</code> performs these stages:</p>
+<p><code>Features/Planning/Preview/PreviewPlanBuilder.BuildPlanAsync</code> runs these stages in order on one <code>PreviewPlanState</code>:</p>
 <ol>
-<li>Find Core Console and resolve nullable CAD flags.</li>
-<li>Plan hosts and non-CAD links under the file policy.</li>
-<li>Plan each distinct DWG destination once, using its first occurrence's CAD options.</li>
-<li>Append Revit repath operations for copied hosts with allowed mappings.</li>
-<li>Check sources, count bytes, estimate bound output, enforce limits, and compute the fingerprint.</li>
+<li><code>PreviewPlanState.Create</code> finds Core Console and resolves nullable CAD flags.</li>
+<li><code>PreviewHostPlanner.PlanHostsAndLinks</code> plans hosts and non-CAD links under the file policy.</li>
+<li><code>PreviewCadPlanner.PlanAsync</code> plans each distinct DWG destination once, using its first occurrence's CAD options.</li>
+<li><code>PreviewHostPlanner.PlanRevitRepaths</code> appends Revit repath operations for copied hosts with allowed mappings.</li>
+<li><code>PreviewPlanTotals.CountCopyBytes</code> checks sources and counts copy bytes.</li>
+<li><code>PreviewCadPlanner.PredictOutputBytesAsync</code> estimates bound output.</li>
+<li><code>PreviewPlanTotals.Complete</code> enforces limits and records the summary and the fingerprint.</li>
 </ol>
+<p><code>PreviewDestinationAllocator</code> keeps each destination path for one source path. When another source holds the
+intended destination, the source gets <code>name (n).ext</code>, or <code>name (n)</code> without an extension, with the lowest n from 2
+that is free or that the source already holds. A new rename adds a Warning message and a <code>UIWarnItem</code>.</p>
 <p>Denied hosts or links produce warnings. Missing planned source paths produce Block messages.
 Directory copies count only policy-allowed files. TotalBytes counts each distinct source/destination copy pair,
 including repeated copies of one source to different destinations.
@@ -420,7 +425,7 @@ Paths compare without case.</p>
 when the DWG inserts it in model space, a layout (<code>Inserted</code>) or one of its own block definitions (<code>InsertedInBlock</code>),
 or when no such referenced, attached, found Xref of the DWG lists an entry with the same name.
 Other entries belong to the Xref that lists them.</p>
-<p><code>PreviewPlanBuilder</code> then walks the result from the linked DWG:</p>
+<p><code>PreviewCadPlanner</code> then walks the result from the linked DWG:</p>
 <ol>
 <li>A not-found Xref adds the Warning <code>Xref {name} in {dwg} not found: {stored path}</code>.</li>
 <li>A policy-denied Xref adds <code>Policy denied CAD Xref: {file}</code>.</li>

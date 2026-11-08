@@ -269,6 +269,10 @@ View-owned collection discovers owner IDs through a quick filter, then visits el
 retaining Revit view-visibility filtering. Style/material indexing share one capped sample and 25-instance chunks
 with separate geometry options. Family-dependent styles are visited once per usage build.
 Each option-building pass owns immutable name profiles and retains numeric-suffix and multiset-bigram scoring.</p>
+<p><code>Features/Usage/FamilyFastIndex/UsageFamilyFastIndexCollector</code> records material and object-style
+evidence without Revit types. It keeps distinct paths, direct and nested usage flags,
+and maximum depth for each positive ID. <code>UsageFamilyFastIndexBuilder</code> reads a placed
+instance through Revit and supplies traversal contexts to the collector.</p>
 <h2 id="testing">Testing</h2>
 <p>Pure tests mirror App, Domain, and Features owners. Test builders, external fakes, and assertions live in Tests/Support.
 Project-state and name-cache tests live under Tests/Domain. Duplicate projection tests live under Tests/Features/Duplicates.
@@ -276,6 +280,9 @@ The root Revit name adapter mirrors its complete path at
 <code>Tests/Integration/Revit/Revit/ElementName/ElementNameQueryTests.cs</code>.
 CommitReviewPlanContextTests mirrors Features/CommitReview/Planning.
 Saved mappings, authoring, and usage matching also mirror their subjects.</p>
+<p><code>UsageFamilyFastIndexCollectorTests</code> directly tests fast-index aggregation in the Pure suite.
+<code>UsageFamilyFastIndexBuilderTests</code> checks extraction from placed instances and missing-sample
+handling in Revit.</p>
 <p><code>Tests/Integration/Revit/App/Sessions/Revit/GmModelessSessionTests.cs</code> launches the production session
 through its queued App run scope and GmWindowViewModelBuilder.
 It observes the raw view in the stable shell on the dispatcher.
