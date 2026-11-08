@@ -292,6 +292,22 @@ python3 .agents/work/canon_source_fidelity.py --gate --mechanical-root testing -
 <p>Regenerate maps with <code>python3 .agents/work/canon_source_maps.py</code> after source
 moves. See <a href="../architecture/build-pipeline.html">Build Pipeline</a> for distribution
 acceptance, Dev Mode preflight, and build-server configuration.</p>
+<p><code>.githooks/pre-push</code> always runs the <code>.agents</code> structure check and the
+component resource URI check. It also runs the CANON gate, the MAP.md check and
+<code>./build.sh ValidatePrePush</code>, and prints why. It skips these three, prints the
+reason, and prints that they did not run, only for a push of one ref that
+fast-forwards an existing remote branch to the checked-out <code>HEAD</code> with new
+commits whose paths are all documentation or agent guidance: <code>wiki/</code>, <code>docs/</code>,
+<code>.agents/</code>, <code>.desloppify/</code>, <code>.claude/</code>, top-level <code>*.md</code> files and
+<code>desloppify.sh</code>. <code>.agents/canon/</code> and every file in <code>.agents/work/</code> except its
+<code>tests/</code> and Markdown files are inputs of these checks. A new branch, a
+deletion, a rewind or rewrite, several refs, a pushed commit other than <code>HEAD</code>
+and a commit that the remote already has run every check.</p>
+<p>Run by hand without arguments, the hook compares the working tree, untracked
+files included, with the upstream branch of <code>HEAD</code>, and uploads nothing to Git
+LFS. Without an upstream branch, or when <code>HEAD</code> does not contain it, every check
+runs. Run the CANON and MAP.md commands above directly to check a tree that the
+hook would skip.</p>
 <h2 id="testsh-command-reference">test.sh command reference</h2>
 <pre><code class="lang-text">./test.sh &lt;verb&gt; [options]
 </code></pre>
@@ -376,7 +392,7 @@ year or <code>DBTOOLS_DAEMON_REVIT_YEARS</code>. Pure-only requests are year-fre
 </tr>
 <tr>
 <td><code>--changed-since REV</code></td>
-<td><code>test</code> only: select affected owners. Unknown inputs select all.</td>
+<td><code>test</code> only: select affected owners. Documentation and agent guidance select none; when no other path changed, run no tests. Unknown inputs select all.</td>
 </tr>
 <tr>
 <td><code>--compile-only</code>, <code>--build-only</code></td>

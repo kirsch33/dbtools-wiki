@@ -154,6 +154,28 @@ fails. See
 <p>Revit-hosted tests (the <code>local</code> scope) run on the dbtools-daemon fleet. See
 <a href="architecture/test-pipeline.html">Test Pipeline</a> for the design and
 <a href="developing/testing-tools.html">Testing Tools</a> for the options.</p>
+<h2 id="choosing-checks">Choosing checks</h2>
+<p>The proof matches the change. Before a build, test, acceptance or release
+step, decide whether the change can make that step fail, and run only the
+steps that it can. Skip a step that the change cannot affect, and record the
+skipped step and the reason in the commit message, the report or the release
+record. A skipped step is not a passed step.</p>
+<ul>
+<li>Always run what produces or protects what users install: the build of what
+ships (<code>./build.sh BuildAll</code> from a fresh clone, with its Dev Mode
+preflight), its normal automated tests, and the signing and publishing
+integrity of a release.</li>
+<li>Run the expensive steps only for a change that can affect them: Revit-hosted
+tests, hosted jobs, long native passes and repeated full gates. For example,
+a change to how a window comes to the front cannot change Revit behavior, so
+it needs no Revit-hosted tests.</li>
+<li>While iterating, run focused tests on the changed code;
+<code>./test.sh test --changed-since REV</code> selects the test owners that a change
+can affect. Run the complete suites of what a settled batch of changes can
+affect once for that batch, not after each edit.</li>
+</ul>
+<p>The pre-push hook selects its checks by the pushed paths; see
+<a href="developing/testing-tools.html#source-checks">Source checks</a>.</p>
 <h2 id="writing-documentation">Writing documentation</h2>
 <p>The wiki is built with DocFX from <code>wiki/</code>. Run
 <code>bash .github/scripts/build-docs.sh conceptual</code> to build the pages into
