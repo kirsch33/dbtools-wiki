@@ -580,6 +580,41 @@ release, builds and promotes the distribution and bundle on Linux, then runs
 only the Inno Setup compiler on Windows. The self-hosted Windows test runner
 consumes compiled test artifacts through <code>test.sh</code> and does not build the
 product.</p>
+<p>The Claude Code workflow accepts created issue comments and pull request review
+comments that mention <code>@claude</code>. Bot comments are excluded. The case-insensitive
+<code>@claude[[:space:]]*review</code> test selects reviews within a line. A review request
+on a plain issue fails. Other admitted requests use the general job with its
+write and OIDC permissions. Both model jobs use <code>CLAUDE_CODE_OAUTH_TOKEN</code> and
+<code>claude-opus-4-7</code>.</p>
+<p>For reviews, classification checks out the repository default branch. It reads the pull
+request API, fetches the numeric pull ref and base commit with full history,
+checks the head SHA, and prepares the merge-base-to-head diff. The numeric
+pull ref supports fork branches. No pull request scripts or Git hooks run.</p>
+<p>The review job has repository and pull request read permissions. It checks
+the source SHA again and reads the prepared diff and context. Claude runs in
+native plan mode with only <code>Read</code>, <code>Grep</code>, and <code>Glob</code>. Restricted mode confines
+file tools to the workspace and prepared-data directory. Read rules deny Git
+metadata. MCP tools and ordinary customizations are disabled. Local managed
+policy files prevent review because safe mode and ordinary <code>disableAllHooks</code>
+settings cannot disable managed hooks. The review and general jobs stop after 60 minutes.</p>
+<p>Validation requires a successful action, one successful terminal SDK result,
+the requested init and assistant model identities, usage for that model,
+native plan mode, the three approved tools, and nonempty final text. Helper
+models in usage accounting are permitted. Text containing either job credential,
+known Base64 credential forms, or common token patterns fails validation.
+Only validated final text crosses to publication in a JSON artifact named
+for the current run and attempt. Execution logs and token outputs do not cross
+that boundary.</p>
+<p>Publication has only pull request write permission, no provider credential,
+and no source checkout. Issue-comment requests receive one PR conversation
+comment. Review-comment requests receive one reply in the original review
+thread. The classified event determines the destination. Returned text remains
+literal data. Publication errors fail the job.</p>
+<p><code>ClaudeCodeWorkflowTests.WorkflowSecuritySuitePasses</code> runs the workflow's inline
+scripts with event, API, and SDK fixtures. It requires Python 3, PyYAML, Node.js,
+and <code>grep</code>. It does not invoke GitHub Actions or authenticate to the provider:</p>
+<pre><code class="lang-sh">./test.sh test --tool BUILD --scope pure --fixture ClaudeCodeWorkflowTests
+</code></pre>
 <h2 id="source-maps-and-canon">Source maps and CANON</h2>
 <p>These checks are run by the pre-push hook and CI, not by any build target:</p>
 <ul>
