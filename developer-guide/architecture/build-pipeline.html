@@ -408,8 +408,10 @@ against the published tree.</li>
 <p>Promotion
 validates the staged candidate, its fingerprint, the exact year trees and the
 receipt. It then deletes the published <code>.artifacts/build.json</code>, replaces
-<code>.artifacts/dist/Release</code> with the validated tree, and writes <code>build.json</code>
-last. Read the distribution only after the build command exits successfully.</p>
+<code>.artifacts/dist/Release</code> with the validated tree, copies the
+<a href="#tool-contract">tool contract</a> to <code>.artifacts/acceptance/tool-contracts.json</code>,
+and writes <code>build.json</code> last. Read the distribution only after the build
+command exits successfully.</p>
 <p>When promotion prepares the new tree, each declared file whose SHA-256 equals
 the file at the same path in the current <code>.artifacts/dist/Release</code> becomes a
 hard link to that file; new and changed files are copied. An unchanged file
@@ -420,6 +422,35 @@ permission error), promotion logs the reason once at low importance and copies
 that file and all remaining files. No step writes into a published file. Point
 Dev Mode at <code>.artifacts/dist/Release/&lt;year&gt;</code> directly; a copy is a set of new
 files that the scanner scans again.</p>
+<h2 id="tool-contract">Tool contract</h2>
+<p><code>build/Distribution/tool-contracts.json</code> holds the DBTools texts that the live
+Tools check of dbtools-daemon compares with the running product: window
+titles, interaction kinds, prerequisite refusal names, and banner, control and
+status texts. Its <code>tools</code> object is keyed by command type name without the
+<code>Command</code> suffix (<code>Gm</code> for <code>GmCommand</code>). Each entry has <code>interaction</code>, <code>title</code>
+(<code>null</code> for a command without a window), <code>source_files</code> and named texts.
+<code>PromoteToDist</code> publishes it as <code>.artifacts/acceptance/tool-contracts.json</code>, so
+a distribution archive carries it beside <code>build.json</code>: the CI <code>dbtools-complete</code>
+artifact and the release assets include it. <code>Clean</code> keeps
+<code>.artifacts/acceptance/</code>.</p>
+<p>Change a source text that an entry names and this file in the same commit.
+<code>ToolContractsTests</code> in <code>testing/DBTools.Build.Tests</code> fails when a
+<code>source_files</code> path does not exist, or when a text equals no whole string value
+of its tool's source files:</p>
+<pre><code class="lang-bash">./test.sh test --tool BUILD --fixture ToolContractsTests
+</code></pre>
+<p>The string values are C# string literals, XAML attribute values and text with
+XML references resolved, and YAML scalar values; a longer string such as
+<code>General Settings</code> does not match <code>General</code>. Three forms also match: each line
+of a multi-line C# literal, because a refusal message reaches the log one line
+at a time; a ribbon <code>displayText</code> with its lines joined by spaces, which is the
+command's execution name; and a C# interpolated string or a XAML
+<code>StringFormat</code> whose holes each take a whole string value from the same files.
+Two values are not product text. <code>Gm.workspace_status_pattern</code> is a regular
+expression that the check applies to the GM status text; the test requires
+that it compiles. The check fails a refusal log that contains
+<code>UpdateCombinedFoundationTags.invalid_message</code>; the test requires that no
+string of the tool's source files contains it.</p>
 <h2 id="revit-hosted-test-inputs">Revit-hosted test inputs</h2>
 <p>Staging for Revit-hosted tests builds one complete product tree for the selected year and
 includes it with relative paths unchanged, including the 14 tool assemblies in
@@ -541,6 +572,10 @@ file log is always detailed.</p>
 <tr>
 <td><code>.artifacts/build.json</code></td>
 <td>Build metadata of the published distribution</td>
+</tr>
+<tr>
+<td><code>.artifacts/acceptance/tool-contracts.json</code></td>
+<td><a href="#tool-contract">Tool contract</a> of the published distribution</td>
 </tr>
 <tr>
 <td><code>.artifacts/bundle/</code>, <code>.artifacts/installer/</code></td>
