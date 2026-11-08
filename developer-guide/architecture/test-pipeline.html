@@ -199,12 +199,24 @@ jobs do not depend on the Windows transfer.</p>
 reject a stale source snapshot. Source, build and test changes alter the
 snapshot; documentation and transient artifacts do not.</p>
 <h2 id="results">Results</h2>
-<p>The daemon terminal JSON is the result. A successful run must report a
-positive executed count; a report of zero tests fails. A distinctive nonzero
-daemon exit status is kept even when the terminal JSON is missing or
-malformed. Independent scopes in one request continue after a failure, but
-<code>test.sh</code> returns the first nonzero status and never reports a failed run as
-passed.</p>
+<p>The daemon terminal JSON is the result. After a zero submit exit, the summary
+must report <code>result_status=passed</code>, a positive <code>passed</code> count, and zero
+<code>failed</code>, <code>errored</code>, and <code>aborted</code> counts. Skipped tests can accompany passed
+tests. Zero executed tests, including an all-skipped run, fail admission.
+A nonzero submit exit is kept even when the terminal JSON is missing or
+malformed. When retrieval succeeds, failed runs keep their reports and
+original exit status. Rejected terminal summaries are saved as
+<code>*.invalid-summary.json</code>.</p>
+<p>Full report retrieval accepts a report exit of zero or the submit exit.
+The report file must be nonempty, and its JSON request identity, status, and
+counts must match the accepted summary. Retrieval makes three report
+attempts, stopping after the first accepted report. Two one-second delays
+separate three failed attempts. It never resubmits tests. Only an accepted
+report is published to the result path. After exhaustion, nonempty rejected
+output is saved as <code>PATH.invalid-report.json</code>, where <code>PATH</code> is the full
+report path. The wrapper keeps a nonzero submit exit or returns 2 after a
+zero submit exit. Independent scopes in one request continue after a
+failure, but <code>test.sh</code> returns the first nonzero status.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
 <p><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code> builds
 <code>DBTools.&lt;Tool&gt;.Local.Tests</code> for both years (<code>Hosted2026.proj</code>,
