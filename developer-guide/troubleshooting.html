@@ -340,10 +340,34 @@ a change that keeps the owner mode only updates <code>Topmost</code>, and a chan
 owner mode closes and recreates the window. Code must not change the owner of
 the live window directly. The window provides:</p>
 <ul>
-<li>level filters for <code>INFO</code>, <code>WARN</code>, <code>ERROR</code> and <code>DEBUG</code>, and a text search;</li>
+<li>the columns Source, Time, Level, Message and Duration. Source is narrow
+and shows the first namespace segment after <code>DBTools</code> and the type name,
+for example <code>JoistGirderWeight · AutoUpdateTask</code>. A name that does not fit
+is still and shortened in the middle, keeping the start of the tool and the
+end of the type name (<code>Joist…AutoUpdateTask</code>). While the pointer is over the
+row, or the row is selected, the full name scrolls as a ticker: it holds at
+its start, scrolls left and repeats after a gap. It returns to its start when
+the pointer leaves or the selection moves. With Windows animation effects
+off, names never scroll. Rows have no tooltips;</li>
+<li>message text without its markers: a leading <code>[Tag]</code> shows as a chip, and
+the execution phase, the elapsed time and the correlation ID leave the text.
+Duration shows the elapsed time of a timed entry, for example <code>460 ms</code>,
+<code>5.6 s</code> or <code>1 min 45 s</code>;</li>
+<li>a details pane (the toolbar info button, a double-click on an entry, or
+<strong>Show Details</strong> in the context menu). Opening it scrolls the selected entry
+into view. It shows every value of the selected
+entry: time with milliseconds, level, full source, message, tag, phase,
+duration, correlation ID, the logged text and the exception. <strong>Copy details</strong>
+copies these values;</li>
+<li>the start row of a finished operation is hidden: its finish row shows the
+duration. A start row stays until its operation finishes, and a search shows
+every matching start row. <strong>Show Start Rows</strong> in the context menu shows every
+start row;</li>
+<li>level filters for <code>INFO</code>, <code>WARN</code>, <code>ERROR</code> and <code>DEBUG</code>, and a text search
+that matches the logged text and the displayed text;</li>
 <li><strong>Copy All</strong> and <strong>Export</strong>, which save every retained entry in arrival
-order regardless of the filters. Export writes
-<code>DBToolsLog_&lt;yyyyMMdd_hhmmss&gt;&lt;AM|PM&gt;.txt</code>;</li>
+order regardless of the filters, with the logged text unchanged. Export
+writes <code>DBToolsLog_&lt;yyyyMMdd_hhmmss&gt;&lt;AM|PM&gt;.txt</code>;</li>
 <li>auto-scroll, which follows new entries. Scrolling up pauses it until you
 scroll back to the bottom or until a new entry arrives after 15 s idle;
 turning it off keeps it off;</li>
@@ -353,9 +377,12 @@ previous file fails, the new file stays active and a warning is logged.</li>
 </ul>
 <h3 id="correlation-ids-and-execution-phases">Correlation IDs and execution phases</h3>
 <p><code>ISafeExecutor</code> gives every operation a GUID correlation ID and logs its phases:</p>
-<pre><code class="lang-text">[Start] GM Apply starting (CorrelationId=...)
-[Complete] GM Apply completed in 1234ms (CorrelationId=...)
+<pre><code class="lang-text">[&quot;Start&quot;] &quot;GM Apply&quot; starting (CorrelationId=...)
+[&quot;Complete&quot;] &quot;GM Apply&quot; completed in 1234ms (CorrelationId=...)
 </code></pre>
+<p>The log file and exports keep this text. The logger window shows
+<code>GM Apply completed</code> with <code>1.2 s</code> in Duration, and keeps the phase and
+correlation ID in the details pane.</p>
 <table>
 <thead>
 <tr>
@@ -366,22 +393,22 @@ previous file fails, the new file stays active and a warning is logged.</li>
 </thead>
 <tbody>
 <tr>
-<td><code>[Start]</code></td>
+<td><code>Start</code></td>
 <td>Information</td>
 <td>The operation started</td>
 </tr>
 <tr>
-<td><code>[Complete]</code></td>
+<td><code>Complete</code></td>
 <td>Information</td>
 <td>The operation finished</td>
 </tr>
 <tr>
-<td><code>[Cancel]</code></td>
+<td><code>Cancel</code></td>
 <td>Warning</td>
 <td>The operation was canceled</td>
 </tr>
 <tr>
-<td><code>[Error]</code></td>
+<td><code>Error</code></td>
 <td>Error</td>
 <td>The operation failed</td>
 </tr>

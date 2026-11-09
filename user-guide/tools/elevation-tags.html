@@ -108,7 +108,27 @@
 <li>it has a leader;</li>
 <li>the elevation base of its type is not <code>Relative</code>.</li>
 </ul>
-<p>For each processed spot the tool computes the label position from the leader end, then applies the per-type offsets. It moves the label only when the new X or Y position differs from the current one after rounding both to two decimals (feet). Spots that already sit at the target position are not counted as updated.</p>
+<p>For each processed spot the tool computes the label position from the leader end, then applies the per-type offsets. The placement follows the Text Location of the spot elevation type:</p>
+<table>
+<thead>
+<tr>
+<th>Text Location</th>
+<th>Label position</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Above Leader, Below Leader</td>
+<td>Beside the leader end, over the leader shoulder. Above the leader when the leader runs up the screen to the point; below it when the leader runs down or is level.</td>
+</tr>
+<tr>
+<td>In-line with Leader</td>
+<td>On the leader line, past the leader end on the side away from the shoulder.</td>
+</tr>
+</tbody>
+</table>
+<p>Revit itself draws Above Leader labels above the leader and Below Leader labels below it, whichever way the leader runs. It also mirrors the marker symbol when the leader runs up the screen, so text drawn above the origin of the symbol, as in the DB Elevation Tag label symbols, lands on the side away from the point. Revit's own side therefore puts the label on the symbol text for Above Leader with a leader running down and for Below Leader with a leader running up. The tool puts the label on the point's side instead, for both locations. Revit draws no marker symbol for In-line with Leader.</p>
+<p>Directions follow the view as displayed, including rotated plans. The per-type offsets apply after this placement: a negative Perpendicular offset larger than the gap puts the label on or across the leader. The tool moves the label only when the new X or Y position differs from the current one after rounding both to two decimals (feet). Spots that already sit at the target position are not counted as updated.</p>
 <p>For a type whose elevation base is <code>Project Base Point</code>, the displayed elevation is measured from the project base point when the project base point and survey point are at different positions.</p>
 <h2 id="settings">Settings</h2>
 <p>Open <strong>DB Tools</strong> &gt; <strong>Settings</strong> and select the <strong>Elevation Tags</strong> pack.</p>
@@ -139,13 +159,14 @@
 <tr>
 <td>Perpendicular</td>
 <td>0</td>
-<td>Moves the label away from the leader line (positive) or toward it (negative), vertically.</td>
+<td>Moves the label away from the leader line (positive) or toward it (negative), vertically. For In-line with Leader, positive moves the label up.</td>
 </tr>
 </tbody>
 </table>
 <p>A spot is tested against these names: the spot name, the spot dimension type name and its family name, and the name and family name of the type's marker symbol. Because spot elevations are a system family, the patterns match the type and marker symbol names, not only loaded family names.</p>
 <p>When the pattern list is empty, the default pattern is used. A pattern that is not a valid regular expression is skipped and logged.</p>
-<p>The two offsets are stored per spot elevation type. The settings pack has a type selector (previous and next buttons) and a live preview that shows the label, the tag origin and the leader end for the selected type with the current offsets. The offsets are in paper inches. The tool multiplies them by the view scale divided by 12 to get model units.</p>
+<p>The two offsets are stored per spot elevation type. The offsets are in paper inches. The tool multiplies them by the view scale divided by 12 to get model units.</p>
+<p>The settings pack has a type selector (previous and next buttons) and a live preview. The preview draws two spots of the selected type on one element, with the text where the tool places it for the type's Text Location. For Above Leader and Below Leader, the text is below the shoulder for the spot whose leader runs down to the element and above the shoulder for the spot whose leader runs up, and each spot has the datum symbol at its leader end, mirrored for the upward leader as in Revit. For In-line with Leader, the text is centered on the leader past its end, with no symbol. The text is in the type's font and moved by the current offsets. A dashed outline shows the text position without offsets. The drawing is at twice print size, and is reduced when it does not fit. Under the drawing, the preview shows the type's font, text location, elevation indicator, elevation base and symbol. The preview uses the same Text Location value as Align in every Revit language. The text location label uses Revit's display name. A type with a missing or unknown Text Location is omitted from the preview and recorded in the log. With no project open, the preview asks for one. When no spot elevation type in the project matches the tag name patterns, the preview says so and lists the patterns.</p>
 <p>Settings are stored per user and Revit year in <code>%APPDATA%\DBTools\settings.&lt;year&gt;.json</code>. They apply to every project.</p>
 <h2 id="result">Result</h2>
 <p>The command is one undo entry. The banner shows one of these messages:</p>
@@ -190,6 +211,8 @@
 <li>Only the active view is processed. There is no multi-view command; auto-update covers each view as you open it.</li>
 <li>Linked models are not processed.</li>
 <li>Spots without a leader and spots on a <code>Relative</code> elevation base are skipped. The last info message does not say which of the two causes applies.</li>
+<li>The side rule follows the DB Elevation Tag label symbols, which draw their text above the symbol origin. With a symbol that draws its text below its origin, the label lands on that text.</li>
+<li>For an exactly level leader the label goes below the leader, but Revit may draw the symbol either way, so the label can land on the symbol text. Give the leader a slight slope.</li>
 <li>The text width is measured with the Windows font engine and the tag type's font. Arial is used when the type defines no font.</li>
 </ul>
 

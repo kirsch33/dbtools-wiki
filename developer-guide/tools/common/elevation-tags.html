@@ -157,7 +157,15 @@ Manual alignment runs on the active view. Automatic alignment runs when a suppor
 </tr>
 <tr>
 <td><code>Settings/PreviewContext</code></td>
-<td>Preview formatting and image state</td>
+<td>Preview text measurement, canvas geometry and symbol ink mask</td>
+</tr>
+<tr>
+<td><code>Settings/SpotElevationPreviewLayout</code>, <code>SpotElevationPreviewScene</code>, <code>SpotElevationPreviewTag</code></td>
+<td>Preview placement in paper inches</td>
+</tr>
+<tr>
+<td><code>Settings/Views/ElevationTagsSettingsPackView.xaml.cs</code></td>
+<td>Reports the preview viewport and device pixels per unit</td>
 </tr>
 <tr>
 <td><code>Settings/Views/ElevationTagsSettingsPackView.xaml</code></td>
@@ -265,16 +273,66 @@ The settings context exposes the warning state and disables its automatic-update
 The settings preview redraws as per-type offsets change.</p>
 <h3 id="alignment-algorithm">Alignment algorithm</h3>
 <ol>
-<li>Read the origin, leader end, current text position, and spot type.</li>
+<li>Read the origin, leader end, current text position, spot type, and the type's Text Location.</li>
 <li>Resolve elevation and format its text using document units and the type's unit options.</li>
 <li>Measure the text with GDI+ using font, text size, width scale, and display DPI.</li>
-<li>Compute placement relative to the leader end and current above/below text side.</li>
+<li>Compute placement relative to the leader end from the leader direction and the Text Location.</li>
 <li>Apply the configured per-type offsets.</li>
 <li>Write <code>TextPosition</code> when X or Y differs after rounding to two decimal places in internal coordinates.</li>
 </ol>
 <p>Z remains the existing text Z. The view factor is <code>view.Scale / 12</code>.
-The measured horizontal half-width receives margins of <code>2 * factor / 128 + factor / 8</code>.
-The vertical margin is <code>factor / 64</code>. Placement below the leader also accounts for measured text height.</p>
+Placement works along the view's <code>RightDirection</code> and <code>UpDirection</code>, so it follows rotated plans.
+<code>AutoUpdater.ComputeTextOffset</code> in <code>Features/AutoUpdater.Run.cs</code> owns the placement rule.
+The margin from the leader end is <code>2 * factor / 128 + factor / 8</code>; the gap from the leader is <code>factor / 64</code>.
+Measured text width and height are scaled by the view factor.</p>
+<p>The Text Location comes from the type's <code>SPOT_ELEV_TEXT_LOCATION</code> value:
+0 is Above Leader, 1 is Below Leader, and 2 is In-line with Leader.
+Any other value or a missing parameter fails that spot.</p>
+<table>
+<thead>
+<tr>
+<th>Text Location</th>
+<th>Revit's own placement</th>
+<th><code>TextPosition</code> marks</th>
+<th>Align places the text</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Above Leader</td>
+<td>Above the leader on screen, for either leader direction</td>
+<td>Bottom center</td>
+<td>On the point's side of the leader, centered over the shoulder</td>
+</tr>
+<tr>
+<td>Below Leader</td>
+<td>Below the leader on screen, for either leader direction</td>
+<td>Top center</td>
+<td>On the point's side of the leader, centered over the shoulder</td>
+</tr>
+<tr>
+<td>In-line with Leader</td>
+<td>Centered on the leader, past the leader end, no symbol</td>
+<td>Top corner nearest the leader end</td>
+<td>Centered on the leader, past the leader end on the side away from the shoulder</td>
+</tr>
+</tbody>
+</table>
+<p>The point's side is above the leader when the leader end is below the spot origin along the up direction,
+and below the leader otherwise. A leader whose rise along the up direction is at most <code>1e-9</code> times its length
+counts as level and takes the below placement in every view rotation.
+Revit mirrors the marker symbol across the leader when the leader runs up the screen.
+A symbol that draws its text above its origin, as the DB Elevation Tag label symbols do,
+therefore shows that text on the side away from the point.
+Revit's own side would put the elevation text on the symbol text for Above Leader with a leader running down
+and for Below Leader with a leader running up; Align uses the point's side for both locations instead.
+The Text Location still sets which edge <code>TextPosition</code> marks, so the text keeps the same gap from the leader.
+The current text position does not select the side, so a second run leaves an aligned spot unchanged.</p>
+<p>The offsets then move the text along the same axes. A positive <code>AlongLeaderOffset</code> moves it further from
+the leader end. A positive <code>PerpendicularOffset</code> moves Above Leader and Below Leader text further from the leader,
+and moves in-line text up.
+A negative <code>PerpendicularOffset</code> larger than the gap puts the text on or across the leader;
+Align does not prevent that.</p>
 <p>The elevation base uses the type's displayed <code>SPOT_ELEV_BASE</code> value:</p>
 <table>
 <thead>
@@ -302,6 +360,57 @@ The vertical margin is <code>factor / 64</code>. Placement below the leader also
 Otherwise the measured prefix is <code>EL. </code>. The calculation does not append a configured suffix.
 Font defaults to Arial and width scale defaults to 1 when their parameters are absent.
 A units-format lookup failure logs once and uses default formatting.</p>
+<h3 id="settings-preview">Settings preview</h3>
+<p><code>PreviewContext</code> draws the selected type at twice print size, 192 canvas units per paper inch, or
+smaller when the viewport that the view reports cannot hold the drawing. The view also reports its
+device pixels per unit. Strokes are a whole number of device pixels thick, and shoulders, crosshairs and
+outlines lie on device pixels and render with aliased edges, so they stay sharp at any display scale.
+The drawing shows two spots of the type on one square element: one whose leader runs down to the
+element point and one whose leader runs up to it.
+<code>SpotElevationPreviewLayout</code> places the parts in paper inches, from each leader end:</p>
+<ul>
+<li>a datum target 3/16&quot; across at the leader end, except for In-line with Leader. Upper-left and
+lower-right quadrants are filled where the leader runs down; the target is mirrored where it runs up,
+as Revit mirrors the symbol. When the projector supplies the symbol's preview image, the view draws
+that image instead, as an ink mask in the theme text color, mirrored the same way;</li>
+<li>the shoulder from the leader end to 1/16&quot; past the label, or 3/8&quot; long for In-line with Leader,
+then the leader to the element point;</li>
+<li>the label, in the type's font, style and width factor, with capitals as high as the type's text size.</li>
+</ul>
+<p>The label follows <code>AutoUpdater.ComputeTextOffset</code> at a view factor of 1: a margin of <code>2/128 + 1/8</code> inch
+from the leader end and a gap of <code>1/64</code> inch from the leader. The projector reads
+<code>SPOT_ELEV_TEXT_LOCATION</code> by built-in parameter identity. <code>SpotTextLocationParser.ParseTextLocation</code>
+maps its integer value to the <code>SpotTextLocation</code> enum shared with Align: 0 Above Leader,
+1 Below Leader, 2 In-line with Leader. Missing or unknown values log a warning with the type
+name and value, and exclude that type from the preview. The snapshot keeps <code>AsValueString()</code>
+as <code>TextLocationName</code> for the label only.</p>
+<table>
+<thead>
+<tr>
+<th>Text Location</th>
+<th>Label in the preview</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Above Leader, Below Leader</td>
+<td>Over the shoulder, its near edge the margin from the leader end; a gap below the shoulder where the leader runs down, a gap above it where the leader runs up</td>
+</tr>
+<tr>
+<td>In-line with Leader</td>
+<td>Centered on the leader, its near edge the margin past the leader end on the side away from the shoulder; no symbol</td>
+</tr>
+</tbody>
+</table>
+<p>Text Location only changes which label edge Align's <code>TextPosition</code> marks, so Above Leader and
+Below Leader draw alike. Along Leader moves the label away from the leader end. Perpendicular moves
+Above Leader and Below Leader labels away from the shoulder, and in-line labels up.
+A dashed outline shows each label without offsets. Like the alignment, the preview ignores Text Offset
+from Leader, Text Offset from Symbol and Text Orientation.
+Under the drawing, the view shows the font, Text Location, elevation indicator, elevation base and symbol name.</p>
+<p>Without a matching type the view draws nothing. It shows <code>No project open</code> when the project supplies
+no spot elevation types, and <code>No spot elevation type matches the patterns</code> with the nonblank patterns
+(<code>TypeContext.ActivePatterns</code>) when none of them matches.</p>
 <h3 id="troubleshooting">Troubleshooting</h3>
 <table>
 <thead>
@@ -330,12 +439,26 @@ A units-format lookup failure logs once and uses default formatting.</p>
 </tbody>
 </table>
 <h2 id="testing">Testing</h2>
-<p>Pure tests cover the runner, symbol resolution, settings state, preview, and manual summaries.
+<p>Pure tests cover the runner, symbol resolution, settings state, preview layout and drawing,
+the settings view's bindings, and manual summaries.
 Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover the command, module, workflow, view activation,
-live updater, and type projection.</p>
+live updater, and type projection. Pure tests pin <code>ComputeTextOffset</code> for each Text Location and leader direction.
+Pure tests also cover level leaders with rounding residuals of both signs and the rejection of a missing or
+unknown Text Location value.
+The workflow tests build a spot elevation symbol with text above its origin. For each Text Location, they align
+spots whose leaders run up, down, and level, to the left and right, in a Project North plan and in a plan
+turned 90 degrees.
+They measure the elevation text and the symbol text from the spot's box in the view. They check the edge
+<code>TextPosition</code> marks, that above and below text lies on the other side of the leader from the symbol text,
+that level leaders put above and below text below the leader, that in-line text is centered on the leader
+with its near edge one margin past the leader end, and that a second run moves nothing.</p>
 <p>See <a href="../../architecture/overview.html">architecture</a> and <a href="../../architecture/theme-system.html">themes</a>.</p>
 <h2 id="limitations">Limitations</h2>
-<p>Elevation-base and prefix comparisons require English display strings and use ordinal matching. No-change counts combine already aligned spots, leaderless spots, and spots with a Relative elevation base.</p>
+<p>The side rule assumes the marker symbol draws its text above its origin.
+With a symbol that draws its text below its origin, the elevation text lands on the symbol text.
+For an exactly level leader, Align puts the text below the leader, but Revit's own symbol orientation
+changes with rounding: a test plan turned 90 degrees showed the symbol mirrored where Project North did not.
+Elevation-base and prefix comparisons require English display strings and use ordinal matching. No-change counts combine already aligned spots, leaderless spots, and spots with a Relative elevation base.</p>
 
 </article>
 
