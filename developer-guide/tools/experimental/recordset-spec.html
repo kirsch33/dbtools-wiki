@@ -479,19 +479,29 @@ Bind preserves Xref-prefixed names. Insert merges names and can produce naming c
 <ol>
 <li>An existing path from <code>ACCORECONSOLE</code>.</li>
 <li><code>accoreconsole.exe</code> in PATH order.</li>
-<li>AutoCAD 2026, 2025, and 2024 under <code>C:\Program Files\Autodesk</code>.</li>
-<li>DWG TrueView 2025 under the same directory.</li>
+<li>Installed <code>AutoCAD 20xx</code> and <code>AutoCAD &lt;vertical&gt; 20xx</code> folders under the 64-bit Program Files Autodesk directory,
+newest year first. This includes the <code>AutoCAD 2027</code> folder used by AutoCAD Architecture 2027.</li>
+<li>Installed <code>DWG TrueView 20xx</code> folders under the same directory, newest year first.</li>
 </ol>
-<p>Each run extracts the embedded <code>DBTools.ToolCad.RecordSet.rs_xrefs.lsp</code> to a unique temporary <code>.lsp</code> file
-and attempts deletion in <code>finally</code>. Deletion failures log a Warning.
-<code>CoreConsoleRunner</code> writes its other temporary files under one stem in the temporary folder:
-<code>{stem}.scr</code>, <code>{stem}.input.txt</code> and <code>{stem}.result.json</code>. The <code>.scr</code> file loads the script and calls one function:</p>
+<p>The Program Files root comes from <code>ProgramW6432</code>, or the Windows Program Files special folder.
+Only folders containing <code>accoreconsole.exe</code> qualify. No fixed year list limits discovery.</p>
+<p>Each run reads the embedded <code>DBTools.ToolCad.RecordSet.rs_xrefs.lsp</code>.
+<code>CoreConsoleRunner</code> writes its temporary files under one stem in the temporary folder:
+<code>{stem}.scr</code>, <code>{stem}.input.txt</code> and <code>{stem}.result.json</code>. The <code>.scr</code> file holds the lines of the script
+without blank and comment lines, then calls one function:</p>
 <pre><code class="lang-text">accoreconsole.exe /i &quot;&lt;input.dwg&gt;&quot; /s &quot;&lt;stem&gt;.scr&quot;
-(load &quot;&lt;script.lsp&gt;&quot;) (princ) (&lt;function&gt; &quot;&lt;stem&gt;.result.json&quot; [&quot;&lt;stem&gt;.input.txt&quot;] [&lt;arguments&gt;]) (princ)
+&lt;rs_xrefs.lsp lines&gt;
+(&lt;function&gt; &quot;&lt;stem&gt;.result.json&quot; [&quot;&lt;stem&gt;.input.txt&quot;] [&lt;arguments&gt;])
 </code></pre>
-<p>Arguments use forward slashes and cannot contain a double quote; input lines cannot contain a line break.
-The input and result files are UTF-8 without a byte order mark. The runner starts both redirected reads immediately,
-returns standard output, standard error, the exit code and the result text, and deletes the temporary files.
+<p>The script is not loaded with <code>load</code>: with the default <code>SECURELOAD</code> 1, Core Console cancels the load of a LISP file
+from a folder that is not trusted, such as the temporary folder. A blank script line repeats the last command.
+The <code>.scr</code> file is UTF-8 with a byte order mark and CRLF line ends.
+Arguments use forward slashes and cannot contain a double quote; input lines cannot contain a line break.
+The input and result files are UTF-8 without a byte order mark. The runner starts both redirected reads immediately.
+The run ends when <code>accoreconsole.exe</code> exits. The runner then terminates the processes that remain in the owned process
+tree, because Core Console leaves Autodesk helper processes running (for example <code>AdskIdentityManager.exe</code> and
+<code>ADPClientService.exe</code>), waits for the tree to exit and both streams to end, returns standard output, standard error,
+the exit code and the result text, and deletes the temporary files.
 Cancellation terminates the owned process tree, observes terminal stream completion and deletes the files.</p>
 <p><code>CoreConsoleRuntime.RunScriptAsync</code> accepts a run only when the exit code is 0 and the result file holds a JSON object
 with <code>&quot;ok&quot;: true</code> and the members the caller reads. A missing, empty, malformed or failed result throws

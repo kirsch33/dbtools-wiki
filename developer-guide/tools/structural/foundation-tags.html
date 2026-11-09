@@ -270,15 +270,24 @@ problem when the user runs them. <code>UpdateCombinedFoundationTagsCommand</code
 parameters, so it refuses one with <code>SafeExecutionRefusedException</code> and leaves the warning unchanged. It returns true
 when every row is OK. Otherwise it activates the warning and shows one Warning alert, <strong>Required shared parameters need repair</strong>,
 that names the command and lists each failing parameter with its status and description, with the buttons
-<strong>Cancel</strong> and <strong>Repair</strong>. Cancel changes nothing. Repair runs <code>EnsureInstalledAndValid</code> with
-<code>PrerequisiteRepairPrompt</code>, owned by the command's window owner. A successful repair clears the warning and
-shows a Success banner, <code>Install/Repair succeeded. Run &lt;command&gt; again.</code> with the repair <code>Summary</code>; a canceled
-schedule prompt changes nothing and shows nothing more. A refused repair (<code>InvalidOperationException</code>) logs a
-Warning and becomes <code>SafeExecutionRefusedException</code>, so safe execution shows its Warning banner. Otherwise
-<code>EnsureReady</code> returns false; in both cases the command does not run its workflow. The command returns normally
-after a repair, so Revit keeps the repair; a failure of the success banner is logged and does not fail the command. The workflows keep <code>PrerequisiteGuard</code>, which refuses with
-<code>SafeExecutionRefusedException</code> and activates the warning when a caller runs them without the offer.
+<strong>Cancel</strong> and <strong>Repair</strong>. Repair runs <code>EnsureInstalledAndValid</code> with <code>PrerequisiteRepairPrompt</code>, owned by the
+command's window owner. Cancel, in the alert or in the schedule prompt, changes nothing and throws
+<code>OperationCanceledException</code>: safe execution logs one Warning, <code>[Cancel] &lt;command&gt; canceled after &lt;n&gt;ms</code>, shows no
+banner, and Revit sees <code>Result.Cancelled</code>. A successful repair clears the warning and shows a Success banner,
+<code>Install/Repair succeeded. Run &lt;command&gt; again.</code> with the repair <code>Summary</code>; <code>EnsureReady</code> then returns false, so the
+command returns normally without its workflow and Revit keeps the repair (<code>Result.Succeeded</code>). A failure of the
+success banner is logged and does not fail the command. A refused repair (<code>InvalidOperationException</code>) logs a Warning
+and becomes <code>SafeExecutionRefusedException</code>, so safe execution shows its Warning banner.
+The commands are the only callers of the workflows, so the workflows do not check the parameters again.
 Unexpected validation faults remain errors and do not assert invalid prerequisites.</p>
+<p><code>PrerequisiteSharedParameterInstaller</code> reads every binding through Core's <code>SharedParameterBindingLookup</code>. When Revit's
+binding map holds a dead key (see <a href="../../projects/core.html#shared-parameter-migration">shared parameter migration</a>),
+the status rows, <code>PlanRepair</code> and <code>EnsureInstalledAndValid</code> throw <code>SafeExecutionRefusedException</code> with
+<code>Revit's parameter bindings for this model are in an invalid state; save, close and reopen the model, then try again.</code>
+and change nothing. <code>EnsureReady</code> lets it propagate before it activates the warning or shows the alert, so safe
+execution shows it as a Warning banner. Settings shows it under <strong>Status not available</strong> in place of the list, and as
+the status message and banner of a failed Install/Repair. <code>PrerequisiteEvaluator</code> classifies it as <code>Invalid</code>, so the
+monitor and the automatic update activate the warning and do not retry.</p>
 <p>Settings → <strong>Combined Foundation Tags</strong> shows the status of the active document and offers <strong>Install/Repair</strong>;
 the warning card's Fix action (<code>FixLabel</code> <strong>Install/Repair</strong>) runs the same repair. A successful repair clears the warning and re-enables the commands.
 Construction of the settings context is passive and leaves the list unchecked. <code>FoundationTagsSettingsPackView</code>
@@ -389,7 +398,9 @@ A late Idling event can retry detachment.</p>
 Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.
 The GM test model has the three parameters from the company file. A test that needs invalid prerequisites
 deletes, unbinds, rebinds or replaces a parameter with <code>Tests/Support/FoundationTagsPrerequisiteStates</code>
-inside a transaction group that it rolls back.</p>
+inside a transaction group that it rolls back. <code>LeaveDeadBindingKey</code> looks up the binding of a parameter, then
+changes its group variance and rolls the change back; no rollback restores the binding map, so a test calls it only in
+a project that it creates and closes.</p>
 <pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope local -y 2026
 </code></pre>
 <h2 id="limitations">Limitations</h2>

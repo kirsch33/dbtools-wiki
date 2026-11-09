@@ -205,7 +205,10 @@ Busy state disables editing, CAD actions, options, and ordinary window close.
 The footer reports Root, Free, ACAD, and Sentinel status. Root is Pending, Allowed, or Blocked;
 Sentinel is Pending, Present, or Missing. ACAD shows the Core Console path or Unavailable.</p>
 <h2 id="testing">Testing</h2>
-<p>The Pure project references the normal desktop tool project, which owns its source and resource mapping.
+<p>Both Pure projects reference the normal desktop tool project, which owns its source and resource mapping.
+<code>DBTools.RecordSet.Pure.Tests</code> requires an interactive window station for its WPF fixtures.
+<code>DBTools.RecordSet.Cad.Pure.Tests</code> contains only <code>CadLiveTests</code> and requires no interactive desktop.
+<code>./test.sh test --tool RECORDSET --scope pure</code> selects the WPF project. The CAD project is opt-in so machines without AutoCAD can run the default suite.
 Pure fixtures cover domain, planning, preview, execution, filesystem policy, CAD process handling, view models, and catalog editing.
 Most CAD fixtures replace <code>accoreconsole.exe</code> with a <code>.cmd</code> file that copies a prepared result file to <code>{stem}.result.json</code>
 and the input file to the scratch folder, and the planner fixtures use a fake <code>ICadPreviewer</code>.
@@ -213,6 +216,7 @@ and the input file to the scratch folder, and the planner fixtures use a fake <c
 <code>PreviewPlanBuilder</code> and <code>CadExecutor</code> with real AutoCAD Core Console. Each test is ignored unless
 <code>ACCORECONSOLE</code> names an existing file. The fixture does not search PATH or Autodesk installation folders.
 Select it with <code>./test.sh test --tool RECORDSET --scope pure --fixture CadLiveTests</code> on a machine with AutoCAD.
+Each test fails after 5 minutes, before the test host hang timeout ends the run.
 The fixture creates DWGs in a temporary folder and removes that folder in teardown. It checks a relative
 attachment, a nested attachment and an Xref inserted only inside a local block, their planned copies and
 stored-path maps, repath readback, and Bind All from source-relative paths. Readback occurs after removing
