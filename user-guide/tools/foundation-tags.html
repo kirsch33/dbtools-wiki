@@ -148,6 +148,7 @@
 </tr>
 </tbody>
 </table>
+<p>The GUIDs are the ones in the DB shared parameter file (group <code>DB Structural</code>), so a project that already has these parameters from that file needs no repair. A project that has a parameter with one of these names and another GUID, such as a project set up with DB Tools releases before November 2026, reports <code>GUID_MISMATCH</code> until you run Install/Repair.</p>
 <p>DB Tools checks the parameters when the active model changes and before each command. If a parameter is missing, has another GUID, has the wrong data type, is bound as a type parameter, or is bound to the wrong category, DB Tools raises the warning <code>Combined Foundation Tags Disabled</code>. The warning disables Update Combined Foundation Tags, Move Combined Tags and Organize Foundation Types.</p>
 <p>To repair the parameters:</p>
 <ol>
@@ -155,8 +156,39 @@
 <li>Click <strong>Refresh</strong> to list the status of each required parameter.</li>
 <li>Click <strong>Install/Repair</strong> (or <strong>Fix</strong> on the warning card).</li>
 </ol>
-<p>Install/Repair needs an active Revit document. It loads the definitions from the embedded shared parameter file, binds them to the required categories as instance parameters, and clears the warning. It also resolves conflicts: it deletes parameters that have the same name with another GUID, or duplicate definitions with the same name, and reinstalls the DB Tools definitions. It keeps any other categories bound to these parameters and their values. If one of those bindings is a type parameter, Install/Repair changes it to an instance parameter and Revit drops its type values.</p>
+<p>Install/Repair needs an active Revit document. It loads the definitions from the embedded shared parameter file, binds them to the required categories as instance parameters, and clears the warning. It keeps any other categories bound to these parameters and their values, and whether values can vary between group instances. If a parameter that already has the required GUID is bound as a type parameter (<code>WRONG_BINDING_TYPE</code>), Install/Repair changes it to an instance parameter and copies the value of each type to every instance of that type. If it is not bound to its required category (<code>WRONG_CATEGORY</code>), Install/Repair adds the category and keeps every value, including different values in instances of one group.</p>
+<p>For a parameter with another GUID (<code>GUID_MISMATCH</code>), Install/Repair replaces the parameter with the company definition and keeps:</p>
+<ul>
+<li>every category the old parameter was bound to, plus the required category, as instance categories;</li>
+<li>the old parameter group, and whether values can vary between group instances;</li>
+<li>every value: an element value stays on the same element, and the value of a type parameter is copied to every instance of that type.</li>
+</ul>
+<p>The company definition replaces the old parameter's visibility, description, user-modifiable and hide-when-no-value settings. The status message and the banner name each replaced parameter, the values kept, and each setting that changed.</p>
+<p>Install/Repair changes nothing and keeps the warning when it cannot keep every value:</p>
+<ul>
+<li>the old parameter has another data type, for example Area where Length is required;</li>
+<li>the parameter with the required GUID has another data type (<code>WRONG_DATA_TYPE</code>); Install/Repair cannot change the data type of a shared parameter, so delete that parameter in <strong>Manage</strong> &gt; <strong>Project Parameters</strong>, which deletes its values, and run Install/Repair again;</li>
+<li>a value cannot be written to its element, for example because Revit blocks the change;</li>
+<li>a rebar container overrides the old parameter;</li>
+<li><code>Associated Pier Elevation</code> or <code>Foundation Pier Top</code> (Length) has values on members of a group that is placed more than once. Revit changes such a value only in group edit mode, and it does not let a Length parameter vary between group instances, so DB Tools cannot write it. Values of <code>Associated Pier</code> (Text) in such groups are kept;</li>
+<li>a type parameter has a value on a type that has no instances;</li>
+<li>a parameter with the required name and another GUID holds values next to the parameter that has the required GUID (<code>DUPLICATE_NAME</code>);</li>
+<li>more than one parameter has the required name and none has the required GUID.</li>
+</ul>
+<p>The message names the parameter and the reason, and lists each value that could not be kept with its element ID. The DB Tools log lists every one. Correct the cause, for example delete the extra parameter in <strong>Manage</strong> &gt; <strong>Project Parameters</strong> or purge the unused type, and run Install/Repair again.</p>
+<p>Install/Repair cannot change loaded tag families. A tag label that uses the old parameter still refers to the old GUID and shows no value. Reload the tag families that use the company shared parameters, or edit their labels to use the parameters from the DB shared parameter file.</p>
+<p>A duplicate of a parameter that already has the required GUID (<code>DUPLICATE_NAME</code>) is deleted only when no element or type has a value for it; the status message names each deleted duplicate. A global parameter with one of these names is not a project parameter; Install/Repair leaves it alone.</p>
+<p>These rules are tested with text and length values, extra categories, type parameters and grouped elements. Elements in design options and elements owned by another user in a workshared model are not tested; if Revit blocks a change there, Install/Repair changes nothing.</p>
 <p>Status values include <code>MISSING</code>, <code>GUID_MISMATCH</code>, <code>DUPLICATE_NAME</code>, <code>WRONG_DATA_TYPE</code>, <code>UNBOUND</code>, <code>WRONG_BINDING_TYPE</code> and <code>WRONG_CATEGORY</code>.</p>
+<h3 id="schedule-fields">Schedule fields</h3>
+<p>When Install/Repair deletes a parameter (a replaced parameter or an empty duplicate), Revit also removes every schedule field that uses it. This includes a field in an embedded schedule and a combined parameter field that includes the parameter. Revit removes a combined parameter field whole. Install/Repair cannot keep these fields or add them again. You must add the company parameter to those schedules by hand. A change of binding (<code>WRONG_BINDING_TYPE</code> or <code>WRONG_CATEGORY</code>) keeps the schedule fields.</p>
+<p>After <strong>Refresh</strong>, the parameter list shows a warning marker, for example &quot;Used in 2 schedules&quot;, below each parameter that Install/Repair would delete while a schedule uses it. Below the marker, each line names a schedule and the field heading. Install/Repair cannot see the formula of a calculated field, so a calculated field that uses the parameter is not listed; check calculated fields after the repair.</p>
+<p>When the repair would remove schedule fields, Install/Repair (the pack button or <strong>Fix</strong> on the warning card) asks before Revit changes anything. The prompt lists each schedule, field and parameter:</p>
+<ul>
+<li><strong>Cancel</strong> changes nothing. The parameters, values, bindings and schedules stay as they are, and the warning stays.</li>
+<li><strong>Continue</strong> runs the repair. The status message and the banner list each schedule and field that Revit removed. If the project changed while the prompt was open and the list is now different, Install/Repair changes nothing and asks again with the new list.</li>
+</ul>
+<p>After you continue, open each listed schedule and add the company parameter again, with its formatting, sorting, grouping, filters and conditional formatting.</p>
 <h2 id="update-combined-foundation-tags">Update Combined Foundation Tags</h2>
 <h3 id="usage">Usage</h3>
 <ol>

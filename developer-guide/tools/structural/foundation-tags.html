@@ -221,27 +221,32 @@ The required definitions are owned by <code>Features/Prerequisite/PrerequisiteRe
 <tbody>
 <tr>
 <td>Associated Pier</td>
-<td><code>7f6c2c2a-46ab-4e78-9bf6-9b9c2ef8f7d1</code></td>
+<td><code>a268a56a-e6c8-45ef-97a9-89a8608bc48f</code></td>
 <td>Text</td>
 <td>Structural Foundation</td>
 <td>Identity Data</td>
 </tr>
 <tr>
 <td>Associated Pier Elevation</td>
-<td><code>6d9b0f7f-4f7a-44a4-9c5c-0c0f4bf0da21</code></td>
+<td><code>56651179-1f6f-4f3b-b269-adb0532dc124</code></td>
 <td>Length</td>
 <td>Structural Foundation</td>
 <td>Identity Data</td>
 </tr>
 <tr>
 <td>Foundation Pier Top</td>
-<td><code>93de44b8-bb7c-4e58-a7e0-9a3a1c8e4d70</code></td>
+<td><code>1927a728-1a38-4907-a71d-aae1c8eb5f8c</code></td>
 <td>Length</td>
 <td>Structural Columns</td>
 <td>Constraints</td>
 </tr>
 </tbody>
 </table>
+<p>The GUIDs match the company's DB shared parameter file (group <code>DB Structural</code>), so projects that
+use that file already satisfy the prerequisites. A project with a parameter that has a required name and
+another GUID, such as one set up with the DB Tools GUIDs used before November 2026, reports <code>GUID_MISMATCH</code>.
+The data type check uses <code>ForgeTypeId.NameEquals</code>, which ignores the schema version, so a parameter
+created in an earlier Revit (<code>autodesk.spec.aec:length-2.0.0</code>) matches <code>SpecTypeId.Length</code> of a later one.</p>
 <p>Invalid prerequisites activate <code>core.structural.combined_tags</code> and refuse manual commands with
 <code>SafeExecutionRefusedException</code>. Safe execution shows a Warning banner and logs a Warning without a stack.
 Unexpected validation faults remain errors and do not assert invalid prerequisites.</p>
@@ -249,16 +254,75 @@ Unexpected validation faults remain errors and do not assert invalid prerequisit
 Use <strong>Install/Repair</strong> or <strong>Install/Repair Required Parameters</strong> to repair it. A successful repair clears the warning and re-enables the commands.
 Construction of the settings context is passive and shows a Refresh prompt.
 <code>SettingsRuntime</code> receives the settings host's <code>UIApplication</code> explicitly.
-Refresh replaces immutable <code>RequiredParameters</code> status rows. Their six column bindings use <code>OneTime</code>.
+Refresh replaces immutable <code>RequiredParameters</code> status rows. Their six column bindings and the row-details
+bindings use <code>OneTime</code>.
 <code>HasWarning</code> belongs to the session context and is not persisted in <code>FoundationTagsSettings</code>.</p>
 <p>Install/Repair uses embedded definitions in group <code>DBTools.Structural.FoundationTags</code>.
+Their columns and values match the company file: <code>VISIBLE</code> 1, an empty <code>DESCRIPTION</code>,
+<code>USERMODIFIABLE</code> 1 and <code>HIDEWHENNOVALUE</code> 1. Only the group name differs; a project does not store it.
 It creates a temporary shared-parameter file, restores Revit's original shared-parameter path,
 and attempts temporary-file deletion. The embedded definitions supply the required parameters.</p>
-<p>Repair deletes conflicting definitions with the same required name and a different GUID, including duplicate-name collisions.
-It preserves other categories and the existing group when extending a binding.
+<p><code>EnsureInstalledAndValid(IPrerequisiteRepairConfirmation)</code> first works out its whole plan without a change
+(<code>PlanRepair</code> returns the same <code>PrerequisiteRepairPlan</code>): every refusal, through Core's <code>CheckMigrate</code> and
+<code>CheckRebind</code>, and every schedule field that Revit removes because the repair deletes a parameter that the field
+uses, a replaced parameter or an empty duplicate (<code>SharedParameterMigration.FindScheduleFields</code>: main and embedded
+definitions, and combined parameter fields that include it). A rebind keeps its fields, so it adds none. A refusal
+throws before any change, including a parameter with the company GUID and another spec (<code>WRONG_DATA_TYPE</code>) and
+a Length value on a member of a group placed more than once, so no prompt describes a repair that would refuse.
+When the plan lists schedule fields, the confirmation decides before any change; a declined repair returns a result
+with <code>Canceled</code> set and changes nothing. After Continue the repair plans again before it opens the transaction
+group; if the refusals or the schedule fields differ (<code>PrerequisiteRepairPlan.IsSameAs</code>), it changes nothing and
+asks again with the new plan. Repair cannot keep or add the fields
+again; the user adds the company parameter to those schedules by hand.
+The repair runs in one transaction group and assimilates it only after every
+prerequisite is OK. A failure or refusal at any step rolls the group back and leaves the project unchanged,
+so the warning stays active.
+It first replaces each <code>GUID_MISMATCH</code> parameter through Core's
+<a href="../../projects/core.html#shared-parameter-migration">shared parameter migration</a>. A replacement keeps the
+old categories (a type binding becomes an instance binding of the same categories), the parameter group,
+the variance between group instances, and every value: element values on the same elements, and type
+values copied to every instance of the type. The company definition replaces the old visibility,
+description, user-modifiable and hide-when-no-value settings; each difference is reported.
+Next it rebinds an installed required parameter that is bound as a type parameter or lacks the required
+category (<code>WRONG_BINDING_TYPE</code>, <code>WRONG_CATEGORY</code>) through <code>SharedParameterMigration.Rebind</code>, which keeps its
+GUID, categories, group, the variance between group instances and every value, and copies each type value
+to every instance of that type.
+Repair refuses, and changes nothing, when the old parameter or the parameter with the company GUID has
+another spec, when a value cannot be written or read back, when a type value has no instance, when a rebar
+container overrides the parameter, when a Length parameter holds values on members of a group placed more than once
+(Revit lets such a value change only in group edit mode and does not let a Length parameter vary between group
+instances),
+when several parameters have the required name and none has the required GUID, or when a same-name
+duplicate of an installed required parameter holds values (<code>SharedParameterMigration.HoldsAnyValue</code>);
+the message names each such duplicate. A write that Revit blocks for another reason takes the same path.
+<code>SharedParameterMigrationException</code> lists every value that could not be carried over.
+A global parameter with a required name is not a project parameter; repair ignores it.
+The returned <code>PrerequisiteRepairResult</code> holds one <code>SharedParameterMigrationReport</code> per replaced parameter,
+one <code>SharedParameterRebindReport</code> per rebound parameter, each deleted duplicate and each removed schedule field.
+Settings appends its <code>Summary</code> to the status message and the banner: the kept and copied value counts,
+the definition differences, the deleted duplicates, the removed schedule fields with
+<code>PrerequisiteRepairResult.ScheduleAction</code> (add the company parameter to each schedule again by hand) and,
+after a replacement, the action <code>Reload the tag families that use the company shared parameters.</code>
+Tag family labels keep the old GUID until the families are reloaded.
+Repair deletes a same-name duplicate of an installed required parameter (<code>DUPLICATE_NAME</code>) only when it holds no values.
+Deleting a replaced parameter or a duplicate also removes the schedule fields that use it; Revit removes a
+combined parameter field whole.
+Settings uses <code>PrerequisiteRepairPrompt</code>, the production <code>IPrerequisiteRepairConfirmation</code>. It shows a Warning
+alert through Core's <code>IAlertService</code>, owned by the settings window (<code>IOwnerAwareContext</code>), with each schedule,
+field and parameter, the manual step, and the buttons <strong>Cancel</strong> and <strong>Continue</strong>. Cancel leaves the status
+message <code>Install/Repair canceled. Nothing changed.</code>, shows no banner and keeps the warning; this applies to
+the pack button and to <code>FixWarningAsync</code>. Refresh calls <code>PlanRepair</code> and marks each row with
+<code>ScheduleUse</code> (&quot;Used in N schedules&quot;) and <code>ScheduleUseDetails</code> (one <code>Schedule: Field</code> line each), shown in the
+row details under that row with the <code>WarningBar</code> surface. The six columns keep their widths, and the details
+use the full row width at the settings window's 800 px default. Tests answer the confirmation or the alert service
+with fakes.
+The Revit API does not expose the formula of a calculated field, so <code>FindScheduleFields</code> cannot list a
+calculated field that uses the parameter.
 An instance binding already containing the required category remains unchanged.
-A type binding becomes an instance binding with its existing categories plus the required category.
-Revit drops the type values and the installer logs a Warning naming the parameter.
+Hosted tests cover these paths with text and length values, extra categories, type bindings, two group
+instances with distinct values, a failure after values are written, an incompatible spec, and schedule fields
+in main, combined and embedded definitions with Cancel and Continue. Elements in
+design options and elements owned by another user in a workshared model are not tested.
 The updater accesses these parameters by GUID.</p>
 <p>The warning disables Update, Move, and Organize Foundation Types.
 Its title is <strong>Combined Foundation Tags Disabled</strong>. Clear it after resolving the prerequisite issue.</p>
@@ -275,7 +339,10 @@ Disposed lifetimes reject scheduling. Failed-detach entries retain cleanup state
 A late Idling event can retry detachment.</p>
 <h2 id="testing">Testing</h2>
 <p>Pure tests cover geometry, rotated views, corner names, regex classification, prerequisite lifecycle, and write results.
-Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.</p>
+Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.
+The GM test model has the three parameters from the company file. A test that needs invalid prerequisites
+deletes, unbinds, rebinds or replaces a parameter with <code>Tests/Support/FoundationTagsPrerequisiteStates</code>
+inside a transaction group that it rolls back.</p>
 <pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope local -y 2026
 </code></pre>
 <h2 id="limitations">Limitations</h2>
