@@ -263,15 +263,46 @@ use that file already satisfy the prerequisites. A project with a parameter that
 another GUID, such as one set up with the DB Tools GUIDs used before November 2026, reports <code>GUID_MISMATCH</code>.
 The data type check uses <code>ForgeTypeId.NameEquals</code>, which ignores the schema version, so a parameter
 created in an earlier Revit (<code>autodesk.spec.aec:length-2.0.0</code>) matches <code>SpecTypeId.Length</code> of a later one.</p>
-<p>Invalid prerequisites activate <code>core.structural.combined_tags</code> and refuse manual commands with
-<code>SafeExecutionRefusedException</code>. Safe execution shows a Warning banner and logs a Warning without a stack.
+<p>Background checks (the monitor, its retry and the automatic update) only record invalid prerequisites: they
+activate <code>core.structural.combined_tags</code>, which disables the commands, and show no banner. The commands report the
+problem when the user runs them. <code>UpdateCombinedFoundationTagsCommand</code> and <code>MoveCombinedFoundationTagsCommand</code> call
+<code>Features/Prerequisite/PrerequisiteRepairOffer.EnsureReady</code> before their workflow. A family document has no project
+parameters, so it refuses one with <code>SafeExecutionRefusedException</code> and leaves the warning unchanged. It returns true
+when every row is OK. Otherwise it activates the warning and shows one Warning alert, <strong>Required shared parameters need repair</strong>,
+that names the command and lists each failing parameter with its status and description, with the buttons
+<strong>Cancel</strong> and <strong>Repair</strong>. Cancel changes nothing. Repair runs <code>EnsureInstalledAndValid</code> with
+<code>PrerequisiteRepairPrompt</code>, owned by the command's window owner. A successful repair clears the warning and
+shows a Success banner, <code>Install/Repair succeeded. Run &lt;command&gt; again.</code> with the repair <code>Summary</code>; a canceled
+schedule prompt changes nothing and shows nothing more. A refused repair (<code>InvalidOperationException</code>) logs a
+Warning and becomes <code>SafeExecutionRefusedException</code>, so safe execution shows its Warning banner. Otherwise
+<code>EnsureReady</code> returns false; in both cases the command does not run its workflow. The command returns normally
+after a repair, so Revit keeps the repair; a failure of the success banner is logged and does not fail the command. The workflows keep <code>PrerequisiteGuard</code>, which refuses with
+<code>SafeExecutionRefusedException</code> and activates the warning when a caller runs them without the offer.
 Unexpected validation faults remain errors and do not assert invalid prerequisites.</p>
-<p>Use Settings → <strong>Combined Foundation Tags</strong> → <strong>Refresh</strong> to inspect the active document.
-Use <strong>Install/Repair</strong> or <strong>Install/Repair Required Parameters</strong> to repair it. A successful repair clears the warning and re-enables the commands.
-Construction of the settings context is passive and shows a Refresh prompt.
-<code>SettingsRuntime</code> receives the settings host's <code>UIApplication</code> explicitly.
-Refresh replaces immutable <code>RequiredParameters</code> status rows. Their six column bindings and the row-details
-bindings use <code>OneTime</code>.
+<p>Settings → <strong>Combined Foundation Tags</strong> shows the status of the active document and offers <strong>Install/Repair</strong>;
+the warning card's Fix action (<code>FixLabel</code> <strong>Install/Repair</strong>) runs the same repair. A successful repair clears the warning and re-enables the commands.
+Construction of the settings context is passive and leaves the list unchecked. <code>FoundationTagsSettingsPackView</code>
+binds its <code>ShownCommand</code> to <code>LoadRequiredParametersCommand</code> and runs it from its <code>Loaded</code> event, so the pack reads
+the active document each time it is shown. The view compiles into <code>DBTools.Presentation</code>, so it binds the command
+by name and does not reference the context type. The Settings window is modal, so the active document cannot
+change while it is open; each opening creates a new context. <code>SettingsRuntime</code> receives the settings host's <code>UIApplication</code> explicitly and
+classifies the active document (<code>ActiveDocumentKind</code>: <code>None</code>, <code>Family</code> or <code>Project</code>). Without a project the list
+stays empty, <code>HasRequiredParameters</code> is false, and the view shows the theme's empty state with
+<code>RequiredParametersEmptyTitle</code> and <code>RequiredParametersEmptyDetail</code> (<code>No project open</code>, <code>A family is active</code>, or
+<code>Status not available</code> with the failure message). <code>CanInstallOrRepair</code> is true only after the status of a project loaded, and gates
+<strong>Install/Repair</strong>; <code>FixWarningAsync</code> throws <code>{action} requires an active Revit document.</code> or
+<code>{action} requires a project. The active document is a family.</code>
+<code>LoadRequiredParameters</code> replaces immutable <code>RequiredParameters</code> status rows. <code>RequiredParametersList</code> shows one
+item per parameter: the name with a status chip at the right (green for <code>OK</code>, amber otherwise); a muted line with
+the data type, category and group (<code>Length · Structural Foundations · Identity Data</code>); for a status other than <code>OK</code>,
+the <code>Description</code>; and the schedule use. Data type, category and group are the required values by the names Revit
+shows (<code>PrerequisiteParameterLabels</code>): <code>LabelUtils.GetLabelForSpec</code>, the project's <code>Category.Name</code> or else
+<code>LabelUtils.GetLabelFor</code>, and <code>LabelUtils.GetLabelForGroup</code>. A value that Revit cannot name reads
+<code>Unknown data type (&lt;id&gt;)</code>, <code>Unknown category (&lt;value&gt;)</code> or <code>Unknown group (&lt;id&gt;)</code>, never the bare identifier. Every line wraps, so each
+value reads in full at any window width without horizontal scrolling or a tooltip. The list is a <code>ListBox</code> whose
+template has no scroll viewer, because the Settings page scrolls; it keeps keyboard focus, and each item exposes
+<code>AutomationProperties.Name</code> (the parameter), <code>ItemStatus</code> (the status) and <code>HelpText</code> (the description). Nothing
+uses its selection. The item bindings use <code>OneTime</code>.
 <code>HasWarning</code> belongs to the session context and is not persisted in <code>FoundationTagsSettings</code>.</p>
 <p>Install/Repair uses embedded definitions in group <code>DBTools.Structural.FoundationTags</code>.
 Their columns and values match the company file: <code>VISIBLE</code> 1, an empty <code>DESCRIPTION</code>,
@@ -327,11 +358,10 @@ Settings uses <code>PrerequisiteRepairPrompt</code>, the production <code>IPrere
 alert through Core's <code>IAlertService</code>, owned by the settings window (<code>IOwnerAwareContext</code>), with each schedule,
 field and parameter, the manual step, and the buttons <strong>Cancel</strong> and <strong>Continue</strong>. Cancel leaves the status
 message <code>Install/Repair canceled. Nothing changed.</code>, shows no banner and keeps the warning; this applies to
-the pack button and to <code>FixWarningAsync</code>. Refresh calls <code>PlanRepair</code> and marks each row with
-<code>ScheduleUse</code> (&quot;Used in N schedules&quot;) and <code>ScheduleUseDetails</code> (one <code>Schedule: Field</code> line each), shown in the
-row details under that row with the <code>WarningBar</code> surface. The six columns keep their widths, and the details
-use the full row width at the settings window's 800 px default. Tests answer the confirmation or the alert service
-with fakes.
+the pack button, to <code>FixWarningAsync</code> and to <strong>Repair</strong> in <code>PrerequisiteRepairOffer</code>. Loading calls <code>PlanRepair</code>
+and marks each row with <code>ScheduleUse</code> (&quot;Used in N schedules&quot;) and <code>ScheduleUseDetails</code> (one <code>Schedule: Field</code> line
+each), shown at the end of that parameter's item with the <code>WarningBar</code> surface. Tests answer the confirmation or
+the alert service with fakes.
 The Revit API does not expose the formula of a calculated field, so <code>FindScheduleFields</code> cannot list a
 calculated field that uses the parameter.
 An instance binding already containing the required category remains unchanged.
@@ -344,10 +374,11 @@ The updater accesses these parameters by GUID.</p>
 Its title is <strong>Combined Foundation Tags Disabled</strong>. Clear it after resolving the prerequisite issue.</p>
 <h3 id="automatic-updates-and-monitoring">Automatic updates and monitoring</h3>
 <p><code>CombinedFoundationTagsAutoUpdateTask</code> runs Update in FloorPlan and CeilingPlan views when enabled and no warning blocks it.
-Invalid prerequisites set the warning and show a banner once per document session through <code>PrerequisiteBannerLedger</code>.
+Invalid prerequisites set the warning without a banner.
 NotApplicable and TransientNotReady evaluations skip execution.
 An unexpected runtime fault sets no prerequisite warning. Core's <code>ViewActivationHook</code> suppresses the failed task for that document session.</p>
-<p><code>PrerequisiteMonitorTask</code> checks prerequisite state and schedules an Idling retry for transient initialization states.
+<p><code>PrerequisiteMonitorTask</code> checks prerequisite state, sets or clears the warning without a banner, logs an invalid
+state at Information, and schedules an Idling retry for transient initialization states.
 <code>PrerequisiteRetryCoordinator</code> retains each original event source and detach callback.
 Evaluation faults log and can be checked again on the next view activation.
 The monitor disposes its own retry coordinator at synchronous App shutdown. An injected coordinator remains caller-owned.

@@ -305,9 +305,10 @@ application through <code>TryGetApplication&lt;TApplication&gt;()</code>.</p>
 <p>Initialize bindable state in constructors. Perform model changes through
 explicit editor actions.
 Elevation Tags uses host data for preview snapshots and accepts no active
-document as an empty preview. Combined Foundation Tags uses explicit Refresh, Clear
-Warning, and Install/Repair actions for prerequisite work. It reports that an
-action is unavailable when it needs an active document.</p>
+document as an empty preview. Combined Foundation Tags loads its shared-parameter
+status when its view loads and uses Install/Repair and Fix for prerequisite work.
+Without an active project it shows an empty state that names the reason, and
+Install/Repair is unavailable.</p>
 <h3 id="context-interfaces">Context interfaces</h3>
 <p>The editor implements these base contracts:</p>
 <pre><code class="lang-csharp">public interface ISettingsPackContext
@@ -539,6 +540,25 @@ warning failure does not remove the committed defaults or the preservation log e
 <code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit
 properties and commands. Pack views created by <code>ViewFactory</code> are embedded editors. See
 <a href="modularity.html">Modularity</a> for top-level tool-window resources.</p>
+<p>Action buttons in the Settings window and in pack views follow one layout:</p>
+<ul>
+<li>Adjacent buttons are 8 px apart: each button after the first in a row sets
+<code>Margin=&quot;{DynamicResource ButtonGap}&quot;</code>. A field's inline button, such as a pattern row's
+remove button, sits one <code>ButtonGap</code> after the field.</li>
+<li>Buttons in one row share the height <code>MinHeight.Button</code> (36 px). The button styles set it;
+do not override <code>MinHeight</code> on a button. A control that shares a row with buttons, such as the
+footer's <strong>Reset All</strong> menu item, sets <code>MinHeight=&quot;{DynamicResource MinHeight.Button}&quot;</code>.</li>
+<li>The footer aligns its actions right, with the primary action (<strong>Save Settings</strong>) last. A pack
+aligns its action row left, under the content it acts on, with <code>BGap16</code> below the row.</li>
+</ul>
+<p>A pack that lists entries shows every value in full at any window width, without horizontal
+scrolling and without a value that only a tooltip shows. Use one item per entry: the primary
+name first, with a status at the right when the entry has one; secondary facts on a muted line;
+a problem sentence only when there is one. Every text wraps. Do not use a multi-column grid for
+such a list: its columns cannot fit the pack at the window's 800 px default.</p>
+<p>Replace a list that has nothing to show with the theme's empty state: an <code>EmptyStatePanel</code>
+border with an <code>EmptyStateIcon</code> glyph, an <code>EmptyStateTitle</code> and an <code>EmptyStateDetail</code> that
+names the reason or the next step.</p>
 <p>See <a href="testing-tools.html">Testing Tools</a> for execution commands and
 <a href="feature-warnings.html">Feature Warnings</a> for warning publication and Fix actions.</p>
 
