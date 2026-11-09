@@ -298,10 +298,11 @@
 <li>checks the token immediately before it invokes the action inside the protected boundary, so pre-canceled work returns a canceled result without running;</li>
 <li>logs full exception details, including inner exceptions and XAML parse context. <code>ExceptionDiagnosticsLogger</code> owns the formatting of exception, cancellation, XAML and notifier-failure logs;</li>
 <li>shows success and error banners through <code>IErrorNotifier</code> and logs notifier failures;</li>
+<li>shows each failure once (<code>Failure/FailureReport</code>). When it shows a failure or refusal banner, it records that with the exception. The banner system keeps every request it accepts (see Notification banners), so the record means the banner will be seen. An outer layer that receives a recorded exception (or a wrapper or aggregate whose causes are all recorded) logs it and shows no banner and no failure surface. Records belong to the report scope that the outermost run of an asynchronous flow opens (an <code>AsyncLocal</code>). The outermost <code>RunAsync</code>, which rethrows, hands its record on to the window error boundary, which takes it once. A later run ignores and removes a record that another run handed on, so a failure that its caller cached and throws again in a later run is shown again. A cached failure that reaches the boundary without a run is still taken as shown once. Code that shows its own failure banner and rethrows calls <code>FailureReport.ShowBanner</code>; a last handler calls <code>FailureReport.TakeShown</code>;</li>
 <li>calls <code>ISafeExecutionFailureSurface</code> on fatal errors. App composition adapts the logger window's show action to this interface (<code>SafeExecutionFailureSurface</code>), so Logging does not depend on SafeExecution;</li>
 <li>propagates failures from <code>RunAsync(...)</code>. <code>RunWithoutThrowingAsync(...)</code> is for event and UI callers that log and notify, then stop propagation.</li>
 </ul>
-<p>An expected refusal throws <code>SafeExecutionRefusedException</code>; the result status is <code>SafeExecutionStatus.Refused</code> and <code>SafeExecutionRefusalReporter</code> reports it once.</p>
+<p>An expected refusal throws <code>SafeExecutionRefusedException</code>; the result status is <code>SafeExecutionStatus.Refused</code> and <code>SafeExecutionRefusalReporter</code> reports it once: the first layer with a notifier shows the warning banner, and outer layers only log it.</p>
 <h3 id="safeexecutionoptions"><code>SafeExecutionOptions</code></h3>
 <p>Defined in <code>SafeExecution/Domain/SafeExecutionOptions.cs</code>. The constructor sets the operation name; every option is immutable after initialization.</p>
 <pre><code class="lang-csharp">public sealed class SafeExecutionOptions
@@ -441,18 +442,73 @@ dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}-manual-{timestamp}.log   # 
 <p><code>ContainedDiagnostic.TryWrite(...)</code> returns <code>null</code> after a successful write. After a write failure it reports through Serilog <code>SelfLog</code>. If <code>SelfLog</code> returns (also when disabled), it returns the original exception. If <code>SelfLog</code> throws, it returns an <code>AggregateException</code> with the write failure first and the <code>SelfLog</code> failure second. It never throws. Callers can ignore the result; <code>WindowErrorPresenter</code> keeps it as secondary presentation-failure data.</p>
 <h3 id="notification-banners">Notification banners</h3>
 <p><code>Notifications/Composition</code> constructs <code>IErrorNotifier</code>.</p>
-<pre><code class="lang-csharp">public interface IErrorNotifier : IWindowErrorBanner
+<pre><code class="lang-csharp">public interface IWindowErrorBanner
 {
+    void ShowBanner(string title, string message);
     void ShowWarningBanner(string title, string message);
+}
+
+public interface IErrorNotifier : IWindowErrorBanner
+{
     void ShowSuccessBanner(string title, string message);
     void ShowInfoBanner(string title, string message);
 }
 </code></pre>
-<p><code>IWindowErrorBanner</code> (<code>UI/Windows/ErrorBoundary</code>) lets window error boundaries request error banners without a dependency on the notification implementation. The notification contract is in <code>Notifications/Domain</code>; owner-handle contracts are in <code>UI/Windows/Ownership</code>.</p>
-<p><code>NotificationBannerService</code> holds the public banner API and logging policy, the <code>ShowError</code> error route, the action-free <code>ShowToast</code> route, the action-bearing <code>ShowToastActions</code> route and the surfacing of action failures. A banner action is one cancellation-aware asynchronous callback. The action command awaits it, closes the banner after success when requested, and keeps the banner open on failure or cancellation.</p>
-<p><code>NotificationBannerHostRegistry</code> owns dispatcher resolution, owner HWND selection, host creation, top-warning replacement, dismissal and cleanup of all hosts.</p>
+<p><code>IWindowErrorBanner</code> (<code>UI/Windows/ErrorBoundary</code>) lets window error boundaries request error and refusal banners without a dependency on the notification implementation. The notification contract is in <code>Notifications/Domain</code>; owner-handle contracts are in <code>UI/Windows/Ownership</code>.</p>
+<p><code>NotificationBannerService</code> holds the public banner API and logging policy and the surfacing of action failures. <code>ShowError</code>, <code>ShowWarning</code>, <code>ShowSuccess</code> and <code>ShowInfo</code> show one kind each. <code>ShowPrompt</code> shows an instruction, such as a pick prompt, that stays until its handle is disposed. <code>ShowToast</code> shows an action-free tool summary of a given kind; its optional <code>autoCloseDelay</code> replaces the lifetime of the kind. <code>ShowToastActions</code> shows a row with buttons. A banner action is one cancellation-aware asynchronous callback. The action command awaits it, closes the banner after success when requested, and keeps the banner open on failure or cancellation. The service logs the full message of every banner.</p>
+<p>Banner rules (<code>NotificationBannerRequest</code>, <code>NotificationBannerWindowViewModel</code>, <code>NotificationBannerSchedule</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Style</th>
+<th>Lifetime</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Success</code></td>
+<td>Neutral row, green check</td>
+<td>3 s</td>
+</tr>
+<tr>
+<td><code>Info</code></td>
+<td>Neutral row, blue icon</td>
+<td>5 s</td>
+</tr>
+<tr>
+<td><code>Warning</code> (warnings and refusals)</td>
+<td>Amber bar and tint</td>
+<td>8 s</td>
+</tr>
+<tr>
+<td><code>Error</code></td>
+<td>Red bar and tint</td>
+<td>10 s</td>
+</tr>
+<tr>
+<td><code>Prompt</code></td>
+<td>Neutral row, gray bar</td>
+<td>Until its handle is disposed</td>
+</tr>
+<tr>
+<td>Any kind with actions</td>
+<td>Its kind</td>
+<td>Until closed or an action closes it</td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li>Only an explicit zero owner HWND, or no usable anchor position, suppresses a banner.</li>
+<li>Each row shows its title on line one and its message on line two, with the message lines joined by a middle dot. The tooltip has the full text. A message with more than two lines or more than 160 characters has a <strong>Details</strong> button that shows the log surface (<code>WindowErrorBoundaryRegistry.ShowLogSurface</code>). Text uses <code>Body</code> and <code>TextSecondary</code> on <code>CardSurfaceElevated</code>; warning and error rows add a 15% tint of their color. All banner text stays above 4.5:1 contrast.</li>
+<li>A request with a <code>key</code> updates the open row with that key in place. A request without a key merges into an open key-less row with the same kind, title and message and the same presence of actions. Equal content counts a repeat (<code>×2</code>); other content replaces the text. Either way the row keeps its place and, once seen, its lifetime starts again. A closing row takes no merges. Each request holds its row: disposing a handle closes the row only when no other request holds it. A tool run with a correlation id can pass it as the key to keep one row per run.</li>
+<li>Rows that need action (actions or <code>Prompt</code>) come first, then other rows, newest first. A collapsed strip shows three rows, or more when more need action, and a separate <code>+N more</code> row below them.</li>
+<li>A row's lifetime runs only while it can be seen: it starts when the row first becomes visible in a shown strip, stops when the row moves behind the <code>+N more</code> row, and starts again when the row comes back. A row that waits under the pointer does not age. While the strip is hidden because its owner is minimized, every lifetime pauses; when the strip shows again, each continues with at least 2 s.</li>
+<li>The visible list changes in place: one insert, move or removal per row, never a rebuild. A new row grows in over 160 ms; a closing row shrinks and fades over 200 ms. <code>NotificationBannerHeightController</code> sizes the window to the rows on every layout change, so the window follows each frame. An expanded strip is capped at 45% of the owner height (160 to 420 DIP) and scrolls.</li>
+<li>While the pointer is over the strip, <code>NotificationBannerSchedule</code> pauses every lifetime and the view model freezes: new rows wait, repeats update in place, and no row moves. A row already closing on its own (its lifetime ended, or its handle was disposed) stops closing and grows back. A handle disposed in that time closes its row after the pointer leaves, or drops it at once if it never appeared. When the pointer leaves, waiting rows appear and each row keeps its remaining time, but at least 2 s. Deadlines use the monotonic timestamp. The user's own clicks act at once: the close button, <code>+N more</code>, and the failure row of an action button. That failure row stays visible like a row that needs action, and a repeat of it brings a hidden or waiting row into view. A strip hidden under the pointer counts as the pointer leaving.</li>
+</ul>
+<p><code>NotificationBannerHostRegistry</code> owns dispatcher resolution, owner HWND selection, host creation, dismissal and cleanup of all hosts. <code>NotificationBannerAnchor</code> places the strip at the owner's top edge and width, inside the monitor work area.</p>
+<ul>
+<li>The banner system keeps every request it accepts. When the requested owner has no HWND or no usable anchor position, the request shows on the registered default owner (Revit's main window). When a strip closes because its owner window closed, its rows that nobody saw and that close on their own move to the default owner with their repeat counts; prompts and rows with buttons close with their window. A request that no window can hold (no default owner, or the default owner itself closed) is logged as not shown at Error level. The service logged the request when it was made. Dispatcher retirement at App shutdown drops queued requests; nothing waits on them.</li>
 <li><code>WindowOwnerHandleProvider</code> resolves a closing or closed window to the registered default owner (Revit's main window), so a banner from a tool whose window closed before delivery still shows. Dialog and file-picker owners resolve the same way.</li>
 <li><code>ModalWindow</code> and <code>ModelessWindow</code> start lifecycle tracking in their constructors. A raw WPF window first seen after it closes uses the default owner only when it was not tracked from construction and has no HWND after <code>EnsureHandle</code> fails; other failures propagate. The lifecycle record (<code>WindowOwnerHandleLifecycle</code>) is in Presentation, so a retained shell never keeps a retired Core instance reachable.</li>
 <li>A call on the UI thread resolves the owner and shows the banner synchronously. A worker-thread request queues owner resolution and banner creation together and does not wait. Its handle can cancel delivery before it starts or dismiss the banner after it shows. Worker requests use normal dispatcher priority, so a UI-thread request made while one is queued can appear first.</li>
@@ -462,7 +518,7 @@ dbtools-{revitYear}-{instanceId}-{timestamp}-{nonce}-manual-{timestamp}.log   # 
 <li>A registry reset invalidates pending requests. It takes and clears the registrations first, attempts each host on its own dispatcher and reports cleanup failures after all attempts.</li>
 <li>Synchronous owner resolution, banner addition and new-host cleanup failures propagate; an add failure is ordered before a cleanup failure. Later timer and window-close cleanup callbacks are logged and do not propagate.</li>
 </ul>
-<p><code>NotificationBannerWindowViewModel</code> owns banner item state, the visible-item projection, overflow state, action commands, expanded state and per-item auto-close cancellation. <code>NotificationBannerTimingController</code> runs every delayed close under one window-lifetime cancellation source with <code>TimeProvider.System</code>, keeps only in-flight operations, dispatches callbacks to the owning dispatcher and logs callback failures. Disposal cancels the lifetime before the window can receive late callbacks. Tests use <code>FakeTimeProvider</code>.</p>
+<p><code>NotificationBannerWindowViewModel</code> owns banner item state, merging, the frozen state, the visible-item projection, overflow state, action commands and expanded state. <code>NotificationBannerTimingController</code> keeps the row lifetimes in one <code>NotificationBannerSchedule</code> with one wake-up, runs every delayed callback under one window-lifetime cancellation source with <code>TimeProvider.System</code>, keeps only in-flight operations, dispatches callbacks to the owning dispatcher and logs callback failures. Disposal cancels the lifetime before the window can receive late callbacks. Tests use <code>FakeTimeProvider</code>.</p>
 <p><code>WpfDispatcher.Invoke</code> is synchronous and can wait for its dispatcher; so do the file-picker and alert APIs that return a value. <code>WpfDispatcher.Post</code> always queues and returns a completion task. A callback failure faults that task with the original exception and is not rethrown to the dispatcher error boundary; an aborted operation cancels the task. Direct dispatcher callbacks use the dispatcher error boundary. Banner dismissal observes and logs its completion task.</p>
 <h3 id="file-picker">File picker</h3>
 <p><code>IFilePicker</code> takes one request type per result cardinality: <code>FilePickerPathRequest</code> for a single file, a folder or a save path, and <code>FilePickerPathsRequest</code> for several files. The concrete <code>FilePicker</code> keeps path admission and file-type mapping private and uses WPF's <code>OpenFolderDialog</code> for folder selection with an owner. Workflow text and defaults belong to the caller: the logger window names exported logs, Transfer Drafting Views (TDV) settings sets the library and fallback RVT picker titles, and Record Set sets the target-folder, host-file and DWG picker titles.</p>
@@ -709,7 +765,7 @@ public class ModelessWindow : Window, IWindowOwnerHandleTarget, IThemeOptOut { /
 <li>The boundary presents and publishes the original outer exception, with its wrappers and causes, and returns the handled decision to the registry. An exception tree with no DB Tools branch stays unhandled and gets no notification.</li>
 <li>A window seen as closed keeps a weak tombstone and cannot be attached again. A closed WPF window that was never attached or seen is outside this registry; classifying it would need reflection or a new HWND.</li>
 <li>A lifecycle owner can subscribe through <code>WindowErrorBoundaryRegistry</code> to the handled-failure signal of its window. The subscription requires the attached per-window host and throws if it is missing. The notification carries the original failure and any presentation failure. Detaching clears the window's observers.</li>
-<li><code>WindowErrorPresenter</code> owns the banner and logger-window show policy.</li>
+<li><code>WindowErrorPresenter</code> owns the banner and logger-window show policy. A failure whose record a run or tool handed on (see <code>FailureReport</code>) is only logged, and the record is taken. A <code>SafeExecutionRefusedException</code> shows its reason in a warning banner, without the logger window and never as <code>Unhandled UI exception</code>. Any other failure shows an error banner and the logger window.</li>
 </ul>
 <p><code>WindowStaticRuntime</code> configures and resets Core UI for App and Sandbox.</p>
 <ul>
