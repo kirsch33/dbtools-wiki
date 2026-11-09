@@ -205,7 +205,10 @@ must report <code>result_status=passed</code>, a positive <code>passed</code> co
 tests. Zero executed tests, including an all-skipped run, fail admission.
 A nonzero submit exit is kept even when the terminal JSON is missing or
 malformed. When retrieval succeeds, failed runs keep their reports and
-original exit status. Rejected terminal summaries are saved as
+original exit status. A refused submit (<code>ok: false</code>, a null <code>result</code> and
+an <code>error</code>) ran nothing: the wrapper prints the error code, summary, causes
+and next step, fetches no report, and keeps the CLI's nonzero exit, or
+returns 2 after a zero exit. Other rejected terminal summaries are saved as
 <code>*.invalid-summary.json</code>.</p>
 <p>Full report retrieval accepts a report exit of zero or the submit exit.
 The report file must be nonempty, and its JSON request identity, status, and
@@ -214,8 +217,10 @@ attempts, stopping after the first accepted report. Two one-second delays
 separate three failed attempts. It never resubmits tests. Only an accepted
 report is published to the result path. After exhaustion, nonempty rejected
 output is saved as <code>PATH.invalid-report.json</code>, where <code>PATH</code> is the full
-report path. The wrapper keeps a nonzero submit exit or returns 2 after a
-zero submit exit. Independent scopes in one request continue after a
+report path. A refused report command prints its error code, summary, causes
+and next step whatever its exit; only a refusal with exit 3 is fetched again,
+and a refused report is not saved. The wrapper keeps a nonzero submit exit or
+returns 2 after a zero submit exit. Independent scopes in one request continue after a
 failure, but <code>test.sh</code> returns the first nonzero status.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
 <p><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code> builds
