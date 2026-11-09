@@ -166,6 +166,18 @@ Configured family patterns classify piers and footings. Updates affect host-docu
 <li>Write that pier's type mark to <code>Associated Pier</code> and its top to <code>Associated Pier Elevation</code>.</li>
 <li>Publish current-run result IDs and timestamped selection sets.</li>
 </ol>
+<p>The updater creates one Core <code>GroupPlacementQuery.CreateRunQuery(document)</code> per run.
+It caches group membership, ancestor placement checks and each group type's instance count.
+<code>UpdateParameterWriter</code> compares the current and target values before checking group restrictions.
+For repeated groups, it skips only changed parameters whose <code>InternalDefinition.VariesAcrossGroups</code> is false.
+Equal values succeed without writing. Varying parameters still write, so a footing can be Modified and Failed in one run.
+This includes nested members when any enclosing group type has multiple placed instances.
+A single placement remains writable. Group failures enter Failed once per element and share the ten-line detailed log limit.
+The final diagnostic reports the total failed/skipped count.</p>
+<p>When a pier-top write is skipped for a repeated group, its computed top remains available to footings.
+If computation fails, both grouped and ungrouped piers supply the stored top instead.
+Length parameters cannot vary between group instances, and the Revit API cannot enter group edit mode.
+Text parameters such as <code>Associated Pier</code> can vary when the project definition permits it.</p>
 <p>A missing or invalid Top Level records a pier failure. Missing Top Offset uses zero.
 Piers without <code>LocationPoint</code> cannot participate in nearest-point matching.
 Equal-distance ties retain the first candidate.</p>
@@ -181,10 +193,14 @@ when one parameter changes and another fails. Unexpected exceptions escape the p
 <p>Parameter writes and selection-set publication use separate transactions inside one transaction group.
 The group assimilates to one Undo entry. A selection-set failure preserves committed parameter writes,
 then propagates after assimilation. Other failures attempt group rollback and preserve concurrent cleanup faults.</p>
-<p><code>UpdateRunResult</code> contains <code>UpdatedCount</code>, <code>FailedCount</code>, and read-only snapshots of Modified and Failed IDs.
+<p><code>UpdateRunState</code> counts distinct element IDs and records grouped skips as a subset of Failed.
+<code>UpdateRunResult</code> contains <code>UpdatedCount</code>, <code>FailedCount</code>, <code>GroupSkippedCount</code>, and read-only snapshots of Modified and Failed IDs.
+<code>UpdateRunMessage</code> appends the grouped skip count and the group edit reason to the existing banner counts.
+Automatic runs use the same updater without a result banner. Grouped skips return successfully and do not suppress later activations.
 The manual workflow offers <strong>Select Modified</strong> and <strong>Select Skipped</strong> when updates exist.
 Those banner actions check that the source document is still active before selecting IDs.
 With no updates, it shows an Info or Warning toast without selection actions.</p>
+<p>If neither Modified nor Failed contains an ID, selection-set publication returns without creating or pruning sets.</p>
 <p>Selection sets use <code>DB Tools - FoundationTags - Modified Elements (...)</code> and
 <code>DB Tools - FoundationTags - Skipped Elements (...)</code> names with Eastern-time timestamps.
 Repeated names receive suffixes starting at <code>(2)</code>.

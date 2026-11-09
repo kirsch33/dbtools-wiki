@@ -204,11 +204,14 @@
 <li>For each footing, it finds the pier nearest in plan (X and Y of the location points) and within 2 ft. It writes the pier's <code>Type Mark</code> to <code>Associated Pier</code> and the pier's <code>Foundation Pier Top</code> to <code>Associated Pier Elevation</code>.</li>
 <li>A footing with no pier within 2 ft gets an empty <code>Associated Pier</code>.</li>
 </ol>
+<p>For a member of a group placed more than once, the updater compares each parameter before writing it. This includes nested groups whose enclosing group is placed more than once. Equal values need no write and do not count as skipped. A changed parameter is written if it varies between group instances, such as <code>Associated Pier</code> when that setting is enabled. A changed parameter that does not vary is skipped. Other parameters and elements still update in the same run. A group placed once still works.</p>
+<p>Revit changes non-varying values in repeated groups only in group edit mode. Length parameters cannot vary between group instances, and the Revit API cannot enter group edit mode. The updater keeps the parameter's existing variance setting.</p>
+<p>A footing can still use a skipped pier's Type Mark and computed top. If the pier's top cannot be computed, the footing uses its stored <code>Foundation Pier Top</code>, for grouped and ungrouped piers alike.</p>
 <p>A value is written only when it differs. Lengths are compared after rounding to two decimals.</p>
 <p>Revit cannot clear a length value. A footing with no pier in range keeps its previous <code>Associated Pier Elevation</code> and counts as skipped on every run until a pier is within 2 ft.</p>
 <h3 id="result">Result</h3>
 <p>The update, with its selection sets, is one undo entry. If a Revit write fails unexpectedly, the whole update is rolled back and the error is shown. A failure while creating the selection sets keeps the parameter writes and is reported.</p>
-<p>The banner reads <code>Updated N element(s); M failed/skipped.</code> or <code>No elements modified.</code> An element is counted as skipped when a pier lacks a valid <code>Top Level</code>, a footing or pier has no location point, a parameter is missing or read-only, or a length cannot be cleared.</p>
+<p>The banner reads <code>Updated N element(s); M failed/skipped.</code> or <code>No elements modified.</code> An element is counted as skipped when a pier lacks a valid <code>Top Level</code>, a footing or pier has no location point, a parameter is missing or read-only, or a length cannot be cleared. An element also counts as skipped when a changed parameter does not vary between instances of its repeated group. It enters the Skipped selection set and can also enter Modified if another parameter changes. The log records up to ten detailed failures, then reports the total. When this occurs, the banner adds: <code>N skipped: in groups placed more than once (Revit allows these values only in group edit mode).</code></p>
 <table>
 <thead>
 <tr>
@@ -231,8 +234,10 @@
 </tr>
 </tbody>
 </table>
+<p>When every value is already current, the updater creates no selection sets and changes nothing. The manual result is an Info message, and automatic updates show no result banner.</p>
 <p>The buttons select the elements of the run that just finished. They work only while the model that ran the update is active.</p>
 <p>Each run also creates selection sets named <code>DB Tools - FoundationTags - Modified Elements (&lt;timestamp&gt;)</code> and <code>DB Tools - FoundationTags - Skipped Elements (&lt;timestamp&gt;)</code> when the respective list is not empty. The timestamp is in Eastern time. A second run in the same second adds a suffix such as <code>(2)</code>. The model keeps the 5 most recently created sets with the prefix <code>DB Tools - FoundationTags - </code>.</p>
+<p>Skipping members of groups placed more than once does not stop later automatic updates. Automatic runs show no result banner.</p>
 <p>If an automatic update fails, DB Tools shows the error and stops automatic updates for that model until you close and reopen it. After Save As, or the first save of a new model, it tries once more. The commands remain available.</p>
 <h2 id="move-combined-tags">Move Combined Tags</h2>
 <h3 id="usage-1">Usage</h3>
