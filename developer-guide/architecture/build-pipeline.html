@@ -624,12 +624,23 @@ release, builds and promotes the distribution and bundle on Linux, then runs
 only the Inno Setup compiler on Windows. The self-hosted Windows test runner
 consumes compiled test artifacts through <code>test.sh</code> and does not build the
 product.</p>
+<p>The release workflow defaults to repository contents read permission.
+<code>compile-installer</code> grants contents write permission for the entire job,
+including installer compilation and release asset deletion and upload.
+<code>build-candidate</code> inherits read permission. Both checkouts use the release tag
+and disable credential persistence.</p>
 <p>The Claude Code workflow accepts created issue comments and pull request review
-comments that mention <code>@claude</code>. Bot comments are excluded. The case-insensitive
+comments that mention <code>@claude</code>. Classification admits only <code>OWNER</code>, <code>MEMBER</code>
+and <code>COLLABORATOR</code> comment authors. Bot comments are excluded. The case-insensitive
 <code>@claude[[:space:]]*review</code> test selects reviews within a line. A review request
 on a plain issue fails. Other admitted requests use the general job with its
 write and OIDC permissions. Both model jobs use <code>CLAUDE_CODE_OAUTH_TOKEN</code> and
 <code>claude-opus-4-7</code>.</p>
+<p>The general job checks out the repository default branch with 50 commits of
+history, including for fork PR comments. It keeps the checkout credential: the
+repository is private, and the action fetches from origin before it sets its own token.
+It disables ordinary hooks with <code>disableAllHooks</code>. Local managed policy files
+prevent execution, using the same policy-source checks as the review job.</p>
 <p>For reviews, classification checks out the repository default branch. It reads the pull
 request API, fetches the numeric pull ref and base commit with full history,
 checks the head SHA, and prepares the merge-base-to-head diff. The numeric
@@ -655,7 +666,9 @@ comment. Review-comment requests receive one reply in the original review
 thread. The classified event determines the destination. Returned text remains
 literal data. Publication errors fail the job.</p>
 <p><code>ClaudeCodeWorkflowTests.WorkflowSecuritySuitePasses</code> runs the workflow's inline
-scripts with event, API, and SDK fixtures. It requires Python 3, PyYAML, Node.js,
+scripts and classification gate with event, API, policy-file and SDK fixtures.
+It also checks effective release job permissions and checkout inputs.
+It requires Python 3, PyYAML, Node.js,
 and <code>grep</code>. It does not invoke GitHub Actions or authenticate to the provider:</p>
 <pre><code class="lang-sh">./test.sh test --tool BUILD --scope pure --fixture ClaudeCodeWorkflowTests
 </code></pre>
