@@ -130,12 +130,15 @@ third-party DLL is staged. <code>build/Merging/AssemblyMerges.props</code> decla
 merges:</p>
 <ul>
 <li>App owns <code>ricaun.Revit.UI.0.9.0</code>.</li>
-<li>Core owns the manifest and YAML parser, MVVM, functional, tessellation,
+<li>Core owns the manifest and YAML parser, MVVM, functional,
 dependency injection, logging, options and primitives libraries, and
 <code>Serilog.Extensions.Logging</code>.</li>
+<li>SGT owns LibTessDotNet privately. The double-precision assembly is not merged.</li>
 <li>Presentation owns the Helix and SharpDX closure, Serilog, and the public
 dependency injection and logging abstractions.</li>
 </ul>
+<p>SGT and ERFT declare CSharpFunctionalExtensions directly. Desktop builds share
+its public types through Core. Portable dependencies retain their NuGet identities.</p>
 <p>Serilog is in Presentation, which is never reloaded, because its thread-static
 state must not enter a collectible load context (dotnet/runtime#134928).</p>
 <p>A declaration's <code>Include</code> is the assembly name. The optional <code>PackageId</code> names
@@ -176,8 +179,10 @@ and ribbon failures that cannot reach the normal log are written to
 <code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code> with BCL APIs only.</p>
 <h2 id="tool-resolution">Tool resolution</h2>
 <p><code>ToolAssemblyResolver.LoadAssembly(rootAssembly, assemblyName)</code> loads a
-manifest-declared assembly. The name must be a simple name without <code>.dll</code> or
-path characters. If it equals the root assembly's name, the root is returned.
+manifest-declared assembly. The name must be a simple assembly name: it does
+not end with <code>.dll</code> in any case and contains no <code>/</code>, <code>\</code>, <code>,</code> or <code>:</code>. Other
+names throw <code>ArgumentException</code> before any file lookup. If the name equals the
+root assembly's name, the root is returned.
 Otherwise the resolver:</p>
 <ol>
 <li>requires a file-backed root assembly;</li>

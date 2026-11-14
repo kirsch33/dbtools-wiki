@@ -131,9 +131,14 @@ contracts, and the tool window shells <code>ToolWindowModalShell</code> and
 <li>the structural 3D viewport (see <a href="../architecture/structural-preview.html">Structural Preview</a>).</li>
 </ul>
 <p>Production source is under <code>src/DBTools.Presentation</code>, with namespaces
-<code>DBTools.Presentation.*</code> that follow the folder tree. The project also compiles
-four tool settings views linked from their tool folders; these keep their tool
-namespaces and do not make Presentation depend on the tool assemblies.</p>
+<code>DBTools.Presentation.*</code> that follow the folder tree. Compiled tool settings
+views live under <code>Tools/&lt;TOOL&gt;/</code> in <code>DBTools.Presentation.Tools.&lt;TOOL&gt;</code>: the
+views of DialogSuppression, ElevationTags, FoundationTags and JoistGirderWeight.
+They bind to their tool contexts by property path, so Presentation does not
+depend on the tool assemblies. The project lists each <code>Page</code> and
+<code>EmbeddedResource</code> item; default <code>Compile</code> inclusion owns the code-behind. See
+<a href="../architecture/theme-system.html#settings-pack-views">Theme System</a> for the two
+supported settings view forms.</p>
 <p>Presentation does not reference <code>DBTools.dll</code>, Core, tool types, view models,
 commands, services or the Revit API. App, Core and the tools may reference
 Presentation.</p>
@@ -179,6 +184,32 @@ form without <code>assembly=</code>. See
 <a href="../architecture/theme-system.html#resource-uris">Theme System</a> for URI rules and
 <a href="../architecture/assembly-loading.html">Assembly Loading Contract</a> for the
 distribution layout.</p>
+<h2 id="tests">Tests</h2>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Target</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DBTools.Presentation.Pure.Tests</code></td>
+<td><code>net10.0-windows</code></td>
+<td>Presentation behavior without Revit, including the tool-specific behaviors, converters and controls under <code>Tools/&lt;TOOL&gt;/</code>, the tool window host and the logger window view. References Core for the tool window, window runtime and logger window integration fixtures, and every tool assembly for the embedded payload XAML sweep.</td>
+</tr>
+<tr>
+<td><code>DBTools.Presentation.Local.Tests</code></td>
+<td><code>net10.0-windows</code></td>
+<td>Revit-hosted structural preview fixtures.</td>
+</tr>
+</tbody>
+</table>
+<p>Both projects are under <code>src/DBTools.Presentation/Tests/</code> and use explicit
+<code>&lt;Compile&gt;</code> membership. Test files mirror the owner folders. Presentation grants
+internals to both projects and to the Core test projects, whose fixtures use
+the internal host boundaries.</p>
 
 </article>
 

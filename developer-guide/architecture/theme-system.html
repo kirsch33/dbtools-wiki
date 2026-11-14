@@ -107,7 +107,7 @@ other add-ins.</p>
 <tbody>
 <tr>
 <td><code>DBTools.Presentation</code></td>
-<td>Theme dictionaries, stable windows and controls, tool behaviors and converters under <code>Tools/&lt;TOOL&gt;/</code>, the merged Helix theme, and the settings views of DialogSuppression, ElevationTags, FoundationTags and JoistGirderWeight (linked from those tool folders)</td>
+<td>Theme dictionaries, stable windows and controls, tool behaviors, converters, controls and compiled settings views under <code>Tools/&lt;TOOL&gt;/</code>, and the merged Helix theme</td>
 </tr>
 <tr>
 <td><code>DBTools.HandyControl</code></td>
@@ -119,20 +119,42 @@ other add-ins.</p>
 </tr>
 <tr>
 <td>Tool assemblies</td>
-<td>None. Tool views are embedded as raw XAML</td>
+<td>None. Tool views and markup-only settings views are embedded as raw XAML</td>
 </tr>
 </tbody>
 </table>
-<p>Presentation keeps explicit <code>Page</code>, <code>Compile</code> and <code>EmbeddedResource</code> items
-(<code>EnableDefaultPageItems=false</code>). The linked tool settings views keep their tool
-namespaces, for example <code>DBTools.DialogSuppression.Settings.Views</code>; the tool
-projects remove them from their own <code>Page</code> items.</p>
+<p>Presentation lists its <code>Page</code> and <code>EmbeddedResource</code> items explicitly
+(<code>EnableDefaultPageItems=false</code>); default <code>Compile</code> inclusion picks up their
+code-behind. Tool assemblies contain no compiled WPF pages. A compiled settings
+view lives in Presentation under <code>Tools/&lt;TOOL&gt;/</code>, in namespace
+<code>DBTools.Presentation.Tools.&lt;TOOL&gt;</code>, as do the settings views of
+DialogSuppression, ElevationTags, FoundationTags and JoistGirderWeight. It uses
+framework and stable Presentation types only and binds to its tool context by
+property path, so Presentation does not reference the tool.</p>
+<h2 id="settings-pack-views">Settings pack views</h2>
+<p><code>SettingsPackRegistration&lt;TOptions, TContext&gt;.ViewFactory</code> is a
+<code>Func&lt;ISettingsPackContext&lt;TOptions&gt;, FrameworkElement&gt;</code>. A tool module supplies
+the view in one of two forms:</p>
+<ul>
+<li>a compiled view from <code>DBTools.Presentation.Tools.&lt;TOOL&gt;</code>, created with <code>new</code>
+and given the context as <code>DataContext</code>;</li>
+<li>a markup-only view embedded in the tool as raw XAML with the logical name
+<code>DBTools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>, which the factory loads with
+<code>ToolWindowXaml.LoadElement</code> before it assigns the <code>DataContext</code>. TDV's
+<code>LibrarySettingsView</code> uses this form through
+<code>TdvToolModule.LoadLibrarySettingsView</code>.</li>
+</ul>
+<p>A view that needs code-behind uses the compiled form.</p>
 <h2 id="tool-views">Tool views</h2>
 <p>A tool embeds each view as an <code>EmbeddedResource</code> with the logical name
-<code>DBTools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>. <code>ToolWindowFactory.Create</code> (Core) opens
-a view in these steps:</p>
+<code>DBTools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>. <code>ToolWindowFactory.CreateModal</code> or <code>CreateModeless</code> (Core) opens
+a view in a stable shell.</p>
+<p>The modal factory returns <code>IModalToolWindowSession</code> with <code>ShowDialog</code> and
+<code>HideForPick</code>. The modeless factory returns <code>IModelessToolWindowSession</code> with
+<code>Show</code>. Both inherit the common lifecycle surface from <code>IToolWindowSession</code>.
+Creation runs these steps:</p>
 <ol>
-<li><code>ToolWindowHost.Create</code> (Presentation) creates a stable shell,
+<li><code>ToolWindowHost.CreateModal</code> or <code>CreateModeless</code> (Presentation) creates a stable shell,
 <code>ToolWindowModalShell</code> or <code>ToolWindowModelessShell</code>.</li>
 <li>The shell initializer runs before the view is parsed. The default is
 <code>WindowInitializer.Initialize</code> or <code>InitializeModeless</code>, which applies the

@@ -124,15 +124,19 @@ Manual alignment runs on the active view. Automatic alignment runs when a suppor
 <td>Manual validation and completion toasts</td>
 </tr>
 <tr>
-<td><code>Features/ViewActivatedTask</code></td>
-<td>Supported-view automatic execution</td>
+<td><code>Features/AlignOnViewActivatedTask</code></td>
+<td>Supported-view automatic alignment</td>
 </tr>
 <tr>
-<td><code>Features/ElevationTagsUpdater</code></td>
-<td>Shared inline call gate, transaction runner, and updater construction</td>
+<td><code>Features/ElevationTagAlignmentService</code></td>
+<td>Alignment shared by the command and view activation: inline call gate, transaction runner, and aligner construction</td>
 </tr>
 <tr>
-<td><code>Features/AutoUpdater</code></td>
+<td><code>Features/ElevationTagAlignmentResult</code></td>
+<td>Counts of one alignment run</td>
+</tr>
+<tr>
+<td><code>Features/SpotElevationTextAligner</code></td>
 <td>Filtering, layout, mutation, and counts</td>
 </tr>
 <tr>
@@ -140,8 +144,20 @@ Manual alignment runs on the active view. Automatic alignment runs when a suppor
 <td>Spot marker-symbol resolution</td>
 </tr>
 <tr>
+<td><code>Features/SpotElevationIndicatorReader</code>, <code>Features/SpotElevationTextComposer</code></td>
+<td>Indicator parameter reads and indicator text composition</td>
+</tr>
+<tr>
 <td><code>Features/SpotElevationTypeProjector</code></td>
-<td>Live type snapshots for settings</td>
+<td>Live type and symbol-family snapshots for settings</td>
+</tr>
+<tr>
+<td><code>Settings/SpotElevationTypeSnapshot.SymbolDisplayName</code></td>
+<td>Footer value from <code>FormatDisplayName</code>: <code>(none)</code>, <code>Family :: Type</code>, or the type name when no family name is available; empty names use <code>(unknown)</code></td>
+</tr>
+<tr>
+<td><code>Features/SpotElevationTextFont</code></td>
+<td>Typeface and em size shared by Align and the preview; the type size sets capital height</td>
 </tr>
 <tr>
 <td><code>Settings/SettingsPackContext</code></td>
@@ -157,19 +173,23 @@ Manual alignment runs on the active view. Automatic alignment runs when a suppor
 </tr>
 <tr>
 <td><code>Settings/PreviewContext</code></td>
-<td>Preview text measurement, canvas geometry and symbol ink mask</td>
+<td>Preview text measurement and canvas drawing for symbol families</td>
+</tr>
+<tr>
+<td><code>Settings/SpotElevationSymbolDrawing</code></td>
+<td>Revit-free family drawing snapshot in paper inches</td>
 </tr>
 <tr>
 <td><code>Settings/SpotElevationPreviewLayout</code>, <code>SpotElevationPreviewScene</code>, <code>SpotElevationPreviewTag</code></td>
 <td>Preview placement in paper inches</td>
 </tr>
 <tr>
-<td><code>Settings/Views/ElevationTagsSettingsPackView.xaml.cs</code></td>
+<td><code>src/DBTools.Presentation/Tools/ElevationTags/ElevationTagsSettingsPackView.xaml.cs</code></td>
 <td>Reports the preview viewport and device pixels per unit</td>
 </tr>
 <tr>
-<td><code>Settings/Views/ElevationTagsSettingsPackView.xaml</code></td>
-<td>Settings layout</td>
+<td><code>src/DBTools.Presentation/Tools/ElevationTags/ElevationTagsSettingsPackView.xaml</code></td>
+<td>Settings layout, compiled into <code>DBTools.Presentation</code></td>
 </tr>
 </tbody>
 </table>
@@ -178,6 +198,91 @@ The module type is <code>DBTools.ElevationTags.App.Composition.ElevationTagsTool
 Command and availability both use <code>DBTools.ElevationTags.App.Composition.ElevationTagsCommand</code>.
 The button uses <code>InlineUi</code>, icon key <code>align_elevation_tags</code>, and order 20.
 The icon asset is <code>Assets/align_elevation_tags_icon.png</code>.</p>
+<h2 id="symbol-text">Symbol text</h2>
+<p><code>App/Composition/ElevationTagsSymbolTextCommand</code> registers <code>DBTools.SetElevationSymbolText</code> on the Common panel, order 21.
+The command uses <code>InlineUi</code> and requires a project with an active view.
+<code>Features/SymbolText/SymbolTextWorkflow</code> validates the selection before opening the existing <code>AlertBodySpec.TextInput</code> alert.
+Cancel returns without opening a transaction.
+<code>SymbolTextPolicy</code> owns trimming, single-line and name-character validation, variant names, text comparison, and reuse decisions.
+Only terminal CR/LF characters added by Revit are ignored when comparing family text.</p>
+<p><code>Features/SymbolText/Revit/SymbolTextEditor</code> filters the supplied selection to <code>OST_SpotElevations</code> owned by the active view.
+For each current spot type, it reads <code>SPOT_ELEV_SYMBOL</code> and edits the symbol's family through <code>Document.EditFamily</code>.
+Exactly one <code>TextElement</code> is required. It changes that element's plain text in a family transaction, saves an RFA
+in a unique temporary directory with the variant name, then loads the RFA in a project transaction.
+Saving under a new filename and loading the RFA follows <a href="https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/How-to-copy-family-and-rename-it-in-Revit.html">Autodesk’s family-copy procedure</a>.
+The edited family document closes before the saved RFA loads through the path-based <code>Document.LoadFamily</code> overload.
+<code>SymbolTextTemporaryDirectory</code> removes the temporary directory on success or failure.
+An I/O or access failure during directory removal logs a warning and preserves the operation result or original exception.
+New families retain the source symbol type name. Reused families prefer that name and otherwise use their sole symbol type.
+Families with multiple types and no matching type name cause a refusal.
+Source families must contain exactly one plain text element even when the target variant already exists.</p>
+<p>Variant families and spot types use <code>&lt;original name&gt; - &lt;text&gt;</code>.
+An existing family is reused only when it has exactly one plain text element with the requested text
+and a symbol type with the source symbol type name, or exactly one symbol type.
+An existing spot type is reused only when its <code>SPOT_ELEV_SYMBOL</code> references that symbol.
+Name collisions with different content cause a refusal. Existing content is never overwritten or marked as command-owned.
+A newly duplicated spot type preserves the current type's other parameters.</p>
+<p>New project families and spot types carry Extensible Storage schema <code>DBToolsElevationSymbolTextV1</code>,
+GUID <code>535cae92-1d19-45ed-98ee-d06c501980ea</code>, vendor <code>DBTools</code>. Its string fields are:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ElementId</code></td>
+<td>Created element's <code>UniqueId</code>; a copy does not inherit ownership</td>
+</tr>
+<tr>
+<td><code>SourceId</code></td>
+<td>Original source element's <code>UniqueId</code></td>
+</tr>
+<tr>
+<td><code>SourceName</code></td>
+<td>Original source name, retained across text changes</td>
+</tr>
+<tr>
+<td><code>Text</code></td>
+<td>Requested plain text</td>
+</tr>
+</tbody>
+</table>
+<p>The marker is recognized only when <code>ElementId</code> matches the current element and its name equals <code>SourceName + &quot; - &quot; + Text</code>.
+A recognized source variant supplies its original name and provenance for the next variant.
+Cleanup examines only marked spot elevation types that the selected spots leave and their marked symbol families.
+A run with no departed marked type starts no cleanup transaction and performs no cleanup scan.
+Spot use is checked in <code>OST_SpotElevations</code> across all views. Family use is checked through spot-symbol parameters
+on dimension types, including unused user types, and through family-instance filters for the candidate symbols.
+Unused candidate spot types are removed before their marked families. Cleanup reads each type's logical children
+with <code>Element.GetDependentElements</code>. The ownership marker must validate, and <code>SourceId</code> must identify an existing
+source type. Cleanup logs the source type's dependents at Information with each ID, class and category before it
+checks the candidate's dependents. It does not compare the source and candidate dependents. Excluding the candidate
+type itself, every candidate dependent must resolve to an element whose exact class is <code>Element</code> or <code>GraphicsStyle</code>
+and whose category is null. The deletion set may contain only the candidate type, those dependents, and other IDs
+already owned for deletion. The set includes a marked family and its symbols only when no other spot type or family
+instance uses them. Worksharing ownership is checked for every allowed element. Cleanup records element descriptions
+before deletion. Each deletion rolls back if Revit returns an ID outside the allowed set or does not delete the
+candidate type. Revit deletion refusals also log a warning and keep the candidate. Before it attempts to delete a marked
+family, cleanup logs the family's dependent IDs, classes, and categories at Information. If Revit's deletion set includes
+elements beyond the family and its symbols, cleanup keeps the family and logs an Information message.
+User copies, renamed variants, unmarked content, unrelated variants, and referenced variants remain.
+Unused symbol-text copies of a family can remain, and Revit's Purge Unused removes them.</p>
+<p>The project transaction group is <code>DB Tools - Set elevation symbol text</code>.
+It contains family loads, type duplication, selected-spot reassignment, and cleanup.
+The group assimilates into one Undo entry on success and rolls back on failure.
+No project transaction remains open during <code>EditFamily</code>.
+Family-document transactions do not modify the project until the variant RFA loads inside the group.</p>
+<p><code>SymbolTextPolicyTests</code> covers off-Revit validation, names, family/type reuse decisions, and exact-name or sole-symbol selection.
+<code>SymbolTextTemporaryDirectoryTests</code> covers successful removal and a locked RFA that produces a warning without changing the caller result.
+The hosted <code>SymbolTextEditorTests</code> fixture creates a plain-text spot symbol from the installed spot elevation template,
+places spots on a temporary floor, and exercises reassignment, reuse, original preservation, refusal, rollback, and scoped cleanup.
+It also checks copied marker identity, vendor identity, unrelated variants, native deletion rollback, and a refused
+spot-type deletion that preserves the type's symbol. Fixture output includes cleanup decisions and extra deleted IDs,
+classes and categories, plus the source type's dependent IDs, classes and categories.
+Run that fixture in Revit 2026 and 2027.</p>
 <h2 id="data-and-contracts">Data and contracts</h2>
 <h3 id="settings">Settings</h3>
 <p>Settings use configuration section <code>Tools.ElevationTags</code> and pack key <code>common.elevation_tags</code>.</p>
@@ -217,14 +322,14 @@ With no valid compiled patterns, no tags match.</p>
 Both default to zero for an unconfigured type. Runtime multiplies these values by <code>view.Scale / 12</code>.
 The signs follow the computed text side relative to the leader endpoint.</p>
 <h3 id="filtering">Filtering</h3>
-<p><code>AutoUpdater</code> collects non-type <code>OST_SpotElevations</code> elements from the active view as <code>SpotDimension</code> instances.
+<p><code>SpotElevationTextAligner</code> collects non-type <code>OST_SpotElevations</code> elements from the active view as <code>SpotDimension</code> instances.
 A match against any configured regex includes the spot.
 Candidate strings include the spot name, spot type and family names, and resolved marker-symbol type and family names.
 The matcher tests these strings separately.</p>
 <p>A failure reading a spot's names increments <code>FailedCount</code>.
 The first such failure in a run logs its exception. Leaderless spots, missing types, and Relative-base spots require no update.</p>
 <h3 id="results-and-errors">Results and errors</h3>
-<p><code>AutoUpdater.Run()</code> returns <code>ElevationTagRunResult</code> with:</p>
+<p><code>ElevationTagAlignmentService.Run()</code> returns <code>ElevationTagAlignmentResult</code> with:</p>
 <table>
 <thead>
 <tr>
@@ -252,7 +357,7 @@ The first such failure in a run logs its exception. Leaderless spots, missing ty
 </tbody>
 </table>
 <p>Candidate updates share the undo entry <code>DB Tools - Align spot elevations</code>, for both the Align command and the update on view activation.
-The updater catches per-spot update faults, counts them, and continues. The first update fault logs its exception.
+The aligner catches per-spot update faults, counts them, and continues. The first update fault logs its exception.
 Collection, layout preparation, and transaction-level failures can propagate.</p>
 <p>The manual workflow shows a Warning toast when failures exist, Success when tags change,
 and Info for no spots, no pattern matches, or matching spots requiring no changes.
@@ -274,17 +379,22 @@ The settings preview redraws as per-type offsets change.</p>
 <h3 id="alignment-algorithm">Alignment algorithm</h3>
 <ol>
 <li>Read the origin, leader end, current text position, spot type, and the type's Text Location.</li>
-<li>Resolve elevation and format its text using document units and the type's unit options.</li>
-<li>Measure the text with GDI+ using font, text size, width scale, and display DPI.</li>
-<li>Compute placement relative to the leader end from the leader direction and the Text Location.</li>
-<li>Apply the configured per-type offsets.</li>
+<li>Resolve the elevation. <code>BuildTagText</code> composes a configured indicator as a prefix or suffix around the elevation in document units with the type's unit options. When the indicator is blank, Align measures <code>EL. </code> followed by the elevation.</li>
+<li><code>SpotElevationTextFont</code> sets the font em size so its capital height equals the Revit type's <code>TEXT_SIZE</code>.
+The preview and Align use this same rule. <code>MeasureTag</code> measures width and height with GDI+ at the display DPI.</li>
+<li><code>ComputeTextOffset</code> computes placement relative to the leader end from the leader direction, the Text Location,
+and the configured per-type offsets.</li>
 <li>Write <code>TextPosition</code> when X or Y differs after rounding to two decimal places in internal coordinates.</li>
 </ol>
 <p>Z remains the existing text Z. The view factor is <code>view.Scale / 12</code>.
 Placement works along the view's <code>RightDirection</code> and <code>UpDirection</code>, so it follows rotated plans.
-<code>AutoUpdater.ComputeTextOffset</code> in <code>Features/AutoUpdater.Run.cs</code> owns the placement rule.
+<code>SpotElevationTextAligner.ComputeTextOffset</code> in <code>Features/SpotElevationTextAligner.Run.cs</code> owns the placement rule.
 The margin from the leader end is <code>2 * factor / 128 + factor / 8</code>; the gap from the leader is <code>factor / 64</code>.
-Measured text width and height are scaled by the view factor.</p>
+Align scales both measured paper dimensions by the view factor.</p>
+<p><code>SpotElevationTextAligner.Run</code> owns one screen <code>Graphics</code> for the run. It creates it once spots match,
+reads both display DPI values from it, measures every spot's text with it, and disposes it when the run returns or
+throws. An unsupported view or a run without matching spots creates no graphics. <code>MeasureTag</code> creates and disposes
+the cap-height-scaled font for each measurement.</p>
 <p>The Text Location comes from the type's <code>SPOT_ELEV_TEXT_LOCATION</code> value:
 0 is Above Leader, 1 is Below Leader, and 2 is In-line with Leader.
 Any other value or a missing parameter fails that spot.</p>
@@ -356,29 +466,44 @@ Align does not prevent that.</p>
 </tr>
 </tbody>
 </table>
-<p>An <code>Elevation Indicator</code> becomes the prefix only when <code>Elevation Indicator as Prefix/Suffix</code> equals <code>Prefix</code> and the indicator is nonblank.
-Otherwise the measured prefix is <code>EL. </code>. The calculation does not append a configured suffix.
+<p>Align reads <code>Elevation Indicator</code> and <code>Elevation Indicator as Prefix/Suffix</code> by built-in parameter identity.
+It composes nonblank indicators as prefixes or suffixes. When the indicator is blank, Align measures <code>EL. </code> before the elevation.
 Font defaults to Arial and width scale defaults to 1 when their parameters are absent.
 A units-format lookup failure logs once and uses default formatting.</p>
 <h3 id="settings-preview">Settings preview</h3>
 <p><code>PreviewContext</code> draws the selected type at twice print size, 192 canvas units per paper inch, or
 smaller when the viewport that the view reports cannot hold the drawing. The view also reports its
-device pixels per unit. Strokes are a whole number of device pixels thick, and shoulders, crosshairs and
-outlines lie on device pixels and render with aliased edges, so they stay sharp at any display scale.
+device pixels per unit. Strokes are a whole number of device pixels thick. The shoulders and label
+outlines align to device pixels, so they stay sharp at any display scale.
 The drawing shows two spots of the type on one square element: one whose leader runs down to the
 element point and one whose leader runs up to it.
 <code>SpotElevationPreviewLayout</code> places the parts in paper inches, from each leader end:</p>
 <ul>
-<li>a datum target 3/16&quot; across at the leader end, except for In-line with Leader. Upper-left and
-lower-right quadrants are filled where the leader runs down; the target is mirrored where it runs up,
-as Revit mirrors the symbol. When the projector supplies the symbol's preview image, the view draws
-that image instead, as an ink mask in the theme text color, mirrored the same way;</li>
+<li>the symbol family drawing, except for In-line with Leader. The projector reads visible family curves,
+filled-region boundaries and plain text from the family view. It tessellates curves into paths and samples arcs
+to a <code>1/192&quot;</code> paper-space chord tolerance, one canvas unit at full scale, with exact projected extrema.
+It skips masking regions and invisible curve strokes. For filled regions, it reads each boundary curve's
+<code>CurveElement.LineStyle</code> through the region's dependent elements and sketch. It adds visible boundary curves to
+outlines and keeps closed loops for fills. Solid fill patterns render filled; other fill patterns render as outlines.
+Text uses the family text
+type's font, size, width scale, bold and italic settings, plus its horizontal and vertical alignment
+and rotation. The family origin is the leader end, X follows the shoulder, and Y points up. The
+preview mirrors symbol positions and text boxes for the up leader. It mirrors the text angle while
+keeping glyphs readable. Revit placement for rotated family text is unverified. A type
+without a symbol family has no symbol drawing. If Revit cannot open a family, the preview omits its
+drawing and still shows the symbol name;</li>
 <li>the shoulder from the leader end to 1/16&quot; past the label, or 3/8&quot; long for In-line with Leader,
 then the leader to the element point;</li>
 <li>the label, in the type's font, style and width factor, with capitals as high as the type's text size.</li>
 </ul>
-<p>The label follows <code>AutoUpdater.ComputeTextOffset</code> at a view factor of 1: a margin of <code>2/128 + 1/8</code> inch
-from the leader end and a gap of <code>1/64</code> inch from the leader. The projector reads
+<p>The label follows <code>SpotElevationTextAligner.ComputeTextOffset</code> at a view factor of 1: a margin of <code>2/128 + 1/8</code> inch
+from the leader end and a gap of <code>1/64</code> inch from the leader. Revit's <code>TextElement.Coord</code> anchors the content area,
+not its border. Horizontal alignment selects the left, center, or right anchor. Vertical alignment selects the top,
+centerline, or bottom anchor. <code>TextElement.Height</code> measures the content area and excludes the border. For unrotated
+text, the family view bounding box includes the type's shared border offset. Its top edge is that offset above
+<code>Coord</code> for Top alignment, the offset plus half the content height for Middle, and the offset plus the full content
+height for Bottom. The preview recovers the content area's top from <code>Coord</code> and <code>TextElement.Height</code>, then places
+glyphs using the recorded alignment and rotation. The projector reads
 <code>SPOT_ELEV_TEXT_LOCATION</code> by built-in parameter identity. <code>SpotTextLocationParser.ParseTextLocation</code>
 maps its integer value to the <code>SpotTextLocation</code> enum shared with Align: 0 Above Leader,
 1 Below Leader, 2 In-line with Leader. Missing or unknown values log a warning with the type
@@ -439,19 +564,26 @@ no spot elevation types, and <code>No spot elevation type matches the patterns</
 </tbody>
 </table>
 <h2 id="testing">Testing</h2>
-<p>Pure tests cover the runner, symbol resolution, settings state, preview layout and drawing,
-the settings view's bindings, and manual summaries.
+<p>Pure tests cover the runner, including a run without matching spots that prepares no layout and starts no
+transaction, symbol resolution, settings state, preview layout and drawing, the settings view's bindings, and
+manual summaries.
 Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover the command, module, workflow, view activation,
-live updater, and type projection. Pure tests pin <code>ComputeTextOffset</code> for each Text Location and leader direction.
+live alignment service, and type projection. Pure tests pin <code>ComputeTextOffset</code> for each Text Location and leader direction.
 Pure tests also cover level leaders with rounding residuals of both signs and the rejection of a missing or
 unknown Text Location value.
 The workflow tests build a spot elevation symbol with text above its origin. For each Text Location, they align
-spots whose leaders run up, down, and level, to the left and right, in a Project North plan and in a plan
-turned 90 degrees.
+spots whose leaders run up, down, and level, to the left and right, in a Project North plan and in plans
+turned 30 and 90 degrees. They compare screen-axis offsets between Project North and the 30-degree plan.
+Axis-aligned Arial and Courier New cases check the drawn text box and its margin from the leader end.
 They measure the elevation text and the symbol text from the spot's box in the view. They check the edge
 <code>TextPosition</code> marks, that above and below text lies on the other side of the leader from the symbol text,
 that level leaders put above and below text below the leader, that in-line text is centered on the leader
-with its near edge one margin past the leader end, and that a second run moves nothing.</p>
+with its near edge one margin past the leader end, that a second run moves nothing, and that the text keeps its Z.
+Further Below Leader cases set the <code>EL.</code> prefix and change the font, the width factor, the document units or the
+type's units; the near edge of the text Revit draws must lie one margin past the leader end, within 15 percent of
+the text width.</p>
+<p><code>SpotElevationTypeProjectorTests</code> reports bounding-box offsets for all nine horizontal and vertical text-note
+alignments. It checks the shared border and Top, Middle and Bottom anchor offsets to <code>1e-6</code> ft.</p>
 <p>See <a href="../../architecture/overview.html">architecture</a> and <a href="../../architecture/theme-system.html">themes</a>.</p>
 <h2 id="limitations">Limitations</h2>
 <p>The side rule assumes the marker symbol draws its text above its origin.

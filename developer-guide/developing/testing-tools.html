@@ -360,7 +360,7 @@ year or <code>DBTOOLS_DAEMON_REVIT_YEARS</code>. Pure-only requests are year-fre
 <tbody>
 <tr>
 <td><code>--tool TOOL[,TOOL]</code></td>
-<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>DA-SENTINEL</code>, <code>DIST</code>.</td>
+<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>PRESENTATION</code>, <code>DA-SENTINEL</code>, <code>DIST</code>.</td>
 </tr>
 <tr>
 <td><code>--scope SCOPE[,SCOPE]</code></td>
@@ -433,8 +433,21 @@ expression to each printed method.</p>
 combinations, and empty required selections fail with exit 2. There is no
 arbitrary <code>dotnet</code> argument passthrough after <code>--</code>.</p>
 <p>The APP Pure selection is <code>DBTools.App.Pure.Tests</code>. APP Local also includes
-<code>DBTools.App.HostedTurns.Local.Tests</code>. CORE selects both Windows and portable
-Pure projects, or both Core Local and HostedTurns Local projects. SGT Pure
+<code>DBTools.App.HostedTurns.Local.Tests</code>. All three App test projects link
+<code>ProfileIsolationTestAssemblySetup</code>. It redirects the DBTools profile to a temporary
+root and checks the real profile for test logs and fallback records from the test
+process. Teardown restores the profile root and reports <code>realProfileUntouched=True</code>
+when these checks pass.</p>
+<p><code>RibbonControlPlanExecutorTests</code> binds the App-owned <code>RibbonFixtureCommand</code> and
+<code>RibbonFixtureAlternateCommand</code> types. Its <code>ribbon_fixture</code> icons come from the App
+Local test assembly's embedded resource. Real-tool composition and XAML tests use
+the tool projects they reference.</p>
+<p>CORE selects both Windows and portable Pure projects, or both Core Local and
+HostedTurns Local projects. PRESENTATION selects
+<code>DBTools.Presentation.Pure.Tests</code> or <code>DBTools.Presentation.Local.Tests</code>; it owns
+every Presentation test, including the tests of tool-specific Presentation
+types. A Local request without <code>--tool</code> includes the App, Core and Presentation
+Local projects and every tool Local project. SGT Pure
 selects its Windows and portable projects. RECORDSET Pure defaults to
 <code>DBTools.RecordSet.Pure.Tests</code>, which requires an interactive window station for its WPF fixtures.
 <code>DBTools.RecordSet.Cad.Pure.Tests</code> declares <code>DBT_OptInTests=true</code> and contains only <code>CadLiveTests</code>.
@@ -718,8 +731,16 @@ Repository-controlled models and assets are different: missing staged files
 must fail the test.</p>
 <h3 id="hosted-context-and-cleanup">Hosted context and cleanup</h3>
 <p>Use <code>RevitHost.RunAsync(...)</code> for the daemon-provided <code>UIApplication</code>. It
-initializes year, ambient call-gate state, the App host, and runtime assembly
-context. WPF name-only product loads resolve with the active App assembly.
+initializes runtime assembly resolution and calls
+<code>AppHostedComposition.EnsureRuntime(app.Application?.VersionNumber)</code> before
+it ensures that a call-gate task is available. <code>EnsureRuntime</code> parses an unset
+Revit year and initializes the App runtime once with an isolated ribbon target.
+A fixture that builds its own App container uses
+<code>AppHostedComposition.CreateLoggingRuntime()</code> and
+<code>AppHostedComposition.BuildServiceProvider(logging, isolationName, configure)</code>.
+The optional <code>configure</code> callback runs after App registrations. The fixture
+disposes its provider and logging runtime. WPF name-only product loads resolve
+with the active App assembly.
 <code>RevitAmbientScope</code> owns publication/restoration of the ambient UIApplication.
 A native callback's API scope applies only to its synchronous prefix. Later
 continuations use a fresh product probe or gate.</p>
@@ -797,7 +818,7 @@ Keep preview data native until the WPF boundary.</p>
 </tr>
 <tr>
 <td><code>SessionOperationGateTests</code></td>
-<td>Session operation admission and overlay lifetime.</td>
+<td>Session operation admission, overlay lifetime and step diagnostics through the injected logger.</td>
 </tr>
 </tbody>
 </table>
@@ -989,11 +1010,12 @@ evidence, not a local Pure result file.</p>
 </tr>
 </tbody>
 </table>
-<p>Candidate-consuming BUILD fixtures additionally require
-<code>AssembleDistributionCandidate</code>. Their filters do not infer it. Acceptance
-checks require clean source. <code>DistributionContractTests</code> inspect real output
-references and reject bundled Revit host DLLs. Revit supplies those DLLs at
-runtime.</p>
+<p>BUILD fixtures in the <code>ProductArtifacts</code> category require a source-current
+<code>./build.sh BuildAll</code> and compiled hosted test outputs. Filters do not create
+these prerequisites. See the <a href="../architecture/test-pipeline.html">test pipeline</a>
+for the complete artifact selection and its clean-source requirement.
+<code>DistributionContractTests</code> inspect real output references and reject bundled
+Revit host DLLs. Revit supplies those DLLs at runtime.</p>
 <p>Inspect <code>%APPDATA%/DBTools/Logs/</code> first for reported application failures.
 Hosted job output returns application logs. Use the selected Revit year's
 journal for a crash only when those logs are inconclusive.</p>

@@ -91,7 +91,7 @@
 
 <p>DB Tools runs all Revit API work through a call gate, inside a run scope that each command, modeless session or test owns. Tool windows report long operations through the progress overlay. This page owns the design of run scopes, call gates, transaction services and the progress overlay. <a href="../projects/core.html">DBTools.Core</a> describes the rest of the Core library and its source folders.</p>
 <h2 id="command-entry">Command entry</h2>
-<p><code>ToolCommand</code> (<code>src/DBTools.Core/Tools/Commands/ToolCommand.cs</code>) is the base class of every Revit command. Its public <code>Execute</code> runs the command body inside <code>ISafeExecutor</code> and gives the protected <code>RunAsync</code> hook one owning <code>CommandContext</code>; see <a href="../projects/core.html#toolcommand"><code>ToolCommand</code></a> for the API. Command subclasses resolve services from <code>ICommandContext</code>. Its base interface <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code>. A feature that owns a window composes <code>ToolWindowFactory</code> and calls <code>IToolWindowSession.ShowDialog()</code> or <code>Show()</code>. The session owns the reflection scope and the window's retirement.</p>
+<p><code>ToolCommand</code> (<code>src/DBTools.Core/Tools/Commands/ToolCommand.cs</code>) is the base class of every Revit command. Its public <code>Execute</code> runs the command body inside <code>ISafeExecutor</code> and gives the protected <code>RunAsync</code> hook one owning <code>CommandContext</code>; see <a href="../projects/core.html#toolcommand"><code>ToolCommand</code></a> for the API. Command subclasses resolve services from <code>ICommandContext</code>. Its base interface <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code>. A feature that owns a window composes <code>ToolWindowFactory</code> and calls <code>CreateModal</code> for an <code>IModalToolWindowSession</code> with <code>ShowDialog</code>/<code>HideForPick</code>, or <code>CreateModeless</code> for an <code>IModelessToolWindowSession</code> with <code>Show</code>. The session owns the reflection scope and the window's retirement.</p>
 <p>An expected refusal throws <code>SafeExecutionRefusedException</code> with a reason for the user. <code>SafeExecutor</code> then returns <code>SafeExecutionStatus.Refused</code>, with no failure surface and no exception diagnostics. <code>SafeExecutionRefusalReporter</code> shows a Warning banner, which writes the one Warning log entry; an execution without a banner logs <code>[Refused] {Name}: {Message}</code>. <code>ToolCommand</code> returns Revit <code>Result.Cancelled</code> for a refusal and for a failure. An unexpected exception writes Error diagnostics and shows an Error banner.</p>
 <h2 id="run-scopes">Run scopes</h2>
 <p>App composition (<code>AppServiceProviderFactory</code>) registers <code>IAppRunScopeFactory</code> with the Core implementation <code>AppRunScopeFactory</code>. <code>CommandContextFactory</code> calls <code>Create(UIApplication, AppRunScopeProfile)</code>. The factory selects the call gate for the profile, constructs <code>RevitRunScope</code>, and returns the concrete <code>AppRunScope</code>, which owns scoped service resolution, its <code>IRevitRunScope</code> and disposal. Construction and disposal keep the primary failure, attempt every owned cleanup step and report further cleanup failures in order.</p>
@@ -112,7 +112,7 @@
 <tr>
 <td><code>QueuedModeless</code></td>
 <td><code>QueuedRevitCallGate</code></td>
-<td>Modeless tool windows and long workflows that must queue Revit API work to the UI thread through the App-owned <code>ExternalEvent</code> host.</td>
+<td>Modeless tool windows and long workflows that must queue Revit API work to the UI thread through the service root's <code>RevitCallGateTask</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -128,12 +128,21 @@
 }
 </code></pre>
 <p>A consumer that keeps its launch document calls <code>GetVerifiedActiveDocument(...)</code>. The run scope rejects an invalid expected or active document and requires matching <code>DocumentSessionKey</code> values before it returns the active document.</p>
-<p><code>RevitServiceCollectionExtensions</code> registers only the Revit-scoped run-scope access, the call gate and the transaction services. The App composition root registers <code>IAppRunScopeFactory</code>, safe execution, command preflight and the command context services.</p>
+<p><code>RevitServiceCollectionExtensions</code> registers only the Revit-scoped run-scope access, the call gate and the transaction services. The App composition root registers the Revit task, <code>IAppRunScopeFactory</code>, safe execution, command preflight and the command context services.</p>
+<h3 id="revit-task">Revit task</h3>
+<p>Each App service root owns one <code>RevitCallGateTask</code>, the <code>ExternalEvent</code> host that queued gates schedule through. <code>AppServiceProviderFactory</code> registers it as a singleton that is created on first request, with <code>ILogger&lt;RevitCallGateTask&gt;</code>, and registers <code>Func&lt;IRevitCallGateTask&gt;</code>, which returns the task of the same root. Registration creates no <code>ExternalEvent</code>.</p>
+<ul>
+<li>Startup resolves the task on the Revit main thread after the synchronous preparation steps and passes it to <code>AppLocalRevitTaskLifecycle.Start</code>, which publishes it in <code>RevitCallGateTaskHost</code>. Startup keeps the returned task in its <code>AppStartupOwnership</code>. Shutdown retires and disposes that task before the service root and resets <code>RevitCallGateTaskHost</code> only while it still publishes that task.</li>
+<li><code>AppRunScopeFactory</code>, <code>HookHost</code>, <code>ContextualRibbonRuntime</code> and the Foundation Tags update workflow receive the provider. They call it only when they build a <code>QueuedRevitCallGate</code>: a <code>QueuedModeless</code> run scope, a <code>ViewActivated</code> hook attachment or rollback, a contextual ribbon UI call, or the selection actions of an update result. An <code>InlineUi</code> run scope does not resolve the task.</li>
+<li>A gate keeps the task it was built with. After that generation retires, a new queued call completes canceled and does not reach a replacement task. A provider called after its root is disposed throws <code>ObjectDisposedException</code>.</li>
+<li><code>RevitCallGateTaskHost</code> holds the published task for <code>RevitCallGateApiContext</code>, which reads its known application. Call gates do not read it.</li>
+</ul>
 <h2 id="call-gates">Call gates</h2>
 <p><code>IRevitCallGate</code> is the single entry point for Revit API access. It runs synchronous callbacks on the Revit UI thread. Revit API calls outside the call gate can raise invalid-context exceptions or break UI-thread rules.</p>
 <pre><code class="lang-csharp">public interface IRevitCallGate
 {
     bool InGate { get; }
+    bool RunsInline { get; }
     Task&lt;T&gt; RunAsync&lt;T&gt;(Func&lt;UIApplication, T&gt; work, CancellationToken ct = default,
         RevitCallGateMode mode = RevitCallGateMode.Auto);
     Task RunAsync(Action&lt;UIApplication&gt; work, CancellationToken ct = default,
@@ -160,8 +169,9 @@
 </table>
 <ul>
 <li><code>InlineRevitCallGate(UIApplication)</code> runs delegates immediately on the Revit UI thread with the supplied application. Modal commands use it.</li>
-<li><code>QueuedRevitCallGate</code> schedules the callback through its <code>ExternalEvent</code> host.</li>
-<li><code>QueuedRevitCallGate</code> and the host's <code>RevitCallGateTask</code> each require an <code>ILogger</code> from their composition owner; App passes its runtime logger to <code>AppLocalRevitTaskLifecycle.Start</code>. A missing logger is a construction error.</li>
+<li><code>QueuedRevitCallGate(IRevitCallGateTask, ILogger)</code> schedules the callback through the <a href="#revit-task">Revit task</a> it receives.</li>
+<li><code>RunsInline</code> is <code>true</code> when every accepted callback runs synchronously inside the calling API turn: <code>true</code> for <code>InlineRevitCallGate</code>, <code>false</code> for <code>QueuedRevitCallGate</code>, also while a nested <code>Auto</code> call runs inline. A decorator forwards the value of its inner gate. It grants no API authority and does not describe the current <code>InGate</code> state. SGT's modal session and GM's Commit Review modal session read it instead of the concrete gate type.</li>
+<li><code>QueuedRevitCallGate</code> requires a Revit task and an <code>ILogger</code>; <code>RevitCallGateTask</code> requires an <code>ILogger</code>. A missing argument is a construction error.</li>
 <li>The active <code>UIApplication</code>, the queued-gate depth and the Revit-test depth are internal scoped state. <code>QueuedRevitCallGate</code> owns the queued and test scopes; <code>RevitRunScope</code> owns its application context token. Every scope restores the exact previous value, and a repeated disposal does nothing.</li>
 </ul>
 <h3 id="delegate-admission">Delegate admission</h3>
@@ -192,7 +202,7 @@
 <p>The probe creates a new event instead of adding and removing a handler on a Revit event. It does not change the subscriber collection of the current event and does not write a document, so it is legal in <code>Idling</code>, <code>ViewActivated</code>, <code>DocumentChanged</code> and updater callbacks. Admission does not permit an API that a particular callback forbids; callers must obey read-only and dynamic-update restrictions.</p>
 <p>The <a href="https://rvtdocs.com/2026/Autodesk.Revit.UI.ExternalEvent.Create">2026</a> and <a href="https://rvtdocs.com/2027/Autodesk.Revit.UI.ExternalEvent.Create">2027</a> API references list the <code>Create</code> signature and the null-handler exception, but not the outside-context exception. An <a href="https://forums.autodesk.com/t5/revit-api-forum/externalevent/m-p/9029307">Autodesk forum thread</a> describes that runtime check and the difference between UI-thread access and API context.</p>
 <p>The probe does not identify which add-in owns a callback. Inside another add-in's main-thread API callback it returns <code>true</code>, and DB Tools runs inline without its own scope. Callbacks that DB Tools owns enter an explicit synchronous <code>UIApplication</code> scope; later continuations must probe or queue again.</p>
-<p>The scope is a <code>ref struct</code>, so a caller cannot hold it across an <code>await</code>. Its shared lifetime lets a wrong-thread disposal revoke the context before the misuse is reported. <code>Enter</code> is internal; App's native callbacks and FoundationTags' <code>Idling</code> owner use it. Global Mapper (GM) has access for synchronous-delegate validation only and does not enter scopes.</p>
+<p>The scope is a <code>ref struct</code>, so a caller cannot hold it across an <code>await</code>. Its shared lifetime lets a wrong-thread disposal revoke the context before the misuse is reported. <code>Enter</code> is internal. The build contract suite (<code>RevitCallGateApiContextEntryContractTests</code>) inspects the compiled production assemblies and allows <code>Enter</code> only in <code>ToolCommand.ExecuteCore</code>, the explicit <code>IExternalEventHandler.Execute</code> of <code>RevitCallGateTask</code>, the contextual ribbon <code>SelectionChanged</code> and edit-event callbacks, the <code>ViewActivated</code> dispatcher, the FoundationTags <code>Idling</code> retry tick and <code>InlineRevitCallGate</code> after its own thread and <code>IsActive</code> check. Only <code>Enter</code> constructs the scope. The suite checks call sites in the build; it does not authenticate callers at run time. Global Mapper (GM) has access for synchronous-delegate validation only and does not enter scopes.</p>
 <h3 id="queued-turns">Queued turns</h3>
 <p>Each native <code>Execute</code> turn of the queued gate runs, in FIFO order, every item that was waiting when the turn started. N waiting calls cost one Revit round trip.</p>
 <ul>
@@ -226,6 +236,7 @@
 <li>It refuses to start a transaction on one document while another document is modifiable.</li>
 <li>It attaches <code>TransactionFailurePreprocessor</code>, which suppresses non-critical Revit warnings.</li>
 </ul>
+<p><code>TransactionRunner</code> enters the call gate and resolves the target document through <code>TransactionBoundary</code> (<code>RunAsync</code>, <code>GetActiveDocument</code> and <code>EnsureNoCrossDocNesting</code>). <code>TransactionExecutor</code> owns the <code>Transaction</code> or <code>SubTransaction</code> lifecycle and names an unnamed transaction <code>DBTools Transaction</code>. The static status validators of <code>TransactionBoundary</code> turn an unexpected start, commit or group-finalization status into <code>TransactionFailureException</code>; <code>TransactionExecutor</code> and <code>TransactionGroupSession</code> call them, and <code>TransactionGroupSession</code> names an unnamed group <code>DBTools Apply Group</code>.</p>
 <pre><code class="lang-csharp">await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall&quot;, context =&gt;
 {
     Wall.Create(context.Document, curve, levelId, false);
@@ -239,7 +250,14 @@ var wallId = await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall
 The first operation failure stops further work. Existing work/rollback aggregates precede any disposal failure.
 A single failure keeps its identity, type and original stack. Multiple failures propagate in an ordered aggregate.
 A disposal failure after commit propagates without undoing the committed write.</p>
-<p><code>TransactionFailurePreprocessor.AttachToTransaction</code> sets clear-after-rollback before failure processing starts.</p>
+<p><code>TransactionFailurePreprocessor.AttachToTransaction</code> sets clear-after-rollback before failure processing starts.
+Revit holds a stable <code>RevitCallbackRelay</code> (Presentation) that forwards to the preprocessor. After a transaction ends,
+Revit can keep native copies of the failure handling options until it next pumps, and a Dev Mode reload proves the old
+generation unreachable before that. Production code therefore declares the preprocessor before its transaction
+and attaches it with <code>AttachTo</code> after <code>Start</code>, so the transaction is disposed, and rolled back if needed, before
+<code>Dispose</code> drops the preprocessor from the relay; its records stay readable. For the same reason, copy-paste options get a
+constant relay (<code>RevitCallbackRelay.Constant</code>) as the duplicate type names handler. Hand Revit a relay, not a
+reloadable object, for any callback that Revit can keep after the call.</p>
 <ul>
 <li>A warning is reported as suppressed only after Revit deletes it.</li>
 <li>A blocking failure, or a fault in a failure accessor, records a blocking diagnostic and requests rollback. An accessor fault keeps the caught exception, which becomes the <code>InnerException</code> of the <code>TransactionFailureException</code> (an <code>AggregateException</code> when several accessors failed).</li>
@@ -247,7 +265,7 @@ A disposal failure after commit propagates without undoing the committed write.<
 <li>The preprocessor keeps one <code>TransactionFailureRecord</code> per message it reads: severity, description, failure definition GUID, failing element IDs and whether the message rolled the transaction back. A fault while reading the failing element IDs is added to <code>AccessorFaults</code> and does not change how the message resolves.</li>
 </ul>
 <p>A runner built with <code>new TransactionRunner(gate, logger)</code> logs every record and every accessor fault at Warning after the commit; the one-argument constructor logs nothing. GM's apply runners use the logging form.</p>
-<p><code>TransactionFailureException</code> is the public diagnostic for a transaction that did not reach <code>Committed</code>. Its constructors are internal to Core. Callers read the transaction name, final status, warnings, blocking failure text and failure-definition identities from its properties. A posted blocking failure rolls back a runner-managed transaction and raises this exception with the transaction name and the blocking diagnostic. Tool write boundaries map this exception and Revit refusal exceptions to their own typed failures and keep the original exception as the inner cause.</p>
+<p><code>TransactionFailureException</code> is the public diagnostic for a transaction that did not reach <code>Committed</code>. Its constructors are internal to Core. Callers read the transaction name, final status, warnings, blocking failure text and failure-definition identities from its properties. <code>BlockingFailureDefinitionIds</code> keeps the IDs in the order Revit reported them, duplicates included, and <code>BlockingFailureDefinitionGuids</code> holds their GUIDs in the same order. The exception implements <code>ITransactionFailureDefinitionSource</code>, which exposes only the GUID list, so code without the Revit API can read it. Core does not classify the GUIDs; GM's <code>GroupEditErrorMatcher</code> matches Revit's four group-edit failures. A posted blocking failure rolls back a runner-managed transaction and raises this exception with the transaction name and the blocking diagnostic. Tool write boundaries map this exception and Revit refusal exceptions to their own typed failures and keep the original exception as the inner cause.</p>
 <p>Sources: <code>src/DBTools.Core/Revit/Transactions/{TransactionRunner,TransactionExecutor,TransactionBoundary,TransactionFailurePreprocessor}.cs</code>.</p>
 <h3 id="transaction-groups">Transaction groups</h3>
 <p><code>ITransactionGroupService</code> makes several transactions on the active document one Revit undo entry. It is the manual lifecycle; the caller owns the <code>try</code>/<code>finally</code> around <code>FinalizeAsync</code>, in the workflow that knows whether to commit or roll back.</p>
@@ -274,9 +292,9 @@ A disposal failure after commit propagates without undoing the committed write.<
 <h2 id="progress-overlay">Progress overlay</h2>
 <h3 id="hosts">Hosts</h3>
 <ul>
-<li>Host tool views through <code>ToolWindowFactory</code> and <code>IToolWindowSession</code>. The modal and modeless shells expose the WPF owner. Core installs <code>WindowInitializer</code> before the XAML loads and retires its state with the session.</li>
+<li>Host tool views through <code>ToolWindowFactory.CreateModal</code> or <code>CreateModeless</code>. The typed sessions share the <code>IToolWindowSession</code> lifecycle. The modal and modeless shells expose the WPF owner. Core installs <code>WindowInitializer</code> before the XAML loads and retires its state with the session.</li>
 <li>Bind an overlay to its window with <code>ProgressOverlay.For(window, logger)</code>, on the owner's UI thread. State, dispatcher affinity and diagnostics stay tied to that window. The logger is required.</li>
-<li><code>ProgressOverlayWindowCapability</code> (<code>ProgressOverlayWindowCapability.Hosts.cs</code>) is the only registry from <code>Window</code> to overlay state and visual host. There is no ambient or process-global host.</li>
+<li><code>WindowProgressOverlayCapability</code> (<code>WindowProgressOverlayCapability.Hosts.cs</code>) is the only registry from <code>Window</code> to overlay state and visual host. There is no ambient or process-global host.</li>
 <li><code>ProgressOverlay.Operations.cs</code> holds the public lifecycle API. <code>ProgressOverlayRunWorkflow.cs</code> owns <code>RunAsync(...)</code>: the show policy, the linked cancellation source, cancel observation and hide sequencing.</li>
 <li><code>ProgressOverlayDelayedHideScheduler</code> keeps the dispatcher operation it posts and observes every outcome. It clears the pending hide only when the completing operation owns the current cancellation source, so an aborted or faulted stale operation cannot clear a replacement hide.</li>
 </ul>

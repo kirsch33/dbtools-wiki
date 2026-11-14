@@ -152,8 +152,12 @@ A linked target uses <code>RevitLinkInstance.GetTotalTransform</code> and requir
 Geometry extraction uses Medium detail and <code>ComputeReferences = false</code>.
 It traverses solids, triangulates faces, and retains separate bottom-surface and full-element meshes.
 A bottom face has host-transformed normal Z at most -0.1, sampled at the midpoint of its UV bounds.
-No usable bottom surface returns no target geometry.
-Unexpected geometry faults log context and propagate.</p>
+Extraction returns <code>(Surface, FailureReason)</code>. Success has a surface and no failure reason.
+Expected failures return no surface with <code>LinkInstanceMissing</code>, <code>LinkUnloaded</code>, <code>NoTargetId</code>,
+<code>ElementMissing</code>, <code>NoGeometry</code>, or <code>NoBottomFaces</code>, without reader or resolver warning/error logs.
+<code>TargetGeometryResolver</code> maps each reason once to a selection diagnostic and records <code>IsStoredTarget</code>.
+The window shows a reason-specific warning for the selected or stored target.
+Unexpected geometry faults propagate. The resolver logs the host, link-instance, and linked-target IDs before rethrowing.</p>
 <p><code>TargetSurface</code> contains Vertices, TriangleIndices, Bounds, display/category names,
 ElementVertices, ElementTriangleIndices, and optional LinkTransformMatrix.
 Coordinates used by calculation are in the host frame.
@@ -264,6 +268,8 @@ Creation, bake, and cleanup transaction starts/commits must return Started/Commi
 Any subsequent creation, commit, disposal, bake, or extraction fault reaches cleanup.
 Concurrent extraction and cleanup failures preserve both causes.
 Expected <code>ProfileLoops/*</code> conditions return structured per-type failures. Unexpected faults and cancellation propagate.
+Each type returns its profile or expected failure only after temporary-instance cleanup succeeds.
+<code>ExtractProfiles</code> owns the profile and failure dictionaries and reuses one placement context for all types.
 One Info summary reports total, extracted, and unsupported counts. Per-type progress uses Debug.</p>
 <p><code>PreviewSceneBuilder.Build</code> renders adjusted endpoints using extracted profiles.
 Missing profiles omit affected members and log counts. No successful profile still permits target-only preview.

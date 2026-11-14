@@ -149,10 +149,10 @@
 </tbody>
 </table>
 <p>The GUIDs are the ones in the DB shared parameter file (group <code>DB Structural</code>), so a project that already has these parameters from that file needs no repair. A project that has a parameter with one of these names and another GUID, such as a project set up with DB Tools releases before November 2026, reports <code>GUID_MISMATCH</code> until you run Install/Repair.</p>
-<p>DB Tools checks the parameters when the active model changes. If a parameter is missing, has another GUID, has the wrong data type, is bound as a type parameter, or is bound to the wrong category, DB Tools activates the warning <code>Combined Foundation Tags Disabled</code>. The warning disables Update Combined Foundation Tags, Move Combined Tags and Organize Foundation Types, and the <strong>Settings</strong> button shows the warning icon. This check shows no banner.</p>
+<p>DB Tools checks the parameters when the active model changes. If a parameter is missing, has another GUID, has the wrong data type, is bound as a type parameter, or is bound to the wrong category, or a loaded family defines one of these names with another GUID, DB Tools activates the warning <code>Combined Foundation Tags Disabled</code>. The warning disables Update Combined Foundation Tags, Move Combined Tags and Organize Foundation Types, and the <strong>Settings</strong> button shows the warning icon. This check shows no banner.</p>
 <p>Update Combined Foundation Tags and Move Combined Tags also check the parameters each time they run, for example when you run one before the check on a model change has finished. In a family document they refuse to run. When a parameter fails, the command does not run. It activates the warning and shows one message, <strong>Required shared parameters need repair</strong>, that lists each failing parameter with its status and problem:</p>
 <ul>
-<li><strong>Repair</strong> runs Install/Repair, as in Settings, including the schedule-field prompt (see Schedule fields). After a successful repair, a banner confirms it and lists what changed; run the command again.</li>
+<li><strong>Repair</strong> runs Install/Repair, as in Settings, including the prompt about schedule fields and view filters (see Schedule fields and view filters). After a successful repair, a banner confirms it and lists what changed; run the command again.</li>
 <li><strong>Cancel</strong> changes nothing, and the warning stays.</li>
 </ul>
 <p>To repair the parameters in Settings:</p>
@@ -181,24 +181,44 @@
 <li>more than one parameter has the required name and none has the required GUID.</li>
 </ul>
 <p>The message names the parameter and the reason, and lists each value that could not be kept with its element ID. The DB Tools log lists every one. Correct the cause, for example delete the extra parameter in <strong>Manage</strong> &gt; <strong>Project Parameters</strong> or purge the unused type, and run Install/Repair again.</p>
-<p>Install/Repair cannot change loaded tag families. A tag label that uses the old parameter still refers to the old GUID and shows no value. Reload the tag families that use the company shared parameters, or edit their labels to use the parameters from the DB shared parameter file.</p>
 <p>A duplicate of a parameter that already has the required GUID (<code>DUPLICATE_NAME</code>) is deleted only when no element or type has a value for it; the status message names each deleted duplicate. A global parameter with one of these names is not a project parameter; Install/Repair leaves it alone.</p>
 <p>These rules are tested with text and length values, extra categories, type parameters and grouped elements. Elements in design options and elements owned by another user in a workshared model are not tested; if Revit blocks a change there, Install/Repair changes nothing.</p>
-<p>Status values include <code>MISSING</code>, <code>GUID_MISMATCH</code>, <code>DUPLICATE_NAME</code>, <code>WRONG_DATA_TYPE</code>, <code>UNBOUND</code>, <code>WRONG_BINDING_TYPE</code> and <code>WRONG_CATEGORY</code>.</p>
+<p>Status values include <code>MISSING</code>, <code>GUID_MISMATCH</code>, <code>FAMILY_GUID_MISMATCH</code>, <code>DUPLICATE_NAME</code>, <code>WRONG_DATA_TYPE</code>, <code>UNBOUND</code>, <code>WRONG_BINDING_TYPE</code> and <code>WRONG_CATEGORY</code>.</p>
+<h3 id="families-with-another-guid">Families with another GUID</h3>
+<p>A loaded family keeps its own copy of a shared parameter: a family parameter, or a label that shows the parameter. When a family uses one of these names with another GUID, its labels and formulas keep looking for that GUID. Revit also removes a deleted shared parameter from the labels of the families that use it, so a tag then shows nothing. Install/Repair therefore changes the families first and deletes the parameter with the other GUID only when no family uses it any more.</p>
+<p>When a project has a parameter with one of these names and another GUID, Install/Repair opens each family of the project to check it; in a project with many families this takes a while. For each family parameter with the name and another GUID, it:</p>
+<ol>
+<li>replaces the parameter in the family with the one from the DB shared parameter file, as an instance or type parameter as before, in the same group;</li>
+<li>keeps every formula, dimension label and label that uses the parameter, and every value of each family type;</li>
+<li>reloads the family into the project, then gives every element and type its value back and checks each one.</li>
+</ol>
+<p>When the company parameter is already bound, the status is <code>FAMILY_GUID_MISMATCH</code> and names the families whose types or elements show the parameter. A label that shows the parameter directly does not show in the status; Install/Repair finds it.</p>
+<p>Install/Repair changes the families in the project only. The family files in your library still use the other GUID; when you load such a file again, the problem comes back. Replace the parameter in the file too.</p>
+<p>Install/Repair changes nothing, keeps the warning, and names the family when:</p>
+<ul>
+<li>a label uses the parameter directly, as added through <strong>Edit Label</strong> &gt; <strong>Add Parameter</strong> in a tag or title block family. DB Tools cannot change a label. In Revit 2027 the message has one line per label: its detail group, the position of the parameter in the label, and its prefix, suffix, sample text, spaces before, line break before and non-breaking spaces, so you can add the company parameter with the same settings. Revit 2026 cannot tell which label it is. Open the family, select the label (in a detail group, use <strong>Edit Group</strong> first), click <strong>Edit Label</strong>, replace the parameter with the one from the DB shared parameter file, and load the family into the project again;</li>
+<li>a nested family uses the parameter, or the family is a shared family nested in another family;</li>
+<li>the family defines the parameter as a type parameter in Structural Foundations or Structural Columns, where the project binds it as an instance parameter;</li>
+<li>the family defines it with another data type;</li>
+<li>an element has one value for the family parameter and another for the project parameter;</li>
+<li>the family is in-place or cannot be edited, and it defines the parameter, or DB Tools cannot tell whether it does. When its elements show the parameter and the project parameter could explain that, DB Tools checks, without a change, whether the elements still show it without the project parameter;</li>
+<li>a value cannot be written back after the reload, for example because a formula computes it or the element is in a group placed more than once.</li>
+</ul>
 <h3 id="invalid-parameter-bindings">Invalid parameter bindings</h3>
 <p>When an add-in undoes a change to <strong>Values can vary by group instance</strong> of an existing parameter, Revit can leave the parameter bindings of the model in an invalid state until the model is reopened. DB Tools does not leave this state, but it cannot read the parameters while it lasts. It then shows one message and changes nothing:</p>
 <p><code>Revit's parameter bindings for this model are in an invalid state; save, close and reopen the model, then try again.</code></p>
 <p>Update Combined Foundation Tags and Move Combined Tags show it as a warning banner and do not run. Settings shows it under <strong>Status not available</strong> in place of the parameter list, and Install/Repair shows it as its result. The check on a model change and the automatic update activate the warning <code>Combined Foundation Tags Disabled</code>.</p>
 <p>Save, close and reopen the model. DB Tools checks the parameters again when the reopened model becomes active.</p>
-<h3 id="schedule-fields">Schedule fields</h3>
-<p>When Install/Repair deletes a parameter (a replaced parameter or an empty duplicate), Revit also removes every schedule field that uses it. This includes a field in an embedded schedule and a combined parameter field that includes the parameter. Revit removes a combined parameter field whole. Install/Repair cannot keep these fields or add them again. You must add the company parameter to those schedules by hand. A change of binding (<code>WRONG_BINDING_TYPE</code> or <code>WRONG_CATEGORY</code>) keeps the schedule fields.</p>
-<p>The parameter list shows a warning marker, for example &quot;Used in 2 schedules&quot;, below each parameter that Install/Repair would delete while a schedule uses it. Below the marker, each line names a schedule and the field heading. Install/Repair cannot see the formula of a calculated field, so a calculated field that uses the parameter is not listed; check calculated fields after the repair.</p>
-<p>When the repair would remove schedule fields, Install/Repair (the pack button, the warning card button, or <strong>Repair</strong> in a command's message) asks before Revit changes anything. The prompt lists each schedule, field and parameter:</p>
+<h3 id="schedule-fields-and-view-filters">Schedule fields and view filters</h3>
+<p>When Install/Repair deletes a parameter (a replaced parameter or an empty duplicate), Revit also removes every schedule field that uses it and, from any view filter that uses it, the rules that go with it. This includes a field in an embedded schedule and a combined parameter field that includes the parameter. Revit removes a combined parameter field whole. Install/Repair cannot keep these fields or add them again. You must add the company parameter to those schedules by hand. A change of binding (<code>WRONG_BINDING_TYPE</code> or <code>WRONG_CATEGORY</code>) keeps the schedule fields.</p>
+<p>Revit removes each rule set of an affected view filter that has a rule on the deleted parameter, with every rule in that set. The filter keeps its categories and its other rule sets, so it can select other elements than before. A filter with no rules left applies to all elements of its categories. Install/Repair cannot keep or restore the removed rules. Before you continue, record whether each filter uses AND or OR and whether any rule is inverted. The rule list does not show this logic. After the repair, add every listed rule to each filter by hand, including rules that use other parameters. The list shows only the rules that Revit removes.</p>
+<p>The parameter list shows a warning marker, for example &quot;Used in 2 schedules&quot; or &quot;Used in 1 view filter&quot;, below each parameter that Install/Repair would delete while a schedule or view filter uses it. Below the marker, each line names a schedule and the field heading, or a view filter, rule parameter and rule. Install/Repair cannot see the formula of a calculated field, so a calculated field that uses the parameter is not listed; check calculated fields after the repair.</p>
+<p>When the repair would remove schedule fields or view filter rules, Install/Repair (the pack button, the warning card button, or <strong>Repair</strong> in a command's message) asks before Revit deletes them. The prompt lists each schedule, field and parameter, and each view filter, rule parameter, rule and deleted parameter. It tells you to record each filter's logic before you continue:</p>
 <ul>
-<li><strong>Cancel</strong> changes nothing. The parameters, values, bindings and schedules stay as they are, and the warning stays.</li>
-<li><strong>Continue</strong> runs the repair. The status message and the banner list each schedule and field that Revit removed. If the project changed while the prompt was open and the list is now different, Install/Repair changes nothing and asks again with the new list.</li>
+<li><strong>Cancel</strong> changes nothing. The parameters, values, bindings, schedules and view filters stay as they are, and the warning stays.</li>
+<li><strong>Continue</strong> runs the repair. The status message and banner list each schedule field and every rule from each affected view filter that Revit removed. If the project changed while the prompt was open and the list is now different, Install/Repair changes nothing and asks again with the new list. A value created by family migration may still fail a later preservation check; if it does, Install/Repair reports the refusal and rolls back the repair.</li>
 </ul>
-<p>After you continue, open each listed schedule and add the company parameter again, with its formatting, sorting, grouping, filters and conditional formatting.</p>
+<p>After you continue, open each listed schedule and add the company parameter again, with its formatting, sorting, grouping, filters and conditional formatting. Open each listed view filter and add every listed rule with the parameter named for that rule. Use the AND/OR logic and inverted rules that you recorded before the repair.</p>
 <h2 id="update-combined-foundation-tags">Update Combined Foundation Tags</h2>
 <h3 id="usage">Usage</h3>
 <ol>
@@ -330,6 +350,7 @@
 <li>The nearest-pier search is 2D and has a fixed 2 ft radius.</li>
 <li>Piers and footings are recognized by family name only. Families with other names need a matching pattern.</li>
 <li>The corner a tag moves to is taken from its name. A tag with another name is skipped.</li>
+<li>Install/Repair cannot change a label that uses a required parameter with another GUID directly, or the family files in your library. See Families with another GUID.</li>
 </ul>
 
 </article>

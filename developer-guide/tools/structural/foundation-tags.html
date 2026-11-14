@@ -122,7 +122,7 @@ own manual execution and completion reporting. Queued result-selection gates rec
 </tr>
 </tbody>
 </table>
-<p>Both use <code>InlineUi</code> on the Structural panel in split group <code>foundation_tags</code>.
+<p>Both use <code>InlineUi</code> on the Structural panel in group <code>foundation_tags</code>.
 Their command and availability classes are <code>UpdateCombinedFoundationTagsCommand</code> and
 <code>MoveCombinedFoundationTagsCommand</code> under <code>App/Composition</code>.
 Icon keys are <code>update_combined</code> and <code>move_combined</code>.
@@ -261,6 +261,11 @@ The required definitions are owned by <code>Features/Prerequisite/PrerequisiteRe
 <p>The GUIDs match the company's DB shared parameter file (group <code>DB Structural</code>), so projects that
 use that file already satisfy the prerequisites. A project with a parameter that has a required name and
 another GUID, such as one set up with the DB Tools GUIDs used before November 2026, reports <code>GUID_MISMATCH</code>.
+When the company parameter is bound and a parameter with the name and another GUID has no binding, and loaded families
+show it on their types or placed elements (<code>SharedParameterFamilyMigration.FindFamilyNames</code>), the row reports
+<code>FAMILY_GUID_MISMATCH</code>. The description of <code>GUID_MISMATCH</code>, <code>FAMILY_GUID_MISMATCH</code> and <code>DUPLICATE_NAME</code> ends with up to
+five such family names (<code>PrerequisiteRequiredParameterStatus.FamilyUse</code>). The status opens no family, so a label that
+uses the other GUID directly does not show in it; Install/Repair finds it.
 The data type check uses <code>ForgeTypeId.NameEquals</code>, which ignores the schema version, so a parameter
 created in an earlier Revit (<code>autodesk.spec.aec:length-2.0.0</code>) matches <code>SpecTypeId.Length</code> of a later one.</p>
 <p>Background checks (the monitor, its retry and the automatic update) only record invalid prerequisites: they
@@ -318,22 +323,22 @@ Their columns and values match the company file: <code>VISIBLE</code> 1, an empt
 <code>USERMODIFIABLE</code> 1 and <code>HIDEWHENNOVALUE</code> 1. Only the group name differs; a project does not store it.
 It creates a temporary shared-parameter file, restores Revit's original shared-parameter path,
 and attempts temporary-file deletion. The embedded definitions supply the required parameters.</p>
-<p><code>EnsureInstalledAndValid(IPrerequisiteRepairConfirmation)</code> first works out its whole plan without a change
-(<code>PlanRepair</code> returns the same <code>PrerequisiteRepairPlan</code>): every refusal, through Core's <code>CheckMigrate</code> and
-<code>CheckRebind</code>, and every schedule field that Revit removes because the repair deletes a parameter that the field
-uses, a replaced parameter or an empty duplicate (<code>SharedParameterMigration.FindScheduleFields</code>: main and embedded
-definitions, and combined parameter fields that include it). A rebind keeps its fields, so it adds none. A refusal
-throws before any change, including a parameter with the company GUID and another spec (<code>WRONG_DATA_TYPE</code>) and
-a Length value on a member of a group placed more than once, so no prompt describes a repair that would refuse.
-When the plan lists schedule fields, the confirmation decides before any change; a declined repair returns a result
-with <code>Canceled</code> set and changes nothing. After Continue the repair plans again before it opens the transaction
-group; if the refusals or the schedule fields differ (<code>PrerequisiteRepairPlan.IsSameAs</code>), it changes nothing and
-asks again with the new plan. Repair cannot keep or add the fields
-again; the user adds the company parameter to those schedules by hand.
+<p><code>EnsureInstalledAndValid(IPrerequisiteRepairConfirmation)</code> runs a read-only preflight. <code>PlanRepair</code> returns the project plan without family details. It uses Core's <code>CheckMigrate</code>, <code>CheckRebind</code> and <code>CheckBind</code> to find value refusals. It also lists each schedule field and every rule from a view filter that Revit removes with a replaced parameter or an empty duplicate. <code>FindScheduleFields</code> scans main and embedded schedules. <code>FindFilterRules</code> lists all rules from affected filters, but it does not show their AND/OR logic or inverted rules. The confirmation tells the user to record that logic before Continue. A rebind keeps schedule fields and view filter rules.</p>
+<p>The method also plans loaded families through Core's <a href="../../projects/core.html#shared-parameters-in-loaded-families">family migration</a> (<code>SharedParameterFamilyMigration.Plan</code>). It creates one <code>SharedParameterFamilyTarget</code> per required parameter, with the embedded definition and the required category plus every category that a matching parameter already binds. A known refusal, such as a <code>WRONG_DATA_TYPE</code>, a Length value on a member of a group placed more than once, or a family use that Core cannot change, stops before any change.</p>
+<p>The preflight cannot predict target-only project values that family migration creates. A later project migration can refuse after Continue when it finds a value that it cannot keep. That migration runs inside the repair transaction group, which rolls the family and project changes back.</p>
+<p>When the project plan lists schedule fields or view filter rules, the confirmation decides before any deletion. A declined repair returns a result with <code>Canceled</code> set and changes nothing. After Continue the repair plans again, including families, before it opens the transaction group. A refusal of either new plan stops it. If the refusals, schedule fields or filter rules differ (<code>PrerequisiteRepairPlan.IsSameAs</code>), it changes nothing and asks again with the new plan. A family loaded while the question was open is therefore changed or refused like any other. Repair cannot keep or recreate the listed schedule fields or view filter rules. The user adds the company parameter and restores every listed rule by hand.
 The repair runs in one transaction group and assimilates it only after every
 prerequisite is OK. A failure or refusal at any step rolls the group back and leaves the project unchanged,
 so the warning stays active.
-It first replaces each <code>GUID_MISMATCH</code> parameter through Core's
+It first changes the loaded families (<code>SharedParameterFamilyMigration.Migrate</code>): each family parameter with a required
+name and another GUID becomes the company parameter, with its group, kind, formula, references and values, and the
+family is reloaded. Only then does it delete a parameter with another GUID: Revit removes a deleted shared parameter
+from the labels of the loaded families that use it, which is how labels lost their parameter before this order.
+A parameter with the required name and another GUID is a <code>GUID_MISMATCH</code> that moves its values to the company parameter,
+and an element whose two values differ refuses. An unbound company parameter can already exist because a loaded family
+defines its GUID. Preflight checks its first binding with <code>CheckBind</code>; the repair binds it after migrations and rebinds.
+Only a missing company parameter is created by the final install step.
+The repair then replaces each <code>GUID_MISMATCH</code> parameter through Core's
 <a href="../../projects/core.html#shared-parameter-migration">shared parameter migration</a>. A replacement keeps the
 old categories (a type binding becomes an instance binding of the same categories), the parameter group,
 the variance between group instances, and every value: element values on the same elements, and type
@@ -342,34 +347,56 @@ description, user-modifiable and hide-when-no-value settings; each difference is
 Next it rebinds an installed required parameter that is bound as a type parameter or lacks the required
 category (<code>WRONG_BINDING_TYPE</code>, <code>WRONG_CATEGORY</code>) through <code>SharedParameterMigration.Rebind</code>, which keeps its
 GUID, categories, group, the variance between group instances and every value, and copies each type value
-to every instance of that type.
+to every instance of that type. It then binds an existing unbound company parameter through
+<code>SharedParameterMigration.Bind</code>. The final install step creates and binds definitions that do not exist yet.
 Repair refuses, and changes nothing, when the old parameter or the parameter with the company GUID has
-another spec, when a value cannot be written or read back, when a type value has no instance, when a rebar
+another spec, when a value cannot be written or read back, when a project type-bound value has no instance, when a rebar
 container overrides the parameter, when a Length parameter holds values on members of a group placed more than once
 (Revit lets such a value change only in group edit mode and does not let a Length parameter vary between group
-instances),
-when several parameters have the required name and none has the required GUID, or when a same-name
+instances), when several parameters have the required name and none has the required GUID, or when a same-name
 duplicate of an installed required parameter holds values (<code>SharedParameterMigration.HoldsAnyValue</code>);
-the message names each such duplicate. A write that Revit blocks for another reason takes the same path.
+the message names each such duplicate. Repair also refuses before binding when a placed family defines the target GUID
+only as a type parameter in a category bound as an instance parameter. A family type parameter with no placed instance
+stays on its type because an instance binding does not change it. The family plan refuses, naming the family: a label or nested family
+that uses a required name with another GUID directly (in Revit 2027 one line per label with its detail group, position
+and formatting), a type parameter in a family of a category that the parameter binds as an instance parameter, a
+nested shared family, an in-place or non-editable family that defines the name or may define it, another data type,
+and an element whose family value and project value differ. Revit 2026 cannot read annotation labels, so it refuses every
+direct shared-parameter element. An annotation-family refusal says the labels could not be read. A model-family refusal
+names the direct use without calling it an annotation label. Every refusal tells the user to reload the edited family
+into the project.
+A check transaction that Revit does not roll back throws
+<code>SharedParameterRollbackException</code>; it is not an <code>InvalidOperationException</code>, so <code>EnsureReady</code> lets it propagate as a
+failure instead of a refusal. A write that Revit blocks for another reason takes the same path.
 <code>SharedParameterMigrationException</code> lists every value that could not be carried over.
 A global parameter with a required name is not a project parameter; repair ignores it.
-The returned <code>PrerequisiteRepairResult</code> holds one <code>SharedParameterMigrationReport</code> per replaced parameter,
-one <code>SharedParameterRebindReport</code> per rebound parameter, each deleted duplicate and each removed schedule field.
-Settings appends its <code>Summary</code> to the status message and the banner: the kept and copied value counts,
-the definition differences, the deleted duplicates, the removed schedule fields with
-<code>PrerequisiteRepairResult.ScheduleAction</code> (add the company parameter to each schedule again by hand) and,
-after a replacement, the action <code>Reload the tag families that use the company shared parameters.</code>
-Tag family labels keep the old GUID until the families are reloaded.
-Repair deletes a same-name duplicate of an installed required parameter (<code>DUPLICATE_NAME</code>) only when it holds no values.
+The returned <code>PrerequisiteRepairResult</code> holds one <code>SharedParameterFamilyReport</code> per replaced family parameter,
+one <code>SharedParameterMigrationReport</code> per replaced parameter,
+one <code>SharedParameterRebindReport</code> per rebound parameter, each deleted duplicate, each removed schedule field and every rule that Revit removes from an affected view filter.
+Settings appends its <code>Summary</code> to the status message and the banner: each changed family with its kept type and
+element values and <code>PrerequisiteRepairResult.FamilyFileNote</code> (the family files on disk keep the other GUID), the kept
+and copied value counts, the definition differences, the deleted duplicates, the removed schedule fields with
+<code>PrerequisiteRepairResult.ScheduleAction</code> (add the company parameter to each schedule again by hand), and every rule removed from an affected view filter with <code>PrerequisiteRepairResult.FilterAction</code>.
+Repair deletes a same-name duplicate of an installed required parameter (<code>DUPLICATE_NAME</code>) only when it holds no
+values, after the family step.
 Deleting a replaced parameter or a duplicate also removes the schedule fields that use it; Revit removes a
-combined parameter field whole.
+combined parameter field whole. From each view filter that uses the deleted parameter, it removes every rule set that
+has a rule on the parameter, with all of that set's rules. The filter keeps its categories and other rule sets; a filter
+with no rules left applies to every element of its categories. <code>SharedParameterMigration.FindFilterRules</code> lists the
+rules of each removed rule set, including rules on other parameters and category rules. It does not show
+AND/OR logic or inverted rules, so the confirmation tells the user to record that logic before Continue.
+<code>FoundationTagsScheduleFieldTests</code> and <code>FoundationTagsViewFilterTests</code> check these results.
 Settings uses <code>PrerequisiteRepairPrompt</code>, the production <code>IPrerequisiteRepairConfirmation</code>. It shows a Warning
-alert through Core's <code>IAlertService</code>, owned by the settings window (<code>IOwnerAwareContext</code>), with each schedule,
-field and parameter, the manual step, and the buttons <strong>Cancel</strong> and <strong>Continue</strong>. Cancel leaves the status
+alert through Core's <code>IAlertService</code>, owned by the settings window (<code>IOwnerAwareContext</code>), with a table of each
+schedule, field and parameter, a table of each view filter, rule parameter, rule and deleted parameter, the reminder
+to record each filter's logic, the manual steps, and the buttons
+<strong>Cancel</strong> and <strong>Continue</strong> (<code>IPrerequisiteRepairConfirmation.ConfirmRemovals</code>, asked when
+<code>PrerequisiteRepairPlan.RemovesUses</code>). Cancel leaves the status
 message <code>Install/Repair canceled. Nothing changed.</code>, shows no banner and keeps the warning; this applies to
 the pack button, to <code>FixWarningAsync</code> and to <strong>Repair</strong> in <code>PrerequisiteRepairOffer</code>. Loading calls <code>PlanRepair</code>
 and marks each row with <code>ScheduleUse</code> (&quot;Used in N schedules&quot;) and <code>ScheduleUseDetails</code> (one <code>Schedule: Field</code> line
-each), shown at the end of that parameter's item with the <code>WarningBar</code> surface. Tests answer the confirmation or
+each), and with <code>FilterUse</code> (&quot;Used in N view filters&quot;) and <code>FilterUseDetails</code> (one <code>Filter: rule parameter, rule</code> line per removed rule), shown
+at the end of that parameter's item with the <code>WarningBar</code> surface. Tests answer the confirmation or
 the alert service with fakes.
 The Revit API does not expose the formula of a calculated field, so <code>FindScheduleFields</code> cannot list a
 calculated field that uses the parameter.
@@ -398,13 +425,27 @@ A late Idling event can retry detachment.</p>
 Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.
 The GM test model has the three parameters from the company file. A test that needs invalid prerequisites
 deletes, unbinds, rebinds or replaces a parameter with <code>Tests/Support/FoundationTagsPrerequisiteStates</code>
-inside a transaction group that it rolls back. <code>LeaveDeadBindingKey</code> looks up the binding of a parameter, then
+inside a transaction group that it rolls back. <code>FoundationTagsFamilyRepairTests</code> builds families through the API with
+<code>Tests/Support/FoundationTagsFamilyFixtures</code> (a footing, a generic model with a formula and a labeled dimension, a
+multi-category tag that carries the parameter only in Revit 2027, because Revit 2026 refuses an annotation family that
+carries it, and a host with a nested family) that define the required names with other GUIDs, and checks the repair,
+its refusals and a second repair. The API cannot put a dimension into a group in a family, so a grouped labeled
+dimension is not tested. The API cannot create a label, so <code>FoundationTagsRealtestLabelTests</code> needs a staged <code>realtest_model.rvt</code> with an
+annotation family that uses a required name with another GUID directly in its labels: one test records what deleting
+that parameter does to the family, the other checks that Install/Repair refuses and changes nothing. Each test reports
+Ignored (skipped) when the model has no such family. The staged 2026 and 2027 models have none: their combined tag
+labels show Type Mark and Elevation at Top. Both write what they find to
+the test output. <code>LeaveDeadBindingKey</code> looks up the binding of a parameter, then
 changes its group variance and rolls the change back; no rollback restores the binding map, so a test calls it only in
 a project that it creates and closes.</p>
 <pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope local -y 2026
 </code></pre>
 <h2 id="limitations">Limitations</h2>
 <p>Association updates use host-document pier and footing instances. Move supports host tags referencing host or linked foundations and only the four listed corner names. Length values cannot be cleared with the shipped shared-parameter definitions.</p>
+<p>Install/Repair does not change a label that uses a required name with another GUID directly: Revit 2026 has no label
+API, and the Revit 2027 reference assembly exposes only reads. It refuses and names the family instead. It cannot open
+an in-place or non-editable family; it refuses one that defines the parameter, and one for which a rolled-back rebind
+of the project parameter cannot tell. Family files on disk keep the other GUID.</p>
 
 </article>
 

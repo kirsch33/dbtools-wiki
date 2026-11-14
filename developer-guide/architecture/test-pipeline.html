@@ -195,9 +195,26 @@ these and refuses stale or missing files. CI resolves the selectors once with
 <code>--compile-only</code>, transfers the receipt and the recorded input closure, and
 runs them with <code>--no-build</code>. The consumer never rebuilds. Linux BUILD and DIST
 jobs do not depend on the Windows transfer.</p>
-<p>The build and distribution suites read already-built product metadata and
-reject a stale source snapshot. Source, build and test changes alter the
-snapshot; documentation and transient artifacts do not.</p>
+<p>The portable BUILD project selection requires no prebuilt product or candidate output:</p>
+<pre><code class="lang-bash">./test.sh test --tool BUILD --project testing/DBTools.Build.Tests/DBTools.Build.Tests.csproj --scope pure --filter 'TestCategory!=ProductArtifacts'
+</code></pre>
+<p><code>--tool BUILD</code> also selects the Distribution and Sandbox projects. Their setup
+requirements remain separate. Ordinary test compilation creates test
+artifacts under <code>.artifacts</code>.</p>
+<p>The complete <code>--filter 'TestCategory=ProductArtifacts'</code> selection requires a
+source-current <code>./build.sh BuildAll</code> and compiled hosted test outputs. It checks
+promoted distributions, compiler PDBs, merge inputs and hosted test outputs.
+<code>AssembleDistributionCandidate</code> alone does not supply all of these inputs.</p>
+<p>Artifact admission inspects every staged <code>build.json</code> and the final record.
+It selects the newest parsed <code>builtAtUtc</code> whose <code>sourceCommit</code> and <code>sourceTree</code>
+match HEAD and its tree. Admission requires clean tracked and untracked source,
+including root build configuration and documentation. Distributed bytes must
+match the declared <code>distributionFingerprint</code> before tests read them. Compiler
+PDBs, merge inputs and dependency files require current BuildAll outputs as setup;
+the distribution fingerprint does not authenticate those intermediate files.</p>
+<p>The Presentation <code>ToolWindowXamlTests</code> fixture, compiled by Presentation Pure,
+parses raw XAML from every tool in <code>DistributionContract.ToolAssemblyFiles</code> and
+Core. Its project references supply the complete tool set to the test consumer.</p>
 <h2 id="results">Results</h2>
 <p>Daemon summary and full-report JSON require a command envelope with the report
 under <code>result.report</code>. A document without the envelope fails validation.
@@ -227,7 +244,8 @@ failure, but <code>test.sh</code> returns the first nonzero status.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
 <p><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code> builds
 <code>DBTools.&lt;Tool&gt;.Local.Tests</code> for both years (<code>Hosted2026.proj</code>,
-<code>Hosted2027.proj</code>). The App and Core entries also build
+<code>Hosted2027.proj</code>). <code>&lt;Tool&gt;</code> is a tool key or <code>App</code>, <code>Core</code> or <code>Presentation</code>.
+The App and Core entries also build
 <code>DBTools.&lt;Tool&gt;.HostedTurns.Local.Tests</code>.
 <code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code> selects every
 <code>DBTools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner. After the build, the
@@ -247,6 +265,7 @@ the staged tree. Test support installs no resolver for product assemblies.</p>
 <p>Test projects are next to their production owners:</p>
 <pre><code class="lang-text">src/DBTools.App/Tests/DBTools.App.{Pure,Local}.Tests.csproj
 src/DBTools.Core/Tests/DBTools.Core.{Pure,Local}.Tests.csproj
+src/DBTools.Presentation/Tests/DBTools.Presentation.{Pure,Local}.Tests.csproj
 src/DBTools.Sandbox/Tests/DBTools.Sandbox.Pure.Tests.csproj
 src/Tools/&lt;Category&gt;/&lt;Tool&gt;/Tests/DBTools.&lt;Tool&gt;.{Pure,Local}.Tests.csproj
 testing/DBTools.Build.Tests/                  build and distribution contracts (Linux)
@@ -266,9 +285,11 @@ must not load Revit-typed members or scan owner types outside the loadable
 set.</li>
 <li><strong><code>.Local.Tests</code> projects</strong> disable default compile items and include only
 Revit-hosted fixtures.</li>
-<li><strong>Presentation behavior tests</strong> are under Presentation; the Core Pure
-projects link the fixtures they can run without Revit. Tests that need a real
-WPF window run where Windows is available.</li>
+<li><strong>Presentation tests</strong> are under Presentation and belong to the
+Presentation projects, also when they test a tool's Presentation types.
+Presentation Pure links the Core test support it shares and references Core
+for the tool window, window runtime and logger window integration fixtures.
+Tests that need a real WPF window run where Windows is available.</li>
 </ul>
 <h3 id="portable-pure-projects">Portable Pure projects</h3>
 <p>Core and the Super Girt Tool (SGT) define an optional <code>$(DBT_PortableTargetFramework)</code>. Their
@@ -313,9 +334,12 @@ assembly.</p>
 <li><code>Revit/RevitHost.cs</code> initializes the year, the App runtime and the product
 Revit call gate before the test body, and supplies the real <code>UIApplication</code>
 through an ambient scope that does not carry API access across an <code>await</code>.
-It owns the scheduler unless a fixture holds a longer lease. Forced-queue
-tests call the real external-event handler synchronously to model a later
-API turn; one daemon NUnit callback contains no second native turn.</li>
+It owns the scheduler unless a fixture holds a longer lease. A test that
+builds a <code>QueuedRevitCallGate</code> passes the fixture's Revit task; a borrowed
+task stays with its publisher. A <code>QueuedModeless</code> run scope from the App
+runtime schedules through that runtime's own task. Forced-queue tests call
+the real external-event handler synchronously to model a later API turn;
+one daemon NUnit callback contains no second native turn.</li>
 <li><code>Wpf/WpfTestRuntimeBootstrap.cs</code> registers pack URI support, installs the
 shared window owner, validates themes in the runtime assembly's contextual
 reflection scope, and releases only its own provider at teardown. It adds no

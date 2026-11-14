@@ -95,41 +95,69 @@ This specification describes its state, execution, persistence, and lifetime con
 Source: <code>src/Tools/Common/GM/</code>. <a href="gm.html">GM</a> describes entry points and test surfaces.</p>
 <h2 id="architecture">Architecture</h2>
 <h3 id="composition-and-document-scope">Composition and document scope</h3>
-<p><code>App/Composition/Revit/GmModelessSessionFactory</code> captures the launch UIDocument and Document,
-creates a QueuedModeless App run scope, and binds its concrete <code>GmSessionDocumentGate</code> once before resolving modeless work.
-The gate compares ordinal <code>DocumentSessionKey</code> values on each callback.
+<p><code>App/Composition/Revit/GmModelessSessionFactory</code> captures the launch UIDocument and Document
+and creates a QueuedModeless App run scope through <code>GmSessionDocumentGate.CreateBoundScope</code>.
+That helper binds the scope's concrete gate to the launch document before it returns the scope,
+so no consumer resolves an unbound gate. A binding failure disposes the new scope.
+The gate compares <code>DocumentSessionKey</code> values on each callback.
 The key uses the document hash code for session scoping. It does not guarantee collision-free identity.
-The persistence key is the nonblank document path, or that captured session key for an unsaved document.
+The persistence key is the nonblank document path, or the <code>title|path|hash</code> text of that captured session key for an unsaved document.
 Unsaved documents load saved data only under their captured session key.</p>
 <p><code>AddGm()</code> registers the concrete GM gate without replacing shared <code>IRevitCallGate</code> registrations.
+Each feature registers its host-neutral services through a <code>*ServiceCollectionExtensions</code> class in its <code>Composition</code> folder
+and its Revit adapters through a <code>*RevitServiceCollectionExtensions</code> class in its <code>Revit/Composition</code> folder.
+<code>AddGm()</code> reaches them through two lists: <code>AddGmFeatureServices()</code> in <code>App/Composition</code> and
+<code>AddGmRevitFeatureServices()</code> in <code>App/Composition/Revit</code>. The Revit list registers Mapping's <code>IChangeWriter</code>
+implementations before Shared Parameters adds its own. App registers only project state, UI state, session composition, and the gate.
 GM Revit readers, writers, family batches, transaction runners, and Commit Review consume the concrete gate.
 <code>RevitMappingPlanExecutor</code> rejects an invalid document or session-key mismatch before writers begin.
 <code>RunCleanupAsync</code> uses the underlying gate with CancellationToken.None so owned documents can close after authority or work cancellation ends.</p>
-<p>Commit Review uses the bound parent gate to create an InlineUi child scope.
-It binds the child gate once to the expected document before running apply services.
+<p>Commit Review uses the bound parent gate to create an InlineUi child scope through the same helper,
+bound to the expected document. It resolves apply services only after the helper returns.
 One outer Revit callback contains planning, modal review, apply, finalization, and refresh.
 During that modal session, forced-queue, off-thread, or second-callback work is refused.</p>
-<p><code>AppSessionProjectionBuilder</code> receives a host-neutral <code>MappingProjectionContext</code>, workspace/dialog state,
-a required <code>IViewOps</code> implementation, and feature services. The runtime wraps that same projection in <code>MappingExecutionContext</code>
-with its ExpectedDocument. The bound gate carries the session authorization key. Host-neutral panes and rows receive the projection context. Commit Review receives the execution context.
+<p><code>AppSessionProjectionBuilder.CreateProjection</code> receives the host-neutral <code>SessionExecutionContext</code>, the dialog context,
+the mapping session, the workspace (including a required <code>IViewOps</code> implementation), and feature services.
+It returns <code>AppSessionProjection</code>: the panes, the session's one <code>MappingConflictViewModel</code>, type creation,
+the shared-parameter loader, and the row refresh graph. Runtime and design-time composition use that conflict instance.
+<code>SessionExecutionContext</code> carries the session's executor, logger, error notifier, operation gate, workspace signals,
+row signals, live-plan update suppression, and origin-clear suppression.
+The runtime wraps that same session context in <code>MappingDocumentExecutionContext</code>, exposed as <code>Session</code>,
+with its ExpectedDocument. The bound gate carries the session authorization key.
+Host-neutral panes and rows receive the session execution context. Commit Review receives the document execution context.
 Authorization identity and persistence identity have separate consumers.
-<code>WindowSessionServices</code> supplies the attached owner and progress overlay. ErrorNotifierFactory uses that owner.
+<code>WindowSessionServices</code> supplies the attached owner and progress overlay. <code>BannerNotifierFactory</code> uses that owner.
+Before Attach, every overlay member, CancelRequested included, throws InvalidOperationException.
+Dispose is idempotent and terminal: overlay members and Attach then throw ObjectDisposedException.
+The owner provider outlives disposal, so a failure notification queued after the window closes still resolves its owner.
 <code>GmWindowAttachment</code> supplies feature dialogs with a late-bound getter for the attached window.
 Design-time composition uses explicit host-neutral collaborators, including <code>DesignTimeViewOps</code>.</p>
 <p><code>AppSessionBuilder</code> constructs startup, initialization, Deep Scan, preference clearing, background prewarm,
-Family Mapping commands, pane lifecycle, and disposal workflows.
-<code>RowRefreshFactory</code> builds one row collaboration graph per session.
-Its outputs include <code>CrossPaneRowRefresh</code>, <code>RowRefreshCoreServices</code>, <code>CommitReviewRowServices</code>,
-<code>UIStateFactory</code>, and <code>OptionRenderingRefresh</code>.</p>
+Family Mapping commands, pane lifecycle, disposal workflows, and the <code>AppSessionRuntime</code>
+with its <code>OperationStateReaction</code> and <code>GmWindowPresentationProjector</code>.
+It passes <code>UIStateSession.Create</code> and <code>SessionWorkflows.Create</code> the session's executor, logger, and error notifier,
+plus the operation gate for UI state, rather than the session execution context.
+<code>PaneViewModelBuilder</code> returns <code>PaneComposition</code>: the panes and the Family Mapping scan, row refresh,
+type creation, and row set.
+<code>RowRefreshFactory</code> builds one row collaboration graph per session and returns <code>RowRefreshComposition</code>:
+<code>CrossPaneRowRefresh</code>, <code>RowRefreshCoreServices</code>, <code>CommitReviewRowServices</code>, <code>UIStateFactory</code>, and <code>OptionRenderingRefresh</code>.</p>
 <p><code>App/Sessions/RowRefresh/CrossPaneRowRefresh</code> sequences Usage rows, Family Mapping refresh,
-selected-family state, indicators, live-update suppression, row locks, and workspace events.
+indicators, live-update suppression, row locks, and workspace events.
+Each cross-pane trigger is one named method on it: RefreshRowsAfterFilterChange,
+RefreshRowsAfterUsagePageActivationAsync, RebuildRowsAfterInitialLoad, RefreshRowsAfterUsagePublication,
+ScanFamiliesAsync, RebuildRowsAfterDeepScanAsync, RefreshRowsAfterSavedMappingClear,
+RefreshRowsAfterCommitAndContinueAsync, and RefreshRowsAfterCommitAndClose.
 It implements feature-owned <code>ICommitReviewRowRefresh</code>, <code>IFamilyMappingCrossPaneCommands</code>, and <code>IDeepScanUsageRefresh</code>.
-<code>FilterRefreshWorkflow</code>, <code>StartupRowWorkflow</code>, and <code>PageActivationWorkflow</code> consume that runtime.
+<code>FilterRefreshWorkflow</code>, <code>StartupRowWorkflow</code>, and <code>PageActivationWorkflow</code> call those triggers.
 App/Sessions owns session records and runtime lifetime. Composition owns construction.
 Feature implementations do not import <code>DBTools.GM.App</code>.</p>
-<p><code>FamilyMappingFactory</code> returns FamilyMappingViewModel, FamilyMappingScanWorkflow,
+<p><code>FamilyMappingFactory</code> returns <code>FamilyMappingComposition</code>: FamilyMappingViewModel, FamilyMappingScanWorkflow,
 FamilyMappingRowRefresh, FamilyMappingTypeCreation, and one MappingRowSet spanning family/type and supplied Usage rows.
-FamilyMappingScanStateApplier belongs to scan sequencing. The row builders and refresh owners receive the same row set.</p>
+FamilyMappingScanStateApplier belongs to scan sequencing. The row builders and refresh owners receive the same row set.
+The factory shares one FamilyMappingState across these objects. FamilyMappingState.SelectedFamilyRow holds the
+selected family row. FamilyMappingViewModel.SelectedFamilyRow reads and writes it, raises one notification per change,
+and loads the row's views when the workspace is ready and the row is not null. FamilyMappingScanWorkflow and
+FamilyMappingScanStateApplier capture and restore the selection on the state.</p>
 <h3 id="public-surface-and-resources">Public surface and resources</h3>
 <p>GM production payload types default to internal.
 Manifest activation requires public GmToolModule and GmCommand.
@@ -137,7 +165,16 @@ Public conflict projection values retain their public binding properties.
 Dependency objects, converters, selectors, and attached behaviors are stable public Presentation types.
 The design-time view models are internal with public binding/fragment properties.
 Sandbox and production consume the same raw resources and fragments.
-Compiled resource validation checks manifest logical names.</p>
+Compiled resource validation checks manifest logical names.
+Materials and Object Styles reuse UsageFamilyListStyle, UsageFamilyItemContainerStyle, and UsageFamilyRowTemplate
+from Presentation/Tools/GM/GmViewResources.xaml. Each pane supplies its own family list and selection.
+The shell supplies double-click navigation. The row supplies the context-menu apply command.
+Mapping options expose nullable SimilarityScore values. Presentation GmSimilarityBrushConverter owns the brush bands:
+90–100 Success, 70–89 Secondary, 50–69 Warning, and 0–49 Muted. A null score uses Body.
+Alphabetical rendering retains ranking Score values but leaves SimilarityScore null.
+The converter resolves score brushes through the owning Window resource dictionary. Missing keys yield Gray.
+Detached elements use their own resource scope.
+Blank, disabled, separator, and Deep Scan template states use DynamicResource brushes.</p>
 <h3 id="source-reference">Source reference</h3>
 <p>Paths below are relative to <code>src/Tools/Common/GM/</code>.</p>
 <table>
@@ -166,7 +203,7 @@ Compiled resource validation checks manifest logical names.</p>
 </tr>
 <tr>
 <td>Persistence</td>
-<td><code>App/Persistence/StatePersistence.cs</code>, <code>App/Persistence/UIStateLifecycle.cs</code>, <code>App/Persistence/UIStateCache.cs</code></td>
+<td><code>App/Persistence/StatePersistence.cs</code>, <code>App/Persistence/UIStateCache.cs</code>, <code>App/Sessions/UIStateLifecycle.cs</code></td>
 </tr>
 <tr>
 <td>Scan admission</td>
@@ -196,6 +233,13 @@ Compiled resource validation checks manifest logical names.</p>
 </table>
 <h2 id="data-and-contracts">Data and contracts</h2>
 <h3 id="domain-and-feature-contracts">Domain and feature contracts</h3>
+<h4 id="shared-value-language">Shared value language</h4>
+<p><code>Domain/</code> owns the value language that several features share, and it imports no feature namespace.
+<code>Domain/Mapping</code> owns MappingKind and its extensions.
+<code>Domain/MatchingOption</code> owns MatchingOptionKind, MatchingOptionCandidate, and MatchingOptionSortMode.
+<code>Domain/Categories</code> owns CategoryOption and CategoryReference.
+Mapping keeps the WPF-bearing MappingRow and MappingOption presentation types
+and the intent, conflict, operation, plan, and execution behavior.</p>
 <h4 id="project-state">Project state</h4>
 <p><code>Domain/ProjectState</code> owns ProjectState, family/type records, reference index/values,
 project parameters, scan state, projection, and the scoped ProjectStateStore.
@@ -218,10 +262,19 @@ Discarding evidence removes scan state, type payloads, DeepScanResults, and fast
 <p><code>Domain/ElementNames</code> owns IElementNameQuery, ElementNamesCache, and ElementNameLookupKind.
 <code>Revit/ElementName/ElementNameQuery</code> implements the Revit adapter. App registers it with state/cache wiring.
 Categories registers curated-category services.
+ElementNamesCache exposes read-only family, type, style, material, and category name views.
+Each view reflects later merges and clears. Only the cache writes names: MergeNames,
+MergeFamilyAndTypeNames, name loading, Clear, and ClearFamilyAndTypeNames.
+A merged nonblank name inserts or overwrites the entry. A blank or omitted name keeps the cached entry.
 Strict name loading requires a nonblank cached name for every requested ID.
-Blank entries are queried again. Omitted/blank provider values stay unresolved.
+The cache stores no blank name, so a missing name is queried again. Omitted/blank provider values stay unresolved.
 GetResolvedFamilyName prefers cache, then project-state family name, and throws if neither exists.
-Display getters retain explicit ID/unavailable-name fallbacks.</p>
+GetCachedFamilyName uses the same order and returns null instead. GetCachedTypeName, GetCachedMaterialName,
+and GetCachedStyleName return the nonblank cached name or null. A name equal to its ID text is a name.
+Display getters retain explicit ID/unavailable-name fallbacks.
+Duplicate family and type names prefer the names captured with the detection, then cached names.
+A missing family, style, or material name falls back to a nonblank candidate name, then the ID text.
+A missing type name shows <code>Type &lt;id&gt; (name unavailable)</code>.</p>
 <p>WorkspaceState.SelectedCategory is the single typed CategoryOption value exposed by IWorkspaceState.
 CategoryFilter derives its display label. Null and Id zero select every family.
 Other signed IDs select exactly that category, including negative built-in Revit IDs.
@@ -234,9 +287,14 @@ Applying a different category resets category-scoped rows before application and
 Cancellation between state publication and row application therefore causes a reset on retry.</p>
 <h4 id="mapping-intent-rows-and-conflicts">Mapping intent, rows, and conflicts</h4>
 <p><code>Features/Mapping/Domain</code> owns immutable intent, conflict, operation, plan, and host-free execution values.
-It does not import mutable Rows types.
+It uses the shared kinds from <code>Domain/</code> and does not import mutable Rows types.
 <code>MappingIntentKey</code> validates its nine-field shape through named factories and FromPersisted.
-It rejects invalid zero identities while retaining signed category IDs such as <code>-2000011</code>.</p>
+It rejects invalid zero identities while retaining signed category IDs such as <code>-2000011</code>.
+MappingIntentStore stores a ParameterMappingIntentSnapshot for a Parameter key, a
+SharedParameterMappingIntentSnapshot for a SharedParameter key, and an ElementMappingIntentSnapshot for every other kind.
+An update with another snapshot type throws ArgumentException before it runs the callback or changes the store.
+Style and material source and target IDs are positive. AffectedFamilyResolver returns no families for a nonpositive ID.
+Commit Review planning fails an applied style mapping with a nonpositive source or target as an invalid mapping.</p>
 <p>The Rows package owns row-to-intent translation, projection, origin mutation, and family-apply behavior.
 Conflict/Rows owns row conflict matching. Detection consumes an immutable MappingSelectionSnapshot.
 MappingConflictWorkflow hydrates returned MappingIntentKey values into loaded rows.
@@ -244,16 +302,21 @@ MappingConflictTarget defines three closed variants: a positive element selectio
 Resolution chooses an original side or an explicit MappingConflictBulkAction.
 Display labels and sentinel IDs do not encode executable policy.
 Duplicates implements Mapping-owned neutral selection/resolution contracts without exporting its own selection types.</p>
-<p>Mapping owns projection/execution contexts, row signals, navigation values/lifetimes,
+<p>Mapping owns the session and document execution contexts, row signals, navigation values/lifetimes,
 MappingUpdateSuppression, and OriginClearSuppression.
 Mapping Domain/Planning owns nested-family, style, and type-reference plan language.
 Commit Review's CommitReviewDocumentEditBuilder owns mutable family-batch assembly.
 Mapping's neutral composition registers MappingIntentStore. Commit Review composition registers CommitReviewPlanVerifier.
-Revit/Composition registers mutation adapters, attached by App's AddGm root.
+Revit/Composition registers mutation adapters, attached through AddGmRevitFeatureServices.
 Shared Parameters implements Mapping's focused embed port and uses Mapping operation identities.</p>
 <p><code>Domain/Parameters/FamilyParameterDiscoveryResult</code> carries normalized ScopedParameterName values,
 complete/partial state, and contextual read errors.
+ProjectStateStore.GetDeepScanParameterDiscoveryForFamily uses completed family scan state first, then DeepScanResults.
+Family Mapping uses that lookup for both scan availability and parameter names.
+Complete discovery supplies names. Partial discovery uses complete fast discovery when available, otherwise it clears the names.
 Family Mapping and Shared Parameters publish choices only from complete discovery.
+Their factories and consumers require IFamilyParameterQuery and ISharedParameterQuery.
+Shared Parameters also requires ICuratedCategoryQuery.
 Duplicate parameter scoring requires complete discovery on both sides.
 Instance/Type suffixes are display labels. Parameter mappings retain scope and require equal source/target scope.</p>
 <h4 id="element-identities">Element identities</h4>
@@ -266,8 +329,11 @@ SharedParameterDuplicateMatcher sequence IDs, and MappingOption.StableStringId h
 SharedParameterValueCopier rejects Map From values outside Int32 for Revit Integer storage.
 ElementId parameter destinations parse Map From text as long.</p>
 <h4 id="persistence-and-saved-mappings">Persistence and saved mappings</h4>
-<p><code>Domain/Cache</code> owns tool-wide cache paths, metadata, and recovery policy.
-<code>App/Persistence</code> owns document UI-state storage and session persistence sequencing.
+<p><code>Domain/Cache</code> owns tool-wide cache results and metadata.
+Persistence adapters derive the GM root with <code>AppPaths.GetToolCacheDir(&quot;GM&quot;)</code>.
+UI-state and saved-mapping stores create their directories when writing.
+<code>App/Persistence</code> owns document UI-state storage.
+<code>App/Sessions/UIStateLifecycle</code> sequences the session's startup restore and close persistence.
 StatePersistence requires both IUIStateCache and ISavedMappingStore in production.
 Design-time projection does not construct unused persistence.</p>
 <p>JSON writes flush a unique sibling temporary file and publish it atomically.
@@ -275,8 +341,12 @@ Cancellation or I/O failure preserves the last good snapshot.
 Only confirmed missing files/directories count as absent. Access, sharing, invalid-path, and other I/O faults propagate.
 UI-state and Deep Scan snapshots are disposable caches: malformed, invalid, or old snapshots are discarded and logged.
 Saved mappings are user data and use strict nullable-ingress validation with contextual failures.
-Cache results are immutable hit/miss values. Hits always contain data.</p>
-<p>IUIStateCache serializes asynchronous writes and clears across scoped instances with a process-wide mutation gate.
+Cache results are immutable hit/miss values. Hits always contain data.
+Persistence and cache stores propagate unhandled failures to the operation boundary for logging.
+DeepScanCacheCoordinator retains warnings for hydration failures, key preparation failures, and optional cache writes.</p>
+<p>DocumentPersistenceCoordinator is a root-provider singleton shared by scoped StatePersistence and IUIStateCache instances.
+It owns the document gate, cache mutation gate, and separate UI-state/saved-mapping clear generations.
+IUIStateCache serializes asynchronous writes and document clears with the cache mutation gate.
 StatePersistence serializes document loads, clears, and saves and tracks separate UI-state/saved-mapping clear generations.
 An older open session cannot restore either snapshot after another window clears it.
 A freshly loaded window can persist new state.
@@ -309,6 +379,11 @@ For a raw length below two, equal raw lengths score 1.0 only with equal nonempty
 Other short-name pairs score zero. Each scoring pass owns its immutable name-profile cache.</p>
 <h4 id="deep-scan">Deep Scan</h4>
 <p>Deep Scan owns family scans, projection, usage resolution, feature cache, and refresh workflow.
+DeepScanCacheCoordinator requires DeepScanCache, IFamilyParameterQuery, and IDeepScanUsageResolver.
+Successful usage resolution carries Resolution, which requires its style, material, and nested-family ID collections.
+Failed resolution carries FailureReason.
+Family scan StyleIds and MaterialIds contain element IDs.
+ProjectStateStore.InvalidateDeepScanUsageProjections invalidates cached projections, which recompute on the next read.
 A user scan collects a complete family batch and finishes cache preparation before one validated ApplyBatch admission.
 Usage refresh data is prepared before completed scan state publishes.
 Cancellation or required failure before admission preserves the prior projection.</p>
@@ -334,8 +409,8 @@ A confirmed clear increments DeepScanOrchestrator's generation after disk deleti
 Hydration rejects its whole candidate batch if that generation changes or the captured ProjectState reference changes during reading.
 It never replaces an already completed family scan.</p>
 <p>CrossPaneRowRefresh implements IDeepScanUsageRefresh: apply Usage data, rebuild loaded rows when needed,
-reconcile Family Mapping state/indicators under suppression, then refresh locks.
-DeepScanRefreshWorkflow invalidates options and awaits the App-bound Shared Parameters authoring rebuild.
+reconcile Family Mapping state/indicators under suppression, refresh locks, then await the Shared Parameters
+authoring rebuild. DeepScanRefreshWorkflow invalidates options and awaits that refresh.
 That rebuild evicts authoring snapshots and rebuilds the loaded tree with pending intent and selection.
 Completion events describe changed cache state and publish even when rebuilding faults or cancels.
 The outcome then propagates to the operation boundary.
@@ -354,20 +429,35 @@ Detection collects its unpublished full state, executes stable DuplicateKind sta
 then publishes and returns the same artifact reference. Earlier failure/cancellation preserves the prior artifact.
 Family-row counts use that same detection state.</p>
 <p>The immediate rebuild receives the artifact explicitly. Other readers inject CurrentDuplicateDetection.
-Cached refresh waits for cross-dispatcher rebuilds. A reentrant request replaces the queued request.
+Cached refresh runs a worker request on the GM window's dispatcher and waits for it. A reentrant request replaces the queued request.
 The outer refresh runs the latest queued rebuild before returning, including propagating its failure.
+The debounced rebuild runs in the pane's safe-execution boundary.
+A failure shows one &quot;GM Duplicates Rebuild&quot; error banner; rows that the rebuild cleared stay cleared.
+Cancellation, during the delay or inside the boundary, logs at debug level and shows no banner.
+Each request ends its pending state, IsRebuildPending, whatever its outcome.
 PreviewDuplicateMatcher matches style/material candidates only when both resolve to the same signature.
 Unavailable previews never match, including each other.
 Duplicates imports neither Shared Parameters nor Commit Review.</p>
 <h4 id="families-and-family-mapping">Families and Family Mapping</h4>
 <p>Families' neutral composition registers FamilyQuery and IFamilyQuery.
 Its Revit composition registers FamilyDocumentService, FamilyScanner, and scanner ports.
+IFamilyScanner has two operations, GetProjectSnapshotAsync and GetFamilyIdsAsync.
+Both select a category with one nullable signed ID: null or 0 selects every family.
+Any other value, including a negative built-in Revit category ID, selects exactly that category.
+The snapshot's includedFamilyIds add those document families to a category scope; they do not filter.
+FamilyQuery converts a null CategoryOption or an Id of 0 to a null ID.
 FamilyDocumentService owns document lifecycle/query, not Mapping material preparation.
 Families consumes its own IFamilyInstanceCountQuery, implemented by Usage's live source.
 A thrown Document.Close or false result is a cleanup failure under the shared strict close policy.</p>
 <p>FamilyMappingViewModel owns binding state and interactions.
 FamilyMappingScanWorkflow owns asynchronous scan/cache/post-commit sequencing and its private scan-state applier.
-FamilyMappingRowRefresh owns symbol projection, row build/refresh, saved-mapping reapply, and usage reconciliation.
+FamilyMappingRowRefresh owns row build/refresh, saved-mapping reapply, and usage reconciliation.
+PaneViewModelBuilder creates one FamilyApplyIntent and one UsageIntentReconciler on the session MappingIntentStore.
+The Usage pane, family presentation, and family selection receive FamilyApplyIntent.
+Only FamilyMappingRowRefresh receives UsageIntentReconciler.
+Type rows read ProjectStateStore.SymbolIds. A project-state replacement derives the store's family inventory and
+symbol-to-family map; a fresh scan replaces the inventory with the scanned families, their counts, and the positive
+type IDs of the current state; a category snapshot restore replaces it with the snapshot's copies.
 Ordinary category navigation reuses a category snapshot or matching loaded state.
 RescanFamiliesAfterCommitAsync discards every category snapshot and rebuilds from the document,
 including when category identity stays unchanged, so newly created types reach rows.
@@ -385,7 +475,8 @@ Index publication aligns the match index, target universe, hydration generation,
 UsageMatchIndex shares one in-flight family hydration among concurrent callers.
 An index publication invalidates hydration started against the prior generation.</p>
 <p>UsageIndexPublished runs synchronously on the publishing thread, including workers.
-RowRefreshPublicationWiring dispatches row projection to the UI thread. Rows track publication version.
+RowRefreshPublicationWiring dispatches row projection to the GM window's dispatcher and calls
+CrossPaneRowRefresh.RefreshRowsAfterUsagePublication, then the duplicate rebuild. Rows track publication version.
 Detect suppresses publication-driven duplicate rebuild and rebuilds once after scanning, retaining the keep target.
 Passive option projection suppresses intent capture. An unavailable saved target remains disabled for review.
 An explicit edit can clear or replace it.</p>
@@ -393,8 +484,8 @@ An explicit edit can clear or replace it.</p>
 Selection-family flow performs one family lookup, name hydration, and row population.
 UsagePreviewService owns calculation, caching, and request-version order.
 UsageWorkflow consumes IUsageIndexLoader and its own rows without App/Family Mapping imports or row locks.
-App PageActivationWorkflow suppresses live-plan updates across loading, reconciliation, and indicators,
-then refreshes locks and cache state after suppression.</p>
+CrossPaneRowRefresh.RefreshRowsAfterUsagePageActivationAsync suppresses live-plan updates across loading,
+reconciliation, and indicators, then refreshes locks and cache state after suppression.</p>
 <h4 id="shared-parameters-and-ui-execution">Shared Parameters and UI execution</h4>
 <p>Shared Parameters owns domain values, authoring, formulas, Revit adapters, rows, tree, views, and pane state.
 SharedParameterDuplicateReconciler owns stateful duplicate-row mutation and reentrancy.
@@ -402,7 +493,8 @@ SharedParameterConflictProjector performs stateless tree/Commit Review projectio
 <p>Map From reads numeric formula inputs at the Revit boundary. The preview evaluator does not parse displayed parameter text.
 Measured values use Revit's display unit. Preview output uses 15 significant digits.
 Numeric preview accepts signed/unsigned E/e exponents, including substituted invariant G15 values.
-Unresolved identifiers/functions produce preview-unavailable. Revit still validates authored formulas.
+An unresolved parameter reference or function call fails the preview, and its error names the identifier.
+The projector shows that error as preview-unavailable text and leaves Revit formula validation unchanged.
 Formula mode returns zero from the value copier without target resolution or writes.
 The embed applier counts authored formulas separately from value updates:
 one formula has authored=1, updated=0, affected=1. MapFrom retains copied-value counts.</p>
@@ -448,24 +540,39 @@ projection or a non-Lines current style are also excluded. The query retains sca
 restylable curves. It does not retain Revit wrappers
 for excluded members, and readback never revisits them. Each successful pair's
 affected count equals its pre-apply Usage quantity. A defensive group-edit
-failure at commit rolls back only that pair and surfaces the reason.</p>
+failure at commit rolls back only that pair and surfaces the reason.
+<code>GroupEditErrorMatcher</code> recognizes such a failure by the failure-definition
+GUIDs of the commit exception (<code>ITransactionFailureDefinitionSource</code>), not by
+message text: Revit's <code>BuiltInFailures.GroupFailures</code>
+<code>GroupPropagationFailedUngroup</code>, <code>GroupPropagationFailedSketch</code>,
+<code>ModifyingMultiGroups</code> and <code>AtomViolationWhenMultiPlacedInstances</code>.</p>
 <h2 id="workflows">Workflows</h2>
 <h3 id="session-operations-and-shutdown">Session operations and shutdown</h3>
 <p><code>Domain/SessionOperation/ISessionOperationGate</code> exposes serialized work, overlay progress, busy state, and UI cancellation.
-<code>App/Sessions/SessionOperationGate</code> implements admission and cancel-and-drain.
+<code>App/Sessions/SessionOperationGate</code> implements admission and cancel-and-drain, and logs busy-step timing through its injected <code>ILogger&lt;SessionOperationGate&gt;</code>.
+The gate has two runners. RunImmediateOverlayAsync shows a cancelable overlay at once, renders it before the work
+starts, and takes no caller token. RunWithOverlayAsync takes the caller's cancelable flag, overlay options, and token.
+Its cancelable default is false, as for IProgressOverlay.RunAsync, so a cancelable overlay is an explicit argument.
+CancelActiveOperation cancels the active work token whatever the overlay flag.
 MappingUpdateSuppression separately controls nested live-plan suppression.
-SessionOperationProgress carries operation progress or the Hidden no-display value.
+Work reports progress only through the SessionOperationProgress that CreateProgressScope returns.
+That scope forwards steps, step advances, text, and reported steps to the gate's busy state and overlay.
+The Hidden (default) value ignores every call.
 The Domain/Workspace IWorkspaceSignals port carries feature requests for whole-window refresh.
 App/Sessions/WorkspaceSignals implements that port, alongside WorkspaceState implementing IWorkspaceState.
 An operation failure remains primary. Caller cancellation propagated through the linked work token
 is translated back to the caller token.</p>
 <p>Teardown independently attempts stopped-step logging, busy-state reset, and busy-text reset.
-The resets run directly or in one dispatcher call. An aborted or unscheduled dispatcher call produces one teardown failure.
+The resets run directly or in one call to the GM window's dispatcher. An aborted or unscheduled dispatcher call produces one teardown failure.
 The linked cancellation source is always released. One failure propagates unchanged.
 Multiple failures aggregate in primary-first order with contextual teardown wrappers.
 A failing StateChanged subscriber cannot hide the work failure or skip the other reset.</p>
 <p>BackgroundPrewarm and OptionRenderingRefresh retain their transitive task and cancellation source.
 Replacement cancels and drains the active pair before starting the next.
+Each option-rendering refresh runs in a &quot;GM Option Rendering&quot; safe-execution boundary that waits for and disposes its
+predecessor even when its own token is already canceled. A refresh failure is reported once; a replacement and the
+close drain treat the predecessor's result as reported. The close drain throws only new cancellation or disposal
+failures and unexpected task faults.
 The session refuses ordinary close while Commit Review or Type Mapping owns an interaction.
 The first admitted close publishes closing state, cancels Mapping/startup, observes startup,
 and retains one terminal shutdown task. Repeated closes join that completion.</p>
@@ -537,11 +644,19 @@ actual subcategory parameter or boundary curves of each filled region.</p>
 <p>Family-owned execution uses BatchOperationSet keyed by MappingOperation.OperationId and
 FamilyBatchResult.ResultsByOperationId. Style and prepared-material payloads use the same IDs.
 Nested, style, material, and embed dispatch uses canonical operation types and direct appliers.
+Each applier receives a <code>FamilyBatchApplyContext</code> for its family-tree node: the apply context,
+host document, retained family document, root family ID, path summary and family identity.
+The family document is null after its retained document closes; an applier requires it only when it writes.
 Intermediate counts must be nonnegative, and succeeded plus failed documents cannot exceed attempted.
 Invalid producer output fails validation.</p>
 <h4 id="family-document-lifetime">Family document lifetime</h4>
 <p>Family-owned batch execution discovers the complete applicable family tree and
 captures each original population before applying any family mutation.
+<code>IFamilyDocumentService.DescribeRootFamilyAsync</code> returns a <code>FamilyDocumentReference</code>
+(ID, name, identity and category key), and <code>OpenRootFamilyDocumentAsync</code> opens the
+edit document from that reference. The open rejects a modifiable host document and
+requires the family to match the reference identity and category. When the ID no
+longer resolves to a matching family after a reload, a unique match by name is used.
 <code>FamilyBatchDocuments</code> retains one edit document for each family
 identity through capture, apply, and reload. Discovery spans the whole commit.
 After discovery, documents with no applicable work in themselves or their descendants
@@ -640,9 +755,14 @@ operation result and writer readback, not by equating those different quantities
 </table>
 <p>Warnings can complete successfully and remain committable.
 Only positive succeeded operations without fatal diagnostics project applied or persistable intent.
+Such an operation with no matching intent entry logs a warning and is not saved.
+A matching entry without persisted state, such as one with PersistSelection off, is not saved and logs at Debug.
 Verification requires no planned type, host, style, or material source references to remain.
 Otherwise the verifier's four-field failure summary blocks mapping projection.</p>
 <p>One <code>Global Mapper: Apply</code> session group stays open through modal review.
+Apply admits a reviewed plan only while CanApplyPlan is true: the plan has an operation, and validation found
+no nested-family replacement or type creation without a positive OwnerFamilyId. ApplyCommand checks it for
+availability and again when it runs. The first attempt clears it; Retry Apply is admitted by CanRetry.
 Apply and Retry Apply execute and verify inside an inner attempt group.
 Failure or cancellation rolls back the attempt and permits retry.
 Retry reuses the reviewed plan but constructs a new apply context and rereads the document.</p>

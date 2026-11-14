@@ -151,7 +151,7 @@ The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping
 </tr>
 <tr>
 <td><code>App/Sessions</code></td>
-<td>Workspace implementations, attachment, close, shutdown, modeless lifetime</td>
+<td>Workspace implementations, cross-pane row refresh, UI-state restore and close persistence, attachment, close, shutdown, modeless lifetime</td>
 </tr>
 <tr>
 <td><code>App/Startup</code>, <code>App/Navigation</code></td>
@@ -159,11 +159,11 @@ The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping
 </tr>
 <tr>
 <td><code>App/Persistence</code>, <code>App/State</code></td>
-<td>UI-state sequencing and feature-to-domain state construction</td>
+<td>UI-state storage and feature-to-domain state construction</td>
 </tr>
 <tr>
 <td><code>Domain</code></td>
-<td>Project state, identity, element names, parameters, categories, workspace, cache and operation contracts</td>
+<td>Project state and its family inventory, identity, element names, parameters, categories, workspace, cache and operation contracts</td>
 </tr>
 <tr>
 <td><code>Features/Categories</code></td>
@@ -225,6 +225,11 @@ The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping
 </table>
 <p>Feature packages own their local domain, planning, execution, Revit, views, and workflow where present.
 App composes cross-feature sequences through feature-owned ports. Features do not import App.</p>
+<p>GM identifiers spell out <code>SharedParameter</code>; none abbreviate it to <code>SP</code>.
+<code>ICuratedCategoryQuery</code> has <code>GetCuratedFamilyCategoriesAsync</code> for the workspace category list (Annotation Symbols,
+Detail Items, and Structural Framing) and <code>GetCuratedSharedParameterCategoriesAsync</code> for the Shared Parameters
+authoring categories (Doors, Mechanical Equipment, Walls, and Windows). Each returns the listed categories that the
+document has, sorted by label.</p>
 <h3 id="wpf-presentation">WPF presentation</h3>
 <p><code>GmWindowPresenter</code> loads <code>App/Views/GmWindow.xaml</code> through <code>ToolWindowFactory</code>.
 Its binding source is App/ViewModels/GmWindowViewModel. Commit Review binds to
@@ -243,6 +248,13 @@ Bindings use INotifyPropertyChanged sources or OneTime for immutable values.
 Raw templates use string keys with explicit fallbacks.
 <code>GmViewXaml</code> exposes embedded bytes for raw-XAML tests and hosted views.
 App Pure reads the GM assembly's fixed logical resources directly.</p>
+<p>Mapping target ComboBoxes use <code>GmComboBoxDropDownCommandBehavior</code>. It runs the selection command at Background
+priority when an open drop-down closes with a different logical item. It also runs the command when WPF changes a
+closed combo's selection through keyboard navigation or TextSearch. WPF uses Up and Down to select adjacent items
+while the drop-down is closed. For noneditable combos, Left and Right also select adjacent items, and Home and End
+select the first and last items. Page Up and Page Down navigate only while the drop-down item host is visible.
+Binding, refresh, and option-population changes outside those input routes do not run the command. The open command
+supplies lazy options when the user opens a target combo.</p>
 <p>Commit Review owns one Revit callback around planning, ShowDialog, finalization, and refresh.
 Core WindowOwnerModalityScope disables Revit and other top-level windows through that callback
 and restores only the windows it disabled. During planning, the GM owner remains available for its overlay and Cancel action.
@@ -273,6 +285,21 @@ Each option-building pass owns immutable name profiles and retains numeric-suffi
 evidence without Revit types. It keeps distinct paths, direct and nested usage flags,
 and maximum depth for each positive ID. <code>UsageFamilyFastIndexBuilder</code> reads a placed
 instance through Revit and supplies traversal contexts to the collector.</p>
+<h3 id="row-refresh-and-ui-dispatch">Row refresh and UI dispatch</h3>
+<p><code>App/Sessions/RowRefresh/CrossPaneRowRefresh</code> owns every cross-pane row refresh trigger and its order:
+filter change, Usage page activation, startup, Usage publication, category change, Deep Scan,
+saved-mapping clear, and commit with Continue or Close. Each trigger is a named method that documents its order.
+FilterRefreshWorkflow, PageActivationWorkflow, and StartupRowWorkflow call these methods.</p>
+<p><code>Domain/ProjectState/ProjectStateStore</code> owns the family inventory: FamilyIds, the positive SymbolIds,
+FamilyInstanceCounts, and SymbolToFamily. A project-state replacement derives the inventory from the new state.
+A fresh family scan and a category snapshot restore replace it through ReplaceFamilyInventory.
+Name resolution, initialization, Deep Scan, and snapshot storage read the store when they run.</p>
+<p>The session operation gate, pending page selection, Duplicates pane rebuilds, Usage publication,
+option rendering, and Family Mapping inline previews dispatch UI work through the GM window's dispatcher,
+which <code>WindowSessionServices</code> provides after the window exists. They do not use the ambient application dispatcher or the default owner registry.</p>
+<p>A failed option-rendering refresh shows one &quot;GM Option Rendering&quot; error banner.
+A replacement refresh and the close drain do not report it again.
+A failed debounced Duplicates rebuild shows one &quot;GM Duplicates Rebuild&quot; error banner.</p>
 <h2 id="testing">Testing</h2>
 <p>Pure tests mirror App, Domain, and Features owners. Test builders, external fakes, and assertions live in Tests/Support.
 Project-state and name-cache tests live under Tests/Domain. Duplicate projection tests live under Tests/Features/Duplicates.

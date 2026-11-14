@@ -310,7 +310,11 @@ to have the same version and SHA-256 in every year.</p>
 </tr>
 <tr>
 <td><code>DBTools.Core</code></td>
-<td><code>DBTools.Manifest</code>, YamlDotNet, CommunityToolkit.Mvvm, CSharpFunctionalExtensions, LibTessDotNet, Microsoft.Extensions.DependencyInjection, .Logging, .Options, .Primitives, Serilog.Extensions.Logging</td>
+<td><code>DBTools.Manifest</code>, YamlDotNet, CommunityToolkit.Mvvm, CSharpFunctionalExtensions, Microsoft.Extensions.DependencyInjection, .Logging, .Options, .Primitives, Serilog.Extensions.Logging</td>
+</tr>
+<tr>
+<td><code>DBTools.SGT</code></td>
+<td>LibTessDotNet (private types; no double-precision assembly)</td>
 </tr>
 <tr>
 <td><code>DBTools.Presentation</code></td>
@@ -385,12 +389,17 @@ the add-in entry, commands, availability types, manifests, resources and
 ownership. A missing, extra, misnamed, misplaced or stale file fails the
 candidate.</p>
 <p>Manifest validation scans every <code>manifest.yml</code> under <code>src/</code> and resolves
-module, command, availability and design-time ViewModel type names against the
+module, command, explicit availability and design-time ViewModel type names against the
 compiled images of each year. Every declared owner must resolve to
 <code>Tools/&lt;owner&gt;.dll</code>. <code>BuildAll</code> and <code>ValidatePrePush</code> run it.</p>
+<p>Portable candidate validation requires each explicit availability type to implement
+<code>IExternalCommandAvailability</code> and rejects a redundant type equal to the command.</p>
 <p><code>ValidateDistributionCandidate</code> prints one Dev Mode preflight line per year:</p>
 <pre><code class="lang-text">Revit &lt;year&gt; Dev Mode preflight: &lt;n&gt; failures, &lt;m&gt; warnings; outcome=&lt;x&gt;
 </code></pre>
+<p>Every collectible-boundary warning counts as a failure: each warning code is on
+the Dev Mode contract's avoid list and is a warning only because static
+analysis cannot prove that it breaks retirement.</p>
 <p>Promotion requires a clean Git worktree (tracked and untracked files) with a
 resolved <code>HEAD</code>. Three records describe a distribution:</p>
 <ul>
@@ -399,7 +408,8 @@ distribution fingerprint, the Git commit and tree IDs, the source versions,
 the hash of each product file and the Protocol package pin.</li>
 <li>The portable acceptance receipt, written by <code>ValidateDistributionCandidate</code>,
 records for each year the validated files, the Revit reference descriptors
-and the Dev Mode preflight result.</li>
+and the Dev Mode preflight result. Its <code>AvailabilityTargetTypes</code> and matching owner array
+record only explicit availability classes. Both arrays can be empty when commands use inferred availability.</li>
 <li>The promotion receipt, <code>.artifacts/dist/Release/promotion-receipt.json</code>,
 embeds the acceptance receipt with the source snapshot and the distribution
 fingerprint. It contains no temporary staging paths; consumers validate it
@@ -532,6 +542,43 @@ is not a content-version input.</p>
 server lifecycle with the real SDK: a normal exit, a failed build, SIGTERM,
 SIGKILL followed by the next build's sweep, and a concurrent owner in another
 checkout. Run it manually.</p>
+<h3 id="temporary-folder">Temporary folder</h3>
+<p>Each wrapper invocation (<code>build.sh</code>, each <code>test.sh</code> test build and the daemon
+test lane) runs in its own temporary folder, <code>/tmp/dbt-&lt;owner pid&gt;-XXXXXX</code>, in
+both server modes. Every <code>dotnet build</code> leaves empty folders in the temporary
+directory, and a killed .NET process leaves its <code>dotnet-diagnostic-*-socket</code>
+and <code>clr-debug-pipe-*</code> files there; the folder takes them.</p>
+<ul>
+<li><code>TMPDIR</code> names the folder. When <code>cygpath</code> exists (Git Bash), <code>TMP</code> and
+<code>TEMP</code> name it in Windows form, so native <code>dotnet.exe</code> uses it too.</li>
+<li>The folder is in <code>/tmp</code> whatever <code>TMPDIR</code> the caller sets. Its path has at
+most 23 characters, so the runtime's socket paths in it stay under the Unix
+limit of 107 bytes. The compiler pipe stays in <code>/tmp</code>, where the SDK puts it.</li>
+<li><code>NUGET_SCRATCH</code>, unless set, names NuGet's default lock folder in the
+caller's temporary directory, so concurrent restores still share their locks.
+The <code>test.sh</code> test-input cache also stays in the caller's <code>TMPDIR</code>.</li>
+<li>On exit the scope removes the folder after its exit callback. A folder that
+cannot be removed, also on a second try one second later, is reported and
+fails a command that succeeded.</li>
+<li>The invocation holds a <code>flock</code> on <code>&lt;folder&gt;/.lock</code> through a file
+descriptor that every process it starts inherits. The lock stays held while
+any of those processes lives, also after the wrapper is killed and its
+<code>dotnet build</code> goes on writing to the folder.</li>
+<li>A starting invocation removes a folder only when its owner process no longer
+exists and its lock is free. A folder whose lock is held, or cannot be
+checked because <code>.lock</code> or <code>flock</code> is missing, stays. The folder of a live
+owner is never touched.</li>
+</ul>
+<p><code>build.ps1</code> sets <code>TMP</code>, <code>TEMP</code> and <code>TMPDIR</code> to a folder of its own and
+<code>NUGET_SCRATCH</code> as above, and removes the folder in the same way when the build
+ends. It then restores the four variables, also when its setup fails, so
+<code>&amp; .\build.ps1</code> leaves the PowerShell session as it was. On Windows the folder
+is <code>dbtools-build-&lt;build id&gt;</code> in the temporary directory. Each run removes the
+folders that killed runs left: those that the current user owns, that are plain
+folders (not links or junctions), whose name has exactly that form and whose
+process no longer exists. A folder whose owner cannot be read stays. Elsewhere
+the folder is <code>/tmp/dbt-&lt;pid&gt;-XXXXXX</code> without a lock, so a killed run's folder
+stays.</p>
 <h2 id="logs">Logs</h2>
 <p>Each run writes to <code>.artifacts/build/&lt;YYYYMMDD-HHmmssfff&gt;-&lt;pid&gt;/</code>, named by
 <code>build.sh</code> or <code>build.ps1</code> (by <code>Build.proj</code> for a plain <code>dotnet build</code>). The

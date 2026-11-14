@@ -158,15 +158,16 @@ finish.</p>
 <h2 id="safe-execution">Safe execution</h2>
 <p><code>DBTools.Core.SafeExecution.Domain.ISafeExecutor</code> defines two boundaries:</p>
 <pre><code class="lang-csharp">Task RunAsync(
-    Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier,
+    Func&lt;Task&gt; action, ILogger logger, IBannerNotifier? notifier,
     SafeExecutionOptions opts, CancellationToken ct = default);
 
 Task&lt;SafeExecutionResult&gt; RunWithoutThrowingAsync(
-    Func&lt;Task&gt; action, ILogger logger, IErrorNotifier? notifier,
+    Func&lt;Task&gt; action, ILogger logger, IBannerNotifier? notifier,
     SafeExecutionOptions opts, CancellationToken ct = default);
 </code></pre>
-<p><code>RunAsync</code> propagates failures. <code>RunWithoutThrowingAsync</code> records an explicit
-outcome for a caller that must contain failure, such as a Revit event callback.
+<p><code>RunAsync</code> reports, then rethrows, refusals, cancellations and failures.
+<code>RunWithoutThrowingAsync</code> records an explicit outcome for a caller that must
+contain failure, such as a Revit event callback.
 Both provide correlation IDs, timing, cancellation admission, exception
 logging, and configured notifications. <code>ToolCommand</code> already owns this boundary.
 Let workflow failures reach it.</p>
@@ -231,7 +232,7 @@ constructing concrete logger or notification windows.</p>
 <pre><code class="lang-csharp">logger.LogInformation(&quot;Processing {Count} elements in {Document}&quot;, count, document.Title);
 logger.LogError(exception, &quot;Inspection failed for {Document}&quot;, document.Title);
 </code></pre>
-<p>Use <code>IAlertService</code> for user decisions and <code>IErrorNotifier</code> for banners.
+<p>Use <code>IAlertService</code> for user decisions and <code>IBannerNotifier</code> for banners.
 Propagate failures through the safe-execution boundary with their context.</p>
 <h2 id="revit-run-scopes-and-call-gates">Revit run scopes and call gates</h2>
 <p><code>IRevitRunScope</code> exposes <code>UIApplication</code>, <code>CallGate</code>, <code>GetActiveUiDocument()</code>,
@@ -320,12 +321,14 @@ Do not use an unguarded <code>finally</code> exception that hides the operation'
 Long-lived tool sessions also own the ordering of persistence, window closure,
 group finalization, and scope disposal.</p>
 <h2 id="alerts-and-selection">Alerts and selection</h2>
-<p><code>IAlertService</code> exposes request-based dialogs:</p>
+<p><code>IAlertService.Show(AlertRequest)</code> presents a request-based dialog. The
+<code>AlertServiceExtensions</code> methods in <code>DBTools.Core.Alert.Workflow</code> build the
+confirmation and selection requests and present them through <code>Show</code>:</p>
 <pre><code class="lang-csharp">AlertResult Show(AlertRequest request);
-bool Confirm(string message, IWindowOwnerHandleProvider ownerHandleProvider,
-    string title = &quot;DB Tools&quot;);
-T? SelectSingle&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
-IReadOnlyList&lt;T&gt; SelectMultiple&lt;T&gt;(AlertSelectionRequest&lt;T&gt; request) where T : class;
+bool Confirm(this IAlertService alerts, string message,
+    IWindowOwnerHandleProvider ownerHandleProvider, string title = &quot;DB Tools&quot;);
+T? SelectSingle&lt;T&gt;(this IAlertService alerts, AlertSelectionRequest&lt;T&gt; request) where T : class;
+IReadOnlyList&lt;T&gt; SelectMultiple&lt;T&gt;(this IAlertService alerts, AlertSelectionRequest&lt;T&gt; request) where T : class;
 </code></pre>
 <p>Confirmation requires an owner provider. In a command:</p>
 <pre><code class="lang-csharp">var alerts = context.Resolve&lt;IAlertService&gt;();
@@ -341,7 +344,8 @@ and owned window options. For example:</p>
     Message = &quot;Choose the target level.&quot;
 });
 </code></pre>
-<p>Core owns selection policy, body construction, and typed result extraction.</p>
+<p>Core owns selection policy, body construction, and typed result extraction; a
+test substitute implements <code>Show</code> only.</p>
 <h2 id="settings">Settings</h2>
 <p>Inject <code>ISettingsProvider</code> and the typed <code>SettingsSection&lt;T&gt;</code>. Call <code>Get(section)</code>
 at the operation boundary for a fresh snapshot. Reads layer <code>appsettings.json</code>
@@ -433,11 +437,14 @@ and runtime-generation retirement:</p>
 <pre><code class="lang-csharp">using var xaml = new MemoryStream(ToolWindowXaml.ReadEmbeddedResource(
     typeof(MyToolWindowViewModel).Assembly,
     &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;));
-var session = factory.Create(ToolWindowKind.Modal, xaml, viewModel,
+var session = factory.CreateModal(xaml, viewModel,
     new ToolWindowOptions { Title = &quot;My Tool&quot;, Width = 800, Height = 600 });
 _ = session.ShowDialog();
 </code></pre>
-<p>Use <code>ToolWindowKind.Modeless</code> and <code>session.Show()</code> for a modeless surface.
+<p>Use <code>factory.CreateModeless(...)</code> and <code>session.Show()</code> for a modeless surface.
+<code>CreateModal</code> returns <code>IModalToolWindowSession</code> with <code>ShowDialog</code> and <code>HideForPick</code>.
+<code>CreateModeless</code> returns <code>IModelessToolWindowSession</code> with <code>Show</code>.
+Both inherit the common lifecycle surface from <code>IToolWindowSession</code>.
 Register payload handlers and owned cleanup through the session. A custom
 <code>initializeShell</code> callback owns the initializer it creates and must register
 its disposal through <code>session.AddCleanup</code>.</p>

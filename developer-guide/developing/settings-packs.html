@@ -98,9 +98,10 @@ warnings. Packs appear as cards grouped by their registered ribbon panel.</p>
 do not save independently.</p>
 <h2 id="files-and-typed-sections">Files and typed sections</h2>
 <p>The default user file is <code>%APPDATA%/DBTools/settings.&lt;year&gt;.json</code>.
-<code>AppPaths.SettingsFile</code> requires an initialized Revit year. The process can
-relocate its base directory through the <code>DBTools.AppPaths.BaseDir</code> AppContext
-value.</p>
+<code>AppPaths.GetSettingsFile(revitYear)</code> returns it for the year that App
+bootstrap receives and rejects a year outside 2015-2100 with
+<code>ArgumentOutOfRangeException</code>. The process can relocate its base directory
+through the <code>DBTools.AppPaths.BaseDir</code> AppContext value.</p>
 <p><code>SettingsSectionReader</code> reads <code>appsettings.json</code> from its base directory,
 then overlays the user file. An absolute user path is used directly. A relative
 one resolves against the base directory. The reader validates files at
@@ -226,7 +227,7 @@ See <a href="feature-warnings.html">Feature Warnings</a> for activation and comm
 }
 </code></pre>
 <p>Register the editor in <code>RegisterSettingsPacks</code>. The following excerpt assumes
-<code>SettingsPackContext</code> implements <code>ISettingsPackContext&lt;MyToolSettings&gt;</code>, accepts
+<code>SettingsPackContext</code> implements <code>ISettingsPackLifecycle&lt;MyToolSettings&gt;</code>, accepts
 a warning ID, and exposes <code>HasWarning</code>. <code>MyToolSettingsView</code> is the tool-owned
 pack view:</p>
 <pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, ToolManifest manifest)
@@ -321,7 +322,16 @@ public interface ISettingsPackContext&lt;TOptions&gt; : ISettingsPackContext
     void Load(TOptions options);
     TOptions BuildOptionsSnapshot();
 }
+
+public interface ISettingsPackLifecycle&lt;TOptions&gt; : ISettingsPackContext&lt;TOptions&gt;,
+    IPendingChangesContext, ISettingsStateContext, ISettingsPackSaveState&lt;TOptions&gt;
+{
+}
 </code></pre>
+<p>Every registered editor context implements <code>ISettingsPackLifecycle&lt;TOptions&gt;</code>.
+It requires <code>HasPendingChanges</code>, <code>StateChanged</code>, and <code>MarkSaved(committedOptions)</code>
+alongside typed load, snapshot, and validation. The runtime forwards pending
+state and notifications to its owned context and rebaselines it after commit.</p>
 <p>Optional contracts add specific behavior:</p>
 <table>
 <thead>
@@ -332,20 +342,8 @@ public interface ISettingsPackContext&lt;TOptions&gt; : ISettingsPackContext
 </thead>
 <tbody>
 <tr>
-<td><code>ISettingsStateContext</code></td>
-<td>Raise <code>StateChanged</code> for editable-state changes.</td>
-</tr>
-<tr>
-<td><code>IPendingChangesContext</code></td>
-<td>Expose <code>HasPendingChanges</code>.</td>
-</tr>
-<tr>
 <td><code>IOwnerAwareContext</code></td>
 <td>Receive an owner handle provider for dialogs.</td>
-</tr>
-<tr>
-<td><code>ISettingsPackSaveState&lt;TOptions&gt;</code></td>
-<td>Accept <code>MarkSaved(committedOptions)</code> as the persisted baseline.</td>
 </tr>
 <tr>
 <td><code>ISettingsWarningContext</code></td>
@@ -367,12 +365,16 @@ validation failed to run. They are not an invalid-result substitute.
 Honor cancellation and return messages that identify the invalid value and
 its correction.</p>
 <h3 id="auto-update-editor-base">Auto-update editor base</h3>
-<p><code>SettingsPackAutoUpdateContext&lt;TOptions&gt;</code> in
-<code>DBTools.Core.Settings.SettingsPack.AutoUpdate</code> implements the common toggle
-editor. It owns title/description/tooltip text, <code>AutoUpdateEnabled</code>, <code>HasWarning</code>,
-<code>ToggleEnabled</code>, <code>ClearWarningCommand</code>, <code>WarningId</code>, pending-change tracking,
-<code>StateChanged</code>, and the validation envelope. It blocks saving invalid options.</p>
-<p>The protected base constructor supplies warning identity and editor text:</p>
+<p><code>SettingsPackAutoUpdateStateContext&lt;TOptions&gt;</code> in
+<code>DBTools.Core.Settings.SettingsPack.AutoUpdate</code> implements the required lifecycle.
+It owns title/description/tooltip text, <code>AutoUpdateEnabled</code>, <code>HasWarning</code>,
+<code>ToggleEnabled</code>, pending-change tracking, <code>StateChanged</code>, and validation.
+It blocks saving invalid options. Its protected constructor takes title,
+description, and toggle tooltip strings.</p>
+<p><code>SettingsPackAutoUpdateContext&lt;TOptions&gt;</code> derives from the state base and adds
+<code>ISettingsWarningContext</code>, <code>WarningId</code>, and <code>ClearWarningCommand</code>. Clearing an
+active warning raises one state event. Clearing an inactive warning raises none.
+Its protected constructor supplies warning identity and editor text:</p>
 <pre><code class="lang-csharp">protected SettingsPackAutoUpdateContext(
     string warningId, string title, string description, string toggleToolTip);
 </code></pre>
@@ -386,9 +388,11 @@ public abstract TOptions BuildOptionsSnapshot();
 notifies state changes. <code>LoadCore</code> sets a baseline through <code>SetBaseline</code>.
 <code>MarkSaved</code> uses the exact committed options, not the latest editable snapshot.
 Edits made while a commit is pending therefore remain dirty.</p>
-<p>Elevation Tags and Joist Girder Weights use this base. Combined Foundation Tags implements
-the interfaces directly because its prerequisite state and repair actions need
-a different context.</p>
+<p>Elevation Tags, Joist Girder Weights, and the design-time auto-update previews
+use the warning-aware base. Combined Foundation Tags uses the state base and
+retains its prerequisite warning publication and repair actions. It does not
+implement <code>ISettingsWarningContext</code>. Its <code>MarkSaved</code> override copies committed
+options before setting the baseline.</p>
 <h3 id="regex-pattern-lists">Regex pattern lists</h3>
 <p><code>RegexPatternListContext</code> owns bindable <code>RegexPatternEntry</code> rows, add/remove
 commands, a configured maximum, empty-list default seeding, snapshots that omit
@@ -445,6 +449,12 @@ await settingsProvider.CommitAsync(new[] { section.CreateWrite(current) }, ct);
 options. The Settings workflow additionally applies flags, baselines, and
 warning publication.</p>
 <h2 id="save-and-reset-sequence">Save and reset sequence</h2>
+<p>The Settings tool owns the window workflow under <code>src/Tools/Common/Settings</code>.
+<code>SettingsToolModule</code> registers the singleton window factory, startup workflow and
+startup publisher. Each factory call creates an independent editor session.
+Core retains the public catalog, warning service, warning validator and pack
+contracts. Core-only composition registers no Settings window or startup publisher.
+The tool uses these public contracts without Core friend access.</p>
 <p><code>SettingsWindowFactory</code> opens the raw
 <code>DBTools.Presentation.Settings.Views.SettingsWindow.xaml</code> resource through
 <code>ToolWindowFactory</code>. The registered modal session owns the window, error
@@ -452,7 +462,7 @@ boundary, owner, handlers, and cleanup. Packs remain separate tool-owned views.<
 <p><code>SettingsPackViewModel</code> owns one bound runtime, lazy view creation, pending
 changes, reset state, owner propagation, warning projection, and disposal.
 <code>SettingsPanelBlock</code> groups rows. <code>SettingsWindowViewModel</code> delegates persistence
-to <code>SettingsPersistenceWorkflow</code> under <code>Settings/ViewModels</code>.</p>
+to <code>SettingsPersistenceWorkflow</code> under the Settings tool’s <code>Features/Editing/Persistence</code>.</p>
 <p>Save proceeds in this order:</p>
 <ol>
 <li>Evaluate the unsaved drafts. A blocking invalid result stops the save.
@@ -460,9 +470,16 @@ This pass can update editor warning flags but does not change command blocking.<
 <li>Capture current pack writes and the flags snapshot.</li>
 <li>Commit the complete batch with one file swap.</li>
 <li>Mark each pack saved against its exact committed options.</li>
-<li>Apply committed flags. Validate saved settings in fresh warning-aware runtimes.</li>
+<li>Apply committed flags. Validate saved settings in fresh warning-aware runtimes,
+record the decisions, then dispose all of the runtimes.</li>
 <li>Project and publish warning decisions to the ribbon and Settings UI.</li>
 </ol>
+<p>A disposal that also fails on its retry fails the warning validation phase with
+the pack key and both causes. When the validation itself fails, that phase
+reports both failures and Save stops. When the decisions were recorded, step 6
+still publishes them and Save reports the cleanup failure afterwards. When more
+than one phase fails after the commit, the phase is <code>apply committed state</code> and
+the inner <code>AggregateException</code> holds the failure of each phase.</p>
 <p>The Validate button diagnoses draft values. It does not publish the draft as
 saved warning state. Opening Settings validates loaded options. Startup checks
 warning-aware packs without constructing their views. See
@@ -512,7 +529,11 @@ section name replaces that section in place. An absent file starts an empty
 object. An existing empty, whitespace-only, malformed, or non-object file is
 corrupt and is not silently reset. A file that repeats a top-level name, also with
 different letter case, is corrupt too. <code>SettingsJson.RequireObject</code> applies this
-rule to reads and commits.</p>
+rule to reads and commits. Both report a corrupt file as <code>InvalidDataException</code>
+with the message <code>Settings file '&lt;path&gt;' is corrupt.</code> and the <code>JsonException</code>
+cause; the Settings window shows that message. A section value that its type
+cannot convert is not file corruption: <code>Get</code> reports it as
+<code>InvalidOperationException</code> with the section name.</p>
 <p><code>RecoverAsync</code> serializes the default sections before changing files. It holds
 the writer semaphore and the same exclusive sibling lock through source preservation and defaults publication. It reads the per-year source as raw
 bytes, including invalid UTF-8. It writes and flushes a complete sibling stage,
@@ -535,6 +556,14 @@ per-year override. It does not repair corrupt <code>appsettings.json</code> or b
 failures. After successful publication, the writer logs the preservation path at
 Information. The recovery success banner includes that path. A later state or
 warning failure does not remove the committed defaults or the preservation log entry.</p>
+<h2 id="designer-samples">Designer samples</h2>
+<p>The Settings tool’s <code>App/DesignTime</code> supplies four neutral sample packs in the
+Common and Structural panels. Three use <code>DesignTimeAutoUpdatePackContext</code>, a
+private subclass of the production auto-update context. The Structural warning
+sample starts with an active warning. The library sample uses an empty
+serialization model and a text preview. The manifest names the public
+<code>DBTools.Settings.App.DesignTime.SettingsWindowDesignTimeViewModel</code> in
+<code>DBTools.Settings</code>.</p>
 <h2 id="editor-views">Editor views</h2>
 <p>Create a tool-owned view for the editor. Bind the auto-update toggle to
 <code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit

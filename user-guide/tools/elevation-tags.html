@@ -101,6 +101,27 @@
 <li>Read the banner.</li>
 </ol>
 <p>With <strong>Auto-Update Enabled</strong> on, the same alignment runs each time a supported plan view becomes active. Automatic runs show no banner. Failures go to the log.</p>
+<h2 id="set-elevation-symbol-text">Set Elevation Symbol Text</h2>
+<p>Ribbon: <strong>DB Tools</strong> &gt; <strong>Common</strong> &gt; <strong>Set Elevation Symbol Text</strong>.</p>
+<ol>
+<li>Select spot elevations in the active view.</li>
+<li>Click <strong>Set Elevation Symbol Text</strong>.</li>
+<li>Enter the symbol text, for example <code>T.O. FTG.</code>, and click <strong>Apply</strong>.</li>
+</ol>
+<p>The command copies each selected spot's symbol family and spot elevation type, then assigns the selected spots to the new type.
+The family and type names are <code>&lt;original name&gt; - &lt;text&gt;</code>. Existing variants with the same name and text are reused.
+Changing the text again uses the original names, without adding another suffix.
+Spots outside the selection keep their types. The original families and types keep their content.</p>
+<p>The symbol family must contain exactly one plain text element. Labels are not supported.
+The command names the family when it finds no plain text or more than one plain text element.
+Text is trimmed and must be nonempty, on one line, and valid in Revit names and Windows filenames.
+An existing family with different text or an existing spot type with a different symbol causes a refusal.
+An in-line spot type whose Symbol parameter is read-only cannot receive a new symbol.</p>
+<p>The command removes unused variants that the selected spots leave. It preserves user families, user types, unrelated variants, and variants still referenced in the project.
+Unused symbol-text copies of a family can remain, and Revit's Purge Unused removes them.
+Variants owned by another worksharing user remain. A temporary-file removal failure goes to the log and does not undo the text change.
+Cancel changes nothing. A failure rolls back the family loads, type creation, reassignment, and cleanup together.
+One Undo restores the whole change.</p>
 <h2 id="what-is-aligned">What is aligned</h2>
 <p>A spot elevation is processed when all of these hold:</p>
 <ul>
@@ -128,7 +149,7 @@
 </tbody>
 </table>
 <p>Revit itself draws Above Leader labels above the leader and Below Leader labels below it, whichever way the leader runs. It also mirrors the marker symbol when the leader runs up the screen, so text drawn above the origin of the symbol, as in the DB Elevation Tag label symbols, lands on the side away from the point. Revit's own side therefore puts the label on the symbol text for Above Leader with a leader running down and for Below Leader with a leader running up. The tool puts the label on the point's side instead, for both locations. Revit draws no marker symbol for In-line with Leader.</p>
-<p>Directions follow the view as displayed, including rotated plans. The per-type offsets apply after this placement: a negative Perpendicular offset larger than the gap puts the label on or across the leader. The tool moves the label only when the new X or Y position differs from the current one after rounding both to two decimals (feet). Spots that already sit at the target position are not counted as updated.</p>
+<p>The tool places the label along the plan view's displayed up and right directions, including rotated plans. The per-type offsets apply after this placement: a negative Perpendicular offset larger than the gap puts the label on or across the leader. The tool moves the label only when the new X or Y position differs from the current one after rounding both to two decimals (feet). Spots that already sit at the target position are not counted as updated.</p>
 <p>For a type whose elevation base is <code>Project Base Point</code>, the displayed elevation is measured from the project base point when the project base point and survey point are at different positions.</p>
 <h2 id="settings">Settings</h2>
 <p>Open <strong>DB Tools</strong> &gt; <strong>Settings</strong> and select the <strong>Elevation Tags</strong> pack.</p>
@@ -166,7 +187,7 @@
 <p>A spot is tested against these names: the spot name, the spot dimension type name and its family name, and the name and family name of the type's marker symbol. Because spot elevations are a system family, the patterns match the type and marker symbol names, not only loaded family names.</p>
 <p>When the pattern list is empty, the default pattern is used. A pattern that is not a valid regular expression is skipped and logged.</p>
 <p>The two offsets are stored per spot elevation type. The offsets are in paper inches. The tool multiplies them by the view scale divided by 12 to get model units.</p>
-<p>The settings pack has a type selector (previous and next buttons) and a live preview. The preview draws two spots of the selected type on one element, with the text where the tool places it for the type's Text Location. For Above Leader and Below Leader, the text is below the shoulder for the spot whose leader runs down to the element and above the shoulder for the spot whose leader runs up, and each spot has the datum symbol at its leader end, mirrored for the upward leader as in Revit. For In-line with Leader, the text is centered on the leader past its end, with no symbol. The text is in the type's font and moved by the current offsets. A dashed outline shows the text position without offsets. The drawing is at twice print size, and is reduced when it does not fit. Under the drawing, the preview shows the type's font, text location, elevation indicator, elevation base and symbol. The preview uses the same Text Location value as Align in every Revit language. The text location label uses Revit's display name. A type with a missing or unknown Text Location is omitted from the preview and recorded in the log. With no project open, the preview asks for one. When no spot elevation type in the project matches the tag name patterns, the preview says so and lists the patterns.</p>
+<p>The settings pack has a type selector (previous and next buttons) and a live preview. The preview draws two spots of the selected type on one element, with the text where the tool places it for the type's Text Location. For Above Leader and Below Leader, the text is below the shoulder for the spot whose leader runs down to the element and above the shoulder for the spot whose leader runs up. Each spot draws the type's own symbol family at its leader end. The preview mirrors the symbol's positions for the upward leader as Revit does. For In-line with Leader, the text is centered on the leader past its end, with no symbol. The text is in the type's font and moved by the current offsets. A dashed outline shows the text position without offsets. The drawing is at twice print size, and is reduced when it does not fit. Under the drawing, the preview shows the type's font, text location, elevation indicator, elevation base and symbol. The preview uses the same Text Location value as Align in every Revit language. The text location label uses Revit's display name. A type with a missing or unknown Text Location is omitted from the preview and recorded in the log. With no project open, the preview asks for one. When no spot elevation type in the project matches the tag name patterns, the preview says so and lists the patterns.</p>
 <p>Settings are stored per user and Revit year in <code>%APPDATA%\DBTools\settings.&lt;year&gt;.json</code>. They apply to every project.</p>
 <h2 id="result">Result</h2>
 <p>The command is one undo entry. The banner shows one of these messages:</p>

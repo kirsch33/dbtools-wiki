@@ -165,8 +165,6 @@ Add production and test projects to <code>DBTools.sln</code> under the owning so
     &lt;DBT_RevitHostIdentity&gt;$(DBT_DesktopRevitHostIdentity)&lt;/DBT_RevitHostIdentity&gt;
     &lt;DBT_IsToolAssembly&gt;true&lt;/DBT_IsToolAssembly&gt;
     &lt;RootNamespace&gt;DBTools.MyTool&lt;/RootNamespace&gt;
-    &lt;LangVersion&gt;latest&lt;/LangVersion&gt;
-    &lt;Nullable&gt;enable&lt;/Nullable&gt;
     &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
   &lt;/PropertyGroup&gt;
   &lt;ItemGroup&gt;
@@ -223,7 +221,6 @@ tool:
   ribbonTools:
     - internalName: DBTools.MyTool
       commandType: DBTools.MyTool.App.Composition.MyToolCommand
-      availabilityType: DBTools.MyTool.App.Composition.MyToolCommand
       runProfile: InlineUi
       displayText: &quot;My Tool&quot;
       iconBaseKey: my_tool
@@ -231,9 +228,10 @@ tool:
       controlKind: PushButton
       order: 50
 </code></pre>
-<p><code>assembly</code> is the actual simple assembly name without <code>.dll</code>. App embeds
-manifests centrally, but compiles no tool source, XAML, or assets. The product
-build discovers declared tool projects and stages their assemblies under
+<p><code>assembly</code> is the actual simple assembly name. It does not end with <code>.dll</code> in
+any case and contains no <code>/</code>, <code>\</code>, <code>,</code> or <code>:</code>; the same rule applies to
+<code>sandboxWindows</code> assembly fields. App embeds manifests centrally, but compiles
+no tool source, XAML, or assets. The product build discovers declared tool projects and stages their assemblies under
 <code>&lt;year&gt;/Tools/</code>. <code>build/MSBuild/ProductOutput.proj</code> builds and stages those owners.
 <code>ToolAssemblyResolver</code> loads the declared file in the root assembly's owning
 context. Runtime resolves modules, commands, icons, and raw views from that owner.</p>
@@ -285,8 +283,8 @@ context. Runtime resolves modules, commands, icons, and raw views from that owne
 </tbody>
 </table>
 <p>A module must own at least one responsibility: ribbon tools, settings, settings
-packs, or registered hooks. A moduleless manifest requires <code>panel</code> and at least
-one ribbon tool. It cannot declare settings or settings packs.</p>
+packs, or registered lifecycle hooks. A moduleless manifest requires <code>panel</code> and
+at least one ribbon tool. It cannot declare settings or settings packs.</p>
 <p>For a service module, retain the project and declare its actual owner:</p>
 <pre><code class="lang-yaml">id: DBTools.DialogSuppression
 assembly: DBTools.DialogSuppression
@@ -319,7 +317,7 @@ tool:
 </tr>
 <tr>
 <td><code>availabilityType</code></td>
-<td>Optional concrete command type implementing <code>IExternalCommandAvailability</code>.</td>
+<td>Optional separate type implementing <code>IExternalCommandAvailability</code>. Omit for command-owned availability.</td>
 </tr>
 <tr>
 <td><code>runProfile</code></td>
@@ -342,7 +340,7 @@ tool:
 <td><code>PushButton</code> by default, or <code>SplitButtonItem</code>, <code>PulldownButtonItem</code>, <code>StackedButtonItem</code>.</td>
 </tr>
 <tr>
-<td><code>splitGroup</code></td>
+<td><code>group</code></td>
 <td>Required nonblank group for grouped controls. Invalid for a push button.</td>
 </tr>
 <tr>
@@ -364,9 +362,10 @@ tool:
 </tbody>
 </table>
 <p>Optional values cannot be blank. Push buttons cannot carry grouped-control
-metadata. Entries sharing a split or pulldown group form one ordered sequence.
-The lowest-order split entry is the primary command. The remaining entries are
-its dropdown commands. App planning and Revit construction use that sequence.</p>
+metadata. Entries in one panel with the same <code>controlKind</code> and <code>group</code> form one
+split button, pulldown button or stack, ordered by <code>order</code>. The lowest-order
+split entry is the primary command. The remaining entries are its dropdown
+commands. App planning and Revit construction use that sequence.</p>
 <p>Use a 32×32 main icon such as <code>my_tool.png</code>. An optional 16×16 companion is
 <code>my_tool_16.png</code>. Match the base filename to <code>iconBaseKey</code>.</p>
 <h2 id="4-register-services">4. Register services</h2>
@@ -395,7 +394,7 @@ Its registration methods receive the manifest from
 </tr>
 <tr>
 <td><code>RegisterHooks</code></td>
-<td>Hook implementation mappings in <code>ToolRegistry</code>.</td>
+<td>Lifecycle hook registrations in <code>ToolRegistry</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -449,11 +448,15 @@ public sealed class MyToolCommand : ToolCommand
 </code></pre>
 <p>This example assumes the feature defines <code>InspectionWorkflow.ExecuteAsync(Document)</code>.
 The context exposes <code>UIApplication</code>, <code>UIDocument</code>, <code>Document</code>, <code>Logger</code>,
-<code>OwnerHandleProvider</code>, <code>ShowBanner</code>, and inherited <code>Resolve&lt;T&gt;()</code>.
+<code>OwnerHandleProvider</code>, <code>ShowErrorBanner</code>, <code>ShowWarningBanner</code>, and inherited
+<code>Resolve&lt;T&gt;()</code>. Use the error banner for a failure and the warning banner for
+an expected refusal or a partial result.
 A documentless command overrides <code>RequiresActiveDocument=false</code>. Accessing its
 <code>Document</code> or <code>UIDocument</code> throws.</p>
-<p>Every <code>ToolCommand</code> implements <code>IExternalCommandAvailability</code>. Set
-<code>availabilityType</code> to the concrete command. The default predicate requires an
+<p>Every <code>ToolCommand</code> implements <code>IExternalCommandAvailability</code>. Omit
+<code>availabilityType</code> to infer the concrete command. An explicit type equal to the
+command is rejected. A separate availability class uses an explicit type.
+The default predicate requires an
 open document unless <code>RequiresActiveDocument</code> is false. Override
 <code>IsCommandAvailableCore</code> for other predicates and use <code>CommandAvailability</code>
 methods such as <code>HasActiveView</code>, <code>HasSelection</code>, or
@@ -478,9 +481,9 @@ pack adds the editor context and view. <a href="settings-packs.html">Settings Pa
 contains the complete registration and persistence sequence.</p>
 <p>For view-change work, register an <code>IViewActivationTask</code> service. For owned event
 subscriptions, implement <code>IHookLifecycle</code> and register the concrete service and
-hook mapping. <a href="hooks.html">Hooks</a> describes admission, failure handling, rollback,
-and synchronous shutdown. <a href="feature-warnings.html">Feature Warnings</a> describes
-configuration failures that disable commands.</p>
+its lifecycle registration. <a href="hooks.html">Hooks</a> describes admission, failure
+handling, rollback, and synchronous shutdown. <a href="feature-warnings.html">Feature Warnings</a>
+describes configuration failures that disable commands.</p>
 <h2 id="7-add-tests-and-validate">7. Add tests and validate</h2>
 <p>Tests live under the owning <code>Tests/</code> directory and mirror production ownership:</p>
 <pre><code class="lang-text">Tests/

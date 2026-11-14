@@ -105,22 +105,24 @@ copy of Core's ViewActivated handler.</p>
     Host --&gt; Lifecycle[IHookLifecycle implementations]
     View --&gt; Tasks[IViewActivationTask services]
 </code></pre>
-<p><code>AppHooksToolModule</code> registers the single <code>ViewActivationHook</code> service and its
-<code>RegisterHook&lt;ViewActivationHook, ViewActivationHook&gt;()</code> mapping. The hook
-collects <code>IEnumerable&lt;IViewActivationTask&gt;</code> from DI.
+<p>Core's <code>AddDbtHookRuntimeServices</code> registers the single <code>ViewActivationHook</code>
+service beside <code>HookHost</code>. The hook collects <code>IEnumerable&lt;IViewActivationTask&gt;</code>
+from DI; tools contribute tasks, not hook registrations.
 <code>ViewActivationHookDispatcher</code> owns the outer safe-execution boundary.
 <code>ViewActivationTaskRunner</code> evaluates admissions and executes admitted tasks.</p>
-<p><code>HookCatalog</code> accepts only <code>ViewActivationHook</code> and <code>IHookLifecycle</code> contracts.
-It resolves each registered implementation from the service provider and fails
-when a service is missing or does not implement its declared contract. New
-contracts require explicit catalog and host subscription support.</p>
+<p><code>ToolRegistry</code> records only lifecycle hooks, in registration order, through
+<code>RegisterLifecycleHook&lt;T&gt;()</code>. <code>HookCatalog</code> resolves the required
+<code>ViewActivationHook</code> service and each registered lifecycle implementation from
+the service provider. Resolution fails when the view-activation hook or a
+lifecycle service is missing, or when a lifecycle service does not implement
+<code>IHookLifecycle</code>.</p>
 <p>Hooks run in response to Revit UI callbacks. Returning Task does not move API
 work to a background thread. Use asynchronous I/O where appropriate, avoid
 blocking the UI, and reacquire a valid Revit call gate before API work after an
 await. <a href="modularity.html#revit-run-scopes-and-call-gates">Modularity</a> describes the
 synchronous callback restriction.</p>
 <h2 id="registering-hooks">Registering hooks</h2>
-<p>Register both the concrete service and its hook mapping:</p>
+<p>Register both the concrete service and its lifecycle registration:</p>
 <pre><code class="lang-csharp">public override void RegisterServices(IServiceCollection services, ToolManifest manifest)
 {
     services.AddSingleton&lt;ContextualEditHook&gt;();
@@ -128,7 +130,7 @@ synchronous callback restriction.</p>
 
 public override void RegisterHooks(ToolRegistry registry, ToolManifest manifest)
 {
-    registry.RegisterHook&lt;IHookLifecycle, ContextualEditHook&gt;();
+    registry.RegisterLifecycleHook&lt;ContextualEditHook&gt;();
 }
 </code></pre>
 <p>This excerpt assumes a tool-owned <code>ContextualEditHook : IHookLifecycle</code> whose
@@ -138,14 +140,14 @@ in <a href="new-tool-guide.html">Creating New Tools</a>.</p>
 manifest warning IDs in addition to its registered service dependencies:</p>
 <pre><code class="lang-csharp">var warning = manifest.GetSingleSettingsPack().GetSingleWarning(manifest.Id);
 var warningIds = new[] { warning.Id };
-services.AddSingleton&lt;ElevationTagsUpdater&gt;();
-services.AddSingleton&lt;IViewActivationTask&gt;(sp =&gt; new ViewActivatedTask(
+services.AddSingleton&lt;ElevationTagAlignmentService&gt;();
+services.AddSingleton&lt;IViewActivationTask&gt;(sp =&gt; new AlignOnViewActivatedTask(
     sp.GetRequiredService&lt;ISettingsProvider&gt;(),
     sp.GetRequiredService&lt;SettingsSection&lt;ElevationTagsSettings&gt;&gt;(),
     sp.GetRequiredService&lt;ISettingsWarningService&gt;(),
-    sp.GetRequiredService&lt;ElevationTagsUpdater&gt;(),
-    sp.GetRequiredService&lt;IErrorNotifier&gt;(),
-    sp.GetRequiredService&lt;ILogger&lt;ViewActivatedTask&gt;&gt;(),
+    sp.GetRequiredService&lt;ElevationTagAlignmentService&gt;(),
+    sp.GetRequiredService&lt;IBannerNotifier&gt;(),
+    sp.GetRequiredService&lt;ILogger&lt;AlignOnViewActivatedTask&gt;&gt;(),
     warningIds));
 </code></pre>
 <p>This excerpt follows Elevation Tags' <code>App/Composition/ServiceCollectionExtensions.cs</code>.
@@ -178,7 +180,7 @@ parameterless constructor. Its base constructor receives:</p>
     ISettingsProvider settingsProvider,
     SettingsSection&lt;TSettings&gt; settingsSection,
     ISettingsWarningService warnings,
-    IErrorNotifier notifier,
+    IBannerNotifier notifier,
     ILogger logger,
     string taskId,
     string displayName,
@@ -319,8 +321,8 @@ type. <code>FindTargetTabs</code>, <code>EvaluateSelection</code>, <code>BuildBu
 are the tool-specific extension points.</p>
 <h2 id="synchronous-shutdown">Synchronous shutdown</h2>
 <p>Revit's <code>IExternalApplication.OnShutdown</code> is synchronous.
-<code>AppShutdownLifecycle.Shutdown</code> invokes <code>AppShutdownWorkflow.RunSynchronously</code>
-in that callback. It cancels startup, detaches hooks, and disposes runtime hosts
+<code>AppLifecycleCoordinator.Shutdown</code> invokes <code>AppShutdownWorkflow.RunSynchronously</code>
+through <code>AppShutdownLifecycle.CleanupSynchronously</code> in that callback. It cancels startup, detaches hooks, and disposes runtime hosts
 before returning. It disposes the startup cancellation source only when startup
 is complete or absent. It neither queues Revit work nor pumps the dispatcher.
 Unfinished startup or deferred observation yields <code>Result.Failed</code> after owned
@@ -330,7 +332,9 @@ teardown attempts.</p>
 <code>DispatcherOperationRegistry.Retire</code> closes posting, releases callbacks and
 cancellation registrations, and aborts pending operations without executing their payloads. Their completion Tasks remain
 pending. Posts refused before queueing return canceled Tasks.
-<code>WindowStaticRuntime.Reset</code> does not retire that queue.</p>
+<code>WindowStaticRuntime.Reset</code> retires that queue before it resets the window
+surfaces, and <code>WindowStaticRuntime.Configure</code> opens it again. App shutdown calls
+<code>Reset</code> after runtime host teardown, so posting stays open while hosts dispose.</p>
 <p>Logger, ribbon, notification, and progress posts use <code>WpfDispatcher.Post</code>.
 Callback faults remain observable. A fault in an error reporter stays on the
 completion Task rather than escaping into <code>Dispatcher.UnhandledException</code>.
@@ -338,9 +342,9 @@ Shutdown must not pump WPF or await retired dispatcher work.</p>
 <h2 id="extending-and-debugging-hooks">Extending and debugging hooks</h2>
 <p>Use <code>IHookLifecycle</code> for another owned application subscription. Add an
 event-specific contract only when its dispatch shape requires one. Such a
-change must update the catalog, resolution, subscription, safe-execution policy,
-rollback, synchronous detach, and tests together. <code>HookHost</code> rejects an unknown
-contract. Registering it alone cannot attach an event.</p>
+change must add its Core registration, resolution, subscription, safe-execution
+policy, rollback, synchronous detach, and tests together. <code>ToolRegistry</code> accepts
+only lifecycle hooks.</p>
 <table>
 <thead>
 <tr>
@@ -351,7 +355,7 @@ contract. Registering it alone cannot attach an event.</p>
 <tbody>
 <tr>
 <td>Lifecycle hook never initializes</td>
-<td>Register both its concrete DI service and <code>RegisterHook&lt;IHookLifecycle,T&gt;()</code> mapping.</td>
+<td>Register both its concrete DI service and its <code>RegisterLifecycleHook&lt;T&gt;()</code> registration.</td>
 </tr>
 <tr>
 <td>View task never runs</td>

@@ -189,7 +189,7 @@ Startup clears the loading state after the reads finish.</p>
 </table>
 <p>The status line at the bottom left shows the loading state, the number of visible rows and the number of applied and conflicting rows of the current tab. A grid shows <code>Loading...</code> while data loads and a <code>No ...</code> message when a loaded result is empty.</p>
 <h3 id="similarity-and-threshold">Similarity and threshold</h3>
-<p>GM scores each target against its source. Scores are colored green (high), orange (medium) or red (low). At a threshold, an unchanged row selects the highest-scoring target at or above it. If no target qualifies, the row stays empty. A manual choice is never changed by the threshold. Opening a list and closing it without picking another entry is not a manual choice. <code>&lt;Do Not Map&gt;</code> is an explicit choice.</p>
+<p>GM scores each target against its source. Scores use the same theme roles in every pane: 90–100 Success, 70–89 Secondary, 50–69 Warning, and 0–49 Muted. Options without a score use Body. At a threshold, an unchanged row selects the highest-scoring target at or above it. If no target qualifies, the row stays empty. A manual choice is never changed by the threshold. Opening a list and closing it without picking another entry is not a manual choice. <code>&lt;Do Not Map&gt;</code> is an explicit choice.</p>
 <p>On the Duplicates tab, the threshold controls which keep-target candidates appear for each source row.</p>
 <h3 id="duplicates-tab">Duplicates tab</h3>
 <p>The tab scans automatically when you open it. It groups elements that look like duplicates by name and property similarity. Styles and materials are matched on their previews. GM does not report two styles or materials as duplicates when it cannot read their previews.</p>
@@ -236,6 +236,7 @@ Startup clears the loading state after the reads finish.</p>
 <p>A row is <code>Ready</code> when Apply is on, the keep target is not the source itself, the row is not excluded, and it has no validation or conflict flag. Choosing the source itself as the keep target marks the row as the keeper and turns Apply off. <strong>Accept Applied</strong> stages the rows that are <code>Ready</code>, not every row with Apply on.</p>
 <p>The inspector pane shows candidate details and a Metadata section with the Source ID and instance count. Its <strong>Accept</strong> split button saves the selection. The drop-down <strong>Accept Once</strong> keeps it for this session only. For a family row, <strong>Edit Type Mapping...</strong> in the context menu sets which source types map to which keep types. Shared-parameter duplicate rows can drive the selections on the Shared Parameters tab (Map From and Apply).</p>
 <p>Keep targets, the one-time-save choice, ignored candidates and exclusions are restored with the saved state. Exclusion badges (<code>Saved</code>, <code>Session</code>, <code>Saved (Overridden)</code>) show the exclusion time in a tooltip when it is known.</p>
+<p>A chain badge on a candidate shows that its source is already mapped. The tooltip reads <code>Accepted as duplicate → &lt;target&gt;.</code> when the candidate is accepted, or <code>Mapped on the &lt;tab&gt; → &lt;target&gt;.</code> when another tab maps the source. Accepting a candidate whose source another tab maps to a different target raises a <code>Duplicate vs Manual</code> conflict.</p>
 <h4 id="conflicts">Conflicts</h4>
 <p>A blocking conflict prevents <strong>Review Plan</strong>. An advisory conflict (a restored saved choice that is not applied) shows in the conflict list only. The conflict button appears when any conflict exists. If one source is accepted to more than one target, GM raises a duplicate multi-target conflict and offers one-click cleanup. Choosing <strong>Keep Manual</strong> for a duplicate-versus-manual conflict clears the duplicate row's keep and apply state, so the same conflict does not return.</p>
 <h3 id="families-tab">Families tab</h3>
@@ -347,7 +348,7 @@ Startup clears the loading state after the reads finish.</p>
 <ul>
 <li>Selecting a style lists the families that use it. A preview pane shows the style.</li>
 <li>Checking <strong>Apply</strong> links the affected families on the Families tab. Unchecking it removes the link. A family keeps its Apply if you checked it or another source links it.</li>
-<li>A lock badge only tells where a mapping came from. To override a mapping that a duplicate seeded, edit its target.</li>
+<li>A chain badge beside the source shows that another tab, an accepted duplicate or a saved mapping file set the mapping. Its tooltip names the origin, for example <code>From the Duplicates tab. Edit to override.</code> Choosing another target overrides the mapping and removes the badge. The Line Styles and Materials tabs show the same badge.</li>
 </ul>
 <p>At commit, GM opens each affected family document and ensures the target style exists in it, creating the style when it is missing. It copies the core style appearance from the project target, rewrites the references to the source style, and reloads the family into the project.</p>
 <p>Before commit, GM leaves out a top-level mapping whose source style has no family usage and no deep-scanned family reference. A mapping found only by a deep scan is kept and appears in Commit Review. A nested mapping whose owner family no longer shows the source in the usage or deep-scan data is left out with a warning.</p>
@@ -427,7 +428,7 @@ Startup clears the loading state after the reads finish.</p>
 <li>Text read into a Number or Integer parameter uses the decimal separator of your Windows number format and no thousands separators. With a decimal point, <code>1.5</code> is 1.5, and <code>1,5</code> or <code>1,500</code> is not written. With a decimal comma, <code>1,5</code> is 1.5, and <code>1.5</code> or <code>1.500</code> is not written. An Integer parameter takes only whole numbers, so <code>2.5</code> is not written.</li>
 <li>A value that cannot be read this way is not written. Examples are a Yes/No into a Number, <code>300 mm</code> into an Integer, or a level or phase name into another element parameter. Commit Review lists the operation as Failed, with the value, the parameter and the reason, and writes none of its values.</li>
 </ul>
-<p>The Formula preview reads values by the same rules, including a measured value in the unit it shows. When a value cannot be read as a number, the preview shows that it is unavailable.</p>
+<p>The Formula preview reads values by the same rules, including a measured value in the unit it shows. When a value cannot be read as a number, the preview shows that it is unavailable and names the parameter. The preview cannot evaluate functions such as <code>if</code>; it shows that it is unavailable and names the function.</p>
 <p>The first visit to the tab loads the shared parameter groups and the curated categories, with a loading overlay once. Later expanding and collapsing, searching, and conflict updates do not show the overlay.</p>
 <p>The instance navigator, between <strong>SP Group</strong> and the authoring pane, steps through sampled instances. <strong>Zoom to Instance</strong> goes to an instance even when it is not in the active view.</p>
 <h3 id="deep-scan">Deep scan</h3>
@@ -496,7 +497,7 @@ Startup clears the loading state after the reads finish.</p>
 <p><strong>Review Plan</strong> opens <strong>Commit Review</strong>. Revit is blocked while it is open. The window shows:</p>
 <ul>
 <li>the planned operations, by section (Plan Overview, Planned Operations, Host Replacements, Family Changes, Nested Families, Shared Parameters, Validation Issues); sections that do not apply are hidden;</li>
-<li>after apply, Commit Results, Domain Summary (succeeded, failed and skipped counts per stage, with affected references, family and timing context) and Family Breakdown;</li>
+<li>after apply, Commit Results, Stage Summary (succeeded, failed and skipped counts per stage, with affected references, family and timing context) and Family Breakdown;</li>
 <li>an Operation Results table with a status for each operation (<code>Pending</code>, <code>Succeeded</code>, <code>Failed</code>, <code>Skipped</code>), its operation id, stage and timing.</li>
 </ul>
 <p>Failed operations are summarized per mapping rule, with the source and target display names rather than element ids. The status bar shows the apply phase before the commit and the <code>Applied</code>, <code>Skipped</code> and <code>Failed</code> counts after it. Right-click a report table for <strong>Copy Selected</strong> or <strong>Copy All</strong>. <strong>Copy Report</strong> copies the whole report.</p>
