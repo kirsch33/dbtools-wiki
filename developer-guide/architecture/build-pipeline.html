@@ -91,10 +91,12 @@
 
 <p><code>build.sh</code> (Linux, WSL) and <code>build.ps1</code> (Windows, PowerShell 7) are the build
 entry points. Both run <code>dotnet build build/Build.proj -t:&lt;Target&gt;</code> with the
-pinned SDK; a plain <code>dotnet build build/Build.proj -t:&lt;Target&gt;</code> runs the same
-graph. The default target is <code>BuildAll</code>, which builds, validates and publishes
-the complete distribution for Revit 2026 and 2027. <code>BuildAll</code> compiles no test
-projects.</p>
+pinned SDK. They map public <code>Restore</code> to the build graph's restore target
+because MSBuild reserves the target name <code>Restore</code> for its own package restore.
+Use either wrapper to run DBTools' restore step. A plain
+<code>dotnet build build/Build.proj -t:Restore</code> does not run that step. The default
+target is <code>BuildAll</code>, which builds, validates and publishes the complete
+distribution for Revit 2026 and 2027. <code>BuildAll</code> compiles no test projects.</p>
 <h2 id="synopsis">Synopsis</h2>
 <pre><code class="lang-text">./build.sh [Target] [parameters]
 pwsh -NoProfile -File build.ps1 [Target] [parameters]
@@ -225,7 +227,11 @@ other than <code>true</code> or <code>false</code> fails before any target runs.
 <td>Build the bundle, then the installer with Inno Setup</td>
 </tr>
 <tr>
-<td><code>ValidateManifestTypes</code>, <code>VerifyArtifacts</code>, <code>BuildSandbox</code>, <code>BuildValidationRunner</code>, <code>Restore</code>, <code>Clean</code>, <code>Info</code></td>
+<td><code>Restore [-y &lt;year&gt;]</code></td>
+<td>Restore the production and validation graphs for the selected years through either wrapper</td>
+</tr>
+<tr>
+<td><code>ValidateManifestTypes</code>, <code>VerifyArtifacts</code>, <code>BuildSandbox</code>, <code>BuildValidationRunner</code>, <code>Clean</code>, <code>Info</code></td>
 <td>Individual steps</td>
 </tr>
 </tbody>
@@ -250,9 +256,11 @@ with <code>ValidateProductVersions</code>, <code>VerifyArtifacts</code>,
 <pre><code class="lang-bash">./build.sh BuildAll
 ./build.sh BuildAll --clean
 ./build.sh BuildApp --Configuration Debug --Years 2026
+./build.sh Restore --Years 2026,2027
 ./build.sh BuildTests
 ./build.sh BuildSelectedLocalTests --TestProjects DBTools.App.Local.Tests -y 2026
 pwsh -NoProfile -File build.ps1 BuildAll
+pwsh -NoProfile -File build.ps1 Restore -y 2026,2027
 </code></pre>
 <p>Individual projects also build with plain <code>dotnet build</code>. Their MSBuild graph
 computes content versions and stages runtime prerequisites, but does not

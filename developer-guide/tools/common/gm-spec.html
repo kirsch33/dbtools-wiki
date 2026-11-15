@@ -106,9 +106,8 @@ Unsaved documents load saved data only under their captured session key.</p>
 <p><code>AddGm()</code> registers the concrete GM gate without replacing shared <code>IRevitCallGate</code> registrations.
 Each feature registers its host-neutral services through a <code>*ServiceCollectionExtensions</code> class in its <code>Composition</code> folder
 and its Revit adapters through a <code>*RevitServiceCollectionExtensions</code> class in its <code>Revit/Composition</code> folder.
-<code>AddGm()</code> reaches them through two lists: <code>AddGmFeatureServices()</code> in <code>App/Composition</code> and
-<code>AddGmRevitFeatureServices()</code> in <code>App/Composition/Revit</code>. The Revit list registers Mapping's <code>IChangeWriter</code>
-implementations before Shared Parameters adds its own. App registers only project state, UI state, session composition, and the gate.
+<code>AddGm()</code> calls <code>AddGmFeatureServices()</code> in <code>App/Composition</code> and then each feature's Revit extension.
+It registers Mapping's <code>IChangeWriter</code> implementations before Shared Parameters adds its own. App registers only project state, UI state, session composition, and the gate.
 GM Revit readers, writers, family batches, transaction runners, and Commit Review consume the concrete gate.
 <code>RevitMappingPlanExecutor</code> rejects an invalid document or session-key mismatch before writers begin.
 <code>RunCleanupAsync</code> uses the underlying gate with CancellationToken.None so owned documents can close after authority or work cancellation ends.</p>
@@ -187,7 +186,7 @@ Blank, disabled, separator, and Deep Scan template states use DynamicResource br
 <tbody>
 <tr>
 <td>Launch and document gate</td>
-<td><code>App/Composition/Revit/GmModelessSessionFactory.cs</code>, <code>Revit/Document/GmSessionDocumentGate.cs</code></td>
+<td><code>App/Composition/Revit/GmModelessSessionFactory.cs</code>, <code>Revit/Documents/GmSessionDocumentGate.cs</code></td>
 </tr>
 <tr>
 <td>Session graph</td>
@@ -199,7 +198,7 @@ Blank, disabled, separator, and Deep Scan template states use DynamicResource br
 </tr>
 <tr>
 <td>State and names</td>
-<td><code>Domain/ProjectState/ProjectStateStore.cs</code>, <code>Domain/ElementNames/ElementNamesCache.cs</code></td>
+<td><code>Domain/ProjectStates/ProjectStateStore.cs</code>, <code>Domain/ElementNames/ElementNamesCache.cs</code></td>
 </tr>
 <tr>
 <td>Persistence</td>
@@ -241,7 +240,7 @@ Blank, disabled, separator, and Deep Scan template states use DynamicResource br
 Mapping keeps the WPF-bearing MappingRow and MappingOption presentation types
 and the intent, conflict, operation, plan, and execution behavior.</p>
 <h4 id="project-state">Project state</h4>
-<p><code>Domain/ProjectState</code> owns ProjectState, family/type records, reference index/values,
+<p><code>Domain/ProjectStates</code> owns ProjectState, family/type records, reference index/values,
 project parameters, scan state, projection, and the scoped ProjectStateStore.
 The store imports no feature or App namespace. CurrentProjectState and CurrentProjectStateCategoryId
 identify the loaded snapshot and its category in one replacement operation.
@@ -307,7 +306,7 @@ MappingUpdateSuppression, and OriginClearSuppression.
 Mapping Domain/Planning owns nested-family, style, and type-reference plan language.
 Commit Review's CommitReviewDocumentEditBuilder owns mutable family-batch assembly.
 Mapping's neutral composition registers MappingIntentStore. Commit Review composition registers CommitReviewPlanVerifier.
-Revit/Composition registers mutation adapters, attached through AddGmRevitFeatureServices.
+Revit/Composition registers mutation adapters, attached through AddGm.
 Shared Parameters implements Mapping's focused embed port and uses Mapping operation identities.</p>
 <p><code>Domain/Parameters/FamilyParameterDiscoveryResult</code> carries normalized ScopedParameterName values,
 complete/partial state, and contextual read errors.

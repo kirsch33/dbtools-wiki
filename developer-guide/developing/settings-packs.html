@@ -226,50 +226,35 @@ See <a href="feature-warnings.html">Feature Warnings</a> for activation and comm
         MyToolSettingsJsonContext.Default.MyToolSettings));
 }
 </code></pre>
-<p>Register the editor in <code>RegisterSettingsPacks</code>. The following excerpt assumes
-<code>SettingsPackContext</code> implements <code>ISettingsPackLifecycle&lt;MyToolSettings&gt;</code>, accepts
-a warning ID, and exposes <code>HasWarning</code>. <code>MyToolSettingsView</code> is the tool-owned
-pack view:</p>
+<p>Register the editor in <code>RegisterSettingsPacks</code>. The method resolves the typed
+section that <code>RegisterSettings</code> added to dependency injection. The following
+excerpt assumes <code>SettingsPackContext</code> implements
+<code>ISettingsPackLifecycle&lt;MyToolSettings&gt;</code>, accepts a warning ID, and exposes
+<code>HasWarning</code>. <code>MyToolSettingsView</code> is the tool-owned pack view:</p>
 <pre><code class="lang-csharp">public override void RegisterSettingsPacks(IServiceCollection services, ToolManifest manifest)
 {
-    var section = new SettingsSection&lt;MyToolSettings&gt;(
-        manifest.GetRequiredConfigSection(),
-        MyToolSettingsJsonContext.Default.MyToolSettings);
-    var pack = manifest.GetSingleSettingsPack();
-    var warning = pack.GetSingleWarning(manifest.Id);
-
     services.AddDbtSettingsPackDefinition&lt;MyToolSettings, SettingsPackContext&gt;(
-        new SettingsPackRegistration&lt;MyToolSettings, SettingsPackContext&gt;
-        {
-            SettingsSection = section,
-            PackKey = pack.Key,
-            PackTitle = pack.Title,
-            RibbonPanel = manifest.GetRequiredPanel(),
-            ApplyBehavior = SettingsPackApplyBehavior.NextToolRun,
-            ContextFactory = (_, input) =&gt; new SettingsPackContext(input.RequireWarningId()),
-            ViewFactory = context =&gt; new MyToolSettingsView { DataContext = context },
-            Warning = new SettingsPackWarningRegistration&lt;SettingsPackContext&gt;
-            {
-                Id = warning.Id,
-                Title = warning.Title,
-                Message = warning.Message,
-                ToolInternalNamesToDisable = warning.DisableTools,
-                FlagGetter = context =&gt; context.HasWarning,
-                FlagSetter = (context, active) =&gt; context.HasWarning = active
-            }
-        });
+        manifest,
+        (_, input) =&gt; new SettingsPackContext(input.RequireWarningId()),
+        context =&gt; new MyToolSettingsView { DataContext = context },
+        context =&gt; context.HasWarning,
+        (context, active) =&gt; context.HasWarning = active);
 }
 </code></pre>
 <p>These APIs live under <code>DBTools.Core.Settings.Composition</code>, <code>.Persistence</code>,
 <code>.SettingsPack</code>, and <code>.Warnings</code>. Manifest extension methods live under
 <code>DBTools.Core.Tools.Manifest</code>. Use the tool's real namespaces for its context,
 view, and DTO.</p>
-<p><code>SettingsSection</code>, pack key/title/panel, and context/view factories are required
-registration members. When present, a warning requires its ID, title, message,
-and flag getter/setter. <code>AddDbtSettingsPackDefinition</code> also checks strings and
-delegates at runtime. <code>ApplyBehavior</code> defaults to <code>Immediate</code>. Set it explicitly
-when values apply at the next tool run or require a restart.</p>
+<p><code>AddDbtSettingsPackDefinition</code> reads the single settings pack and panel from the
+manifest. It resolves the same registered <code>SettingsSection&lt;TOptions&gt;</code> used by
+the tool's settings provider. The pack applies at <code>NextToolRun</code>.</p>
+<p>Supply both warning flag delegates when the pack declares one warning. The
+registration maps its ID, title, message, and disabled tool names from the
+manifest. Supply neither delegate when the pack declares no warnings. The
+registration rejects other warning or delegate counts.</p>
 <h3 id="apply-timing">Apply timing</h3>
+<p><code>ISettingsPackDefinition.ApplyBehavior</code> tells the Settings window when saved
+values take effect. <code>AddDbtSettingsPackDefinition</code> always sets <code>NextToolRun</code>.</p>
 <table>
 <thead>
 <tr>

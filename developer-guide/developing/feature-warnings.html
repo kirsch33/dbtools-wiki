@@ -145,55 +145,21 @@ the affected operation, and the correction in the warning message.</p>
 <p><code>ToolWarningManifest</code> carries the ID, title, message, and disabled-tool list.
 The manifest is metadata. It does not activate the warning by itself.</p>
 <h2 id="registering-warning-definitions">Registering warning definitions</h2>
-<p>Register a warning as the <code>Warning</code> member of
-<code>SettingsPackRegistration&lt;TOptions,TContext&gt;</code> in
-<code>ToolModule.RegisterSettingsPacks</code>. <a href="settings-packs.html#registration">Settings Packs</a>
-contains the full registration, including the required typed <code>SettingsSection</code>.</p>
-<pre><code class="lang-csharp">Warning = new SettingsPackWarningRegistration&lt;SettingsPackContext&gt;
-{
-    Id = warning.Id,
-    Title = warning.Title,
-    Message = warning.Message,
-    ToolInternalNamesToDisable = warning.DisableTools,
-    FlagGetter = context =&gt; context.HasWarning,
-    FlagSetter = (context, active) =&gt; context.HasWarning = active
-}
+<p>Register a warning through <code>AddDbtSettingsPackDefinition</code> in
+<code>ToolModule.RegisterSettingsPacks</code>. The extension reads the single pack and its
+warning from the manifest. <a href="settings-packs.html#registration">Settings Packs</a>
+contains the full registration and the typed settings section setup.</p>
+<pre><code class="lang-csharp">services.AddDbtSettingsPackDefinition&lt;MyToolSettings, SettingsPackContext&gt;(
+    manifest,
+    (_, input) =&gt; new SettingsPackContext(input.RequireWarningId()),
+    context =&gt; new MyToolSettingsView { DataContext = context },
+    context =&gt; context.HasWarning,
+    (context, active) =&gt; context.HasWarning = active);
 </code></pre>
-<p><code>SettingsPackWarningRegistration&lt;TContext&gt;</code> exposes these members:</p>
-<table>
-<thead>
-<tr>
-<th>Member</th>
-<th>Type</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Id</code>, <code>Title</code>, <code>Message</code></td>
-<td><code>string</code></td>
-<td>Yes</td>
-</tr>
-<tr>
-<td><code>ToolInternalNamesToDisable</code></td>
-<td><code>IReadOnlyCollection&lt;string&gt;?</code></td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>FlagGetter</code></td>
-<td><code>Func&lt;TContext, bool&gt;</code></td>
-<td>Yes</td>
-</tr>
-<tr>
-<td><code>FlagSetter</code></td>
-<td><code>Action&lt;TContext, bool&gt;</code></td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<p>The registration extension validates required values at runtime. The bound runtime warning retains the
-exact context created by its pack. Callers cannot supply another context to
-its getter or setter.</p>
+<p>The extension requires exactly one warning when both flag delegates are
+present. It requires no warnings when both delegates are absent. The runtime
+warning retains the context created by its pack. Callers cannot supply another
+context to its getter or setter.</p>
 <p>The context owns <code>HasWarning</code> for presentation and editing. The settings DTO
 owns persisted preferences such as <code>AutoUpdateEnabled</code>. <code>IAutoUpdateSettings</code>
 requires only that preference. Do not serialize a warning flag or derive

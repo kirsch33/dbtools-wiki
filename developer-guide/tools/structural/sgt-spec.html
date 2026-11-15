@@ -149,7 +149,7 @@
 </tr>
 <tr>
 <td><code>Domain/</code></td>
-<td><code>ChangeReview</code>, <code>Defaults</code>, <code>EndpointAssociation</code>, <code>Extents</code>, <code>FamilyResolution</code>, <code>Foundation</code>, <code>FramingType</code>, <code>Geometry</code>, <code>Girt</code>, <code>Id</code>, <code>ItemDecision</code>, <code>LengthText</code>, <code>Member</code>, <code>MemberProfile</code>, <code>MemberResolution</code>, <code>MemberRole</code>, <code>MemberSegment</code>, <code>MemberSpan</code>, <code>MemberWarm</code>, <code>Openings</code>, <code>Orientation</code> (with <code>Justification</code> and <code>Rotation</code>), <code>PlanEditing</code>, <code>PlanLayer</code>, <code>PlanStore</code>, <code>Plans</code>, <code>SnapTarget</code>, <code>SpecFailure</code>, <code>UserError</code>, <code>Wall</code>, <code>WallTarget</code></td>
+<td><code>ChangeReview</code>, <code>Defaults</code>, <code>EndpointAssociations</code>, <code>Extents</code>, <code>FamilyResolution</code>, <code>Foundation</code>, <code>FramingType</code>, <code>Geometry</code>, <code>Girt</code>, <code>Id</code>, <code>ItemDecision</code>, <code>LengthText</code>, <code>MemberProfiles</code>, <code>MemberResolution</code>, <code>MemberRoles</code>, <code>MemberSegments</code>, <code>MemberSpans</code>, <code>MemberWarm</code>, <code>Members</code>, <code>Openings</code>, <code>Orientation</code> (with <code>Justification</code> and <code>Rotation</code>), <code>PlanEditing</code>, <code>PlanLayer</code>, <code>Plans</code>, <code>SnapTargets</code>, <code>SpecFailures</code>, <code>UserErrors</code>, <code>WallTargets</code>, <code>Walls</code></td>
 </tr>
 <tr>
 <td><code>Features/BulkEdit</code></td>
@@ -203,7 +203,7 @@
 </table>
 <p><code>src/Tools/Structural/SGT/MAP.md</code> is the generated, complete index.</p>
 <ul>
-<li>Domain owns the live <code>Plan</code>, <code>PlanBaselineSnapshot</code>, the <code>IPlanStore</code> port (<code>Domain/Plans</code>) and its <code>PlanStore</code> implementation (<code>Domain/PlanStore</code>), plan-editing rules and the pure projection mappers. App owns UI-to-plan synchronization (<code>App/State/PlanSynchronization</code>).</li>
+<li>Domain owns the live <code>Plan</code>, <code>PlanBaselineSnapshot</code>, the <code>IPlanStore</code> port and its <code>PlanStore</code> implementation (<code>Domain/Plans</code>), plan-editing rules and the pure projection mappers. App owns UI-to-plan synchronization (<code>App/State/PlanSynchronization</code>).</li>
 <li><code>Persistence/Revit/SystemRepository.cs</code> implements the repository.</li>
 <li><code>Domain/Id/SystemId</code> is required through the plan, edit analysis, Change Review and placement. <code>ContextualEditHook</code> is the only parser of persisted tag text for an edit launch. Only the repository, the wall writer and Revit tag and storage code unwrap <code>SystemId.Value</code>.</li>
 <li><code>Wall.Create</code> returns <code>Wall</code> and rejects null geometry. ID and geometry factories return their validation results, and persistence and placement keep those failures.</li>
@@ -308,7 +308,7 @@
 </tr>
 <tr>
 <td>Girt members of the placement wall</td>
-<td><code>Features/Placement/Planning/GirtMember</code></td>
+<td><code>Features/Placement/Planning/GirtMembers</code></td>
 </tr>
 <tr>
 <td>Wall analysis and plan construction</td>
@@ -412,7 +412,7 @@
 <li><code>GirtPlanRow</code> and <code>GirtRowLookup</code> in <code>Domain/Girt</code>. The row keeps only plan-member state and its <code>MemberKey</code> and <code>ParentMemberKey</code> identity.</li>
 <li><code>GirtRowViewModel</code> (<code>Features/Girt/ViewModels</code>). <code>MemberId</code> is for UI correlation only; pane selection is presentation state.</li>
 <li><code>Plan</code>, its store contracts, baseline and sandbox in <code>Domain/Plans</code>. <code>PlanProjectionMapper</code> is the only conversion between editable rows and runtime values.</li>
-<li><code>WallFramingMode</code>, <code>WallFace</code> and <code>WallExecutionContext</code> (with its builder and input) in <code>Domain/Wall</code>.</li>
+<li><code>WallFramingMode</code>, <code>WallFace</code> and <code>WallExecutionContext</code> (with its builder and input) in <code>Domain/Walls</code>.</li>
 <li><code>WallLayer</code>, <code>WallLayerCollection</code> and <code>WallLayerFunction</code> in <code>Domain/Geometry</code>.</li>
 <li><code>MemberResolutionRuntimeProjection</code> in <code>Domain/MemberResolution/Runtime</code>; the plan adapter is <code>Domain/Plans/Projection/MemberResolutionRuntimeProjector</code>.</li>
 <li><code>OpeningJambExtentResolver</code> in <code>Domain/Openings/JambExtent</code>; the editable-row adapter is <code>Features/Openings/Domain/JambExtent/EditableOpeningJambExtentResolver</code>.</li>
@@ -684,7 +684,7 @@
 <p>Plan admission returns a list of typed <code>SpecFailure</code> values. Plan construction, plan updates and placement aggregate admission rejections under <code>PlanValidationFailed</code>, retaining each rule code in the detail. Plan updates throw <code>SpecFailureException</code> to reject the detached candidate. Opening persistence and <code>TryApplyOpeningSegmentEdit</code> translate only that code into their failure results. A rejection keeps the committed plan and version; parent edits stay suppressed until a successful retry or cancellation. A rejected segment add, delete or property change shows the failure in the banner and the preview status without a refresh request.</p>
 <p>UI-to-plan synchronization reads the committed layer directly when there is no UI selection. It builds the girt projection where it uses it and lets opening persistence own the opening projection. Segment lookup and deletion use canonical opening rows through the row resolver.</p>
 <p><code>SgtSchemaContract.TryGetOwnedSystemId</code> admits elements for contextual selection, update, removal and deconstruction. An owned element has the Structural Framing category, a valid SGT schema entity, the exact <code>SGT</code> marker and a non-blank system ID. The shared reader preserves raw IDs, including malformed nonblank text, for edit-launch diagnostics. Purge uses the shared entity reader across all non-DataStorage carriers without the Structural Framing filter. It removes tags with invalid IDs or IDs outside the admitted current systems. <code>PlacementElementTagStore</code> maps placement payloads. An update collects admitted instances once per transaction and indexes them by role and identity. Each target consumes its entry. The writer deletes unmatched admitted instances after it processes all walls. An element with another marker is never owned, even when its stored system ID matches.</p>
-<p><code>PlacementWorkflow</code> keeps the command's <code>SafeExecutionResult</code> and returns one placement or removal outcome. A successful command requests a successful close; a failed or canceled model write requests a rollback close. Refusing any placement or retirement command leaves the window and system ID intact. Declining the retirement confirmation also leaves the window open. <code>Revit/CommittedWrite/CommittedWrite</code> maps Revit refusals and non-committed transaction status to <code>Transaction/NotCommitted</code> and keeps the original cause. Each command uses ordinary transactions inside the session group.</p>
+<p><code>PlacementWorkflow</code> keeps the command's <code>SafeExecutionResult</code> and returns one placement or removal outcome. A successful command requests a successful close; a failed or canceled model write requests a rollback close. Refusing any placement or retirement command leaves the window and system ID intact. Declining the retirement confirmation also leaves the window open. <code>Revit/CommittedWrites/CommittedWrite</code> maps Revit refusals and non-committed transaction status to <code>Transaction/NotCommitted</code> and keeps the original cause. Each command uses ordinary transactions inside the session group.</p>
 <p><code>GirtView</code> raises typed row requests with the selected <code>GirtRowViewModel</code>, visual anchor, and input event. App routes these requests to the bulk-edit and segment flyouts. Girt column widths are not persisted.</p>
 <p>The dialog ports <code>IDangerConfirmationDialog</code> and <code>IUpdateSummaryDialog</code> are in <code>Features/Placement/Workflow</code>; <code>App/Sessions/WindowSession/WindowSessionDialogs.cs</code> implements them.</p>
 <h4 id="change-review">Change Review</h4>
