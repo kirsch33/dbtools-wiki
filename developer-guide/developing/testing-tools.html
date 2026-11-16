@@ -1021,6 +1021,26 @@ these prerequisites. See the <a href="../architecture/test-pipeline.html">test p
 for the complete artifact selection and its clean-source requirement.
 <code>DistributionContractTests</code> inspect real output references and reject bundled
 Revit host DLLs. Revit supplies those DLLs at runtime.</p>
+<p><code>DevModeCollectibleUnloadTests</code> (in <code>DBTools.Distribution.Tests</code>) checks on
+Linux that a Dev Mode generation unloads. For each of 2026 and 2027 it loads
+the <code>BuildAll</code> output into a collectible <code>AssemblyLoadContext</code>, composes it,
+unloads it and requires the context to be collected:</p>
+<ul>
+<li><code>Tool_module_composition_releases_the_collectible_generation</code> runs
+<code>AppToolModuleRegistrar.RegisterModules</code> and builds and disposes the provider.</li>
+<li><code>Resolved_app_singletons_release_the_collectible_generation</code> builds the App
+provider from <code>AppServiceProviderFactory.RegisterServices</code> and resolves every
+closed singleton that is not a WPF type. A singleton whose resolution runs a
+WPF or Revit UI static initializer that fails on Linux is left out; the test
+lists these singletons and fails when the list changes.</li>
+</ul>
+<p>A host context stands in for the Revit process. It holds
+<code>DBTools.Presentation</code>, <code>DBTools.HandyControl</code>, the Windows Desktop runtime
+pack rewritten as IL-only images, and the year's Revit API reference packages
+rewritten as IL-only images whose methods throw. The test project restores the
+runtime pack that the pinned SDK bundles; <code>BuildAll</code> restores the Revit
+packages. No window opens and no Revit call runs, so Revit-side caches, Revit
+events and WPF resource lookups after a reload are outside this test.</p>
 <p>Inspect <code>%APPDATA%/DBTools/Logs/</code> first for reported application failures.
 Hosted job output returns application logs. Use the selected Revit year's
 journal for a crash only when those logs are inconclusive.</p>
