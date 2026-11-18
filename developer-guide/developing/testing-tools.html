@@ -286,8 +286,8 @@ reference with <code>./build.sh --help</code> or <code>pwsh -NoProfile -File bui
 <p>Build logs and child binlogs live under <code>.artifacts/build/&lt;build-id&gt;/</code>.
 <code>console.log</code> contains detailed output even when the terminal is quiet.
 <code>.artifacts/build/console.log</code> copies the latest invocation's log. A <code>completed</code>
-marker records the invocation's end. Selected test graphs also write
-<code>.artifacts/build/test-matrix.binlog</code>.</p>
+marker records the invocation's end. The test graph targets write
+<code>test-restore.binlog</code> and <code>test-build.binlog</code> in the same run folder.</p>
 <h3 id="source-checks">Source checks</h3>
 <p>Check source placement and generated maps separately from compilation:</p>
 <pre><code class="lang-bash">python3 .agents/work/canon_source_maps.py --check
@@ -454,11 +454,11 @@ every Presentation test, including the tests of tool-specific Presentation
 types. A Local request without <code>--tool</code> includes the App, Core and Presentation
 Local projects and every tool Local project. SGT Pure
 selects its Windows and portable projects. RECORDSET Pure defaults to
-<code>DBTools.RecordSet.Pure.Tests</code>, which requires an interactive window station for its WPF fixtures.
+<code>DBTools.RecordSet.Pure.Tests</code>.
 <code>DBTools.RecordSet.Cad.Pure.Tests</code> declares <code>DBT_OptInTests=true</code> and contains only <code>CadLiveTests</code>.
 Default project selections exclude projects with this property, including global Pure selections.
 <code>--fixture CadLiveTests</code> or <code>--project src/Tools/Experimental/RecordSet/Tests/DBTools.RecordSet.Cad.Pure.Tests.csproj</code>
-selects the CAD project and submits without <code>--requires-desktop</code>. It requires AutoCAD.
+selects the CAD project. It requires AutoCAD.
 A selected project with zero executed tests still fails admission.
 Tool project selection follows the
 actual <code>Tests/</code> projects rather than a hard-coded fixture list.</p>
@@ -633,10 +633,7 @@ adapter version is pinned in <code>testing/Daemon/Directory.Build.props</code>.
 <code>dotnet test</code>. IDE runners and <code>vstest.console</code> do not execute that pin check.</p>
 <p>Hosted entries generate per-year Sources, Models, and Includes. Hosted source
 assemblies are NUnit libraries loaded in Revit. Pure sources retain the test
-SDK for separate VSTest testhosts. Generated runsettings derive
-<code>RequiresInteractiveDesktop</code> from selected Pure assemblies.
-<code>DBTOOLS_DAEMON_REQUIRES_INTERACTIVE_DESKTOP</code> can override that setting, subject
-to the daemon's hidden-desktop requirement.</p>
+SDK for separate VSTest testhosts.</p>
 <p>Select a Hosted entry and a year, or a Pure entry and filter, through
 <code>dotnet test</code>:</p>
 <pre><code class="lang-bash"># Discover hosted tests without submission.
@@ -777,6 +774,8 @@ behavior in Windows Pure tests and document/API behavior in Revit-hosted tests.
 <code>Local</code>, <code>Both</code>, and <code>DA</code> NUnit categories are invalid routing metadata.
 Use <code>[RevitLocal]</code> and <code>[RevitDA]</code> for those execution hosts. Other categories
 can describe properties independent of the host.</p>
+<p>Tests never send OS input or depend on the OS foreground; see
+<a href="../architecture/test-pipeline.html#user-interface-input">User interface input</a>.</p>
 <p>A Design Automation test requires a product entry that works without
 <code>UIApplication</code>, <code>UIDocument</code>, selection, or an interactive session.</p>
 <h3 id="global-mapper-examples">Global Mapper examples</h3>
@@ -976,7 +975,8 @@ Use the request ID to locate a daemon run.
 Local Pure runs use TRX counters and preserve a failing TRX under
 <code>.artifacts/test-results/&lt;run&gt;/&lt;project&gt;/result.trx</code>. Daemon runs print the
 underlying job output and collect terminal reports. <code>--result-json</code> is daemon
-evidence, not a local Pure result file.</p>
+evidence, not a local Pure result file. <code>test</code> and <code>submit</code> delete entries of
+<code>.artifacts/test-results/</code> older than 14 days.</p>
 <table>
 <thead>
 <tr>

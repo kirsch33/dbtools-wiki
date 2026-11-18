@@ -181,13 +181,28 @@ after another; daemon submissions run concurrently, at most
 tests fails. With a filter expression, the run fails only when no selected
 project runs a test. Linux-native BUILD projects and <code>*.Portable.Pure.Tests</code>
 projects are skipped on Windows with a notice.</p>
+<h2 id="user-interface-input">User interface input</h2>
+<p>By default, a daemon job, Pure or Revit-hosted, runs on the daemon's private
+desktop, which receives no keyboard or mouse input and never becomes the
+foreground, whether the Windows session is locked or not. Tests drive the user
+interface in-process: through view-model commands, WPF automation peer
+providers, <code>RaiseEvent</code>, <code>Keyboard.Focus</code> or <code>FocusManager</code> in the test's own
+windows, and the calling thread's own Win32 state (<code>SetActiveWindow</code>,
+<code>SetKeyboardState</code>, messages to its own windows); or through UI Automation
+patterns in another process. A test project fails to build when it uses an API
+listed in <code>testing/BannedSymbols.txt</code> (error RS0030) or when its source names an
+OS input or foreground function such as <code>SendInput</code> or <code>SetForegroundWindow</code>
+(error DBT0003, <code>DBT_RejectOsInputInterop</code> in <code>Directory.Build.targets</code>).</p>
 <h2 id="inputs-and-receipts">Inputs and receipts</h2>
 <p>For a selected scope and year, the MSBuild graph returns the test assembly,
 target framework, model items and product-tree includes in one pass. Before
 any submission, <code>test.sh</code> freezes the assemblies, runtime closure, product-tree
 includes, models and companions into the content-addressed test input cache
 (<code>DBT_TEST_INPUT_CACHE_ROOT</code>), so a later build cannot change the submitted
-files. A normal exit removes the per-run directory.</p>
+files. A normal exit removes the per-run directory. The default cache is
+<code>$TMPDIR/dbtools-test-inputs/&lt;repository hash&gt;</code>; with it, each <code>test</code> and
+<code>submit</code> deletes the caches of other repositories in that folder that no run
+used for 7 days.</p>
 <p><code>--compile-only</code> writes a receipt bound to the source identity, the selected
 projects, the graph inputs and the output hashes. <code>--no-build</code> verifies all of
 these and refuses stale or missing files. CI resolves the selectors once with

@@ -243,8 +243,9 @@ configuration and the complete supported year set, which is the default; a
 <code>-y</code> that omits a supported year fails. <code>ValidateDistributionCandidate</code> and
 <code>PromoteToDist</code> also require a clean Git worktree.
 <code>BuildBundle</code> and <code>BuildInstaller</code> with <code>--candidate-dist PATH</code> package an
-existing promoted tree without building. <code>--clean</code> deletes build output; without
-it, an incremental <code>BuildAll</code> reuses the existing artifacts. No target switches
+existing promoted tree without building. <code>--clean</code> runs <code>Clean</code> first, which
+deletes build output (see <a href="#directory-layout">Directory layout</a>); without it, an
+incremental <code>BuildAll</code> reuses the existing artifacts. No target switches
 to another SDK or output root.</p>
 <p><code>BuildAll</code> depends on <code>PromoteToDist</code>, so it runs, in order: <code>Restore</code>,
 <code>BuildValidationRunner</code> (the Dev Mode policy runner), <code>BuildApp</code> for each year
@@ -594,9 +595,11 @@ folder holds the full plain-text <code>console.log</code> at detailed verbosity 
 binary log per child build. When the build ends, successfully or not, the entry
 writes a <code>completed</code> marker and copies the log to <code>.artifacts/build/console.log</code>.</p>
 <p>Each run first prunes old folders. It keeps the ten newest completed folders,
-deletes folders that contain only a marker, deletes unmarked folders after 24
-hours without activity, and skips folders whose process is still running. Test
-builds write <code>.artifacts/build/test-matrix.binlog</code>, replacing the previous one.</p>
+deletes folders that contain only a marker, and deletes unmarked folders after
+24 hours without a write; a running build writes its detailed log
+continuously. Retention does not look up the process id that ends a folder
+name. The test graph targets write
+<code>test-restore.binlog</code> and <code>test-build.binlog</code> in the run folder.</p>
 <p>The terminal shows per-step progress, errors, warnings, the Dev Mode preflight
 lines and the MSBuild summary. <code>--verbose</code> adds the child build output. The
 file log is always detailed.</p>
@@ -606,51 +609,111 @@ file log is always detailed.</p>
 <tr>
 <th>Path</th>
 <th>Contents</th>
+<th>Retention</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>.artifacts/bin/&lt;Configuration&gt;/&lt;Year&gt;/&lt;TFM&gt;/</code></td>
-<td>Compiler output; the shared bucket when no year is selected</td>
+<td><code>.artifacts/bin/&lt;Configuration&gt;/&lt;year&gt;/&lt;TFM&gt;/</code></td>
+<td>Staged product tree of one year</td>
+<td><code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/bin/&lt;Configuration&gt;/&lt;bucket&gt;/&lt;TFM&gt;/</code></td>
+<td>Compiler output. <code>&lt;bucket&gt;</code> is a year or <code>shared</code>, with an optional flavor suffix; Core builds to <code>&lt;year&gt;-core/</code>, and a tool to <code>&lt;bucket&gt;-tools/&lt;Tool&gt;/&lt;TFM&gt;/</code>, where its copy-local references are hard links</td>
+<td><code>Clean</code></td>
 </tr>
 <tr>
 <td><code>.artifacts/obj/</code></td>
 <td>Intermediate output and content-version input lists</td>
+<td><code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/tests/&lt;Configuration&gt;/&lt;bucket&gt;/&lt;Project&gt;/</code></td>
+<td>Test project output; <code>test.sh</code> build records in <code>.artifacts/tests/</code></td>
+<td><code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/build-tasks/Release/net8.0/</code></td>
+<td>Build task assembly</td>
+<td>Kept</td>
+</tr>
+<tr>
+<td><code>.artifacts/analyzers/&lt;Configuration&gt;/</code></td>
+<td>Repository analyzers</td>
+<td><code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/assembly-merge/</code></td>
+<td>Assembly merge reference lists and stamps</td>
+<td><code>Clean</code></td>
 </tr>
 <tr>
 <td><code>.artifacts/vendor/&lt;Configuration&gt;/handycontrol/net10.0-windows/</code></td>
 <td>HandyControl build output</td>
+<td>Kept</td>
 </tr>
 <tr>
 <td><code>.artifacts/sandbox/&lt;Configuration&gt;/&lt;year&gt;/&lt;TFM&gt;/</code></td>
 <td>Sandbox build output</td>
+<td><code>Clean</code></td>
 </tr>
 <tr>
-<td><code>.artifacts/.staging/&lt;build id&gt;/distribution-candidate/Release/</code></td>
-<td>Candidate distribution</td>
+<td><code>.artifacts/validation-runner/&lt;Configuration&gt;/</code></td>
+<td>Dev Mode policy runner</td>
+<td><code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/.staging/&lt;build id&gt;/</code></td>
+<td>Candidate distribution in <code>distribution-candidate/Release/</code>, its <code>build.json</code> and validation inputs</td>
+<td>One root: <code>StageDistributionCandidate</code> deletes the others; <code>PromoteToDist</code> and <code>BuildBundle</code> delete their own</td>
 </tr>
 <tr>
 <td><code>.artifacts/dist/Release/&lt;year&gt;/</code></td>
 <td>Published distribution, with <code>promotion-receipt.json</code> in <code>.artifacts/dist/Release/</code></td>
+<td>Kept</td>
 </tr>
 <tr>
 <td><code>.artifacts/build.json</code></td>
 <td>Build metadata of the published distribution</td>
+<td>Kept</td>
 </tr>
 <tr>
 <td><code>.artifacts/acceptance/tool-contracts.json</code></td>
 <td><a href="#tool-contract">Tool contract</a> of the published distribution</td>
+<td>Kept</td>
 </tr>
 <tr>
 <td><code>.artifacts/bundle/</code>, <code>.artifacts/installer/</code></td>
 <td>Bundle and installer</td>
+<td><code>Clean</code></td>
 </tr>
 <tr>
 <td><code>.artifacts/build/</code></td>
-<td>Run logs</td>
+<td><a href="#logs">Run logs</a></td>
+<td>Ten newest completed runs</td>
+</tr>
+<tr>
+<td><code>.artifacts/test-results/</code></td>
+<td><code>test.sh</code> failed daemon reports, failing TRX files and Design Automation evidence</td>
+<td><code>test.sh</code> deletes entries older than 14 days; kept by <code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/tmp/</code></td>
+<td>Scratch of the Dev Mode preflight and <code>desloppify.sh</code></td>
+<td>Each writer; <code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/desloppify-venv/</code></td>
+<td>Desloppify environment</td>
+<td>Kept</td>
 </tr>
 </tbody>
 </table>
+<p><code>Clean</code> deletes every entry of <code>.artifacts/</code> except the kept ones. It also
+deletes <code>bin/</code> and <code>obj/</code> folders and <code>*_wpftmp.csproj</code> files that a build left
+in the source tree. It does not enter <code>build/</code>, <code>docs/</code>, <code>vendor/</code>, symbolic
+links or another Git checkout, such as a worktree under the repository.</p>
 <p><code>Directory.Build.props</code> defines the output and object roots. WPF temporary
 projects (<code>_wpftmp</code>) get a separate intermediate path. The standard target
 framework is <code>net10.0-windows</code>; Design Automation uses <code>net8.0-windows</code>.
