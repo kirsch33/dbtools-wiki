@@ -135,17 +135,12 @@ and case.</p>
 <tr>
 <td><code>--DryRun [true\|false]</code></td>
 <td></td>
-<td><code>Clean</code> lists the directories and deletes none; <code>BuildBundle</code> writes no bundle; <code>BuildInstaller</code> prints the ISCC command instead of running it. The target's dependencies still run. Default: <code>false</code></td>
+<td><code>Clean</code> lists the directories and deletes none; <code>BuildBundle</code> writes no bundle. The target's dependencies still run. Default: <code>false</code></td>
 </tr>
 <tr>
 <td><code>--CandidateDistributionPath &lt;dir&gt;</code></td>
 <td><code>--candidate-dist</code></td>
 <td>Package an existing promoted tree</td>
-</tr>
-<tr>
-<td><code>--InnoSetupExe &lt;path&gt;</code></td>
-<td></td>
-<td>Inno Setup compiler for <code>BuildInstaller</code></td>
 </tr>
 <tr>
 <td><code>--Revit2026Dir &lt;dir&gt;</code>, <code>--Revit2027Dir &lt;dir&gt;</code></td>
@@ -223,10 +218,6 @@ other than <code>true</code> or <code>false</code> fails before any target runs.
 <td>Package the promoted tree into <code>.artifacts/bundle/DBTools.bundle</code>, one year tree per Revit year, under the <code>Version.props</code> product version</td>
 </tr>
 <tr>
-<td><code>BuildInstaller</code></td>
-<td>Build the bundle, then the installer with Inno Setup</td>
-</tr>
-<tr>
 <td><code>Restore [-y &lt;year&gt;]</code></td>
 <td>Restore the production and validation graphs for the selected years through either wrapper</td>
 </tr>
@@ -237,15 +228,15 @@ other than <code>true</code> or <code>false</code> fails before any target runs.
 </tbody>
 </table>
 <p><code>BuildAll</code>, <code>StagePortableAcceptanceInput</code>, <code>ValidateDistributionCandidate</code>,
-<code>PackageSandboxValidationInput</code>, <code>PromoteToDist</code>, <code>BuildBundle</code> and
-<code>BuildInstaller</code> build the complete distribution. They require the <code>Release</code>
+<code>PackageSandboxValidationInput</code>, <code>PromoteToDist</code> and <code>BuildBundle</code> build the
+complete distribution. These targets require the <code>Release</code>
 configuration and the complete supported year set, which is the default; a
 <code>-y</code> that omits a supported year fails. <code>ValidateDistributionCandidate</code> and
 <code>PromoteToDist</code> also require a clean Git worktree.
-<code>BuildBundle</code> and <code>BuildInstaller</code> with <code>--candidate-dist PATH</code> package an
-existing promoted tree without building. <code>--clean</code> runs <code>Clean</code> first, which
-deletes build output (see <a href="#directory-layout">Directory layout</a>); without it, an
-incremental <code>BuildAll</code> reuses the existing artifacts. No target switches
+<code>BuildBundle</code> with <code>--candidate-dist PATH</code> packages an existing promoted tree
+without building. <code>--clean</code> runs <code>Clean</code> first, which deletes build output (see
+<a href="#directory-layout">Directory layout</a>); without it, an incremental <code>BuildAll</code>
+reuses the existing artifacts. No target switches
 to another SDK or output root.</p>
 <p><code>BuildAll</code> depends on <code>PromoteToDist</code>, so it runs, in order: <code>Restore</code>,
 <code>BuildValidationRunner</code> (the Dev Mode policy runner), <code>BuildApp</code> for each year
@@ -266,6 +257,16 @@ pwsh -NoProfile -File build.ps1 Restore -y 2026,2027
 <p>Individual projects also build with plain <code>dotnet build</code>. Their MSBuild graph
 computes content versions and stages runtime prerequisites, but does not
 validate or publish a distribution.</p>
+<h2 id="build-the-installer">Build the installer</h2>
+<p>On Windows, install Inno Setup 6.7.1 or a later 6.x, for all users or for the
+current user, then run:</p>
+<pre><code class="lang-powershell">./build.ps1 BuildBundle
+pwsh -NoProfile -File .github/scripts/compile-installer.ps1
+</code></pre>
+<p><code>BuildBundle</code> writes the bundle and <code>installer-defines.json</code>. The compile script
+reads those files. It finds <code>ISCC.exe</code> and its version through the <code>Inno Setup 6_is1</code>
+uninstall entry (HKLM, then HKCU) and refuses a version outside 6.7.1 to 6.x. It writes
+<code>DBTools-Setup-&lt;version&gt;.exe</code> under <code>.artifacts/release-assets/</code>.</p>
 <h2 id="implementation">Implementation</h2>
 <p>Each entry maps its options to MSBuild properties, acquires the pinned SDK,
 initializes the HandyControl submodule when needed, and runs <code>Build.proj</code>. Both
@@ -275,8 +276,8 @@ runs bash or Python, so <code>BuildAll</code> and
 <p><code>Build.proj</code> owns the target graph and starts each child <code>dotnet build</code> with
 its own binary log. The C# code of each target is a <code>BuildPipelineStep</code> in
 <code>build/Tasks</code> (<code>DBTools.Build.Tasks</code>, <code>net8.0</code>, loaded by the SDK's MSBuild on
-.NET 10). It owns option validation, Revit reference checks, Inno Setup
-discovery and the distribution steps. The task assembly is written to
+.NET 10). It owns option validation, Revit reference checks and distribution
+steps. The task assembly is written to
 <code>.artifacts/build-tasks/&lt;Configuration&gt;/</code> and recompiles only when its inputs
 change.</p>
 <p>Compilation on every operating system uses the centrally pinned Nice3point
@@ -294,9 +295,11 @@ its own API provider.</p>
 declared owner image. Intermediate runtime inputs can be year-keyed
 under <code>.artifacts/bin/Release/&lt;year&gt;-runtime-input/</code>. Local test staging
 copies the year tree recursively into the test output and removes stale
-top-level tool images. The installer receives the file list from
-<code>DistributionContract.ProductFiles</code> as the ISCC define <code>ProductFiles</code> and
-checks each year against it.</p>
+top-level tool images. <code>BuildBundle</code> writes <code>installer-defines.json</code> with the
+product file list and supported years. The year list comes from
+<code>RevitYearContract.SupportedYears</code>. <code>compile-installer.ps1</code> passes both values
+to ISCC. The installer checks each selected year against the product file
+list and filters unselected components from the generated <code>PackageContents.xml</code>.</p>
 <h3 id="assembly-merges">Assembly merges</h3>
 <p><code>build/Merging/AssemblyMerges.props</code> declares one owner for each merged
 library; <code>AssemblyMerge.targets</code> runs the merge. Every merged library is
@@ -684,8 +687,13 @@ file log is always detailed.</p>
 <td>Kept</td>
 </tr>
 <tr>
-<td><code>.artifacts/bundle/</code>, <code>.artifacts/installer/</code></td>
-<td>Bundle and installer</td>
+<td><code>.artifacts/bundle/</code></td>
+<td>Bundle and installer compiler definitions</td>
+<td><code>Clean</code></td>
+</tr>
+<tr>
+<td><code>.artifacts/release-assets/</code></td>
+<td>Installer and release files</td>
 <td><code>Clean</code></td>
 </tr>
 <tr>
@@ -738,8 +746,9 @@ free memory.</p>
 or pull requests. CI mode <code>build</code> runs <code>BuildAll</code>; mode <code>build-test</code> also builds
 and runs the selected tests. The Documentation workflow publishes the site
 through the <a href="wiki-server.html">wiki server</a>. The release workflow, triggered by a published
-release, builds and promotes the distribution and bundle on Linux, then runs
-only the Inno Setup compiler on Windows. The self-hosted Windows test runner
+release, checks that its tag matches <code>Version.props</code>, builds and promotes the
+distribution and bundle on Linux, then compiles the installer with Inno Setup
+6.7.1 on Windows. The self-hosted Windows test runner
 consumes compiled test artifacts through <code>test.sh</code> and does not build the
 product.</p>
 <p>The release workflow defaults to repository contents read permission.
