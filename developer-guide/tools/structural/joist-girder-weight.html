@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Joist Girder Weights | DB Tools </title>
+      <title>DBTools.JoistGirderWeight | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Joist Girder Weights | DB Tools ">
+      <meta name="title" content="DBTools.JoistGirderWeight | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,235 +87,173 @@
         </div>
 
         <article data-uid="">
-<h1 id="joist-girder-weights">Joist Girder Weights</h1>
+<h1 id="dbtools.joistgirderweight">DBTools.JoistGirderWeight</h1>
 
-<h2 id="overview">Overview</h2>
-<p>Joist Girder Weights estimates pounds per linear foot and writes the result to a writable Double parameter named <code>Wt</code>.
-It scans structural framing in the active document. The ribbon command runs manually.
-A view-activation task runs automatically when enabled.</p>
-<h2 id="architecture">Architecture</h2>
-<h3 id="ownership-and-registration">Ownership and registration</h3>
-<p>Source: <code>src/Tools/Structural/JoistGirderWeight/</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Owner</th>
-<th>Responsibility</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>App/Composition/JoistGirderWeightToolModule</code></td>
-<td>Module, settings pack, hooks, and warning registration</td>
-</tr>
-<tr>
-<td><code>App/Composition/ServiceCollectionExtensions</code></td>
-<td>Dependency registration</td>
-</tr>
-<tr>
-<td><code>App/Composition/UpdateJoistGirderWeightsCommand</code></td>
-<td>Manual command</td>
-</tr>
-<tr>
-<td><code>Features/Workflow/WeightUpdateWorkflow</code></td>
-<td>Settings retrieval, update, completion/configuration banners</td>
-</tr>
-<tr>
-<td><code>Features/AutoUpdate/AutoUpdateTask</code></td>
-<td>View-activation execution</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/JoistGirderClassifier</code></td>
-<td>Family and load-name classification</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/JoistGirderWeightUpdater</code></td>
-<td>Revit collection, validation, and writes</td>
-</tr>
-<tr>
-<td><code>Features/Load/Operations/ElementLoadReader</code></td>
-<td>Parameter and unit resolution</td>
-</tr>
-<tr>
-<td><code>Features/Load/LoadParser</code></td>
-<td>Text parsing</td>
-</tr>
-<tr>
-<td><code>Features/Load/LoadResolutionEvaluator</code></td>
-<td>Load group ambiguity and precedence</td>
-</tr>
-<tr>
-<td><code>Features/JoistGirder/JoistGirderWeightEvaluator</code></td>
-<td>Pure formula</td>
-</tr>
-<tr>
-<td><code>src/DBTools.Presentation/Tools/JoistGirderWeight/JoistGirderWeightSettingsView.xaml</code></td>
-<td>Settings view, compiled into <code>DBTools.Presentation</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>manifest.yml</code> registers assembly <code>DBTools.JoistGirderWeight</code> and module
-<code>DBTools.JoistGirderWeight.App.Composition.JoistGirderWeightToolModule</code>.
-The command uses <code>InlineUi</code>, icon key <code>joist_girder</code>, and ribbon order 30.
-The asset is <code>Assets/joist_girder_icon.png</code>.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<h3 id="inputs">Inputs</h3>
-<p>The configured regex tests the family name. It tests the type name only when the family name is blank.
-The default family pattern is:</p>
-<pre><code class="lang-regex">^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
+<h2 id="name">NAME</h2>
+<p>DBTools.JoistGirderWeight - the assembly behind Update Joist Girder Weights</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Structural/JoistGirderWeight/   (MAP.md, manifest.yml)
+assembly  DBTools.JoistGirderWeight
+entry     JoistGirderWeightToolModule
+command   UpdateJoistGirderWeightsCommand           (run profile InlineUi)
+view      src/DBTools.Presentation/Tools/JoistGirderWeight/JoistGirderWeightSettingsView.xaml
 </code></pre>
-<p>It matches <code>G Joist Girder</code>, <code>BG Joist Girder</code>, <code>VG Joist Girder</code>, and <code>Vulcraft Joist Girder</code>.</p>
+<h2 id="description">DESCRIPTION</h2>
+<p>The ribbon command and the auto-update task both call
+<code>JoistGirderWeightUpdater.UpdateAll</code>. It estimates <code>Wt</code> for each girder that
+matches the family pattern and writes it. The four patterns are .NET regular
+expressions from the settings. The
+<a href="../../../user-guide/tools/joist-girder-weight.html">user page</a> describes the
+behavior, and <a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a>
+the Core types.</p>
+<h2 id="structure">STRUCTURE</h2>
+<p>Paths are under <code>src/Tools/Structural/JoistGirderWeight/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Input</th>
-<th>Resolution</th>
-<th>Constraint</th>
+<th>Path</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Number of joists</td>
-<td><code>Number of Joists</code>, <code>SpaceNum</code>, <code>Number of Equal Spaces</code></td>
-<td>Greater than 1</td>
+<td><code>App/Composition/</code></td>
+<td><code>JoistGirderWeightToolModule</code> registers the settings section and pack. <code>ServiceCollectionExtensions</code> registers the auto-update task and the workflow.</td>
 </tr>
 <tr>
-<td>Span</td>
-<td><code>Cut Length</code>, <code>Length</code></td>
-<td>Positive internal feet</td>
+<td><code>Features/Workflow/</code></td>
+<td><code>WeightUpdateWorkflow</code> runs the command and shows the banner.</td>
 </tr>
 <tr>
-<td>Depth</td>
-<td><code>Depth</code></td>
-<td>Positive internal feet</td>
+<td><code>Features/AutoUpdate/</code></td>
+<td><code>AutoUpdateTask</code> is the view-activation task.</td>
 </tr>
 <tr>
-<td>Load</td>
-<td>Total/point load, or dead plus live load</td>
-<td>Nonnegative kips</td>
+<td><code>Features/JoistGirder/</code></td>
+<td><code>JoistGirderWeightUpdater</code> collects, checks and writes. <code>JoistGirderClassifier</code> compiles the patterns. <code>JoistGirderWeightEvaluator</code> holds the formula.</td>
 </tr>
 <tr>
-<td>Output</td>
-<td><code>Wt</code></td>
-<td>Writable Double on the instance or type</td>
+<td><code>Features/Load/</code></td>
+<td><code>Operations/ElementLoadReader</code> reads loads, <code>LoadParser</code> parses text, and <code>LoadResolutionEvaluator</code> picks the total or dead plus live.</td>
+</tr>
+<tr>
+<td><code>Settings/</code></td>
+<td><code>JoistGirderWeightSettings</code> and <code>SettingsPackContext</code>, which holds the pack state and validation. <code>Features/DefaultPatterns.cs</code> holds the defaults.</td>
 </tr>
 </tbody>
 </table>
-<p>Numeric aliases are checked in the listed order, with instance then type lookup for each name.
-Load resolution prefers instance parameters over same-named type parameters.
-It rejects multiple populated matches in any Total, Dead, or Live group, even when a Total value exists.
-One Total value takes precedence over Dead plus Live. Without Total, exactly one Dead and one Live are required.</p>
-<p>Force-typed Double values convert from Revit internal units to kips.
-Unitless numeric values are kips. Text uses invariant numeric parsing and accepts these units:</p>
-<table>
-<thead>
-<tr>
-<th>Units</th>
-<th>Conversion to kips</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Omitted, <code>k</code>, <code>kip</code>, <code>kips</code></td>
-<td>Unchanged</td>
-</tr>
-<tr>
-<td><code>lb</code>, <code>lbs</code>, <code>lbf</code>, <code>pound</code>, <code>pounds</code></td>
-<td>Divide by 1000</td>
-</tr>
-<tr>
-<td><code>kN</code>, case-insensitive</td>
-<td>Multiply by <code>0.2248089431</code></td>
-</tr>
-</tbody>
-</table>
-<p>Examples are <code>10</code>, <code>10 kips</code>, <code>10000 lb</code>, and <code>45 kN</code>.
-Blank, negative, malformed, or unsupported-unit text produces an input issue.</p>
+<h2 id="contracts">CONTRACTS</h2>
+<ol>
+<li><strong>One transaction.</strong> <code>UpdateAll</code> checks every candidate, then writes all
+valid girders in one transaction, <code>Auto Update Joist Girder Weights</code>. No
+test checks this.</li>
+<li><strong>Bad pattern.</strong> A pattern that does not compile throws
+<code>JoistGirderConfigurationException</code> before any write. The workflow shows
+it in a banner. <code>AutoUpdateTask</code> also activates the pack warning.
+<code>UpdateJoistGirderWeightsWorkflowTests</code> and <code>AutoUpdateTaskTests</code> check
+this.</li>
+<li><strong>Other auto-update failures.</strong> <code>ViewActivationHook</code> skips the task for
+the rest of the document session, keyed by <code>DocumentSessionKey</code>. Core's
+<code>ViewActivationHookTests</code> check the mechanism.</li>
+<li><strong>Load groups.</strong> The same patterns find and classify the loads.
+<code>ClassifyLoadGroup</code> tries Dead, then Live, then Total, and throws if none
+matches. <code>JoistGirderClassifierTests</code> checks the groups but not the order.</li>
+<li><strong>Empty and invalid patterns.</strong> An empty pattern means the default, in
+<code>JoistGirderClassifier</code> and <code>SettingsPackContext.LoadCore</code>.
+<code>CollectValidationErrors</code> reports bad patterns, and the inherited
+<code>BlockSaveOnInvalid</code> makes Save refuse them. <code>SettingsPackContextTests</code>
+checks the errors, but no test checks the refusal for this pack.</li>
+<li><strong>Admission.</strong> <code>ViewActivationTask.AdmitAsync</code> reads the settings once.
+It skips the task when auto-update is off or the pack warning is active.
+<code>AutoUpdateTask</code> runs with that copy. <code>AutoUpdateTaskTests</code> checks this.</li>
+<li><strong>One warning.</strong> <code>GetSingleWarning</code> requires exactly one pack warning in
+<code>manifest.yml</code>. <code>JoistGirderWeightToolModuleTests</code> checks its ID, pack
+and disabled tool.</li>
+</ol>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li>The command calls <code>WeightUpdateWorkflow.Execute</code>, which calls
+<code>JoistGirderWeightUpdater.UpdateAll</code>.</li>
+<li><code>UpdateAll</code> collects the <code>OST_StructuralFraming</code> instances whose family
+name matches. It uses the type name only when the family name is empty.</li>
+<li><code>TryBuildUpdate</code> checks <code>Wt</code>, number of joists, load, length and depth,
+in that order. The first failure is the skip reason.</li>
+<li>One transaction sets <code>Wt</code>. <code>Updated</code> counts the <code>Set</code> calls that do not
+throw, and ignores their <code>bool</code> result.</li>
+<li>The workflow shows the summary in a banner. Auto-update runs <code>UpdateAll</code>
+through its own <code>TransactionRunner</code> and <code>InlineRevitCallGate</code>, and
+discards the summary.</li>
+</ol>
 <h3 id="formula">Formula</h3>
-<p><code>Features/JoistGirder/JoistGirderWeightEvaluator.EstimateWeight(n, load, lengthFeet, depthFeet)</code> returns lb/ft.
-The calculation converts length and depth to inches.</p>
-<pre><code class="lang-text">panelSpacing = lengthInches / n
-numberOfPanels = n - 1
-totalReaction = loadKips * numberOfPanels / 2
-maxMoment = totalReaction * lengthInches / 2
+<p><code>JoistGirderWeightEvaluator.EstimateWeight</code> takes feet and works in inches.
+Its factors are local constants, such as <code>allowableStress</code> (50 ksi) and
+<code>connectionFactor</code> (0.6).</p>
+<pre><code class="lang-text">N  Number of Joists, used as the number of equal spaces
+P  point load, kips, at each of the N - 1 panel points
+L  length, in            D  depth, in
+
+s      = L / N                         panel spacing
+R      = P (N - 1) / 2                 end reaction
+M      = R L / 2 - sum of P x (distance to midspan),
+         over the panel loads between one support and midspan
+F      = M / (0.95 D)                  chord force
+A      = F / (50 ksi x 0.6)            chord area
+top    = A L x 0.28356 lb/in^3 x 1.06  top chord weight
+bottom = 1.13 x top
+web    = 0.7 x top
+Wt     = (top + bottom + web) / (L / 12), in lb/ft
 </code></pre>
-<p>For even <code>n</code>, subtract <code>loadKips * panelSpacing * i</code> for integer steps starting at 1 while <code>i &lt; numberOfPanels / 2</code>.
-For odd <code>n</code>, subtract <code>loadKips * (panelSpacing / 2 + panelSpacing * j)</code> starting at 0 while <code>j &lt; numberOfPanels / 2</code>.</p>
-<pre><code class="lang-text">effectiveDepth = depthInches * 0.95
-chordForce = maxMoment / effectiveDepth
-requiredArea = chordForce / (50.0 * 0.6)
-topChordWeight = requiredArea * lengthInches * 0.28356 * 1.06
-bottomChordWeight = topChordWeight * 1.13
-webWeight = topChordWeight * 0.7
-weightPoundsPerFoot = (topChordWeight + bottomChordWeight + webWeight) / lengthFeet
-</code></pre>
-<p><code>50.0</code> is the stress constant in ksi. <code>0.28356</code> is steel density in lb/in³.
-The remaining constants are depth, connection, and member multipliers.</p>
-<h3 id="settings">Settings</h3>
-<p>Configuration section: <code>Tools.JoistGirderWeight</code>.
-Pack key: <code>structural.joist_girder_weight</code>, titled <strong>Joist Girder Weights</strong>.</p>
+<h2 id="data">DATA</h2>
 <table>
 <thead>
 <tr>
-<th>Property</th>
-<th>Persisted default</th>
-<th>Effective default</th>
+<th>Item</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>AutoUpdateEnabled</code></td>
-<td><code>true</code></td>
-<td><code>true</code></td>
+<td>Settings section</td>
+<td><code>Tools.JoistGirderWeight</code>, read into <code>JoistGirderWeightSettings</code></td>
 </tr>
 <tr>
-<td><code>FamilyNamePattern</code></td>
-<td>Empty string</td>
-<td>Family pattern above</td>
+<td>Settings pack</td>
+<td><code>structural.joist_girder_weight</code></td>
 </tr>
 <tr>
-<td><code>DeadLoadPattern</code></td>
-<td>Empty string</td>
-<td><code>(?:^DL$\|Dead\s*Load)</code></td>
+<td>Pack warning</td>
+<td><code>core.structural.joist_girder</code>. It disables the command <code>DBTools.UpdateJoistGirderWeights</code> and auto-update. The startup settings check sets it for a bad saved pattern.</td>
 </tr>
 <tr>
-<td><code>LiveLoadPattern</code></td>
-<td>Empty string</td>
-<td><code>(?:^LL$\|Live\s*Load)</code></td>
+<td>Reads</td>
+<td>Instance and type parameters. For loads, also each document <code>ParameterElement</code> whose name matches a load pattern.</td>
 </tr>
 <tr>
-<td><code>TotalLoadPattern</code></td>
-<td>Empty string</td>
-<td><code>(?:Point\s*Load\|Total\s*Load)</code></td>
+<td>Writes</td>
+<td><code>Wt</code> only</td>
 </tr>
 </tbody>
 </table>
-<p>For example, the Total pattern matches <code>Point Load</code>, <code>Panel Point Load</code>, <code>Total Load</code>, and <code>Total Load - User Defined</code>.
-<code>Features/DefaultPatterns</code> owns defaults. <code>Settings/SettingsPackContext</code> derives from
-<code>SettingsPackAutoUpdateContext&lt;JoistGirderWeightSettings&gt;</code> and owns pattern editing,
-empty-value defaulting, regex validation, snapshots, and baseline comparison.
-The Core base owns the toggle, warning, pending-change, and notification state.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="update-and-failure-behavior">Update and failure behavior</h3>
-<p><code>JoistGirderWeightUpdater</code> validates candidates and computes weights before opening a transaction.
-Invalid candidates become skipped items. Valid candidates share <code>Auto Update Joist Girder Weights</code>.
-An unexpected transaction or setter exception propagates and rolls back that transaction.
-Updated increments after each setter call returns. See <a href="#limitations">Limitations</a> for count semantics.</p>
-<p>The returned summary contains Candidates, Updated, Skipped, and up to five sample issues.
-Zero candidates returns an empty summary. All-invalid candidates return skipped counts.
-The manual workflow displays an Info toast when nothing updates, Warning for mixed updated/skipped results,
-and Success when all candidates update. Configuration exceptions produce a Warning toast. Each toast closes after the lifetime of its kind.</p>
-<p>Automatic execution catches configuration exceptions, sets the configured warning, and shows a banner.
-Other runtime faults propagate to Core's view-activation handling.
-Warning <code>core.structural.joist_girder</code> disables <code>DBTools.UpdateJoistGirderWeights</code> and automatic updates.</p>
-<h2 id="testing">Testing</h2>
-<p>Pure tests cover the evaluator, classifier, patterns, load parsing and resolution, and settings context.
-Revit-hosted updater and workflow tests use real Revit parameters and roll back model changes.
-The workflow fixture supplies a WPF owner for banners and closes its own windows after each test.</p>
-<pre><code class="lang-bash">./test.sh test --tool JoistGirderWeight --scope local -y 2026
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p>Log lines start with <code>[JoistGirder]</code>. Debug level adds the counts and the
+sample skips. A bad pattern logs a Warning: <code>Update failed for document …</code>
+from the command, or <code>Auto-update disabled due to configuration: …</code> from
+auto-update.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool JoistGirderWeight                         # pure scope, the default
+./test.sh test --tool JoistGirderWeight --scope local -y 2026   # -y 2027 for Revit 2027
 </code></pre>
-<h2 id="limitations">Limitations</h2>
-<p>The formula estimates weight; it does not select manufacturer sections or validate SJI load tables. Updated counts reflect attempted writes whose setters did not throw, including a false <code>Parameter.Set</code> result that leaves the value unchanged.</p>
+<p>Pure tests cover the patterns, formula, load parsing and settings. Local
+tests cover composition, the updater, the workflow, auto-update and the
+settings view. <code>JoistGirderWeightSettingsViewTests</code> lives in
+<code>src/DBTools.Presentation/Tests/</code>. The Revit tests open <code>gm_test_model.rvt</code>
+(<a href="../../developing/testing-tools.html#model-paths">Model paths</a>), whose
+<code>Vulcraft Joist Girder</code> instances have no usable load. Without the model,
+they are inconclusive.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../developing/hooks.html">Hooks</a>,
+<a href="../../developing/feature-warnings.html">Feature Warnings</a>,
+<a href="../../developing/settings-packs.html">Settings Packs</a></p>
 
 </article>
 

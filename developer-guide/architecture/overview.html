@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Architecture Overview | DB Tools </title>
+      <title>Architecture overview | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Architecture Overview | DB Tools ">
+      <meta name="title" content="Architecture overview | DB Tools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -87,161 +87,244 @@
         </div>
 
         <article data-uid="">
-<h1 id="architecture-overview">Architecture Overview</h1>
+<h1 id="architecture-overview">Architecture overview</h1>
 
-<p>DB Tools is a suite of Revit add-in tools. Revit loads one entry assembly,
-<code>DBTools.dll</code>, built from <code>src/DBTools.App</code>. App loads shared infrastructure
-from <code>DBTools.Core.dll</code>, stable WPF types from <code>DBTools.Presentation.dll</code>, and
-each tool from its own assembly in the <code>Tools/</code> directory.</p>
+<h2 id="name">NAME</h2>
+<p>architecture - the DB Tools assemblies, how they start and how they run a command</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">entry     DBTools.addin -&gt; DBTools.dll, DBTools.App.Addin.AddinEntry
+source    src/DBTools.{App,Core,Manifest,Presentation,Sandbox}, build/HandyControl
+tools     src/Tools/{Common,Structural,Experimental,Services}/&lt;Tool&gt;/  (manifest.yml, MAP.md source map)
+years     Revit 2026 (2026.5+), 2027: net10.0-windows  (build/Distribution/RevitYearContract.cs)
+placement .agents/canon/CANON.md  (where each kind of code belongs)
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p>Revit loads <code>DBTools.dll</code> through <code>DBTools.addin</code>. Its App code builds the
+services and the ribbon, and loads the tools from <code>Tools/</code>.
+Tools from the <code>Experimental</code> folder appear on the <strong>DB Tools Testing</strong>
+panel.</p>
+<p>The daemon (dbtools-daemon) starts Revit for hosted tests. In Dev Mode, it
+reloads each new build into a running Revit.</p>
+<h2 id="structure">STRUCTURE</h2>
 <pre><code class="lang-mermaid">flowchart TB
-    Revit[Revit Host] --&gt;|DBTools.addin| App[DBTools.dll / App]
+    Revit[Revit] --&gt;|DBTools.addin| App[DBTools.dll]
     App --&gt; Core[DBTools.Core.dll]
     App --&gt; Presentation[DBTools.Presentation.dll]
+    Core --&gt; Presentation
     Presentation --&gt; Handy[DBTools.HandyControl.dll]
-    App --&gt;|explicit path: Tools/| Tools[Tool assemblies]
-    Core --&gt; RevitAPI[Revit API]
+    App --&gt;|Tools/ path| Tools[Tools/DBTools.Tool.dll]
+    Tools --&gt; Core
+    Tools --&gt; Presentation
 </code></pre>
-<h2 id="components">Components</h2>
 <table>
 <thead>
 <tr>
 <th>Project</th>
 <th>Assembly</th>
-<th>Responsibility</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>src/DBTools.App</code></td>
 <td><code>DBTools.dll</code></td>
-<td>Revit entry point, startup and shutdown, service composition, ribbon, embedded tool manifests</td>
+<td>Startup, shutdown, services and ribbon. It embeds every <code>manifest.yml</code> and holds no tool source.</td>
 </tr>
 <tr>
 <td><code>src/DBTools.Core</code></td>
 <td><code>DBTools.Core.dll</code></td>
-<td>Shared execution (call gate, transactions, safe execution), settings, logging, tool registry, manifest loading, tool assembly resolution</td>
+<td>Safe execution, run scopes, call gates, transactions, settings, warnings, logging, banners, and the tool registry and loader.</td>
+</tr>
+<tr>
+<td><code>src/DBTools.Manifest</code></td>
+<td>Merged into Core</td>
+<td>The <code>manifest.yml</code> parser (<code>net8.0</code>), shared with the build tasks.</td>
 </tr>
 <tr>
 <td><code>src/DBTools.Presentation</code></td>
 <td><code>DBTools.Presentation.dll</code></td>
-<td>WPF resources, themes, controls and window shells that live for the whole Revit process</td>
+<td>Themes, controls and window shells, and compiled tool views in <code>Tools/&lt;Tool&gt;/</code>.</td>
 </tr>
 <tr>
 <td><code>build/HandyControl</code></td>
 <td><code>DBTools.HandyControl.dll</code></td>
-<td>Renamed build of the vendored HandyControl library</td>
+<td>A vendored, renamed copy of HandyControl.</td>
 </tr>
 <tr>
 <td><code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;</code></td>
-<td><code>DBTools.&lt;Tool&gt;.dll</code></td>
-<td>One tool: its module, commands, features and views</td>
+<td><code>Tools/DBTools.&lt;Tool&gt;.dll</code></td>
+<td>One assembly for each tool.</td>
 </tr>
 <tr>
 <td><code>src/DBTools.Sandbox</code></td>
 <td>Sandbox executable</td>
-<td>Candidate validator and UI development host that runs without Revit</td>
+<td>Validates a staged product year and shows the UI without Revit. See <a href="sandbox-validator.html">Sandbox Validator</a>.</td>
 </tr>
 </tbody>
 </table>
-<p>Presentation references only WPF and HandyControl. App, Core and the tools may
-reference Presentation. See <a href="project-references.html">Project References</a>.</p>
-<p>Each window merges the theme into its own resources, not into
-<code>Application.Resources</code>, so DB Tools does not change other add-ins. See
-<a href="theme-system.html">Theme System</a>.</p>
-<h2 id="product-tree">Product tree</h2>
-<p>Each supported Revit year has one directory with <code>DBTools.addin</code>, the four
-top-level assemblies and the 14 tool assemblies in <code>Tools/</code>; see
-<a href="assembly-loading.html#installed-layout">Installed layout</a>. The build merges
-every third-party runtime library into one owner assembly, so the directory
-contains no other DLLs. The installer, Revit-hosted test staging, Sandbox and
-Dev Mode use the same tree. See <a href="build-pipeline.html">Build Pipeline</a>.</p>
-<h2 id="load-contexts">Load contexts</h2>
-<p>The installed add-in runs in Revit's default <code>AssemblyLoadContext</code>. For
-Revit-hosted tests and Dev Mode, the dbtools-daemon loads the product into its own context
-(<code>ProductLoadContext</code> or <code>DevModeLoadContext</code>). DB Tools creates no load context
-of its own. App loads each tool assembly into the context that already holds
-<code>DBTools.dll</code>.</p>
-<h2 id="startup">Startup</h2>
-<p><code>DBTools.App.Addin.AddinEntry</code> implements <code>IExternalApplication</code>.
-<code>OnStartup</code> runs these steps in order:</p>
+<p>Desktop projects target <code>net10.0-windows</code> (<code>$(DBT_RevitTargetFramework)</code>),
+and <code>$(RevitYear)</code> selects the Revit API references and
+output folder. Core and SGT also build for <code>net10.0</code>, without WPF or the
+Revit API, for portable pure tests. The Revit 2026 Design Automation
+appbundle targets <code>net8.0-windows</code>.</p>
+<h2 id="contracts">CONTRACTS</h2>
+<p>Each rule names its check, if any.</p>
 <ol>
-<li><strong>Idle check.</strong> If <code>DBTOOLS_DAEMON_REVIT_ROLE</code> is set and the entry assembly
-is in the default load context, the add-in sets the AppContext key
-<code>DBToolsDaemon.IdleAddin:DBTools</code> to the entry assembly's location and
-returns <code>Succeeded</code> without further work. <code>OnShutdown</code> then also returns
-immediately. This lets the daemon run a Revit that has the installed add-in
-while it tests its own copy.</li>
-<li><strong>Callback scope.</strong> <code>AppStartupBoundary</code> (not inlined) enters
-<code>ToolWindowCallbackScope</code>, which suppresses <code>ExecutionContext</code> flow and sets
-contextual reflection to the entry assembly's load context.</li>
-<li><strong>Runtime.</strong> App reads the Revit year from <code>VersionNumber</code>, creates the
-logging host and the service provider, and publishes them through
-<code>AppRuntimeAccessor</code>.</li>
-<li><strong>Theme validation.</strong> <code>ThemeValidator.ValidateOrThrow</code> loads and freezes the
-theme dictionaries and lays out a probe control tree.</li>
-<li><strong>Ribbon.</strong> App composes the ribbon from the embedded manifests.</li>
-<li><strong>Background startup.</strong> App starts the local Revit task host and an
-asynchronous startup task that installs the Revit main-window owner provider
-and attaches tool hooks.</li>
-<li><strong>Publication.</strong> App registers an <code>Idling</code> handler for failed-startup
-cleanup, then the deferred startup handlers (<code>ApplicationInitialized</code> and
-<code>Idling</code>), and publishes the started state.</li>
+<li><strong>References.</strong> App references Core and Presentation. Core
+(<code>net10.0-windows</code>) references Presentation, <code>DBTools.Manifest</code> and the
+Revit API. Tools reference Core and Presentation.</li>
+<li><strong>Presentation.</strong> Presentation references WPF, HandyControl,
+HelixToolkit, Serilog, and the Microsoft.Extensions logging and DI
+abstractions. It never references App, Core, a tool or the Revit API.
+<code>BuildPolicyBehaviorTests</code> and <code>HelixMergeArtifactContractTests</code> check
+parts of rules 1 and 2.</li>
+<li><strong>Sandbox.</strong> The Sandbox compiles against Core, Presentation and
+HandyControl with <code>Private=&quot;false&quot;</code>, and loads them from the year folder
+that it validates.</li>
+<li><strong>No third-party DLLs.</strong> <code>build/Merging/AssemblyMerges.props</code> merges each
+third-party runtime library into the assembly that owns it. The build
+checks its output against <code>DistributionContract.ProductFiles</code>.</li>
+<li><strong>Tool assemblies.</strong> Tool projects set <code>DBT_IsToolAssembly=true</code>. The
+build stages them in <code>Tools/</code> with a content-derived version, which
+<code>ContentVersionTests</code> checks.</li>
+<li><strong>One tool folder.</strong> <code>ToolAssemblyResolver.LoadAssembly</code> loads only
+<code>&lt;folder of DBTools.dll&gt;/Tools/&lt;name&gt;.dll</code>, into the load context of
+<code>DBTools.dll</code>. <code>ToolAssemblyResolverTests</code> checks this.</li>
+<li><strong>No load context of its own.</strong> DB Tools creates no
+<code>AssemblyLoadContext</code>. Installed, it runs in the default context of
+Revit. The daemon uses <code>ProductLoadContext</code> for hosted tests and
+<code>DevModeLoadContext</code> for Dev Mode
+(<a href="assembly-loading.html#hosted-tests-and-dev-mode">Assembly Loading Contract</a>).</li>
+<li><strong>Themes per view.</strong> Each view merges the theme itself and leaves
+<code>Application.Resources</code> unchanged (<a href="theme-system.html">Theme System</a>).</li>
+<li><strong>Fallback log.</strong> <code>AppFallbackFailureLog.RecordFailure</code> uses only the
+BCL, so it works before Core loads.</li>
 </ol>
-<p>A failure in steps 3 to 6 cleans up what was created and returns <code>Failed</code>. A
-failure of the background task is cleaned up on the next <code>Idling</code> event.
-Failures that cannot reach the normal log are written to
-<code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code> with BCL APIs only, so this log
-works before Core loads.</p>
-<h2 id="tools-and-commands">Tools and commands</h2>
-<p>Each tool has a <code>manifest.yml</code> that names its assembly, module type and commands.
-Registration infers command-owned availability when <code>availabilityType</code> is omitted.
-An explicit <code>availabilityType</code> names a separate availability class. App embeds all manifests. At startup:</p>
+<h2 id="flow">FLOW</h2>
+<h3 id="startup">Startup</h3>
+<p><code>AddinEntry.OnStartup</code> runs these steps:</p>
 <ol>
-<li><code>ToolModuleCatalog</code> loads and validates the embedded manifests once.</li>
-<li>The App registrar loads each declared assembly with
-<code>ToolAssemblyResolver.LoadAssembly</code>, which loads only
-<code>&lt;entry directory&gt;/Tools/&lt;name&gt;.dll</code>.</li>
-<li>The registrar creates each module, collects its settings, services,
-settings packs and hooks, checks ownership, and merges them into the App
-service collection. Manifests without a module register only ribbon items.</li>
-<li><code>ToolRegistry.MergeFrom</code> validates every incoming tool and hook against
-the existing registrations before it changes anything, so a conflict leaves
-the registry unchanged. Duplicate internal names are rejected.</li>
-<li>The ribbon refers to each command by its assembly location and full type
-name.</li>
+<li><strong>Idle check</strong> (<code>AddinIdle</code>). When <code>DBTOOLS_DAEMON_REVIT_ROLE</code> is set,
+the copy of <code>DBTools.dll</code> in the default context stays idle. It stores
+its path in the AppContext data <code>DBToolsDaemon.IdleAddin:DBTools</code> and
+returns <code>Succeeded</code>, so the daemon can test its own copy.</li>
+<li><strong>Callback scope.</strong> <code>AppStartupBoundary.Start</code> enters
+<code>ToolWindowCallbackScope</code>, which suppresses <code>ExecutionContext</code> flow and
+sets contextual reflection to the <code>DBTools.dll</code> context. <code>Start</code> is not
+inlined, so no other product assembly loads before the idle check.</li>
+<li><strong>Pending cleanup.</strong> <code>AppLifecycleCoordinator.Start</code> returns <code>Failed</code>
+while an earlier failed start still cleans up.</li>
+<li><strong>Runtime.</strong> Startup reads the Revit year from <code>VersionNumber</code>.
+<code>AppRuntimeFactory</code> builds logging, services and the tool registrations,
+and <code>AppRuntimeAccessor</code> publishes them.</li>
+<li><strong>Preparation.</strong> <code>AppStartupPreparationWorkflow</code> runs <code>ValidateTheme</code>,
+<code>CreateDeferredStartupRunner</code>, <code>ComposeRibbon</code>,
+<code>PublishInitialStartupEffects</code> and <code>StartBackgroundStartup</code>. The
+background task installs the main-window owner provider and
+attaches the hooks.</li>
+<li><strong>Publication.</strong> Startup registers the failed-startup cleanup handler
+first, then the deferred handlers, and publishes the started state. The
+deferred handlers apply the deferred <code>StartupContribution</code> effects once
+the main window exists.</li>
 </ol>
-<p>When a command runs, <code>CommandPreflight</code> checks, before any run scope exists,
-that its ribbon panel is enabled in Settings, that its availability type
-allows it, and that no active feature warning disables it. Only then does
-<code>CommandContextFactory</code> create the run scope with the command's execution
-profile.</p>
-<p>Settings-only and hook-only tools still have a manifest and a module.</p>
-<h2 id="services-and-scopes">Services and scopes</h2>
-<p>The App service provider holds application-lifetime services: logging,
-settings, hooks, <code>ISafeExecutor</code>, the tool registry and ribbon state. Each
-command run, modeless session or test opens a scope that holds the Revit run
-scope (<code>IRevitRunScope</code>), its <code>IRevitCallGate</code>, <code>ITransactionRunner</code> and
-<code>ITransactionGroupService</code>. Command, availability and window callbacks enter
-<code>ToolWindowCallbackScope</code>.</p>
-<h2 id="source-layout">Source layout</h2>
-<p>Tool source is under <code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;/</code> with namespace root
-<code>DBTools.&lt;Tool&gt;</code>. Folders are named for what they own, for example <code>App/</code>,
-<code>Features/</code>, <code>Domain/</code>, <code>Revit/</code>, <code>Settings/</code>, <code>Assets/</code> and <code>Tests/</code>. A tool
-has only the folders it needs. Generic folders such as <code>Helpers</code>, <code>Models</code> or
-<code>Infrastructure</code> are not used for production code.</p>
-<h2 id="supported-years">Supported years</h2>
-<p>Desktop Revit 2026 (2026.5 or later) and Revit 2027 both target
-<code>net10.0-windows</code>. <code>build/Distribution/RevitYearContract.cs</code> defines the
-supported years. APS Design Automation tests use a separate Revit 2026
-<code>net8.0-windows</code> profile.</p>
-<h2 id="build-and-validation">Build and validation</h2>
-<p><code>build.sh</code> (Linux, WSL) and <code>build.ps1</code> (Windows) run <code>build/Build.proj</code>.
-<code>BuildAll</code> builds, validates and publishes the complete two-year
-distribution. <code>BuildApp</code>, <code>BuildTests</code> and <code>test.sh</code> build smaller graphs. See
-<a href="build-pipeline.html">Build Pipeline</a> and <a href="test-pipeline.html">Test Pipeline</a>.</p>
-<p>Distribution validation records the length and SHA-256 of every file in the
-candidate. These hashes identify what was built and tested. They do not
-authenticate assemblies at load time.</p>
+<p>A failure in steps 4 to 6 cleans up and returns <code>Failed</code>. A later
+background-task failure cleans up at the next <code>Idling</code> event.</p>
+<h3 id="tool-registration">Tool registration</h3>
+<ol>
+<li><code>ToolModuleCatalog.Discover</code> reads the embedded manifests. For each
+<code>moduleType</code>, it loads the assembly with <code>ToolAssemblyResolver</code> and
+creates the <code>ToolModule</code> through its public parameterless constructor.
+It sorts the modules by <code>order</code>, then by type name. Any error stops
+startup.</li>
+<li><code>AppToolModuleRegistrar</code> stages the settings, services, packs, hooks and
+ribbon tools of each module, and checks them. A manifest without
+<code>moduleType</code> adds ribbon tools only, through <code>ToolModuleRibbonRegistrar</code>.</li>
+<li><code>ToolRegistry.MergeFrom</code> checks every internal name and lifecycle hook
+first, and changes nothing on a conflict.</li>
+<li>A ribbon button names its command by assembly path and class name.
+Without <code>availabilityType</code>, a command that implements
+<code>IExternalCommandAvailability</code> is its own availability class.
+<code>ToolCommand</code> does, and requires an active document by default.</li>
+</ol>
+<h3 id="command-run">Command run</h3>
+<ol>
+<li><code>ToolCommand.Execute</code> enters <code>ToolWindowCallbackScope</code> and runs through
+<code>ISafeExecutor</code>.</li>
+<li><code>CommandContextFactory.CreateContext</code> calls <code>CommandPreflight.Validate</code>
+before it opens a run scope. Preflight refuses the command if its panel
+is off, availability refuses it, or an active warning disables it.</li>
+<li><code>IAppRunScopeFactory</code> opens a run scope with the command's profile.
+<code>InlineUi</code> runs on the Revit UI thread, and <code>QueuedModeless</code> queues work
+to it from a modeless window.</li>
+<li>The command returns <code>Succeeded</code>, or <code>Cancelled</code> after a refusal or a
+failure, so Revit shows no error dialog. See
+<a href="revit-execution-and-progress-overlay.html">Revit Execution</a>.</li>
+</ol>
+<h2 id="data">DATA</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>App service provider</td>
+<td>Logging, settings, hooks, <code>ISafeExecutor</code>, the tool registry and the ribbon state</td>
+</tr>
+<tr>
+<td>Run scope</td>
+<td><code>IRevitRunScope</code>, <code>IRevitCallGate</code>, <code>ITransactionRunner</code> and <code>ITransactionGroupService</code> (<code>RevitServiceCollectionExtensions</code>), opened through <code>IAppRunScopeFactory</code></td>
+</tr>
+<tr>
+<td><code>%APPDATA%\DBTools\</code></td>
+<td><code>settings.&lt;year&gt;.json</code>, <code>Logs\</code> and <code>Cache\</code> (<code>AppPaths</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p><code>Logs\DBTools.Fallback.log</code> holds failures from before logging starts, such
+as a bad Revit year, and failures that the logger cannot record. The log
+names a failed startup phase, and
+<code>AppStartupFailurePresenter</code> shows a dialog unless <code>DBT_TEST_RUN_ID</code> is
+set.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool APP
+./test.sh test --tool APP --scope local -y 2026
+./test.sh test --tool CORE
+./test.sh test --tool CORE --scope local -y 2026
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Selection</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>APP</code> pure</td>
+<td>Idle check, fallback log, startup effects, failure presenter, ribbon planning</td>
+</tr>
+<tr>
+<td><code>APP</code> local</td>
+<td><code>AddinEntry</code>, lifecycle, module registration, ribbon</td>
+</tr>
+<tr>
+<td><code>CORE</code> pure</td>
+<td>Discovery, tool loading, safe execution</td>
+</tr>
+<tr>
+<td><code>CORE</code> local</td>
+<td>Registry, preflight</td>
+</tr>
+</tbody>
+</table>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="assembly-loading.html">Assembly Loading Contract</a>,
+<a href="build-pipeline.html">Build Pipeline</a>, <a href="test-pipeline.html">Test Pipeline</a>,
+<a href="../projects/app.html">App</a>, <a href="../projects/core.html">Core</a></p>
 
 </article>
 
