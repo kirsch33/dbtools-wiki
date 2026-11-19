@@ -249,7 +249,7 @@ var wallId = await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall
 <p><code>TransactionRunner</code> collects failures through transaction or subtransaction disposal before returning a result.
 The first operation failure stops further work. Existing work/rollback aggregates precede any disposal failure.
 A single failure keeps its identity, type and original stack. Multiple failures propagate in an ordered aggregate.
-A disposal failure after commit propagates without undoing the committed write.</p>
+A disposal failure after commit does not fail the call: <code>TransactionDisposal</code> logs it at Error with the transaction name through <code>SerilogStaticLogger</code>, and the call returns the committed result.</p>
 <p><code>TransactionFailurePreprocessor.AttachToTransaction</code> sets clear-after-rollback before failure processing starts.
 Revit holds a stable <code>RevitCallbackRelay</code> (Presentation) that forwards to the preprocessor. After a transaction ends,
 Revit can keep native copies of the failure handling options until it next pumps, and a Dev Mode reload proves the old
@@ -266,7 +266,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </ul>
 <p>A runner built with <code>new TransactionRunner(gate, logger)</code> logs every record and every accessor fault at Warning after the commit; the one-argument constructor logs nothing. GM's apply runners use the logging form.</p>
 <p><code>TransactionFailureException</code> is the public diagnostic for a transaction that did not reach <code>Committed</code>. Its constructors are internal to Core. Callers read the transaction name, final status, warnings, blocking failure text and failure-definition identities from its properties. <code>BlockingFailureDefinitionIds</code> keeps the IDs in the order Revit reported them, duplicates included, and <code>BlockingFailureDefinitionGuids</code> holds their GUIDs in the same order. The exception implements <code>ITransactionFailureDefinitionSource</code>, which exposes only the GUID list, so code without the Revit API can read it. Core does not classify the GUIDs; GM's <code>GroupEditErrorMatcher</code> matches Revit's four group-edit failures. A posted blocking failure rolls back a runner-managed transaction and raises this exception with the transaction name and the blocking diagnostic. Tool write boundaries map this exception and Revit refusal exceptions to their own typed failures and keep the original exception as the inner cause.</p>
-<p>Sources: <code>src/DBTools.Core/Revit/Transactions/{TransactionRunner,TransactionExecutor,TransactionBoundary,TransactionFailurePreprocessor}.cs</code>.</p>
+<p>Sources: <code>src/DBTools.Core/Revit/Transactions/{TransactionRunner,TransactionExecutor,TransactionDisposal,TransactionBoundary,TransactionFailurePreprocessor}.cs</code>.</p>
 <h3 id="transaction-groups">Transaction groups</h3>
 <p><code>ITransactionGroupService</code> makes several transactions on the active document one Revit undo entry. It is the manual lifecycle; the caller owns the <code>try</code>/<code>finally</code> around <code>FinalizeAsync</code>, in the workflow that knows whether to commit or roll back.</p>
 <pre><code class="lang-csharp">public interface ITransactionGroupService

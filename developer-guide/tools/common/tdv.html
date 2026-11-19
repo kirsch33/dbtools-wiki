@@ -193,10 +193,11 @@ the save or sync failure comes first in the <code>AggregateException</code>.
 <code>TryClose</code> returns <code>false</code> only for the active document.
 <code>LibraryDocumentServiceTests</code> checks the failure order and the
 active-document refusal.</li>
-<li><strong>Last transfer only.</strong> <code>TransferDialogResult</code> takes <code>AddedCount</code> and
-<code>ReplacedCount</code> from the last transfer in the window.
-<code>ExportTransferWorkflow.SaveOrCloseLibraryAsync</code> uses them to save or
-discard the library. No test runs two transfers in one window.</li>
+<li><strong>Window totals.</strong> <code>TransferDestinationChanges</code> adds the committed
+changes of every transfer in a window. A transfer that ends without a
+verified commit or rollback sets <code>Unverified</code>. An export saves or syncs the
+library when <code>Any</code> is true, and discards it only when it is false.
+<code>TransferDestinationChangesTests</code> and <code>TransferWorkflowTests</code> check this.</li>
 </ol>
 <h2 id="flow">FLOW</h2>
 <ol>
@@ -214,8 +215,13 @@ export passes the library, the host and <code>Export?</code>.</li>
 with changes, <code>SyncAndCloseAsync</code> or <code>SaveAndCloseAsync</code> persists and
 closes it. Without changes, <code>TryCloseAsync</code> discards it. Then
 <code>ReactivateDocument</code> activates the host with <code>OpenAndActivateDocument</code>.</li>
-<li>On a failure, the workflow closes the library without saving and rethrows.
-A retired window (<code>WasRetired</code>) skips persistence.</li>
+<li>A window failure travels in <code>TransferDialogResult.WindowFailure</code>. The
+workflow persists or closes the library first and then throws it. A Dev
+Mode retirement releases the library in its own Revit callback:
+<code>ExportTransferWorkflow.ReleaseLibraryOnRetirement</code> saves or syncs a
+changed library synchronously. When a transfer runs at that moment,
+<code>TdvWindowViewModel.ReleaseWhenNoTransferRuns</code> runs the release after the
+transfer commits or rolls back.</li>
 </ol>
 <h2 id="data">DATA</h2>
 <table>
