@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Record Set | DB Tools </title>
+      <title>DBTools.RecordSet | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Record Set | DB Tools ">
+      <meta name="title" content="DBTools.RecordSet | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,162 +87,266 @@
         </div>
 
         <article data-uid="">
-<h1 id="record-set">Record Set</h1>
+<h1 id="dbtools.recordset">DBTools.RecordSet</h1>
 
-<h2 id="overview">Overview</h2>
-<p>Record Set copies Revit host files and external references into a target directory and rewrites copied references.
-It previews an ordered plan before executing filesystem, CAD, and Revit TransmissionData operations.
-Execution copies files and rewrites references in plan order.</p>
-<p>See the <a href="recordset-spec.html">technical specification</a> for formats, ordering, safety checks, and CAD limitations, and the <a href="../../../user-guide/tools/recordset.html">user guide page</a> for the window.</p>
-<h2 id="architecture">Architecture</h2>
-<h3 id="source-ownership">Source ownership</h3>
-<p>Source and manifest: <code>src/Tools/Experimental/RecordSet/</code>.
-The manifest places Record Set on the Testing panel with <code>InlineUi</code>, order 60, and icon key <code>recordset</code>.
-Command and availability use <code>DBTools.RecordSet.App.Composition.RecordSetCommand</code>.
-The module is <code>DBTools.RecordSet.App.Composition.RecordSetToolModule</code>.</p>
+<h2 id="name">NAME</h2>
+<p>DBTools.RecordSet - the assembly behind Record Set</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Experimental/RecordSet/        (MAP.md, manifest.yml)
+assembly  DBTools.RecordSet
+entry     RecordSetToolModule
+command   RecordSetCommand                         (run profile InlineUi)
+views     App/Views/RecordSetWindow.xaml, Features/ManageItems/Views/ManageItemsWindow.xaml
+controls  src/DBTools.Presentation/Tools/RecordSet/
+policy    Policies/recordset_policy.json           (DBTools.ToolConfigs.RecordSet.recordset_policy.json)
+script    Features/Operations/Cad/CoreConsole/Scripts/rs_xrefs.lsp   (DBTools.ToolCad.RecordSet.rs_xrefs.lsp)
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p><code>RecordSetCommand</code> calls <code>AppLauncher.Launch</code>, which opens the modal
+<strong>Record Set</strong> window. The window builds an <code>ExecutionPlan</code>, an ordered list
+of <code>PlanItem</code> records, and shows it as a tree. Planning reads files, Revit
+<code>TransmissionData</code> and Core Console listings, and writes nothing to the
+target. <code>ExecutionPlanExecutor</code> runs the plan and is the only writer there. The
+<a href="../../../user-guide/tools/recordset.html">user page</a> describes the behavior.</p>
+<h2 id="structure">STRUCTURE</h2>
+<p>Paths are under <code>src/Tools/Experimental/RecordSet/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Owner</th>
-<th>Responsibility</th>
+<th>Path</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>App/Composition</code></td>
-<td>Module, command, registration, <code>AppLauncher</code>, and <code>AppLaunchDependencies</code></td>
+<td><code>App/Composition/</code></td>
+<td><code>RecordSetToolModule</code> calls <code>AddRecordSet</code>. <code>AppLauncher</code> builds <code>RecordSetWindowServices</code> and <code>RecordSetWindowViewModel</code>.</td>
 </tr>
 <tr>
-<td><code>App/Views</code></td>
-<td>Main raw view and <code>RecordSetWindowSession</code></td>
+<td><code>App/ViewModels/</code></td>
+<td>The view model, in partial files. <code>RecordSetPreviewSyncCoordinator</code> runs the preview 350 ms after the last change.</td>
 </tr>
 <tr>
-<td><code>App/ViewModels</code></td>
-<td>Binding state, <code>RecordSetWindowServices</code>, debounce, and interaction sequencing</td>
+<td><code>Features/Domain/</code></td>
+<td><code>SourceFile</code>, <code>HostModel</code>, <code>PlanContext</code>, <code>ExecutionPlan</code>, the plan items and <code>PlanMessage</code>.</td>
 </tr>
 <tr>
-<td><code>App/DesignTime</code></td>
-<td>Designer binding surface and <code>DesignTimeSampleFactory</code></td>
+<td><code>Features/Planning/</code></td>
+<td><code>HostImporter</code>, <code>PlanningService</code>, <code>TargetPathRules</code>, <code>CadXrefDiscovery</code>, <code>PlanningLimits</code>, and the <code>Preview/</code> builders.</td>
 </tr>
 <tr>
-<td><code>Features/Domain</code></td>
-<td>Files, hosts, plan options, plan items, summaries, and messages</td>
+<td><code>Features/Execution/</code></td>
+<td><code>ExecutionPlanExecutor</code>, and <code>PlanExecutionWorkflow</code>, which owns the overlay and the result alert.</td>
 </tr>
 <tr>
-<td><code>Features/Planning</code></td>
-<td>Host import, plan context, destination rules, preview</td>
+<td><code>Features/Operations/</code></td>
+<td><code>SafeFileSystemOperations</code>, <code>RevitOperations</code>, and <code>Cad/</code> with <code>CadPreviewer</code>, <code>CadExecutor</code> and <code>CoreConsole/</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Execution</code></td>
-<td>Progress workflow, preflight, item dispatch, outcome handling</td>
+<td><code>Features/Policy/</code></td>
+<td><code>PolicyReader</code>, <code>FilePolicyEvaluator</code> and <code>PolicyGlobMatcher</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Operations</code></td>
-<td>Filesystem, Windows paths, Revit and CAD ports/adapters, safe-operation requests</td>
-</tr>
-<tr>
-<td><code>Features/Policy</code></td>
-<td>Embedded policy loading and file filtering</td>
-</tr>
-<tr>
-<td><code>Features/Metadata</code></td>
-<td>Catalog editing and neutral <code>CatalogEdit</code> results</td>
-</tr>
-<tr>
-<td><code>Features/ManageItems</code></td>
-<td>Catalog editor view, view model, and modal session</td>
+<td><code>Features/Metadata/</code>, <code>Features/ManageItems/</code></td>
+<td>The name catalogs. The view model applies the <code>CatalogEdit</code> lists of <code>MetadataCatalogWorkflow</code>.</td>
 </tr>
 </tbody>
 </table>
-<p><code>AppLauncher</code> constructs <code>RecordSetWindowServices</code> beside its consumer, <code>RecordSetWindowViewModel</code>.
-<code>MetadataCatalogWorkflow</code> returns ordered edits. The App view model applies them to host rows and linked-file metadata.
-Feature workflows do not import App row types.
-Stable controls and the byte converter live in <code>src/DBTools.Presentation/Tools/RecordSet/</code>.
-<code>RecordSetStepHeaderControl</code> declares the dependency property <code>CurrentStep</code> of type <code>RecordSetStep</code>
-(<code>Select</code>, <code>Preview</code>, <code>Execute</code>; default <code>Select</code>) and rejects any other value. The window binds it one way to
-the view model's <code>CurrentStep</code>: <code>Execute</code> while <code>IsBusy</code>, otherwise <code>Preview</code> while <code>IsPreviewCurrent</code>,
-otherwise <code>Select</code>.
-Raw views merge the versioned Presentation theme and contain stable WPF types.
-Designer sample construction reuses <code>PreviewTreeBuilder</code> and locates the selected DWG by file identity at any depth.</p>
-<h3 id="presentation-and-lifetime">Presentation and lifetime</h3>
-<p>The main modal shell loads <code>DBTools.ToolViews.RecordSet.RecordSetWindow.xaml</code> through <code>ToolWindowFactory</code>.
-It uses title <strong>Record Set</strong>, size 1240 × 780, minimum 980 × 640, CenterScreen placement, and a taskbar entry.
-Manage Items loads <code>DBTools.ToolViews.RecordSet.ManageItemsWindow.xaml</code> with a bound title,
-size 520 × 420, minimum 420 × 300, CenterOwner placement, and a taskbar entry.
-Its Close button is the default button, so Enter closes the dialog.
-Both Close buttons use <code>ButtonCommandCloseBehavior.ExecuteAndClose</code> and honor the session close gate.
-User close returns <code>false</code>. With Debug Mode on, the logger window opens after the main dialog closes.</p>
-<p>Tree containers bind <code>IsSelected</code> and <code>IsExpanded</code> two-way. The stable selected-item behavior reports
-view selection through a <code>OneWayToSource</code> binding to <code>SelectedTreeNode</code>.
-A rebuilt preview reselects the same <code>SourceFile</code> and expands only its ancestor chain.
-Explicit selection changes or a missing file cancel pending reselection.
-Right-click selects and focuses a row or tree item. Right-clicking a Hosts row other than the current item
-makes it the sole selection, including when it already belongs to a multi-selection.
-Rows allow logical focus but remain outside Tab navigation.</p>
-<p>Options opens below its button. CAD actions require a selected DWG leaf.
-Manage Disciplines, Manage Buildings, Auto-discover CAD Xrefs, and Allow CAD repath remain disabled until hosts exist.
-Metadata <strong>Add new</strong> choices defer the prompt,
-preserve the prior value on cancellation, and never store the sentinel as metadata.
-Plan-message bindings use <code>OneTime</code>. CAD bind commands accept the view's string values <code>Bind</code> and <code>Insert</code>.</p>
-<p>Retirement releases the preview timer and deferred prompts synchronously.
-Active preview or execution work produces a Dev Mode retirement failure.
-Idle retirement disposes the view model and services without a dispatcher frame.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<p>The <a href="recordset-spec.html#data-and-contracts">technical specification</a> defines file identity, destination allocation, plan items, policy, and output manifests.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="use">Use</h3>
+<h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li>Choose an allowed target folder.</li>
-<li>Add host RVT files.</li>
-<li>Assign discipline and building metadata in the Hosts grid.</li>
-<li>Review the destination tree and Info, Warning, or Block messages.</li>
-<li>Configure DWG actions through the selected DWG's context menu.</li>
-<li>Run <strong>Execute</strong> when the preview is current and has no blocking messages.</li>
+<li><strong>Common links.</strong> <code>PlanningService.BuildContext</code> counts links by
+<code>ExternalReferenceKey</code>: the full path from
+<code>WindowsPathOperations.NormalizeCaseFullPath</code>, and the <code>LinkType</code>. A key
+that occurs twice or more is common, and
+<code>TargetPathRules.ComputeLinkTargetPath</code> puts it in <code>Common Linked Files</code>.
+<code>PlanningWorkflowTests</code> and <code>TargetPathRulesTests</code> check this.</li>
+<li><strong>Destinations.</strong> <code>PreviewDestinationAllocator</code> keeps one source for each
+destination. Another source gets <code>name (n).ext</code>, with the lowest free n
+from 2, and the plan gets a Warning.
+<code>PreviewDestinationAllocatorTests</code> checks this.</li>
+<li><strong>Embedded policy.</strong> <code>PolicyReader</code> reads only the embedded resource.
+<code>ValidatePolicy</code> throws for a policy that breaks its schema, and for a
+root that is not a drive path or a complete UNC share. No code reads <code>delete_mode</code>,
+<code>require_sentinel_for_delete</code> or <code>SafeOperationRuntime.TrashRoot</code>.
+<code>PolicyReaderTests</code> checks this.</li>
+<li><strong>Preflight.</strong> Before the lock, <code>ValidatePreconditions</code> reloads the
+policy, checks the root, and checks that each output path of each item
+is under the target. It requires free space minus
+<code>max(TotalBytes, PredictedOutputBytes)</code> to be at least <code>min_free_bytes</code>
+(10 GiB in the shipped policy).
+A failure writes no lock and no manifest. <code>ExecutionPlanExecutorTests</code>
+checks this.</li>
+<li><strong>Contained writes.</strong> <code>SafeFileSystemOperations</code> resolves junctions and
+other redirects before each containment check. CAD and Revit items check
+their host path again directly before the adapter call. The check and
+the write are separate operations, so a path that changes between them
+is not caught. <code>SafeFileSystemOperationsTests</code> checks the redirects.</li>
+<li><strong>Lock and manifest.</strong> The lock uses <code>FileMode.CreateNew</code>. After the
+lock, the executor writes a manifest with the status <code>ok</code>, <code>cancelled</code>
+or <code>failed</code>, and always tries to release the lock. <code>cancelled</code> needs
+owner cancellation, and the window passes <code>CancellationToken.None</code>.
+<code>FailurePrecedence</code> rethrows a single failure, or throws an
+<code>AggregateException</code> of all failures, the first one first.
+<code>ExecutionPlanExecutorTests</code> checks this.</li>
+<li><strong>Bind All.</strong> The preview plans <code>CadBindAllItem</code> only when
+<code>CadXrefDiscovery.BindRefusals</code> is empty for the whole Xref graph. Before
+each bind, the executor lists the graph again and throws on a refusal.
+<code>PreviewPlanBuilderTests</code> and <code>PlanExecutionWorkflowTests</code> check this.</li>
+<li><strong>Core Console results.</strong> <code>CoreConsoleRuntime.RunScriptAsync</code> accepts a
+run only with exit code 0 and a result file whose JSON has <code>&quot;ok&quot;: true</code>.
+<code>CadExecutor</code> also requires <code>changed</code> to name every planned Xref, and
+<code>unbound</code> to be empty. <code>CadExecutorTests</code> checks this.</li>
+<li><strong>Revit repath.</strong> <code>RevitOperations</code> reads desired reference data when the
+file is transmitted, else last-saved data. It skips <code>PathType.Content</code>.
+It resolves a relative path from the host folder, or from the central
+folder for a workshared local. It keeps the path type and the load state.
+It writes only when a reference changes, and then sets
+<code>IsTransmitted = true</code>. The Revit test <code>TransmissionDataAdapterTests</code>
+checks all but the central folder.</li>
+<li><strong>CAD options.</strong> A null <code>PlanOptions</code> member follows Core Console
+availability in each preview, until the user changes an option.
+<code>PreviewPlanStateTests</code> and <code>RecordSetWindowViewModelTests</code> check this.</li>
+<li><strong>Execute failures.</strong> <code>ExecuteAsync</code> runs through
+<code>RunWithoutThrowingAsync</code> with a null notifier, so no banner appears. A
+failure is logged once and opens the logger window.
+<code>ExecuteCommand_WhenCompletionAlertFails_ContainsFailureAndRestoresBusyState</code>
+checks this for one failure.</li>
 </ol>
-<p>Duplicate host picks produce issues and are skipped. A host with a failed reference scan is rejected.
-It does not become an empty row. Canceling a file or folder picker preserves the current state.</p>
-<p>Target, host, metadata, and CAD changes invalidate the preview immediately.
-<code>RecordSetPreviewSyncCoordinator</code> debounces automatic refresh by 350 ms at <code>DispatcherPriority.Normal</code>.
-Preview planning runs through <code>Task.Run</code> and publishes on the UI context.
-Execution remains on its caller context and uses a non-cancelable progress overlay.
-Busy state disables editing, CAD actions, options, and ordinary window close.
-The footer reports Root, Free, ACAD, and Sentinel status. Root is Pending, Allowed, or Blocked;
-Sentinel is Pending, Present, or Missing. ACAD shows the Core Console path or Unavailable.</p>
-<h2 id="testing">Testing</h2>
-<p>Both Pure projects reference the normal desktop tool project, which owns its source and resource mapping.
-<code>DBTools.RecordSet.Cad.Pure.Tests</code> contains only <code>CadLiveTests</code>; <code>DBTools.RecordSet.Pure.Tests</code> contains the other fixtures.
-<code>./test.sh test --tool RECORDSET --scope pure</code> selects the WPF project. The CAD project is opt-in so machines without AutoCAD can run the default suite.
-Pure fixtures cover domain, planning, preview, execution, filesystem policy, CAD process handling, view models, and catalog editing.
-Most CAD fixtures replace <code>accoreconsole.exe</code> with a <code>.cmd</code> file that copies a prepared result file to <code>{stem}.result.json</code>
-and the input file to the scratch folder, and the planner fixtures use a fake <code>ICadPreviewer</code>.
-<code>CadLiveTests</code> runs the embedded <code>rs_xrefs.lsp</code> through <code>CadPreviewer</code>, <code>CadXrefDiscovery</code>,
-<code>PreviewPlanBuilder</code> and <code>CadExecutor</code> with real AutoCAD Core Console. Each test is ignored unless
-<code>ACCORECONSOLE</code> names an existing file. The fixture does not search PATH or Autodesk installation folders.
-Select it with <code>./test.sh test --tool RECORDSET --scope pure --fixture CadLiveTests</code> on a machine with AutoCAD.
-Each test fails after 5 minutes, before the test host hang timeout ends the run.
-The fixture creates DWGs in a temporary folder and removes that folder in teardown. It checks a relative
-attachment, a nested attachment and an Xref inserted only inside a local block, their planned copies and
-stored-path maps, repath readback, and Bind All from source-relative paths. Readback occurs after removing
-the source drawings. It exercises CAD plan items directly, without opening a Revit host.</p>
-<p>The fixture script uses these AutoCAD command sequences:</p>
-<ul>
-<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-E8C1190C-A26C-484C-ADDD-DDF81666F69F.htm">LINE</a>: first point, next point, end input.</li>
-<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-E2CEA3F2-43CA-41D0-A2C6-BACF2229715A.htm">SAVEAS</a>: default file format, filename, with <code>FILEDIA=0</code>.</li>
-<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-70599862-DF52-4291-B64B-8A4C45599F39.htm">-XREF Attach</a>: filename, insertion point, X scale, Y scale, rotation.
-<a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-CCC90130-7575-4901-8905-FBB4553DAA3F.htm">REFPATHTYPE=1</a> selects relative paths after the host has a filename.</li>
-<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-816B2D9C-F518-4E8B-971F-08E0E43006E7.htm">-BLOCK</a>: name, Mode/Convert, base point, selected Xref insert, end selection.</li>
-<li><a href="https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-99900C99-230D-4709-B8DD-A44435328A13.htm">QSAVE</a>: save the named drawing without a filename prompt.</li>
-</ul>
-<p>Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover TransmissionData and WPF application behavior.</p>
-<p>WPF fixtures share <code>WindowRuntimeScope</code>, which releases only runtime state it installs.
-The hosted bootstrap supplies the Revit owner. Modal tests use <code>ToolWindowDialog.Show</code> with synchronous callbacks
-and a ten-second watchdog. The watchdog cannot interrupt native code or callbacks that do not pump the dispatcher.</p>
-<p>The CAD selection test uses a modeless test session to await preview/edit cycles outside a modal callback.
-It checks the selected node, ancestor expansion, CAD state, and manual Xrefs after rebuilds.
-Production remains modal. The execution fixture checks real copied bytes, the manifest, and lock release.
-Filesystem tests cover destination junctions and redirected manifest paths.</p>
-<h2 id="limitations">Limitations</h2>
-<p>Execution has no UI cancellation action and can leave partial output on failure. Inspect the log and outcome manifest before retrying or removing output. CAD script limitations are specified in <a href="recordset-spec.html#limitations">the technical specification</a>.</p>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>HostImporter.ImportHosts</code> calls <code>PlanningService.ScanHost</code> for each
+host. A <code>RevitOperationException</code> rejects only that host.</li>
+<li>Each edit clears the preview. The debounced sync calls
+<code>PlanExecutionWorkflow.SyncPreviewAsync</code> in <code>Task.Run</code>.</li>
+<li><code>PreviewPlanBuilder.BuildPlanAsync</code> runs <code>PreviewPlanState.Create</code> (finds
+Core Console), <code>PreviewHostPlanner.PlanHostsAndLinks</code>,
+<code>PreviewCadPlanner.PlanAsync</code> (each DWG destination once, with the CAD
+settings of its first host), <code>PlanRevitRepaths</code>, <code>PreviewPlanTotals.CountCopyBytes</code>,
+<code>PredictOutputBytesAsync</code> and <code>PreviewPlanTotals.Complete</code> (limits,
+summary, fingerprint).</li>
+<li><code>PlanExecutionWorkflow.ExecuteAsync</code> opens a progress overlay that cannot
+be canceled. The executor writes the lock and the sentinel, runs the
+items in order, writes the manifest and releases the lock. Progress is
+the weight of the completed items over the total weight.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Segment action</th>
+<th style="text-align: right;">Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FsCreateDirItem</code></td>
+<td><code>fs_create_dir</code></td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr>
+<td><code>FsCopyItem</code>, <code>CadCopyItem</code></td>
+<td><code>fs_copy</code>, <code>cad_copy</code></td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td><code>CadRepathItem</code></td>
+<td><code>cad_repath</code></td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td><code>CadBindAllItem</code></td>
+<td><code>cad_bind_all</code></td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td><code>RevitRepathItem</code></td>
+<td><code>revit_repath</code></td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td><code>UIWarnItem</code>, <code>UIInfoItem</code></td>
+<td><code>ui_warn</code>, <code>ui_info</code></td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+<p>Each item record in <code>Features/Domain/</code> passes its <code>PlanAction</code> and weight to
+<code>PlanItem</code> and builds its <code>ToFingerprintSegment</code> text. An added item type
+needs a case in <code>ExecutionPlanExecutor.ExecutePlanItemAsync</code>, which throws for
+an unknown item, and in <code>ValidatePreconditions</code> for its output paths. The
+fingerprint is the SHA-256 of the segments in plan order, cut to 16
+lowercase hexadecimal characters. It identifies the plan in the lock and
+the manifest.</p>
+<h3 id="core-console">Core Console</h3>
+<p><code>CoreConsoleRunner</code> writes <code>&lt;stem&gt;.scr</code>, <code>&lt;stem&gt;.input.txt</code> and
+<code>&lt;stem&gt;.result.json</code> in the temporary folder. The <code>.scr</code> file holds the
+script lines and then one call of an entry function. It does not <code>load</code>
+the script, because <code>SECURELOAD</code> refuses a file from the temporary folder. After
+<code>accoreconsole.exe</code> exits, the runner stops the Autodesk helper processes
+that remain in its process tree.</p>
+<pre><code class="lang-text">accoreconsole.exe /i &quot;&lt;dwg&gt;&quot; /s &quot;&lt;stem&gt;.scr&quot;
+rs-list-xrefs       result: xrefs (name, path, found, overlay, inserted, inblock)
+rs-repath-xrefs     input: name, stored path, new path; result: changed, unmatched, failed
+rs-bind-all-xrefs   input as above, argument BIND or INSERT; result adds bound, unbound
+</code></pre>
+<p>The script writes its result with <code>(open result &quot;w&quot; &quot;utf8&quot;)</code>, which needs
+the Unicode AutoLISP engine (<code>LISPSYS</code> 1 or 2).</p>
+<h2 id="data">DATA</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Settings</td>
+<td>None. Names and CAD options live in the view model.</td>
+</tr>
+<tr>
+<td>Limits</td>
+<td><code>PlanningLimits</code>: 80 GiB of copies, 10,000 items, and the fallback folder names</td>
+</tr>
+<tr>
+<td>Lock</td>
+<td><code>.recordset.lock</code>, with the lines <code>run_id=&lt;run id&gt;</code> and <code>fingerprint=&lt;fingerprint&gt;</code></td>
+</tr>
+<tr>
+<td>Manifest</td>
+<td><code>_recordset_manifests/&lt;run id&gt;.json</code>: <code>run_id</code>, <code>fingerprint</code>, <code>target_root</code>, <code>utc</code>, <code>summary</code> (<code>hosts</code>, <code>unique_links</code>, <code>copy_bytes</code>, <code>predicted_output_bytes</code>, <code>items</code>) and <code>status</code></td>
+</tr>
+<tr>
+<td>Run ID</td>
+<td>UTC <code>yyyyMMdd-HHmmss</code> and 4 random hexadecimal characters</td>
+</tr>
+<tr>
+<td>Link types</td>
+<td><code>RevitLink</code> is <code>Rvt</code>, <code>CADLink</code> is <code>Dwg</code>, all others are <code>Other</code>, in <code>DetermineLinkTypeOrThrow</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p>Log lines start with <code>[RecordSet]</code>. A Revit failure reads
+<code>Revit operation '&lt;operation&gt;' failed for host '&lt;path&gt;': &lt;reason&gt;</code>. A Core
+Console failure names the function, the DWG, the exit code, the result text,
+standard error and standard output, each cut to its last 2,000 characters.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool RecordSet                            # pure: DBTools.RecordSet.Pure.Tests
+./test.sh test --tool RecordSet --scope local -y 2026      # -y 2027 for Revit 2027
+./test.sh test --tool RecordSet --fixture CadLiveTests     # DBTools.RecordSet.Cad.Pure.Tests
+</code></pre>
+<p>Pure tests cover planning, the policy, execution, the file system, the CAD
+adapters with a fake <code>accoreconsole.exe</code> <code>.cmd</code> file, and the view models.
+<code>CadLiveTests</code> is in its own project in the pure scope, so the default run
+skips it. It runs <code>rs_xrefs.lsp</code> in a real Core Console on generated
+drawings, and it is ignored unless <code>ACCORECONSOLE</code> names an existing file.
+Local tests cover composition, the view model in Revit and
+<code>TransmissionDataAdapterTests</code>, which opens <code>sgt_test_model.rvt</code> and its
+linked model (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a>,
+<a href="../../architecture/overview.html">Architecture overview</a></p>
 
 </article>
 

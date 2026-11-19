@@ -89,81 +89,112 @@
         <article data-uid="">
 <h1 id="analytical-snap-to-level">Analytical Snap To Level</h1>
 
-<p>Analytical Snap To Level moves the end points of the selected analytical beams and columns to the elevation of a level you choose. It edits the analytical model only. The physical elements do not change.</p>
-<h2 id="synopsis">Synopsis</h2>
-<p>Ribbon: <strong>DB Tools</strong> &gt; <strong>Structural</strong> &gt; <strong>Analytical Snap To Level</strong>.</p>
-<p>The button is enabled when at least one element is selected. Elements that are not supported analytical members are skipped and reported (see Result).</p>
-<h2 id="usage">Usage</h2>
+<h2 id="name">NAME</h2>
+<p>Analytical Snap To Level - move the ends of analytical members to a level</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<p><strong>DB Tools</strong> &gt; <strong>Structural</strong> &gt; <strong>Analytical Snap To Level</strong></p>
+<h2 id="description">DESCRIPTION</h2>
+<p>The tool moves the end points of the selected analytical members to the
+elevation of one level. It changes only the curve of each analytical member.
+The plan position (X and Y) of the end points does not change.</p>
 <ol>
-<li>Select analytical members. Select the analytical members themselves, not the physical elements they represent.</li>
+<li>Select the analytical members. The button is enabled when any element is
+selected.</li>
 <li>Click <strong>Analytical Snap To Level</strong>.</li>
-<li>In the <strong>Select Target Level</strong> dialog, select one level and confirm. Closing the dialog without a selection cancels the command with the message <code>No target level selected.</code></li>
-<li>Read the <strong>Snap to Level Complete</strong> dialog.</li>
+<li>In <strong>Select Target Level</strong>, select a level. Each level shows as
+<code>&lt;name&gt; (Elev: &lt;elevation&gt;)</code>, with the elevation in feet. The lowest level
+is first.</li>
+<li>Read the <strong>Snap to Level Complete</strong> window, and click <strong>OK</strong>.</li>
 </ol>
-<p>The level list is sorted by elevation, lowest first. Each entry reads <code>&lt;name&gt; (Elev: &lt;value&gt;)</code>, where the value is the level elevation in feet with two decimals. The project has to contain at least one level.</p>
-<h2 id="snapping-rules">Snapping rules</h2>
-<p>A member is snapped only when all of these hold:</p>
-<ul>
-<li>it is an analytical member (the Analytical Member category);</li>
-<li>its structural role is Beam or Column;</li>
-<li>its curve is a straight line.</li>
-</ul>
+<!-- screenshot: Select Target Level window, level list -->
+<h2 id="requirements">REQUIREMENTS</h2>
+<p>The tool skips a selected element that fails a rule, and reports the reason.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Rule</th>
+<th>Skip reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Element</td>
+<td>An analytical member, not the physical beam or column</td>
+<td><code>not an analytical member</code></td>
+</tr>
+<tr>
+<td>Structural role</td>
+<td>Beam or Column, not another role such as Girder</td>
+<td><code>role not supported</code></td>
+</tr>
+<tr>
+<td>Curve</td>
+<td>A straight line. A curved member keeps its shape.</td>
+<td><code>not straight</code></td>
+</tr>
+<tr>
+<td>Length</td>
+<td>After the snap, the member is not shorter than Revit allows. An almost vertical beam fails this rule.</td>
+<td><code>would collapse</code></td>
+</tr>
+</tbody>
+</table>
+<p>The role sets which end points move:</p>
 <table>
 <thead>
 <tr>
 <th>Role</th>
-<th>Rule</th>
+<th>What moves</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Beam</td>
-<td>Both end points move to the level elevation. The member becomes horizontal. Its plan position is unchanged.</td>
+<td>Both end points. The member becomes horizontal.</td>
 </tr>
 <tr>
 <td>Column</td>
-<td>Only the end point closer to the level elevation moves to it. The start point moves when both ends are equally close. The other end stays fixed.</td>
+<td>Only the end point nearer the level. If both are equally near, the start point moves.</td>
 </tr>
 </tbody>
 </table>
-<p>X and Y coordinates of every end point are unchanged.</p>
-<h2 id="result">Result</h2>
-<p>The whole run is one undo entry named <code>DB Tools - Snap Analytical Elements to Level</code>. If an unexpected error occurs, the run is rolled back and no member changes.</p>
-<p>The completion dialog shows the number of elements processed and skipped. Below that, it lists one line per skip reason with the count.</p>
+<h2 id="results">RESULTS</h2>
+<p>The completion window counts the processed and skipped elements. It shows
+one line for each skip reason:</p>
+<pre><code class="lang-text">&lt;reason&gt;: &lt;count&gt; (element IDs &lt;id&gt;, &lt;id&gt;, and &lt;n&gt; more)
+</code></pre>
+<p>It lists up to 10 IDs for each reason, and adds <code>and &lt;n&gt; more</code> for the rest.
+For <code>not an analytical member</code>, it shows only the count. The processed count includes members that were at the
+level already.</p>
+<p>Each run is one Undo step: <code>DB Tools - Snap Analytical Elements to Level</code>.
+An error undoes the whole run. A skip does not.</p>
+<h2 id="messages">MESSAGES</h2>
 <table>
 <thead>
 <tr>
-<th>Skip reason</th>
-<th>Meaning</th>
+<th>Message</th>
+<th>Meaning and what to do</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>not an analytical member</code></td>
-<td>The element is not an analytical member (a physical element, an analytical wall or floor). Only the count is shown.</td>
-</tr>
-<tr>
-<td><code>role not supported</code></td>
-<td>The structural role is not Beam or Column (for example girder or brace).</td>
-</tr>
-<tr>
-<td><code>not straight</code></td>
-<td>The curve is not a line. The member is not changed.</td>
-</tr>
-<tr>
-<td><code>would collapse</code></td>
-<td>The snap would make the member shorter than Revit's short-curve tolerance.</td>
+<td><code>No target level selected.</code></td>
+<td>You closed the level window without a level, or the model has no levels. Nothing changes.</td>
 </tr>
 </tbody>
 </table>
-<p>For each reason other than <code>not an analytical member</code>, the dialog lists up to 10 element IDs and <code>and N more</code> for the rest.</p>
-<p>Press <code>Ctrl+Z</code> to undo a completed run in one step.</p>
-<h2 id="limitations">Limitations</h2>
+<h2 id="limits">LIMITS</h2>
 <ul>
-<li>The tool snaps to levels. It does not accept a reference plane or an arbitrary elevation. To use another elevation, create a level at it.</li>
-<li>All selected members snap to the one level you choose. To snap different floors to different levels, run the tool once per floor.</li>
-<li>Braces, walls, floors and curved members are not supported.</li>
+<li>All selected members snap to the one level that you select. To use more
+levels, run the tool once for each level.</li>
+<li>To snap to an elevation without a level, add a level there.</li>
+<li>A sloped beam loses its slope.</li>
 </ul>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="framing-joins.html">Allow Join and Disallow Join</a>,
+<a href="../getting-started.html">Getting started</a>,
+<a href="../../developer-guide/tools/structural/analytical-snap.html">DBTools.AnalyticalSnapToLevel</a></p>
 
 </article>
 

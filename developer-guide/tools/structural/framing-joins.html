@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Framing Joins | DB Tools </title>
+      <title>DBTools.FramingJoins | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Framing Joins | DB Tools ">
+      <meta name="title" content="DBTools.FramingJoins | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,67 +87,121 @@
         </div>
 
         <article data-uid="">
-<h1 id="framing-joins">Framing Joins</h1>
+<h1 id="dbtools.framingjoins">DBTools.FramingJoins</h1>
 
-<h2 id="overview">Overview</h2>
-<p>Framing Joins allows or disallows joins at both ends of selected structural framing instances.
-The tool has no persistent settings.</p>
-<h2 id="architecture">Architecture</h2>
-<h3 id="source">Source</h3>
-<p>The implementation and manifest are under <code>src/Tools/Structural/FramingJoins/</code>.
-The project references Core and the Revit API.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<h3 id="commands">Commands</h3>
+<h2 id="name">NAME</h2>
+<p>DBTools.FramingJoins - the assembly behind Allow Join and Disallow Join</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Structural/FramingJoins/   (MAP.md, manifest.yml)
+assembly  DBTools.FramingJoins
+entry     manifest.yml ribbon tools, no moduleType
+commands  AllowJoinSelectedCommand, DisallowJoinSelectedCommand
+          (run profile InlineUi, split button group framing_joins)
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p>Both commands resolve <code>FramingJoinsWorkflow</code> and call <code>ExecuteAsync</code> with a
+<code>FramingJoinOperation</code>. The tool has no settings, hooks or warnings. The
+<a href="../../../user-guide/tools/framing-joins.html">user page</a> describes the
+behavior.</p>
+<h2 id="structure">STRUCTURE</h2>
+<p>Paths are under <code>src/Tools/Structural/FramingJoins/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Command</th>
-<th>Manifest identity</th>
-<th>Operation</th>
+<th>Path</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Allow Join</td>
-<td><code>DBTools.AllowJoinSelected</code></td>
-<td>Calls <code>StructuralFramingUtils.AllowJoinAtEnd</code> for ends 0 and 1</td>
+<td><code>App/Composition/</code></td>
+<td>The two commands, available through <code>CommandAvailability.HasStructuralFramingSelection</code></td>
 </tr>
 <tr>
-<td>Disallow Join</td>
-<td><code>DBTools.DisallowJoinSelected</code></td>
-<td>Calls <code>StructuralFramingUtils.DisallowJoinAtEnd</code> for ends 0 and 1</td>
+<td><code>Features/FramingJoinsWorkflow.cs</code></td>
+<td><code>ExecuteAsync</code>: the selection, the filter, the transaction and the banner</td>
+</tr>
+<tr>
+<td><code>Features/FramingJoinsWorkflow.Core.cs</code></td>
+<td><code>ExecuteCore</code>, the loop over <code>JoinOperationTarget</code> delegates</td>
+</tr>
+<tr>
+<td><code>Features/FramingJoinTargetBuilder.cs</code></td>
+<td>The category filter on plain IDs</td>
 </tr>
 </tbody>
 </table>
-<p>Both commands use <code>InlineUi</code> and the Structural panel's <code>framing_joins</code> split button.
-Their manifest order is 0 and 1, respectively. The icon keys are <code>allow_join</code> and <code>disallow_join</code>.
-Availability uses <code>CommandAvailability.HasStructuralFramingSelection</code>.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="use">Use</h3>
+<h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li>Select structural framing elements.</li>
-<li>Run <strong>Allow Join</strong> or <strong>Disallow Join</strong>.</li>
-<li>Read the completion banner for the processed instance count.</li>
+<li><strong>No module.</strong> The manifest has no <code>moduleType</code>. Each command adds the
+workflow through <code>[CommandService]</code>, as in
+<a href="analytical-snap.html#contracts">DBTools.AnalyticalSnapToLevel</a>.
+<code>FramingJoinsCommandTests</code> checks the attribute on both commands.</li>
+<li><strong>Targets.</strong> <code>CollectStructuralFramingIds</code> keeps only IDs in
+<code>OST_StructuralFraming</code>, without duplicates. The workflow keeps only
+<code>FamilyInstance</code> elements. Neither step reports what it drops.
+<code>FramingJoinTargetBuilderTests</code> checks the filter.</li>
+<li><strong>Both ends.</strong> <code>ExecuteCore</code> calls the operation for end 0, then end 1,
+and counts a target after both calls. <code>FramingJoinsWorkflowTests</code> checks
+the calls and the count. <code>FramingJoinsWorkflowRevitTests</code> checks the Revit
+join state of a temporary beam.</li>
+<li><strong>Failure.</strong> A failed call logs an error and throws
+<code>InvalidOperationException</code> with the element ID and the cause. The
+transaction then rolls back every target. <code>FramingJoinsWorkflowTests</code>
+checks the exception. No test checks the rollback.</li>
+<li><strong>Refusals.</strong> The workflow throws <code>SafeExecutionRefusedException</code> for an
+empty selection (<code>Select structural framing elements.</code>) and for a
+selection without a framing instance
+(<code>No structural framing elements in selection.</code>). No test checks these.</li>
+<li><strong>Info banner.</strong> The <code>No elements were modified.</code> banner cannot show.
+The workflow refuses an empty target list, and <code>ExecuteCore</code> returns the
+full count or throws.</li>
 </ol>
-<h3 id="execution">Execution</h3>
-<p><code>App/Composition/AllowJoinSelectedCommand</code> and <code>DisallowJoinSelectedCommand</code> resolve
-<code>Features/FramingJoinsWorkflow</code> through their <code>CommandService</code> registration.
-The workflow receives <code>ITransactionRunner</code>, <code>ILoggerWindowHost</code>, a window-owner provider, and a typed logger through dependency injection.</p>
-<p>The workflow reads the current selection, filters by <code>OST_StructuralFraming</code>, removes duplicate IDs,
-and retains only elements that resolve to <code>FamilyInstance</code>.
-An empty selection or a selection without usable framing instances produces <code>SafeExecutionRefusedException</code>.
-<code>FramingJoinTargetBuilder</code> owns the category filter. <code>FramingJoinsWorkflow.ExecuteCore</code> owns the endpoint loop.</p>
-<p>All targets run in one transaction named <code>DB Tools - Allow Join Selected</code> or
-<code>DB Tools - Disallow Join Selected</code>. The count increases after both endpoint calls succeed.
-It counts processed instances, including instances whose join state already matches the request.</p>
-<p>An endpoint failure logs the exception and element ID, then throws <code>InvalidOperationException</code> with the original cause.
-The transaction rolls back the complete batch. A successful batch shows a completion toast (Success, or Info when no element changed)
-and ensures the logger window when Debug Mode is enabled.</p>
-<h2 id="testing">Testing</h2>
-<p>Pure fixtures <code>FramingJoinTargetBuilderTests</code> and <code>FramingJoinsWorkflowTests</code> cover filtering and endpoint execution.
-Revit-hosted fixtures <code>FramingJoinsCommandTests</code> and <code>FramingJoinsWorkflowRevitTests</code> cover command and Revit integration.</p>
-<h2 id="limitations">Limitations</h2>
-<p>The tool processes <code>FamilyInstance</code> elements in Structural Framing. It does not alter joins for other selected elements.</p>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>ExecuteAsync</code> collects the targets, and builds a <code>JoinOperationTarget</code>
+for each with <code>StructuralFramingUtils.AllowJoinAtEnd</code> and
+<code>DisallowJoinAtEnd</code>.</li>
+<li>One transaction runs <code>ExecuteCore</code>: <code>DB Tools - Allow Join Selected</code> or
+<code>DB Tools - Disallow Join Selected</code>.</li>
+<li><code>NotificationBannerService.ShowToast</code> shows a Success banner, such as
+<code>Allow Join Selected</code> with <code>Allowed joins on &lt;n&gt; element(s).</code> Then it calls
+<code>EnsureWindowIfDebugMode</code>.</li>
+</ol>
+<h2 id="data">DATA</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reads</td>
+<td>The selection and the category of each element</td>
+</tr>
+<tr>
+<td>Writes</td>
+<td>The join state at ends 0 and 1 of each framing instance</td>
+</tr>
+</tbody>
+</table>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p>Log lines start with <code>[AllowJoin]</code> or <code>[DisallowJoin]</code>. A failure logs
+<code>Failed to apply &lt;operation&gt; join operation for element &lt;id&gt;.</code> as an Error.
+Debug level adds the count.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool FramingJoins                         # pure scope, the default
+./test.sh test --tool FramingJoins --scope local -y 2026   # -y 2027 for Revit 2027
+</code></pre>
+<p>Pure tests cover the filter and <code>ExecuteCore</code>. Local tests cover the command
+attributes and one run in <code>gm_test_model.rvt</code>
+(<a href="../../developing/testing-tools.html#model-paths">Model paths</a>). Without the
+model or a framing type, that run is inconclusive.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="analytical-snap.html">DBTools.AnalyticalSnapToLevel</a>,
+<a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a></p>
 
 </article>
 

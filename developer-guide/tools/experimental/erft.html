@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Extreme Roof Framing Tool (ERFT) | DB Tools </title>
+      <title>DBTools.ERFT | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Extreme Roof Framing Tool (ERFT) | DB Tools ">
+      <meta name="title" content="DBTools.ERFT | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,159 +87,208 @@
         </div>
 
         <article data-uid="">
-<h1 id="extreme-roof-framing-tool-erft">Extreme Roof Framing Tool (ERFT)</h1>
+<h1 id="dbtools.erft">DBTools.ERFT</h1>
 
-<h2 id="overview">Overview</h2>
-<p>ERFT adjusts host structural column and beam offsets to follow a host or linked floor/roof bottom surface.
-It preserves level associations, previews calculated changes, and applies offsets and storage in one transaction.
-See the <a href="erft-spec.html">technical specification</a> for geometry, rounding, storage, and failure contracts, and the <a href="../../../user-guide/tools/erft.html">user guide page</a> for the window.</p>
-<h2 id="architecture">Architecture</h2>
-<h3 id="ownership">Ownership</h3>
-<p>Source: <code>src/Tools/Experimental/ERFT/</code>.
-The manifest registers <code>DBTools.ERFT</code>, module <code>DBTools.ERFT.App.Composition.ErftToolModule</code>,
-and command/availability <code>DBTools.ERFT.App.Composition.ErftNewCommand</code>.
-The command uses <code>InlineUi</code>, icon key <code>erft</code>, and order 60 on the Testing panel.</p>
+<h2 id="name">NAME</h2>
+<p>DBTools.ERFT - the assembly behind the Extreme Roof Framing Tool</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Experimental/ERFT/   (MAP.md, manifest.yml)
+assembly  DBTools.ERFT
+entry     ErftToolModule
+command   ErftNewCommand                 (run profile InlineUi, panel Testing)
+hook      ErftContextualRibbonInjector   (Edit ERFT on contextual Modify tabs)
+view      App/Views/ErftWindow.xaml, src/DBTools.Presentation/Tools/ERFT/
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p><code>FramingAdjustmentWorkflow</code> runs both flows. <code>RunNewModalFlow</code> picks a target
+and the sources, then calls <code>PlanPreparationBuilder.Prepare</code>.
+<code>RunEditModalFlow</code> takes a loaded <code>StoredPlan</code> and calls
+<code>PrepareFromStoredPlan</code>. The window changes the
+tolerance and rounding of <code>AdjustmentPlanStore.Current</code> and recalculates.
+<strong>Apply</strong> runs <code>AdjustmentPlanExecutor</code>. Lengths are in feet, and element IDs
+are <code>long</code>. The <a href="../../../user-guide/tools/erft.html">user page</a> describes the
+behavior. <a href="../../architecture/structural-preview.html">Structural Preview</a>
+describes the 3D presenter.</p>
+<h2 id="structure">STRUCTURE</h2>
+<p>Paths are under <code>src/Tools/Experimental/ERFT/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Owner</th>
-<th>Responsibility</th>
+<th>Path</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>App/Composition</code></td>
-<td>Command, module, registration, contextual ribbon adapter</td>
+<td><code>App/Composition/</code></td>
+<td><code>ErftToolModule</code>, <code>AddErft</code> (scoped services), <code>ErftNewCommand</code> and <code>ErftContextualRibbonInjector</code>.</td>
 </tr>
 <tr>
-<td><code>App/Sessions/WindowSession</code></td>
-<td>Modal shell, alerts, banners, and lifetime</td>
+<td><code>App/Sessions/</code></td>
+<td><code>WindowSession</code> implements <code>IWindowSession</code>: the modal shell, alerts, banners and the preview host.</td>
 </tr>
 <tr>
-<td><code>App/ViewModels</code></td>
-<td>Tolerance, row selection, commands, and binding state</td>
+<td><code>App/ViewModels/</code></td>
+<td><code>ErftWindowViewModel</code>, <code>TolerancePreset</code>.</td>
 </tr>
 <tr>
-<td><code>App/Views/ErftWindow.xaml</code></td>
-<td>Raw embedded view</td>
+<td><code>Features/Selection/</code></td>
+<td>Selection filters, pickers, <code>SourceSelectionCollector</code> and <code>SourceSelectionValidator</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Domain</code></td>
-<td>Plan values, target projection, and framing graph</td>
+<td><code>Features/Operations/</code></td>
+<td>Column, beam, target geometry and member profile readers.</td>
 </tr>
 <tr>
-<td><code>Features/Selection</code></td>
-<td>Source rules, diagnostics, and Revit pickers</td>
+<td><code>Features/Domain/</code></td>
+<td><code>AdjustmentPlan</code>, <code>FramingGraphBuilder</code>, <code>TargetSurfaceProjector</code>, <code>FramingAdjustmentFailure</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Operations</code></td>
-<td>Revit column, beam, target-geometry, and member-profile readers</td>
+<td><code>Features/Planning/</code></td>
+<td>Plan preparation, edit reconstruction, target re-pick, <code>AdjustmentEvaluator</code> and <code>RoundingEvaluator</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Planning</code></td>
-<td>Preparation, edit reconstruction, target re-pick, adjustment, and rounding</td>
+<td><code>Features/Execution/</code></td>
+<td><code>AdjustmentPlanExecutor</code> and <code>AdjustmentWriter</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Execution</code></td>
-<td>Apply orchestration and Revit writer</td>
+<td><code>Features/Persistence/</code></td>
+<td><code>StorageSchema</code>, <code>StoredPlanMapper</code> and <code>SystemPlanRepository</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Persistence</code></td>
-<td>JSON, schemas, and system DataStorage repository</td>
+<td><code>Features/Preview/</code></td>
+<td><code>PreviewSceneBuilder</code> and <code>PreviewProjector</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Preview</code></td>
-<td>Domain meshes and stable scene projection</td>
+<td><code>Features/State/</code></td>
+<td><code>AdjustmentPlanStore</code> holds the current plan.</td>
 </tr>
 <tr>
-<td><code>Features/State/AdjustmentPlanStore</code></td>
-<td>Current plan state</td>
-</tr>
-<tr>
-<td><code>Features/Workflow/FramingAdjustmentWorkflow</code></td>
-<td>New/edit/re-pick/apply interaction through feature-owned <code>IWindowSession</code></td>
+<td><code>Features/Workflow/</code></td>
+<td><code>FramingAdjustmentWorkflow</code> and the <code>IWindowSession</code> port.</td>
 </tr>
 </tbody>
 </table>
-<p>Feature decisions remain behind <code>IWindowSession</code> and <code>WindowSessionAction</code>.
-App implements their typed presentation methods. ERFT production has no dependency on another tool.
-A missing active document returns Failed before opening the window.
-The per-run DI scope owns and disposes WindowSession on every exit path. The workflow does not dispose it.
-Normal-close cleanup diagnostics belong to the shared window host.
-ERFT logs failures from its own close-and-retire release path without replacing the caller's primary failure.</p>
-<p>The shell explicitly sets the title Extreme Roof Framing Tool and loads the raw EmbeddedResource
-<code>DBTools.ToolViews.ERFT.ErftWindow.xaml</code>. The view merges its theme directly and uses the stable string-based EnumMatchConverter for rounding radio buttons.</p>
-<h3 id="preview">Preview</h3>
-<p><code>PreviewSceneBuilder</code> creates target and member meshes. <code>PreviewProjector</code> maps them into <code>StructuralScene3D</code> snapshots.
-<code>DBTools.Presentation.StructuralPreview</code> owns device lifetime, camera state, navigation, hit testing,
-hover tooltips, emphasis, outlines, target crease edges, and cleanup.
-<code>DBTools.Presentation.Tools.ERFT.ErftPreviewOptions</code> chooses the preserve-angle camera and fit-as-Home policy.
-The initial look direction is parallel to <code>(0, 20, -10)</code>, with Z up. The camera home angle does not derive from the target mesh.
-Scene bounds include every rendered mesh vertex. Geometry updates within unchanged bounds preserve Home.
-Changed bounds fit the scene at the current angle and capture a new Home.
-Zoom to Fit also replaces Home and the viewport's default camera.
-Re-pick retains the current angle rather than constructing a new camera.
-Hover text uses the themed WPF ToolTip with a 16-pixel cursor offset.</p>
-<p>Member identities use <code>element:&lt;ElementId&gt;</code> and connect preview clicks to comparison rows.
-Targets are non-pickable context. Empty-space clicks clear row selection.
-Target hover does not replace member tooltips. Selected members use cyan emphasis and a 1.6-pixel all-edge outline.
-Target fill opacity is 0.12. Target and member edges use the palette’s cyan-gray color.
-The stable presenter owns lighting and camera bounds constraints. Status remains visible while the scene prepares or degrades.
-Navigation buttons disable when no scene exists.
-Both grids use a final stretch Status column with a minimum width.
-Thrown zoom/reset exceptions log a warning and appear in the preview status line.
-Fit failures log a diagnostic; reset without a Home attempts Zoom to Fit.
-A projection failure clears the rendered scene and shows its cause until the scene changes or the presenter becomes unavailable.
-Without a specific reason, the placeholder reads <code>3D Preview is unavailable: the presenter is unavailable</code>.</p>
-<p>A graphics-device or WPF D3DImage failure permanently disables the presenter for that window.
-StructuralPreviewDevice releases resources once and does not forward Reinitialize to the native effects manager.
-It does not substitute WARP for the D3DImage bridge.
-The placeholder asks the user to update the graphics driver or enable GPU acceleration and reopen the tool.
-Preview navigation disables, but adjustment, Apply, Cancel, and target re-pick remain available outside an active apply.
-Re-pick retains the unavailable presenter and does not retry graphics initialization.</p>
-<p>Profile extraction reports expected unsupported geometry per type.
-Unexpected geometry, transaction, cleanup, or cancellation faults propagate.
-One Info summary records total/extracted/unsupported counts. Per-type progress is Debug.
-Selection-hook logs suppress per-event start/completion banners and report evaluation changes only when state changes.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<p>The <a href="erft-spec.html#data-and-contracts">technical specification</a> defines AdjustmentPlan, target meshes, graph ordering, rounding, element tags, and system storage.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="use">Use</h3>
+<h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li>Run <strong>Extreme Roof Framing</strong> on the Testing panel.</li>
-<li>Pick a linked floor or roof. Press Esc to switch to host target selection.</li>
-<li>Pick a host target if needed. Esc at this stage cancels launch.</li>
-<li>Select source columns and beams, then Finish.</li>
-<li>Review the target, comparison rows, tolerance, and preview.</li>
-<li>Apply when the tolerance is valid, at least one row requires modification, and no row has Error status.</li>
+<li><strong>Sources.</strong> <code>SourceSelectionFilter</code> admits host <code>FamilyInstance</code>
+columns with a <code>LocationPoint</code> and framing with a <code>Line</code> that is not
+<code>StructuralType.Brace</code>. <code>SourceSelectionPicker</code> drops members whose
+structural material matches <code>\bconcrete\b</code>, case-insensitive. If a
+reader returns fewer members than the user selected, the launch fails with
+<code>Selection/SourceExtractionFailed</code>.</li>
+<li><strong>Column check.</strong> A selection with no column must have a beam within the
+connection tolerance of a model column, or it fails with
+<code>Selection/NoColumnConnection</code>. The check runs on clones of the selected
+beams, so it changes no connection. The plan graph uses the selected
+members only. <code>SourceSelectionValidatorTests</code> checks this.</li>
+<li><strong>Graph.</strong> <code>FramingGraphBuilder.ConnectionToleranceFeet</code> is <code>0.5 / 12</code>
+ft. A beam end connects to the first column, in selection order, whose top
+is within the tolerance (inclusive). A free end then connects to the
+nearest other beam segment that is closer than the tolerance. An end whose
+connection would make a cycle stays <code>Free</code>, with a warning. The processing
+order is the columns, then a Kahn sort of the beams. Among beams with no
+open dependency, beams that frame to columns go first, then lower IDs.
+<code>FramingGraphBuilderTests</code> checks the connections.</li>
+<li><strong>Target.</strong> The bottom surface is every face whose normal Z, at the middle
+of its UV box, is -0.1 or less in host coordinates. A link uses
+<code>GetTotalTransform</code>. <code>TargetSurfaceProjector</code> returns the nearest point in
+3D over all triangles, not a vertical intersection. Expected target
+failures return a <code>TargetGeometryFailureReason</code>, not an exception.
+<code>TargetSurfaceProjectorTests</code> checks the projection. No Revit test uses a
+loaded linked target.</li>
+<li><strong>Rounding.</strong> <code>RoundingEvaluator.ApplyRounding</code> uses <code>Math.Round</code>
+(midpoint to even), <code>Math.Ceiling</code> or <code>Math.Floor</code> of
+<code>delta / tolerance</code>. A column, or a beam at both ends, is
+<code>NoChangeNeeded</code> when the rounded change is 0 (<code>IsWithinTolerance</code>: less
+than half the tolerance).
+A beam end on a beam takes the adjusted Z of the supporting beam at the
+XY parameter, clamped to the segment.
+<code>AdjustmentCalculationTests</code> checks the rounding and the propagation.</li>
+<li><strong>Apply.</strong> <code>AdjustmentWriter</code> runs one transaction,
+<code>ERFT Apply Adjustments</code>, in the active document. It purges retired
+entities, sets <code>FAMILY_TOP_LEVEL_OFFSET_PARAM</code>,
+<code>STRUCTURAL_BEAM_END0_ELEVATION</code> and <code>STRUCTURAL_BEAM_END1_ELEVATION</code>,
+tags each changed member and saves the system. A
+<code>FramingAdjustmentFailureException</code> rolls it back and becomes a failed
+result. Before the writer runs, <code>AdjustmentPlanExecutor</code> refuses rows with
+<code>Error</code> as <code>Apply/PlanHasErrors</code>. <code>AdjustmentWriterTests</code> and
+<code>FramingAdjustmentEndToEndTests</code> check this.</li>
+<li><strong>Snapshot.</strong> <code>StoredPlanMapper.CreateSnapshot</code> stores only <code>Pending</code>
+rows. <code>SystemPlanRepository.Save</code> replaces the one record of the system,
+so a later Apply drops the members that it did not change.
+<code>CreateSnapshot_IncludesOnlyPendingAdjustments</code> checks the filter.</li>
+<li><strong>Admission.</strong> <code>StoredPlanMapper.Deserialize</code> requires the tolerance, the
+rounding mode, the <code>Columns</code> and <code>Beams</code> lists, positive element IDs, a matching <code>SystemId</code> and
+a host target or a link and linked target pair. It fails with a
+<code>Storage/*</code> code. <code>StoredPlanMapperTests</code> checks this.</li>
+<li><strong>Profiles.</strong> <code>MemberProfileExtractor</code> places one temporary instance of
+each type on the lowest level and deletes it. It commits three
+transactions for each type in the host document, outside any group.
+Expected <code>ProfileLoops/*</code> conditions fail one type. Other faults propagate.
+The <code>ExtractProfiles_*</code> cases in <code>PlanPreparationBuilderTests</code> check this.</li>
+<li><strong>Apply gate.</strong> While <code>IsApplyInProgress</code> is true, the session ignores
+Apply and Pick, and <code>CanClose</code> blocks closing. An expected failure keeps
+the window open. A thrown failure closes it and reaches the command.
+<code>WindowSessionTests</code> checks this.</li>
 </ol>
-<p>Sources must be point-based structural columns or straight non-brace framing in the host document.
-Material names matching <code>\bconcrete\b</code> case-insensitively exclude members.
-The source set needs a column or a beam that connects to a model column under ERFT's hierarchy rule.
-Unsupported extracted sources fail launch rather than disappearing from the plan.</p>
-<p><strong>Edit ERFT</strong> on contextual Modify tabs restores a selected system's stored plan and settings.
-Missing or incompatible storage fails edit launch. Re-pick hides the window with HideForPick,
-selects another target, and reuses the same shell and preview presenter with the rebuilt plan. Re-applying calculates from current model geometry and offsets.</p>
-<p>During apply, a second Apply or Re-pick request is ignored. Cancel and window close are blocked.
-A successful apply reports its result and closes the window.
-An expected apply failure keeps the window open. A thrown apply exception closes the window and propagates to safe execution.
-Escape clears both comparison-grid selections and does not close the window.
-Cancel has no WPF IsCancel route. Clicking an empty area of either grid with any mouse button clears both selections.
-See the <a href="erft-spec.html#alerts">alert and preview contracts</a> for event severity, ownership, and validation.</p>
-<h2 id="testing">Testing</h2>
-<p>Pure tests cover graph construction, target projection, adjustment/rounding, storage admission, scene projection,
-window selection, close gating, modal lifetime, and injected device creation failure during re-pick and Apply.
-Core tests exercise presenter recovery and resource release without a GPU.
-Presentation's hosted <code>StructuralPreview3DTests</code> covers fit-as-Home through the renderer.</p>
-<p>Revit-hosted <code>FramingAdjustmentEndToEndTests</code> uses <code>gm_test_model.rvt</code> and transient host floors with real beam and column instances.
-It covers seed viability, target extraction, calculation, offset writes, tags, and DataStorage inside rolled-back transaction groups.
-A Revit 2027 case checks legacy-schema cleanup on <code>2027/Regression/realtest_model.rvt</code> without saving the model.
-Linked-target behavior requires a Revit-hosted check with a loaded linked floor or roof.</p>
-<pre><code class="lang-bash">./build.sh BuildSelectedLocalTests --TestProjects DBTools.ERFT.Local.Tests -y 2026
-./test.sh test --tool ERFT --scope local -y 2026 --fixture FramingAdjustmentEndToEndTests
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>TargetSelectionPicker</code> obtains a floor or roof target.</li>
+<li><code>SourceSelectionPicker</code> picks the sources. <code>SourceSelectionCollector</code>
+extracts and checks them.</li>
+<li><code>PlanPreparationBuilder</code> reads the target, builds the graph, calculates,
+and extracts the profiles before the window opens.</li>
+<li><code>ShowModal</code> returns <code>RepickTarget</code>, <code>Applied</code> or <code>Cancelled</code>. Re-pick hides
+the shell, runs <code>TargetRepickWorkflow</code> and shows the same shell again.</li>
+<li>Edit: <code>ErftContextualRibbonInjector</code> reads the <code>Tag</code> and <code>SystemId</code> of the
+selection and chooses one system. Its <code>RunEditFlow</code> calls
+<code>RunEditModalFlow</code> in a command context that Core creates for
+<code>ErftNewCommand</code>. <code>EditReconstructionBuilder</code> reads the current
+geometry and offsets of the stored members.</li>
+</ol>
+<h2 id="data">DATA</h2>
+<p>All fields are simple <code>String</code> fields with vendor <code>DBTools</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Schema</th>
+<th>GUID</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DBTools_ERFT_V2</code>, on members</td>
+<td><code>C736C6F5-34C8-4E50-A890-E5420C3E5391</code></td>
+<td><code>Tag</code> (<code>ERFT</code>), <code>SystemId</code>, <code>MemberRole</code> (<code>Column</code> or <code>Beam</code>), <code>OriginalOffset</code>, <code>Timestamp</code></td>
+</tr>
+<tr>
+<td><code>DBTools_ERFT_System_V2</code>, on a <code>DataStorage</code></td>
+<td><code>06C087B9-DA5B-4E3B-9496-13C7C8732B0E</code></td>
+<td><code>SystemIdString</code>, <code>DataJson</code> (camel-case <code>StoredPlan</code> JSON)</td>
+</tr>
+</tbody>
+</table>
+<p>Apply deletes entities of the retired schemas <code>DBTools_ERFT</code> and
+<code>DBTools_ERFT_System</code> only when the vendor and name match. It deletes a
+<code>DataStorage</code> that has no entity left.</p>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p><code>FramingAdjustmentFailure.Tag</code> formats codes as <code>[SpecFail/&lt;code&gt;]</code>.
+Alerts and repository failures show the tag. Profile extraction logs one
+Info summary of total, extracted and unsupported types.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool ERFT                         # pure scope, the default
+./test.sh test --tool ERFT --scope local -y 2026   # -y 2027 for Revit 2027
 </code></pre>
-<h2 id="limitations">Limitations</h2>
-<p>Unsupported member profiles omit those members from the preview. With no successful profiles, the preview contains only the target. Graphics failure requires a new window to initialize another presenter; calculation and Apply remain available in the existing window.</p>
+<p>Pure tests cover the graph, projection, rounding, storage admission, preview
+projection and the window session. <code>FramingAdjustmentEndToEndTests</code> uses
+<code>gm_test_model.rvt</code> with transient host floors. A Revit 2027 case checks the
+cleanup of retired schemas on <code>2027/Regression/realtest_model.rvt</code> without
+saving it (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../developing/hooks.html">Hooks</a>,
+<a href="../../architecture/structural-preview.html">Structural Preview</a></p>
 
 </article>
 

@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Super Girt Tool (SGT) | DB Tools </title>
+      <title>DBTools.SGT | DB Tools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Super Girt Tool (SGT) | DB Tools ">
+      <meta name="title" content="DBTools.SGT | DB Tools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,112 +87,245 @@
         </div>
 
         <article data-uid="">
-<h1 id="super-girt-tool-sgt">Super Girt Tool (SGT)</h1>
+<h1 id="dbtools.sgt">DBTools.SGT</h1>
 
-<h2 id="overview">Overview</h2>
-<p>Super Girt Tool (SGT) analyzes one wall, edits girts and opening members in a modal window with 2D and 3D previews, and places tagged structural framing. It supports new systems and contextual editing of stored systems.</p>
-<p>The <a href="sgt-spec.html">SGT specification</a> defines the data and execution contract. This page is the developer overview. The <a href="../../../user-guide/tools/sgt.html">user guide</a> describes window controls and user procedures.</p>
-<h2 id="architecture">Architecture</h2>
-<p>Source: <code>src/Tools/Structural/SGT/</code>. The assembly and tool ID are <code>DBTools.SGT</code>.
-<code>manifest.yml</code> registers <code>SgtToolModule</code> and <code>SgtCommand</code> under <code>DBTools.SGT.App.Composition</code>.</p>
+<h2 id="name">NAME</h2>
+<p>DBTools.SGT - the assembly behind Super Girt Tool</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Structural/SGT/        (MAP.md, manifest.yml)
+assembly  DBTools.SGT                       (net10.0-windows; net10.0 portable build for pure tests)
+entry     SgtToolModule
+command   SgtCommand                        (run profile InlineUi)
+hook      ContextualEditHook                (Edit SGT Wall on Modify | Structural Framing)
+window    App/Views/SgtWindow.xaml          (raw embedded XAML; sandbox window DBTools.SGT.Main)
+stable    src/DBTools.Presentation/Tools/SGT/, src/DBTools.Presentation/StructuralPreview/
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p><code>SgtCommand</code> launches <code>NewSessionWorkflow</code>, which calls
+<code>SgtWindowSession.RunModalFlowAsync</code>. <code>ContextualEditHook</code> calls it directly
+with a <code>WindowSessionLaunchRequest</code>:
+<code>New</code> with a wall target, or <code>Edit</code> with a <code>SystemId</code>. The session owns one
+transaction group for the life of the modal window. Wall analysis builds a
+<code>Plan</code>; the window edits it through <code>PlanStore</code>; preview and placement read
+the same resolved member contracts.</p>
+<p>The <a href="../../../user-guide/tools/sgt.html">user page</a> describes the behavior,
+and <a href="../../architecture/structural-preview.html">Structural Preview</a> the 3D
+host.</p>
+<h2 id="structure">STRUCTURE</h2>
+<p>Paths are under <code>src/Tools/Structural/SGT/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Owner</th>
-<th>Responsibility</th>
+<th>Path</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>App</code></td>
-<td>Composition, startup, modal sessions, UI-to-plan synchronization, window hosting, and cosmetic UI persistence</td>
+<td><code>App/Composition/</code></td>
+<td><code>SgtToolModule</code>, <code>SgtCommand</code>, <code>ContextualEdit/</code> and every service registration (<code>ServiceCollectionExtensions</code> and the feature <code>*ServiceCollectionExtensions</code>).</td>
 </tr>
 <tr>
-<td><code>Domain</code></td>
-<td>Plan, plan store, baseline snapshots, geometry, member rules, and plan editing</td>
+<td><code>App/Startup/</code>, <code>App/Sessions/</code></td>
+<td><code>NewSessionWorkflow</code>, <code>StartupAnalysisWorkflow</code>, <code>SgtWindowSession</code>, <code>WindowSessionLifecycle</code>, <code>WindowSessionBuilder</code>, <code>SessionAnalysisOwner</code>.</td>
 </tr>
 <tr>
-<td><code>Features/BulkEdit</code></td>
-<td>Bulk row editing</td>
+<td><code>App/State/PlanSynchronization/</code></td>
+<td><code>PlanSynchronizationCoordinator</code> writes grid values into the plan.</td>
 </tr>
 <tr>
-<td><code>Features/ChangeReview</code></td>
-<td>Live comparison, decisions, relink pairing, and review dialog</td>
+<td><code>App/Views/</code>, <code>App/ViewModels/</code></td>
+<td><code>SgtWindow</code>, <code>SgtWindowViewModel</code>, and the preview view and presenter. The presenter is in App because it routes grid input through <code>WindowSessionSurfaceCoordinator</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Openings</code></td>
-<td>Opening queries, mutation, synchronization, and row UI</td>
+<td><code>Domain/</code></td>
+<td><code>Plan</code>, <code>PlanStore</code>, geometry, segmentation, gaps and resolved member contracts.</td>
 </tr>
 <tr>
-<td><code>Features/Orientation</code></td>
-<td>Family orientation analysis and portable solver math</td>
+<td><code>Features/</code></td>
+<td><code>BulkEdit</code>, <code>ChangeReview</code>, <code>Girt</code>, <code>Openings</code>, <code>Orientation</code>, <code>Placement</code>, <code>Preview</code>, <code>SegmentFlyout</code>, <code>WallAnalysis</code>. Revit code is in their <code>Revit/</code> folders.</td>
 </tr>
 <tr>
-<td><code>Features/Placement</code></td>
-<td>Readiness, projection, model writes, update, and removal</td>
+<td><code>Persistence/</code></td>
+<td><code>SystemStorageMapper</code>, <code>StoredSystem</code>, <code>ISystemRepository</code>, <code>Revit/SystemRepository</code>, <code>Revit/SgtSchemaContract</code>, <code>ElementTagSchema</code>.</td>
 </tr>
 <tr>
-<td><code>Features/Preview</code></td>
-<td>Projection, rendering, editing, hit testing, snapping, and refresh scheduling</td>
-</tr>
-<tr>
-<td><code>Features/WallAnalysis</code></td>
-<td>Wall geometry, calibration, profile warming, and plan construction</td>
-</tr>
-<tr>
-<td><code>Persistence</code></td>
-<td>Storage mapper, schema, repository contract, and Revit implementation</td>
-</tr>
-<tr>
-<td><code>Revit</code></td>
-<td>Cross-feature Revit adapters</td>
+<td><code>Revit/</code></td>
+<td>Shared adapters: family symbols, framing parameters and wall frames. <code>TemporaryTransactionRunner</code> rolls back probe edits; <code>CommittedWrite</code> runs a write that must commit, and maps a refusal to <code>Transaction/NotCommitted</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>Domain is independent of App, Features, Persistence, and WPF. Features do not depend on App; App composes their ports. Presentation owns stable WPF controls and the 3D viewport. The payload embeds raw XAML; <code>ToolWindowFactory</code> supplies its modal shell. Sandbox uses the same raw fragments and composition callback.</p>
-<p>See the specification's <a href="sgt-spec.html#owner-tree">owner tree</a>, <a href="sgt-spec.html#composition-and-sessions">composition</a>, and <a href="sgt-spec.html#application-boundary">application boundary</a> for source locations and lifetime owners.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<p><code>PlanStore</code> owns detached accepted plans. UI edits pass through <code>PlanSynchronizationCoordinator</code>; preview and placement consume the same resolved member contracts. <code>PreviewRefreshMode.UIEdit</code> synchronizes UI values before reconciliation, <code>PlanMutation</code> reconciles the plan, and <code>RenderOnly</code> renders accepted state.</p>
-<p>Stored systems contain Placed geometry and element identities, baseline settings, and a decision ledger. <code>ISystemRepository</code> provides per-system Save, Load, Exists, Delete, ledger-save, and purge operations. <code>SettingsData.FramingMode</code> stores the framing mode in the <code>placementMode</code> field.</p>
-<p>The specification defines <a href="sgt-spec.html#orientation-analysis-and-resolved-members">resolved geometry</a>, <a href="sgt-spec.html#persistence">storage</a>, and <a href="sgt-spec.html#plan-admission-and-synchronization">plan admission and synchronization</a>.</p>
-<p>Preview opening context menus use the clicked row's <code>IsReadOnly</code> state for every action. Nonempty explicit jamb-command lists select their first editable row. If none is editable, the command does not use the grid selection. Empty lists and other parameters retain selection fallback.</p>
-<p>The preview menu dispatcher sets <code>PreviewStatus</code> and <code>PreviewErrorMessage</code> when a command throws. It logs an Error unless the jamb synchronization controller already logged it. Canvas mouse-up clears the active handle and snap feedback in <code>finally</code>.</p>
-<h2 id="workflows">Workflows</h2>
+<p>Presentation holds the stable WPF side: the grid and preview behaviors and
+drag input in <code>Tools/SGT/</code>, and the Helix viewport behind
+<code>IStructuralPreview3D</code>. SGT code has no Helix reference.</p>
+<h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li>Launch a new system with a concrete wall target, or edit a stored system with its <code>SystemId</code>.</li>
-<li>Analyze the wall, calibrate eligible framing families, warm profiles, and build an admitted plan.</li>
-<li>Edit girt and opening rows or preview handles. Invalid fields block synchronization and placement.</li>
-<li>Use Change Review to compare the accepted configuration with live geometry. Confirm publishes the analyzed candidate and saves its decision ledger; Place or Update writes framing.</li>
-<li>Finish the session. A successful close assimilates its <strong>Super Girt Tool</strong> transaction group; Cancel, errors, failed close, and forced retirement roll it back.</li>
+<li><strong>One session group.</strong> <code>SgtWindowSession.Start</code> refuses an
+<code>IRevitCallGate</code> whose <code>RunsInline</code> is false, and a document whose
+<code>IsModifiable</code> is true, because a transaction is already open. It
+begins the group <code>Super Girt Tool</code>, then runs <code>PurgeUnsupportedAsync</code>
+inside it. A command uses ordinary transactions inside the group, and
+never starts or ends a group of its own. <code>SgtWindowSessionTests</code> checks
+the refusals.</li>
+<li><strong>Commit only on success.</strong> <code>WindowSessionLifecycle.FinalizeSession</code>
+assimilates the group only when all of these hold: the close requests a
+commit, startup succeeded, no failure is recorded, and
+<code>IsGroupHealthyAsync</code> is true. Every other end rolls back: Cancel, the
+window's close box, a failed command, a handled UI error, and retirement
+of the window by its shell. <code>WindowSessionLifecycleTests</code> checks this.</li>
+<li><strong>Plan admission.</strong> <code>PlanStore.Initialize</code> and <code>Update</code> change a
+detached copy and validate it with <code>PlanAdmissionValidator</code> before they
+replace the plan. A rejected or unchanged candidate keeps the plan and
+its <code>Version</code>. <code>PlanStoreUpdatePolicyTests</code> and
+<code>PlanAdmissionValidatorTests</code> check this.</li>
+<li><strong>One segmentation.</strong> <code>GirtSegmentBoundarySet.Split</code> is the only girt
+segment computation. Plan-row segmentation, the preview, placement and
+the usable-span check all call it. <code>GirtSegmentBoundarySetTests</code> checks
+the rules, and <code>PreviewPlacementParityTests</code> the shared use.</li>
+<li><strong>One resolved member.</strong> <code>ResolvedMemberContractResolver</code> builds one
+<code>ResolvedMemberContract</code> per member, and <code>OpeningMemberContractCatalog</code>
+lists the opening segments once. The preview modes and
+<code>WallSystemWriter</code> read these values and compute no transform of their
+own. <code>PreviewPlacementParityTests</code> compares the preview with the placed
+members.</li>
+<li><strong>Write order.</strong> Profile warming places temporary instances
+(<code>TemporaryTransactionRunner</code>) to capture each section. It and
+placement set the cross-section rotation, then Flip, then Y and Z
+justification, then set the offsets to zero. Jambs add the
+<code>WallRotationCompensationEvaluator</code> angle to the rotation; the grid rows
+still show 0, 90, 180 or 270. <code>FamilyInstanceMutatorTests</code> and
+<code>WallRotationCompensationEvaluatorTests</code> check this.</li>
+<li><strong>Storage format.</strong> <code>SystemStorageMapper</code> reads and writes format
+version 3 only. Every transport field is <code>JsonRequired</code>. It rejects
+unknown fields, numeric enum tokens and payloads over 4,000,000
+characters. It migrates nothing: <code>PurgeUnsupportedAsync</code> removes the
+storage and member tags of other formats, and the tags of systems with
+no current storage. It keeps the members. <code>SystemStorageMapperTests</code> and
+<code>SystemRepositoryTests</code> check this.</li>
+<li><strong>Ownership.</strong> <code>SgtSchemaContract.TryGetOwnedSystemId</code> owns an element
+only if it is Structural Framing and its tag has the marker <code>SGT</code> and a
+system ID. Selection, update, deletion and deconstruction use it.
+<code>ContextualEditTargetEvaluatorTests</code> checks this.</li>
+<li><strong>Update by identity.</strong> <code>WallSystemWriter</code> indexes the owned members by
+role and tag identity. It moves each match in place, creates a member
+for a target without a match, and deletes owned members that no target
+uses. Two owned members with one identity fail with
+<code>Update/DuplicateIdentity</code>. <code>WallSystemWriter.UpdatesTests</code> checks this.</li>
+<li><strong>Layers.</strong> Domain uses no App, Features, Persistence, WPF or Revit API
+code. Features use no App code, and Placement uses no WallAnalysis code.
+The portable <code>net10.0</code> build has no Revit API, WPF or Presentation
+reference, and <code>build/MSBuild/Portable.targets</code> excludes <code>.cs</code> files
+under <code>App/</code>, <code>Revit/</code>, <code>Views/</code> and <code>DesignTime/</code>. Other code that
+uses them does not build. Nothing checks the Domain-to-Features,
+Domain-to-Persistence or Placement-to-WallAnalysis rules.</li>
+<li><strong>Raw XAML.</strong> The XAML is embedded as <code>DBTools.ToolViews.SGT.&lt;file&gt;</code>,
+with no <code>x:Class</code> and no WPF-derived type in the payload.
+<code>RawXamlTierContractTests</code> checks every payload view.</li>
 </ol>
-<p>Target re-pick hides and reopens the same modal session within one synchronous Revit command frame. Cosmetic UI-state writes run separately from model finalization. See <a href="sgt-spec.html#window-session">window session</a> and <a href="sgt-spec.html#features">feature workflows</a>.</p>
-<h2 id="testing">Testing</h2>
-<p>Tests mirror production owners under <code>Tests/</code>; shared fixture support lives in <code>Tests/Support</code>.</p>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>NewSessionWorkflow</code> shows a prompt banner and calls
+<code>WallTargetSelectionWorkflow.PickTarget</code>. It asks for a linked wall
+(<code>LinkedWallSelectionFilter</code>), then, after Esc, for a host foundation
+wall (<code>FoundationWallSelectionFilter</code>). <code>ContextualEditHook</code> reads the
+selected system IDs instead, through <code>ContextualEditTargetEvaluator</code>.</li>
+<li><code>SgtWindowSession.Start</code> begins the group and purges.
+<code>WindowSessionBuilder</code> composes the window, view model and
+<code>SessionAnalysisOwner</code>.</li>
+<li><code>PlanBuilder.BuildNewPlanAsync</code> sets the framing mode, then runs
+<code>FamilyCalibrationStep</code>, <code>WallAnalysisStep</code>, <code>ProfileWarmStep</code>,
+<code>PlanSeedingStep</code> and admission. For an edit, <code>StartupAnalysisWorkflow</code>
+rebuilds the plan with <code>PlanBaselineMapper</code> and <code>ChangeReviewPlanBuilder</code>,
+and <code>AnalyzeEditPlanAsync</code> analyzes a copy of it against the wall. A
+stored system that does not load falls back to a wall pick
+(<code>FallBackToPick</code>).</li>
+<li>Grid edits reach <code>PlanStore</code> through <code>PlanSynchronizationCoordinator</code>.
+Preview edits go through <code>PreviewEditingWorkflow</code>, which records the
+window's Undo steps. <code>PreviewRefreshCoordinator</code> refreshes in <code>UIEdit</code>,
+<code>PlanMutation</code> or <code>RenderOnly</code> mode.</li>
+<li>After an edit startup, <code>ChangeReviewWorkflow</code> opens <strong>Change Review</strong> when
+<code>ChangeReviewEvaluator</code> reports <code>NeedsAttention</code>. Confirm analyzes the
+reviewed plan and saves only the decision ledger (<code>SaveLedgerAsync</code>).</li>
+<li>Place and Update synchronize and normalize the plan, run the preflight,
+then call <code>PlacementWorkflow</code>, <code>PlacementExecutor</code> and
+<code>WallSystemWriter</code>. The writer places members, tags them and calls
+<code>ISystemRepository.Save</code> in one transaction. A successful write closes
+the window with a commit; a failed or canceled write closes it with a
+rollback. A refused preflight keeps the window open.</li>
+<li><code>FinalizeSession</code> releases the preview and window, then assimilates or
+rolls back the group. The UI state saves in the background.</li>
+</ol>
+<h2 id="data">DATA</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>System storage</td>
+<td>One <code>DataStorage</code> per system, named <code>DBTools_SGT_System_&lt;SystemId&gt;</code> (GUID without hyphens), schema <code>DBTools_SGT_SystemV2</code> (a schema name, not the format version). Its <code>DataJson</code> holds a <code>SystemData</code> envelope: Placed, the decision ledger and the settings.</td>
+</tr>
+<tr>
+<td>Member tag</td>
+<td>Schema <code>DBTools_SGT</code> with <code>Tag</code> (<code>SGT</code>), <code>SystemId</code>, <code>MemberRole</code> (<code>girt</code>, <code>head</code>, <code>sill</code>, <code>jamb_left</code>, <code>jamb_right</code>) and <code>ConfigJson</code>.</td>
+</tr>
+<tr>
+<td>Framing mode</td>
+<td><code>WallFramingMode.Standard</code> for a linked wall, with the wall bottom as base. <code>Foundation</code> for a host foundation wall, with the wall top as base and a 20'-0&quot; band. The JSON field is <code>placementMode</code>.</td>
+</tr>
+<tr>
+<td>Rules</td>
+<td><code>MemberRules</code>: <code>AutoSeedSpacing</code> 5'-0&quot;, <code>MinimumLength</code> 6&quot;.</td>
+</tr>
+<tr>
+<td>UI state</td>
+<td><code>%APPDATA%\DBTools\Cache\SGT\ui-state.json</code>: panel expansion, opening column widths and Bulk Edit fields. It never gates the model commit.</td>
+</tr>
+</tbody>
+</table>
+<p>Revit element IDs are <code>long</code> in the plan, storage and placement records.</p>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p>SGT log messages use prefixes such as <code>[SGT]</code>, <code>[SGT.Preflight]</code> and
+<code>[SGT.Place.Cutback]</code>. A plan rejection is a <code>SpecFailure</code> with the text
+<code>[SpecFail/&lt;area&gt;/&lt;rule&gt;] &lt;detail&gt;</code> (<code>SpecFailureCodes</code>). A UI error shows
+<code>&lt;action&gt;: [SGT.UI.&lt;area&gt;.&lt;name&gt;] &lt;detail&gt;</code> (<code>UserErrorCodes</code>).
+<code>DiagnosticsPreflightLogger</code> records analysis outcomes.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool SGT                         # pure: portable and Windows projects
+./test.sh test --tool SGT --scope local -y 2026   # -y 2027 for Revit 2027
+</code></pre>
 <table>
 <thead>
 <tr>
 <th>Project</th>
-<th>Execution boundary</th>
+<th>Covers</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>DBTools.SGT.Portable.Pure.Tests</code></td>
-<td>Portable domain, plan store, persistence, review, and preview logic</td>
+<td>Domain, feature decisions and storage mapping, on <code>net10.0</code></td>
 </tr>
 <tr>
 <td><code>DBTools.SGT.Pure.Tests</code></td>
-<td>Windows Pure WPF and modal-session behavior</td>
+<td>Window lifecycle, view models, flyouts, UI state and synchronization</td>
 </tr>
 <tr>
 <td><code>DBTools.SGT.Local.Tests</code></td>
-<td>Revit-hosted tests (the <code>local</code> scope), model writes, and Revit integration</td>
+<td>Wall analysis, opening detection, model writes, storage, preview parity and the real window session</td>
 </tr>
 </tbody>
 </table>
-<p>The specification owns the <a href="sgt-spec.html#testing">fixture inventory and commands</a>, including physical placement and review fixtures and hidden-desktop input adapters.</p>
-<h2 id="limitations">Limitations</h2>
-<p>SGT requires a document that is not modifiable at launch and an inline Revit call gate (<code>IRevitCallGate.RunsInline</code>) for its modal session. Stored formats other than version 3 are purged within the session group. See the <a href="sgt-spec.html#limitations">specification limitations</a> for member-role restrictions and the manual Undo check.</p>
+<p>The Local tests open <code>SGT/sgt_test_model.rvt</code>
+(<a href="../../developing/testing-tools.html#model-paths">Model paths</a>). Without the
+model, they fail.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../developing/hooks.html#contextual-ribbon-injectors">Hooks</a>,
+<a href="../../developing/sandbox-integration.html">Sandbox Integration</a>,
+<a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a></p>
 
 </article>
 

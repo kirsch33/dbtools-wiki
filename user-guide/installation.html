@@ -89,47 +89,104 @@
         <article data-uid="">
 <h1 id="installation">Installation</h1>
 
-<p>DB Tools is a Revit add-in for Revit 2026 (2026.5 or later) and Revit 2027 on 64-bit Windows 10 or 11. The installer runs under a standard user account and needs no administrator rights.</p>
-<h2 id="requirements">Requirements</h2>
+<h2 id="name">NAME</h2>
+<p>installation - install, update and remove DB Tools</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">DBTools-Setup-&lt;version&gt;.exe
+DBTools-Setup-&lt;version&gt;.exe /VERYSILENT /SUPPRESSMSGBOXES
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p>DB Tools runs in desktop Revit 2026 (2026.5 or later) and Revit 2027, on
+64-bit Windows 10 or later. Setup installs it for one Windows user and needs
+no administrator rights. Download <code>DBTools-Setup-&lt;version&gt;.exe</code> from the
+<a href="https://github.com/kirsch33/dbtools/releases">releases page</a>.</p>
+<h2 id="installing">INSTALLING</h2>
+<ol>
+<li>Close Revit.</li>
+<li>Run Setup as the Windows user who uses Revit. Setup installs into the
+<code>%APPDATA%</code> folder of that user only.</li>
+<li>On <strong>Revit versions</strong>, select the Revit years. Setup selects each
+compatible Revit on this computer. It disables each other year:
+<ul>
+<li><code>Revit 2026 - update to 2026.5 or later</code>: update Revit, then run Setup
+again.</li>
+<li><code>Revit &lt;year&gt; - not detected</code>: that Revit year is not installed.</li>
+</ul>
+</li>
+<li>Go to the next page. If DB Tools is installed, Setup asks
+<code>An existing DBTools.bundle was found. Replace it with this version?</code>
+Click <strong>Yes</strong>.</li>
+<li>On <strong>Ready to install</strong>, check <strong>Product</strong>, <strong>Revit</strong> and <strong>Location</strong>.
+Click <strong>Install</strong>.</li>
+<li>The last page shows <code>DB Tools is installed</code>. <strong>Open install folder</strong> opens
+<code>%APPDATA%\DBTools</code>.</li>
+<li>Start Revit. If the <strong>DB Tools</strong> tab does not show, read the
+<a href="getting-started.html#logs">logs</a>.</li>
+</ol>
+<!-- screenshot: Setup, Revit versions page -->
+<h2 id="updating">UPDATING</h2>
+<p>To update, run Setup of the version that you want. Setup replaces the whole
+bundle folder, so it deletes files that you added there. It keeps your
+settings and logs. DB Tools does not check for updates.</p>
+<h2 id="uninstalling">UNINSTALLING</h2>
+<p>Close Revit. In Windows <strong>Settings</strong> &gt; <strong>Apps</strong>, find DB Tools and click
+<strong>Uninstall</strong>. The uninstaller deletes the bundle folder, and keeps your
+settings and logs in <code>%APPDATA%\DBTools\</code>.</p>
+<h2 id="silent-installation">SILENT INSTALLATION</h2>
+<p>Setup accepts the standard Inno Setup switches, such as <code>/VERYSILENT</code> and
+<code>/SUPPRESSMSGBOXES</code>. A silent install selects every compatible
+Revit year and replaces an installed version without a prompt. Run it in the
+Windows session of the Revit user. Setup writes a log during installation.</p>
 <table>
 <thead>
 <tr>
-<th>Item</th>
-<th>Requirement</th>
+<th>Exit code</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Revit</td>
-<td>2026.5 or later, or 2027 (desktop)</td>
+<td><code>0</code></td>
+<td>DB Tools is installed.</td>
 </tr>
 <tr>
-<td>Windows</td>
-<td>10 or 11, 64-bit</td>
+<td><code>10</code></td>
+<td>Setup could not activate the copied files.</td>
 </tr>
 <tr>
-<td>Account</td>
-<td>Standard user</td>
+<td>Another code</td>
+<td>Setup did not install, for example because Revit is running or no compatible Revit is installed. The Setup log gives the reason.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="installing">Installing</h2>
-<ol>
-<li>Download <code>DBTools-Setup-&lt;version&gt;.exe</code> from the <a href="https://github.com/kirsch33/dbtools/releases">GitHub releases page</a>, or from the location your administrator provides.</li>
-<li>Close all running Revit sessions.</li>
-<li>Run the installer in the Windows session of the user who uses Revit. Setup installs DB Tools in that user's <code>%APPDATA%</code> folder.</li>
-<li>On the Revit page, select the installed Revit years. Setup reads each registered Revit install location and checks its <code>RevitAPI.dll</code>. It selects compatible versions by default. Revit 2026 must be Revit 2026.5 or later. Older 2026 updates appear disabled with an update message. Select at least one compatible year.</li>
-<li>If <code>DBTools.bundle</code> is already installed, Setup asks whether to replace it. Answer <strong>Yes</strong> to continue. Answer <strong>No</strong> to stop.</li>
-<li>The Ready page shows the version, the selected Revit years and the bundle folder. Select <strong>Install</strong>.</li>
-<li>Wait for Setup to finish. The finish page shows the result and the Revit years that DB Tools is installed for. Select <strong>Open install folder</strong> to open <code>%APPDATA%\DBTools</code>.</li>
-</ol>
-<p>Start Revit. The <strong>DB Tools</strong> tab appears on the ribbon.</p>
-<h2 id="what-the-installer-does">What the installer does</h2>
-<p>Setup copies the release into a staging folder next to the active bundle and checks that each selected year contains the required files. It removes unselected year components from the generated <code>PackageContents.xml</code>. Setup then renames the current bundle to a backup and activates the staged bundle. It deletes the backup after activation. If activation fails, Setup restores the previous bundle where possible and returns exit code <code>10</code>. In interactive mode, the finish page shows the reason and the path of the Setup log. If an earlier version was installed, the page also tells whether it is still installed.</p>
-<p>Known limit: Inno Setup still writes its uninstall entry when bundle activation fails. Windows' installed apps list can therefore show DB Tools even though the bundle did not activate.</p>
-<p>Installing replaces the entire bundle. A new install removes the previous version folder and any other file in the old bundle.</p>
-<p>There is no in-app updater. To update, run the installer of the new release.</p>
-<h2 id="files-and-folders">Files and folders</h2>
+<h2 id="messages">MESSAGES</h2>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning and what to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Close Revit and run Setup again to install DB Tools.</code></td>
+<td>Revit runs in your Windows session. Close it.</td>
+</tr>
+<tr>
+<td><code>Select at least one installed Revit version. For Revit 2026, install update 2026.5 or later.</code></td>
+<td>No Revit year is selected.</td>
+</tr>
+<tr>
+<td><code>DB Tools could not be installed</code></td>
+<td>The last Setup page gives the reason and the path of the Setup log. It also tells whether your previous version is still installed. Close each program that uses a file in the DB Tools folders, and run Setup again.</td>
+</tr>
+<tr>
+<td>A <strong>DB Tools</strong> dialog when Revit starts, such as <code>DB Tools theme failed to load:</code></td>
+<td>DB Tools could not start. Run Setup again. If the dialog shows again, send the <a href="getting-started.html#logs">log</a>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="files">FILES</h2>
 <table>
 <thead>
 <tr>
@@ -140,49 +197,16 @@
 <tbody>
 <tr>
 <td><code>%APPDATA%\Autodesk\ApplicationPlugins\DBTools.bundle\</code></td>
-<td>The add-in, loaded by Revit as an Autodesk application plugin bundle. <code>Contents\DBTools\&lt;version&gt;\&lt;year&gt;\</code> holds <code>DBTools.addin</code>, <code>DBTools.dll</code>, <code>DBTools.Core.dll</code>, <code>DBTools.Presentation.dll</code>, <code>DBTools.HandyControl.dll</code> and the <code>Tools\</code> folder with one <code>DBTools.&lt;Tool&gt;.dll</code> per tool.</td>
+<td>The add-in. Revit loads it at start. <code>Contents\DBTools\&lt;version&gt;\&lt;year&gt;\</code> holds the files for one Revit year.</td>
 </tr>
 <tr>
 <td><code>%APPDATA%\DBTools\</code></td>
-<td>The installer's data folder: the uninstaller and the icon.</td>
-</tr>
-<tr>
-<td><code>%APPDATA%\DBTools\settings.&lt;year&gt;.json</code></td>
-<td>User settings, one file per Revit year.</td>
-</tr>
-<tr>
-<td><code>%APPDATA%\DBTools\Logs\</code></td>
-<td>Log files, named <code>dbtools-&lt;year&gt;-...log</code>.</td>
-</tr>
-<tr>
-<td><code>%APPDATA%\DBTools\Cache\</code></td>
-<td>Tool caches, for example <code>VTC\</code> (saved templates) and <code>TDV\</code> (temporary library copies).</td>
+<td>The uninstaller, your settings, the logs in <code>Logs\</code> and the tool caches in <code>Cache\</code></td>
 </tr>
 </tbody>
 </table>
-<p>Each tool stores its own data under <code>%APPDATA%\DBTools\</code> as its page describes.</p>
-<h2 id="uninstalling">Uninstalling</h2>
-<p>Open <strong>Settings</strong> &gt; <strong>Apps</strong> &gt; <strong>Installed apps</strong>, select <strong>DB Tools</strong>, and select <strong>Uninstall</strong>. The uninstaller deletes <code>DBTools.bundle</code> together with its <code>.staging</code> and <code>.backup</code> folders. Close Revit before uninstalling.</p>
-<p>The uninstaller keeps your settings, logs and caches in <code>%APPDATA%\DBTools\</code>. To remove all DB Tools data, delete that folder.</p>
-<h2 id="silent-installation">Silent installation</h2>
-<p>The installer is an Inno Setup program and accepts the standard Inno Setup switches, for example:</p>
-<pre><code>DBTools-Setup-&lt;version&gt;.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-</code></pre>
-<p>A silent installation selects every detected compatible Revit year and replaces an existing bundle without a prompt. Setup does not show a success message. If Revit is running or no compatible year is installed, Setup exits with a nonzero code. If bundle activation fails, Setup returns code <code>10</code>. Run Setup in the Windows session of the user who uses Revit.</p>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="the-db-tools-tab-does-not-appear">The DB Tools tab does not appear</h3>
-<ol>
-<li>Close Revit and make sure <code>%APPDATA%\Autodesk\ApplicationPlugins\DBTools.bundle\PackageContents.xml</code> exists and lists your Revit year.</li>
-<li>Start Revit.</li>
-<li>Open the newest file in <code>%APPDATA%\DBTools\Logs\</code> and search for <code>ERROR</code> or <code>FATAL</code>. If startup fails before logging starts, <code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code> holds the failure.</li>
-<li>Reinstall DB Tools.</li>
-</ol>
-<h3 id="db-tools-theme-failed-to-load"><code>DB Tools theme failed to load</code></h3>
-<p>Revit shows this message when startup cannot load the DB Tools theme. The message is followed by the failure details. Check that the year folder in the bundle holds <code>DBTools.dll</code>, <code>DBTools.Core.dll</code>, <code>DBTools.Presentation.dll</code>, <code>DBTools.HandyControl.dll</code> and the <code>Tools\</code> folder. If any file is missing, close Revit and reinstall DB Tools.</p>
-<h3 id="the-installer-reports-an-error">The installer reports an error</h3>
-<p>Setup can fail if it cannot activate the staged bundle. Close Revit and any program that holds a file in the bundle folder, then run Setup again. The finish page gives the path of the Setup log, which holds the failure details. By default, Setup writes its log to <code>%TEMP%</code>. Antivirus software that locks files in <code>%APPDATA%</code> can cause this error.</p>
-<h3 id="revit-years">Revit years</h3>
-<p>A Revit year that is not installed cannot be selected. Revit 2026 versions before 2026.5 cannot be selected. Update Revit, then run Setup again.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="getting-started.html">Getting started</a>, <a href="index.html">User guide</a></p>
 
 </article>
 
