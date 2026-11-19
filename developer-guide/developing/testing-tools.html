@@ -925,32 +925,52 @@ It writes every attempt to <code>.artifacts/test-results/da-&lt;UTC&gt;-&lt;id&g
 <p><a href="https://aps.autodesk.com/blog/estimate-design-automation-costs">Autodesk's cost calculation</a>
 counts processing seconds from <code>timeDownloadStarted</code> through <code>timeUploadEnded</code>.
 This interval includes download, instructions and upload.
-<code>timeQueued</code> and <code>timeFinished</code> are reported but do not define that interval.
+The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/workitems-id-GET">WorkItem status reference</a>
+lists <code>timeQueued</code>, <code>timeDownloadStarted</code>, <code>timeInstructionsStarted</code>, <code>timeInstructionsEnded</code>,
+<code>timeUploadEnded</code> and <code>timeFinished</code>. Its completed examples include <code>timeDownloadStarted</code> and <code>timeFinished</code>,
+but omit <code>timeUploadEnded</code>.
+The live test and resolver use <code>timeFinished</code> when <code>timeUploadEnded</code> is absent.
+The live test and resolver require <code>timeDownloadStarted</code> and either end time to compute processing seconds.
+If those timestamps are missing, the live test fails and the resolver keeps the reservation unresolved.
 The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/workitems-POST/">WorkItem reference</a>
 defines <code>limitProcessingTimeSec</code> as the processing cap, including transfers.</p>
 <p><code>testing/design-automation.json</code> sets a 120-second WorkItem cap and a 30-minute monthly budget.
+The runner rejects <code>budget_minutes</code> values above 30.
+The runner does not publish a new DA record when <code>budget_minutes</code> is invalid.
 The public docs do not specify per-WorkItem rounding or a minimum.
 The guard rounds the cap up to a whole minute, then reserves one more minute.
 It reserves three minutes for each WorkItem.
 The model-free test is expected to take under two processing minutes, but this estimate has not been measured.
 Five weekly runs reserve at most 15 minutes.</p>
-<p><code>testing/db-da-service-limit.py</code> sets the Revit service limit for the APS app's Client ID.
+<p><code>testing/db-da-service-limit.py</code> reads and updates the APS service limits for the app's Client ID.
 The coordinator runs it once before it installs the credential file.
-It sends this documented request:</p>
-<pre><code class="lang-http">PUT /da/us-east/v3/servicelimits/me
+The script reads the current limits and sends only the properties the API allows clients to update.
+It keeps each other engine's current <code>limitProcessingTimeSec</code> value.
+If the GET response reports an Inventor limit of 360 seconds, the PUT body is:</p>
+<pre><code class="lang-http">GET /da/us-east/v3/servicelimits/me
+
+PUT /da/us-east/v3/servicelimits/me
 Content-Type: application/json
 
-{&quot;backendLimits&quot;:{&quot;Revit&quot;:{&quot;limitProcessingTimeSec&quot;:120}}}
+{&quot;frontendLimits&quot;:{&quot;limitMonthlyProcessingTimeInHours&quot;:1},
+ &quot;backendLimits&quot;:{&quot;Revit&quot;:{&quot;limitProcessingTimeSec&quot;:120},
+                  &quot;Inventor&quot;:{&quot;limitProcessingTimeSec&quot;:360}}}
 </code></pre>
-<p>The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/servicelimits-owner-PUT">service-limits reference</a>
-documents this body and field.
-Autodesk then enforces the 120-second cap for every WorkItem submitted by that APS app.
+<p>The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/servicelimits-owner-GET">GET reference</a>
+documents the response shape.
+The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/servicelimits-owner-PUT">PUT reference</a>
+lists the two updateable fields and returns the applied limits.
+The script reports success only when the PUT response confirms both values.
+Autodesk enforces the 120-second cap for each WorkItem and a one-hour monthly cap across all engines for the app.
+The 30-minute ledger budget is lower than the 60-minute APS monthly cap.
 The test also sends <code>limitProcessingTimeSec: 120</code> on its WorkItem.</p>
 <h3 id="ledger-and-budget-guard">Ledger and budget guard</h3>
 <p>The runner stores the append-only ledger at
 <code>$XDG_STATE_HOME/dbtools/design-automation/ledger.jsonl</code>.
 When <code>XDG_STATE_HOME</code> is unset or not absolute, it uses
-<code>~/.local/state/dbtools/design-automation/ledger.jsonl</code>.
+<code>$HOME/.local/state/dbtools/design-automation/ledger.jsonl</code>.
+<code>HOME</code> must be set to an absolute path.
+<code>HOME</code> and <code>XDG_STATE_HOME</code> must not contain a <code>..</code> path segment.
 No runner option or DBTools environment variable changes this path.
 The runner sets the directory and ledger file permissions for the account owner only.</p>
 <p>The first ledger record must initialize prior account usage for the current UTC month.
@@ -991,8 +1011,6 @@ Near either side of a UTC month boundary, it also checks the adjacent month's re
 The run counts in the UTC month of the reservation's <code>started_at</code>.
 The relay and Studio derive that month from the first snapshot's <code>started_at</code> and total the runs themselves.
 The 30-minute ledger guard covers WorkItems submitted through this runner.
-The APS service setting caps each WorkItem for the app, but it does not cap the app's monthly total at 30 minutes.
-The documented APS monthly limit uses integer hours, so it cannot express this budget.
 Do not submit WorkItems for this app outside the runner.</p>
 <p>A WorkItem that has no terminal status is charged in its submission month and the next month only.
 To resolve one with a known ID, poll the APS status endpoint until it returns a terminal status:</p>
@@ -1037,6 +1055,7 @@ A reserved snapshot never follows a finished snapshot.</p>
 <code>processing_seconds</code>, <code>billed_seconds</code> and <code>billing_is_upper_bound</code>.
 <code>stats</code> holds the raw valid APS timestamp strings <code>timeQueued</code>, <code>timeDownloadStarted</code>,
 <code>timeInstructionsStarted</code>, <code>timeInstructionsEnded</code>, <code>timeUploadEnded</code> and <code>timeFinished</code>.
+Timestamps use <code>YYYY-MM-DDTHH:MM:SS[.fraction]Z</code> or <code>YYYY-MM-DDTHH:MM:SS[.fraction]±HH:MM</code>.
 The WorkItem billing bound stays at three minutes unless an observed interval needs a larger bound.</p>
 <p>The coordinator calls:</p>
 <pre><code class="lang-bash">dbtools-daemon-cli external-run record --project &lt;project-id&gt; \

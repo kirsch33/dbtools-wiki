@@ -208,6 +208,17 @@ BCL, so it works before Core loads.</li>
 the copy of <code>DBTools.dll</code> in the default context stays idle. It stores
 its path in the AppContext data <code>DBToolsDaemon.IdleAddin:DBTools</code> and
 returns <code>Succeeded</code>, so the daemon can test its own copy.</li>
+<li><strong>User data directory</strong> (<code>AddinUserData</code>). <code>OnStartup</code> reads
+<code>DBTOOLS_USER_DATA_DIR</code> once. An unset or empty value leaves
+<code>AppPaths.BaseDir</code> unchanged: <code>%APPDATA%\DBTools</code>, or the
+<code>DBTools.AppPaths.BaseDir</code> AppContext value when one is set. Any other
+value must be an absolute path to an existing directory that the process
+can write; its full path becomes that AppContext value. A value that
+fails these checks returns <code>Failed</code> before any runtime work, and
+<code>OnShutdown</code> then returns <code>Succeeded</code> at once. The failure names the
+variable, the value and the reason. It goes to <code>Trace</code> and to the startup
+failure dialog, which <code>DBT_TEST_RUN_ID</code> suppresses, and to no file. A set
+value never falls back to <code>%APPDATA%\DBTools</code>.</li>
 <li><strong>Callback scope.</strong> <code>AppStartupBoundary.Start</code> enters
 <code>ToolWindowCallbackScope</code>, which suppresses <code>ExecutionContext</code> flow and
 sets contextual reflection to the <code>DBTools.dll</code> context. <code>Start</code> is not
@@ -227,7 +238,7 @@ first, then the deferred handlers, and publishes the started state. The
 deferred handlers apply the deferred <code>StartupContribution</code> effects once
 the main window exists.</li>
 </ol>
-<p>A failure in steps 4 to 6 cleans up and returns <code>Failed</code>. A later
+<p>A failure in steps 5 to 7 cleans up and returns <code>Failed</code>. A later
 background-task failure cleans up at the next <code>Idling</code> event.</p>
 <h3 id="tool-registration">Tool registration</h3>
 <ol>
@@ -278,17 +289,21 @@ failure, so Revit shows no error dialog. See
 <td><code>IRevitRunScope</code>, <code>IRevitCallGate</code>, <code>ITransactionRunner</code> and <code>ITransactionGroupService</code> (<code>RevitServiceCollectionExtensions</code>), opened through <code>IAppRunScopeFactory</code></td>
 </tr>
 <tr>
-<td><code>%APPDATA%\DBTools\</code></td>
-<td><code>settings.&lt;year&gt;.json</code>, <code>Logs\</code> and <code>Cache\</code> (<code>AppPaths</code>)</td>
+<td><code>AppPaths.BaseDir</code>: <code>%APPDATA%\DBTools\</code>, or the <code>DBTOOLS_USER_DATA_DIR</code> directory</td>
+<td><code>settings.&lt;year&gt;.json</code>, <code>Logs\</code> and <code>Cache\</code></td>
+</tr>
+<tr>
+<td>System temporary directory (<code>Path.GetTempPath()</code>)</td>
+<td>Transient files with unique names that ElevationTags, FoundationTags and RecordSet try to delete after use. <code>TMP</code> and <code>TEMP</code> relocate it.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p><code>Logs\DBTools.Fallback.log</code> holds failures from before logging starts, such
-as a bad Revit year, and failures that the logger cannot record. The log
-names a failed startup phase, and
-<code>AppStartupFailurePresenter</code> shows a dialog unless <code>DBT_TEST_RUN_ID</code> is
-set.</p>
+<p><code>Logs\DBTools.Fallback.log</code> below <code>AppPaths.BaseDir</code> holds failures from
+before logging starts, such as a bad Revit year, and failures that the logger
+cannot record. The log names a failed startup phase. After a refused
+<code>DBTOOLS_USER_DATA_DIR</code>, records go to <code>Trace</code> only.
+<code>AppStartupFailurePresenter</code> shows a dialog unless <code>DBT_TEST_RUN_ID</code> is set.</p>
 <h2 id="tests">TESTS</h2>
 <pre><code class="lang-bash">./test.sh test --tool APP
 ./test.sh test --tool APP --scope local -y 2026
