@@ -315,7 +315,7 @@ Family Mapping uses that lookup for both scan availability and parameter names.
 Complete discovery supplies names. Partial discovery uses complete fast discovery when available, otherwise it clears the names.
 Family Mapping and Shared Parameters publish choices only from complete discovery.
 Their factories and consumers require IFamilyParameterQuery and ISharedParameterQuery.
-Shared Parameters also requires ICuratedCategoryQuery.
+Shared Parameters also requires IAuthoringCategoryQuery.
 Duplicate parameter scoring requires complete discovery on both sides.
 Instance/Type suffixes are display labels. Parameter mappings retain scope and require equal source/target scope.</p>
 <h4 id="element-identities">Element identities</h4>
@@ -489,6 +489,68 @@ reconciliation, and indicators, then refreshes locks and cache state after suppr
 <p>Shared Parameters owns domain values, authoring, formulas, Revit adapters, rows, tree, views, and pane state.
 SharedParameterDuplicateReconciler owns stateful duplicate-row mutation and reentrancy.
 SharedParameterConflictProjector performs stateless tree/Commit Review projection.</p>
+<p>SharedParametersViewModel.ViewMode (SharedParametersViewMode: ByFamily, ByParameter) selects the view. It is session
+state, starts at ByFamily, and is not persisted. IsByFamily drives the tree, splitter, SP Authoring pane, instance
+navigator, Auto-zoom and Zoom. In ByParameter, SharedParametersView hosts the raw <code>ParameterUse/Views/ParameterUseView.xaml</code>
+(ParameterUseViewXaml on GmWindowViewModel, Gm.RawView converter) with the ParameterUses view model
+(ParameterUseViewModel, created by ParameterUseViewModelFactory). SharedParametersViewModel implements
+ISharedParametersNavigation: ShowParameter(definition, repair) switches to ByParameter and selects the definition.
+ShowFamily(familyId) switches to ByFamily, sets ShowAllCategories when the trim hides the family's category, and
+selects the family's first type through SharedParameterTreeNavigationWorkflow.</p>
+<p>The category source is IAuthoringCategoryQuery. Its Revit adapter, AuthoringCategoryQuery, returns the category of
+every non-in-place Family in the project, annotation categories included. ICuratedCategoryQuery keeps only
+GetCuratedFamilyCategoriesAsync for the Families tab. The tree shows the categories that
+AuthoringCategoryActionEvaluator returns, unless ShowAllCategories is true. The evaluator is Pure and calls no Revit
+API. Its input is the authoring rows of each category for the selected SP Group (warm-up builds every category), fast
+parameter discovery, the SP Group definitions, the threshold, the best Map From score per family and definition from
+the authoring rows, the WrongGuid hint names from ISharedParameterGuidConflictQuery, the wrong-GUID and hand-fix family
+IDs of the latest full use scans, the intents, and the selected category. A family reason is WrongGuid, HandFix,
+Mappable (a missing definition with a score at or above the threshold, complete discovery only) or PendingSource (an
+applied MapFrom intent without a source, or an intent with HasConflict). The selected category is always returned.
+RefreshCategoryTrim recomputes the trim after an intent, threshold, option-rendering or scan-result change and
+rebuilds the tree only when the shown category list changes. The category tool tip is AuthoringCategoryAction.ToolTip.</p>
+<p>SharedParameterDefinition.Guid comes from ExternalDefinition.GUID in SharedParameterGroupQuery. Guid.Empty means the
+definition was not read from the file. ISharedParameterGuidConflictQuery (SharedParameterGuidConflictQuery) scans
+project SharedParameterElements by name and adds SharedParameterFamilyMigration.FindFamilyNames per conflicting name as
+HintFamilyNames. It opens no family. The conflicts drive GuidWarnings in the SP Authoring pane and the
+<code>Two GUIDs in this project</code> status in By parameter.</p>
+<p>IParameterUseQuery (Revit/ParameterUse/ParameterUseQuery) wraps Core SharedParameterUseScan.Find through
+GmSessionDocumentGate. It resolves the company ExternalDefinition from the open shared parameter file and passes the
+instance categories that project bindings of the name hold. ParameterUseQueryCache keeps reports per query key and
+project-state version. SharedParameterAuthoringService writes and CommitReviewFinalizer (Keep) clear it, and a clear
+makes ParameterUseViewModel reload its group. By parameter reads project-only reports (ScanFamilies false) for the
+list status and the family table. It runs a full scan, under a cancelable overlay, only for a definition in repair
+mode. Scan families and Scan again run the same command: it removes the selected definition's cached reports
+(ParameterUseQueryCache.Remove, no clear event) and scans again; the item keeps its earlier report until the new one
+arrives, and a cancel is not an error. LatestFullScanReports feeds HandFix and WrongGuid to the category trim and the
+GUID warning text.</p>
+<p>Family-table ticks write SharedParameterMappingIntentSnapshot entries through MappingIntentStore, one per family type,
+with the same keys that By family writes. Both views therefore share one intent store and one plan. The table omits a
+family whose complete discovery already has the definition name. ParameterUseSuggestionProjector scores Map From
+choices with AuthoringMapFromScorer.</p>
+<p>Repair ticks live in ParameterUseRepairStore, a session store per MappingIntentStore. They are not persisted. Each
+entry (ParameterUseRepair) holds the definition, the full-scan report and the SharedParameterRepairSelection. Ticks
+call SharedParameterRepairEligibility.Evaluate to open Move project binding and to show BindingBlockers. Dependent
+rows (Copy stored values, Move schedule uses, View filters) follow MovesBinding. PendingOperationState counts the
+store. CommitReviewFinalizer clears it on Keep, and RefreshAsync clears it.</p>
+<p>CommitReviewOperationBuilder.BuildOperationsAsync reads the store first. With a repair and any other pending
+operation, it adds RepairOnlyPlanIssue and returns no operation. PlanInitializationProjector then reports
+<code>Repair must be applied on its own</code> and disables Apply. Otherwise the plan holds one SharedParameterRepairOperation
+per repaired name (MappingOperationKind.RepairSharedParameter, ResolvedExecutionStage.SharedParametersRepair,
+ApplyChangeKind.SharedParametersRepair, stage name <code>Shared Parameters (Repair)</code>). A repair plan therefore never
+follows another stage and never reaches family-batch preparation. SharedParameterRepairWriter resolves the company
+definition, calls SharedParameterRepair.Plan and Apply through ISharedParameterRepairEngine inside the gate, and
+reports remaining hand-fix uses as operation warnings, so the result is Completed with Warnings. Core Apply scans
+again, compares SharedParameterRepairState, and runs both phases in its own transaction group inside the Commit
+Review apply group. A failure fails the operation, and GM rolls the attempt back.</p>
+<p>Binding safety: SharedParameterAuthoringService.ApplyHostBindAndCopyAsync inserts a binding only when the project has
+no SharedParameterElement with the GUID. An element without a binding uses SharedParameterMigration.Bind for an
+instance binding and refuses a type binding. A new category on an instance binding uses SharedParameterMigration.Rebind
+and refuses on a type binding. A change of binding kind refuses. The Map From copy runs after these in its own
+transaction. Before any change, SharedParameterGuidConflictGuard refuses a same-name non-shared parameter and a
+same-name SharedParameterElement with another GUID in the project. SharedParameterEmbedGuardedApplier also checks the
+family document. At plan time, CommitReviewOperationBuilder adds a GUID-conflict issue for each bound or embedded
+definition that ISharedParameterGuidConflictQuery reports, and Commit Review disables Apply.</p>
 <p>Map From reads numeric formula inputs at the Revit boundary. The preview evaluator does not parse displayed parameter text.
 Measured values use Revit's display unit. Preview output uses 15 significant digits.
 Numeric preview accepts signed/unsigned E/e exponents, including substituted invariant G15 values.

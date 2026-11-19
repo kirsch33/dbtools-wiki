@@ -392,8 +392,40 @@ Startup clears the loading state after the reads finish.</p>
 <li>A replacement material takes over the appearance and the physical and thermal properties of the new material everywhere the old one was used.</li>
 </ul>
 <h3 id="shared-parameters-tab">Shared Parameters tab</h3>
-<p>The tab adds shared parameters to families and categories, or maps existing parameters to shared parameters.</p>
-<p>The left panel shows a tree of curated categories (Doors, Mechanical Equipment, Walls, Windows), then families, then types, then up to five sampled instances of each type, labeled for example <code>Instance #1 (id:123456)</code>. Category labels show counts such as <code>Mechanical Equipment (12)</code>, and empty categories show <code>(0)</code> and are dimmed. The <strong>SP Authoring</strong> pane on the right shows a card for each shared parameter of the selected type. <strong>Close</strong> hides the pane.</p>
+<p>The tab adds shared parameters to families and categories, maps existing parameters to shared parameters, and repairs a shared parameter that has the company name but another GUID.</p>
+<p>The header has a <strong>By family</strong> / <strong>By parameter</strong> switch to the left of <strong>SP Group</strong>. <strong>SP Group</strong> applies to both views. The tab opens in By family each time. GM does not save the choice.</p>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Use it to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>By family</td>
+<td>Work on one family: add parameters, set <strong>Map From</strong> or a <strong>Formula</strong>, look at sampled values and instances.</td>
+</tr>
+<tr>
+<td>By parameter</td>
+<td>Work on one company parameter across many families: fill it or add it in many families at once, or repair a wrong GUID.</td>
+</tr>
+</tbody>
+</table>
+<p>The first visit to the tab loads the shared parameter groups and the categories, with a loading overlay once. Later expanding and collapsing, searching, and conflict updates do not show the overlay.</p>
+<h4 id="categories">Categories</h4>
+<p>The tree lists each category that holds a loadable family in the project, annotation categories included. In-place families are not loadable, so they are not listed. Category labels show counts such as <code>Mechanical Equipment (12)</code>. An empty category shows <code>(0)</code> and is dimmed.</p>
+<p>By default, the tree shows only the categories that hold a family with work to do, and the selected category. A family has work to do when one of these is true:</p>
+<ul>
+<li>It carries a parameter with the name of a definition in <strong>SP Group</strong> and another GUID.</li>
+<li>The last use scan in By parameter lists a label, an unread label or a nested family in it that you must fix by hand.</li>
+<li>A definition of <strong>SP Group</strong> is missing from the family, and a family parameter scores at or above <strong>Threshold</strong> as its <strong>Map From</strong> source. A family whose parameter discovery is incomplete does not count for this reason.</li>
+<li>A mapping of the family has <strong>Apply</strong> on and <strong>Map From</strong> with no source, or the mapping has a conflict.</li>
+</ul>
+<p>The category tool tip counts the reasons, for example <code>2 families to map · 1 wrong GUID</code>. The selected category shows <code>No work to do</code> when it has none. The tree computes the list again when the SP Group, the threshold, a mapping or a scan result changes. The selected category stays in the list until you select another one.</p>
+<p>Check <strong>Show all categories</strong> above the tree to show every category. The check box is off when the tab opens. In By parameter, the family table lists the families of the categories that the tree shows, so the check box applies to both views.</p>
+<h4 id="by-family">By family</h4>
+<p>The left panel shows the category tree, then families, then types, then up to five sampled instances of each type, labeled for example <code>Instance #1 (id:123456)</code>. The <strong>SP Authoring</strong> pane on the right shows a card for each shared parameter of the selected type. <strong>Close</strong> hides the pane.</p>
 <ol>
 <li>Select a group in <strong>SP Group</strong>.</li>
 <li>Expand a category and a family, and select a type. The panel shows the existing parameters with sampled values, and the shared parameters of the group.</li>
@@ -401,6 +433,14 @@ Startup clears the loading state after the reads finish.</p>
 <li>Optionally fill the new parameter from an existing one: set <strong>Source</strong> to <strong>Map From</strong> and choose the parameter in <strong>From</strong>, or set it to <strong>Formula</strong>, enter it in <strong>Fmla</strong> and click <strong>Set</strong>.</li>
 <li>Click <strong>Review Plan</strong>.</li>
 </ol>
+<p>A <strong>Map From</strong> card shows <code>← &lt;name&gt;</code> with the source name. The source card shows the <strong>FROM</strong> badge.</p>
+<p>Each card has the link <strong>Every use of this parameter →</strong>. It opens By parameter with that definition selected.</p>
+<p>When the project holds a definition of <strong>SP Group</strong> with a GUID that differs from the company file, the <strong>SP Authoring</strong> pane shows a warning above the cards:</p>
+<ul>
+<li><code>This project has &quot;&lt;name&gt;&quot; with a GUID that differs from the company file.</code></li>
+<li><code>This family carries &quot;&lt;name&gt;&quot; with a GUID that differs from the company file.</code> when GM knows that the selected family carries it.</li>
+</ul>
+<p>The link <strong>Review every use →</strong> opens By parameter in repair mode for that name.</p>
 <table>
 <thead>
 <tr>
@@ -411,7 +451,7 @@ Startup clears the loading state after the reads finish.</p>
 <tbody>
 <tr>
 <td>Clear</td>
-<td>Adds the parameter to the category as a project parameter. If the parameter already has a binding, GM adds the category to it, keeps its group and refuses a change between instance and type.</td>
+<td>Adds the parameter to the category as a project parameter. If the parameter already has a binding, GM adds the category to it and keeps its group. See Binding rules.</td>
 </tr>
 <tr>
 <td>Checked</td>
@@ -429,8 +469,156 @@ Startup clears the loading state after the reads finish.</p>
 <li>A value that cannot be read this way is not written. Examples are a Yes/No into a Number, <code>300 mm</code> into an Integer, or a level or phase name into another element parameter. Commit Review lists the operation as Failed, with the value, the parameter and the reason, and writes none of its values.</li>
 </ul>
 <p>The Formula preview reads values by the same rules, including a measured value in the unit it shows. When a value cannot be read as a number, the preview shows that it is unavailable and names the parameter. The preview cannot evaluate functions such as <code>if</code>; it shows that it is unavailable and names the function.</p>
-<p>The first visit to the tab loads the shared parameter groups and the curated categories, with a loading overlay once. Later expanding and collapsing, searching, and conflict updates do not show the overlay.</p>
-<p>The instance navigator, beside <strong>SP Group</strong>, steps through the sampled instances of the selected type with the previous and next buttons, and selects that instance in the tree. <strong>Zoom</strong> shows the current instance in Revit, even when it is not in the active view. With <strong>Auto-zoom</strong> checked, each step also zooms to the new instance.</p>
+<p>The instance navigator, beside <strong>SP Group</strong>, steps through the sampled instances of the selected type with the previous and next buttons, and selects that instance in the tree. <strong>Zoom</strong> shows the current instance in Revit, even when it is not in the active view. With <strong>Auto-zoom</strong> checked, each step also zooms to the new instance. The instance navigator, <strong>Auto-zoom</strong> and <strong>Zoom</strong> show in By family only.</p>
+<h4 id="by-parameter">By parameter</h4>
+<p>The left side, <strong>1 · Pick a parameter</strong>, lists the definitions of <strong>SP Group</strong>. Each item shows one status line:</p>
+<ul>
+<li><code>Company · &lt;n&gt; families have this name</code>: <code>&lt;n&gt;</code> counts the families of the shown categories whose parameter names include the definition name. It counts names, not GUIDs.</li>
+<li>A warning icon and <code>Two GUIDs in this project</code>: the project holds a shared parameter with that name and another GUID. This status comes from a scan of the whole project, so it shows even when the tree hides the family.</li>
+</ul>
+<p>Select a definition to show its uses on the right. A definition with <code>Two GUIDs in this project</code> opens the repair table. Every other definition opens the family table. <strong>Every use of this parameter →</strong> in By family always opens the family table.</p>
+<p>Below the table, <code>Other uses found:</code> lists the uses of the company GUID, for example <code>Project binding: Structural Foundations · instance</code>. It shows <code>Labels: not scanned</code> until a full use scan has run.</p>
+<h5 id="fill-or-add-one-parameter-in-many-families">Fill or add one parameter in many families</h5>
+<p>The family table has the title <code>Every use of &lt;name&gt;</code> and the hint <code>Tick the families to fill or re-point.</code> It lists each family of the shown categories that has at least one type. A family that already has a parameter with the definition name is not listed.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apply</td>
+<td>Checked adds the definition to every type of the family.</td>
+</tr>
+<tr>
+<td>Family</td>
+<td><code>&lt;family&gt; · &lt;n&gt; placed</code>. <code>No match · choose</code> shows when no family parameter scores at or above <strong>Threshold</strong>. <code>By family selections differ</code> shows when the types of the family have different mappings.</td>
+</tr>
+<tr>
+<td>Fill from (suggested)</td>
+<td><code>— (no value)</code>, then the family's parameters, sorted by score, for example <code>FLOW_RATE (92%)</code>. GM selects the best parameter when it scores at or above <strong>Threshold</strong>, else <code>— (no value)</code>. When the ticked types of a family all map from one source, the row shows that source and adds it to the list if needed. <code>— (no value)</code> means no <strong>Map From</strong>: GM adds the parameter with no value.</td>
+</tr>
+<tr>
+<td>Go to</td>
+<td><strong>Open in By family</strong> selects the family and its first type in By family. It checks <strong>Show all categories</strong> when the tree hides the family's category.</td>
+</tr>
+</tbody>
+</table>
+<p>To fill one company field across many families:</p>
+<ol>
+<li>Select a group in <strong>SP Group</strong>, then click <strong>By parameter</strong>.</li>
+<li>Select the definition in <strong>1 · Pick a parameter</strong>.</li>
+<li>Choose <strong>Embed In Family</strong> and <strong>Binding</strong> (<strong>Instance</strong> or <strong>Type</strong>) above the table. They apply to every ticked family, with the same meaning as on the By family card. <strong>Binding</strong> starts at <strong>Type</strong>.</li>
+<li>For each family, read the source in <strong>Fill from (suggested)</strong>. Choose another source where the suggestion is wrong or the row shows <code>No match · choose</code>.</li>
+<li>Check <strong>Apply</strong> on each family to fill.</li>
+<li>Click <strong>Review Plan</strong>.</li>
+</ol>
+<p>To add a company parameter to many families with no value, do the same steps, and choose <code>— (no value)</code> in <strong>Fill from (suggested)</strong> on each family.</p>
+<p>A tick in By parameter writes the same mappings that By family writes, one for each type of the family. A change in one view shows in the other view, and both views use one plan.</p>
+<h5 id="repair-a-parameter-with-another-guid">Repair a parameter with another GUID</h5>
+<p>A parameter has a wrong GUID when it has the name of a company definition but another GUID. Revit treats the two as different parameters. GM moves each use of the old GUID to the company definition, keeps every value, or refuses.</p>
+<p>When you select a definition with <code>Two GUIDs in this project</code>, GM scans the project and opens every editable loadable family, under a progress overlay (<code>Scanning shared parameter uses...</code>). The overlay has <strong>Cancel</strong>. When you cancel the first scan of a definition, or it fails, the table shows <code>Scan the families first.</code> GM keeps a finished result until a <strong>Scan again</strong> finishes, you keep an apply, or you close GM.</p>
+<p>The repair table has the title <code>Every use of the old GUID</code>, the hint <code>Tick the uses to move.</code> and <code>Re-point to &lt;name&gt; (company GUID)</code>. Its columns are <strong>Move</strong>, <strong>Use</strong>, <strong>Where</strong>, <strong>Reason</strong> and <strong>Go to</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Use</th>
+<th>Move</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Move project binding</td>
+<td>Tick it to move the project parameter, its binding, its values, its schedule fields and its view filter rules. It can be ticked only when every other use is ready (see the steps below). <strong>Reason</strong> names what keeps it closed.</td>
+</tr>
+<tr>
+<td>Move family parameter</td>
+<td>One row for each family. Tick it to move the family parameter, with its formulas, dimension labels and associated parameters.</td>
+</tr>
+<tr>
+<td>Labels · fix by hand</td>
+<td>Not ticked. <strong>Where</strong> reads <code>&lt;family&gt;: &lt;n&gt; labels in groups &lt;names&gt;</code>. <strong>Reason</strong> says what to change.</td>
+</tr>
+<tr>
+<td>Family use · fix by hand</td>
+<td>Not ticked. A nested family or an unread label that you fix by hand.</td>
+</tr>
+<tr>
+<td>Copy stored values</td>
+<td>Follows <strong>Move project binding</strong>. You cannot change it.</td>
+</tr>
+<tr>
+<td>Move schedule uses</td>
+<td>Follows <strong>Move project binding</strong>. You cannot change it.</td>
+</tr>
+<tr>
+<td>View filters</td>
+<td>Follows <strong>Move project binding</strong>. You cannot change it.</td>
+</tr>
+</tbody>
+</table>
+<p>A row that GM cannot move safely shows the reason and has no tick. <strong>Open in By family</strong> on a family or label row selects that family in By family.</p>
+<p><strong>Scan again</strong>, next to <code>Re-point to</code>, runs the full scan again for the selected definition, for example after you fix a family by hand. A tick stays when the new scan lists the row again and the row can still be ticked. GM clears every other tick. If the scan fails or you click <strong>Cancel</strong>, the table keeps the earlier result.</p>
+<p>The repair runs in two phases, because deleting the old project parameter also removes it from the labels of loaded families:</p>
+<ul>
+<li><strong>Phase 1</strong> moves the ticked family parameters. The old project parameter, its binding, schedule fields, filter rules and values stay. GM refuses phase 1 alone while a schedule field or a filter rule uses the old GUID, because the moved families would no longer fill it. Move the project binding in the same apply instead. When labels also remain, so the project binding cannot move yet, take the field out of the schedule or the rule out of the filter, repair, and then add them back with the company parameter.</li>
+<li><strong>Phase 2</strong> moves the project binding. It runs only when <strong>Move project binding</strong> is ticked, every family parameter is ticked, and no use is left to fix by hand or blocked.</li>
+</ul>
+<p>To repair a parameter:</p>
+<ol>
+<li>Select the definition with <code>Two GUIDs in this project</code>, or click <strong>Review every use →</strong> in By family. Wait for the scan.</li>
+<li>If the table shows <code>Scan the families first.</code>, the scan did not finish or Revit did not open every editable family. Close any family that is open in the Family Editor, then click <strong>Scan families</strong>.</li>
+<li>Tick <strong>Move family parameter</strong> on each family that can move.</li>
+<li>Read each <strong>Labels · fix by hand</strong> and <strong>Family use · fix by hand</strong> row. These uses keep <strong>Move project binding</strong> closed.</li>
+<li>Tick <strong>Move project binding</strong> if it is open.</li>
+<li>Click <strong>Review Plan</strong>, then <strong>Apply</strong> in Commit Review.</li>
+</ol>
+<p>When labels remain, apply phase 1 first. Then fix the labels by hand:</p>
+<ol>
+<li>Click <strong>Open in By family</strong> on the label row, or open the family in the Family Editor.</li>
+<li>Edit each listed label. In a detail group, edit the group first. Replace the parameter with the parameter of the same name and the company GUID, and keep its formatting.</li>
+<li>Load the family into the project again, and close it in the Family Editor.</li>
+<li>Click <strong>Scan again</strong>. <strong>Move project binding</strong> opens when no hand-fix use remains.</li>
+</ol>
+<p>Revit 2026 does not let DB Tools read annotation labels. In Revit 2026, an annotation family that contains the old GUID directly shows a <strong>Family use · fix by hand</strong> row, with <code>Family '&lt;family&gt;' contains unread label uses of '&lt;name&gt;'</code>. The row stays while the family contains the old GUID, even after you fix every label. Fix the labels, then use <strong>Purge Unused</strong> in the Family Editor to remove the unused parameter, and load the family again.</p>
+<p>A repair must be the only change in a plan. When other mappings are pending, <strong>Review Plan</strong> shows <code>Apply the repair on its own: clear the other mappings, or apply them first.</code> and <strong>Apply</strong> is disabled.</p>
+<p>In Commit Review, the repair shows in the Shared Parameters section as <code>Old GUID uses</code> → <code>&lt;name&gt; (company GUID)</code>, in the stage <code>Shared Parameters (Repair)</code>. At <strong>Apply</strong>, GM scans again. If the project changed after <strong>Review Plan</strong>, the repair fails with <code>The project changed after Review Plan. Review the plan again.</code> and changes nothing. A failure or <strong>Cancel</strong> in either phase rolls back the whole attempt, phase 1 included. When hand-fix uses remain after a successful repair, Commit Review shows <strong>Completed with Warnings</strong>, with one <code>Manual shared parameter repair remains: &lt;text&gt;</code> warning for each use.</p>
+<p><strong>Keep + Continue</strong> and <strong>Keep + Close GM</strong> clear the repair ticks and the use scan results. GM does not save repair ticks.</p>
+<h4 id="binding-rules">Binding rules</h4>
+<p>These rules apply to both views when GM binds a shared parameter to a category.</p>
+<table>
+<thead>
+<tr>
+<th>Project state</th>
+<th>GM does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The project does not hold the parameter</td>
+<td>Binds it.</td>
+</tr>
+<tr>
+<td>The project holds the parameter with no binding (families define it)</td>
+<td>Instance binding: records the values that loaded families hold, binds, and writes the values back. Type binding: refuses with <code>Binding &quot;&lt;name&gt;&quot; as a type parameter could change values that loaded families hold. Bind it as an instance parameter.</code></td>
+</tr>
+<tr>
+<td>An instance binding exists</td>
+<td>Adds the category and keeps every value and the setting that lets values vary between group instances.</td>
+</tr>
+<tr>
+<td>A type binding exists</td>
+<td>Refuses with <code>GM cannot add a category to the type binding of &quot;&lt;name&gt;&quot; and prove that every value stays. Add the category in Manage &gt; Project Parameters.</code></td>
+</tr>
+<tr>
+<td>The binding kind would change between instance and type</td>
+<td>Refuses.</td>
+</tr>
+</tbody>
+</table>
+<p>GM does not add a second GUID for one name. When the project, or the target family for <strong>Embed In Family</strong>, already has the name with another GUID, <strong>Review Plan</strong> lists <code>&quot;&lt;name&gt;&quot; already exists in this project with another GUID. Repair it in By parameter first.</code> and <strong>Apply</strong> is disabled. GM checks again at apply, before it changes the project or the family. A family loaded between review and apply therefore fails the operation, and GM rolls the attempt back. GM also refuses when a project or family parameter with the name is not shared.</p>
 <h3 id="deep-scan">Deep scan</h3>
 <p>Some family details, such as embedded parameters and nested families, need a deep scan. A deep scan opens the family document. It is always started by you; GM does not scan when you expand a row.</p>
 <p>A deep scan is needed to:</p>
@@ -631,6 +819,30 @@ Startup clears the loading state after the reads finish.</p>
 <td><code>Configure a Revit shared parameter file that has at least one group to use this tab.</code></td>
 <td>The Shared Parameters tab is disabled. Set a shared parameter file in Revit.</td>
 </tr>
+<tr>
+<td><code>Apply the repair on its own: clear the other mappings, or apply them first.</code></td>
+<td>A plan holds a repair and other mappings. Commit Review shows <code>Repair must be applied on its own</code>, and <strong>Apply</strong> is disabled.</td>
+</tr>
+<tr>
+<td><code>&quot;&lt;name&gt;&quot; already exists in this project with another GUID. Repair it in By parameter first.</code></td>
+<td>A bind or embed would add a second GUID for the name. Repair the parameter first. At plan time, Commit Review shows <code>Shared parameter GUID conflicts prevent Apply</code>.</td>
+</tr>
+<tr>
+<td><code>The project changed after Review Plan. Review the plan again.</code></td>
+<td>The repair scan at apply found a change since the review. Nothing changed.</td>
+</tr>
+<tr>
+<td><code>Binding &quot;&lt;name&gt;&quot; as a type parameter could change values that loaded families hold. Bind it as an instance parameter.</code></td>
+<td>Loaded families define the parameter and the project does not bind it.</td>
+</tr>
+<tr>
+<td><code>GM cannot add a category to the type binding of &quot;&lt;name&gt;&quot; and prove that every value stays. Add the category in Manage &gt; Project Parameters.</code></td>
+<td>The parameter has a type binding.</td>
+</tr>
+<tr>
+<td><code>Manual shared parameter repair remains: &lt;text&gt;</code></td>
+<td>An operation warning after a repair. Fix the named use by hand.</td>
+</tr>
 </tbody>
 </table>
 <p>Inline texts:</p>
@@ -638,6 +850,8 @@ Startup clears the loading state after the reads finish.</p>
 <li><code>Deep scan to unlock details for families without instances</code> (row tooltip): the family has no instances and no deep scan. Run <strong>Scan Family</strong>.</li>
 <li><code>Parameter scanning is unavailable; parameter mapping is disabled.</code> and <code>No mappable parameters detected for this family.</code> (Parameters detail tab).</li>
 <li><code>line-style targets pending Usage indexing</code> (Duplicates row): wait until indexing ends.</li>
+<li><code>Scan the families first.</code> (By parameter repair table): the scan did not finish, or Revit did not open every editable family. Click <strong>Scan families</strong>.</li>
+<li><code>No families in the shown categories.</code> (By parameter family table): no family of the shown categories can take the parameter. Check <strong>Show all categories</strong>.</li>
 </ul>
 <p>When an action fails unexpectedly, GM shows an error banner titled with the action, for example <code>GM Duplicate Type Mapping</code>, <code>GM Deep Scan</code> or <code>GM Clear Saved Mappings</code>, followed by the error text. The action changes nothing. Retry it, and read the DB Tools log if it fails again.</p>
 <p>If <strong>Review Plan</strong> is disabled, no mapping is applied, or a blocking conflict exists. If the target list is empty, the category has no other family. If some instances were not replaced, open the family and check that every type is mapped.</p>
@@ -647,7 +861,22 @@ Startup clears the loading state after the reads finish.</p>
 <li>A family can only be replaced by a family of the same category.</li>
 <li>Line style and object style scopes are limited as described above: curves in multi-instance groups are not restyled, and the Object Styles tab covers Detail Items subcategories only.</li>
 <li>Commit time grows with the number of elements and families. A few dozen changes finish at once; thousands can take minutes. The progress overlay shows the state.</li>
-<li>The Shared Parameters tab lists the curated categories only: Doors, Mechanical Equipment, Walls and Windows.</li>
+<li>The Revit API cannot change an annotation label. GM lists each label that uses an old GUID, and you fix it by hand.</li>
+<li>Revit 2026 does not let DB Tools read annotation labels. An annotation family that contains an old GUID keeps the binding move closed until the family no longer contains it.</li>
+<li>A repair changes the families loaded in the project, not the family files on disk. A family loaded again from an old file brings the old GUID back.</li>
+<li>A repair moves uses only to the company definition with the same name. To move values between two names, use <strong>Map From</strong>.</li>
+<li>GM does not repair these cases. The row shows the reason and has no tick:
+<ul>
+<li>The project already binds the company GUID.</li>
+<li>More than one other GUID with the name has a project parameter.</li>
+<li>A combined parameter schedule field, a schedule with a calculated field (Revit counts a percentage field as one), or a schedule filter value that GM cannot carry.</li>
+<li>A view filter rule or evaluator that GM cannot carry and verify.</li>
+<li>A non-editable nested family that DB Tools cannot inspect, in a family that uses the old GUID directly (not as a family parameter).</li>
+</ul>
+</li>
+<li>GM moves a family parameter even when its family has a non-editable nested family. If a hidden use keeps the old GUID after the reload, GM refuses the move and rolls the attempt back.</li>
+<li>A schedule field that shows totals, a minimum or a maximum that the company parameter's field cannot show refuses the binding move at apply.</li>
+<li>By parameter has no <strong>Formula</strong> source. Write formulas in By family.</li>
 </ul>
 
 </article>
