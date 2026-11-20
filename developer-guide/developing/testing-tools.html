@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Testing Tools | DB Tools </title>
+      <title>Testing Tools | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Testing Tools | DB Tools ">
+      <meta name="title" content="Testing Tools | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -122,8 +122,9 @@ Choose the scope for the behavior you need to test:</p>
 </table>
 <p>BUILD includes Linux-native contract tests and Windows Sandbox Pure tests.
 DIST selects Windows distribution acceptance and requires the daemon.
-Daemon runs use a hidden desktop. Windows Pure tests can also run locally on
-Windows with the required runtimes installed.</p>
+GALLERY selects the Windows Pure render gallery and requires the daemon.
+Daemon runs use a hidden desktop. Other Windows Pure tests can also run locally
+on Windows with the required runtimes installed.</p>
 <p>See <a href="../architecture/test-pipeline.html">Test Pipeline</a> for project membership,
 routing, staged inputs, and daemon adapter design.</p>
 <h2 id="build-and-validation-commands">Build and validation commands</h2>
@@ -275,8 +276,8 @@ Selected test graph targets reject <code>--clean</code> and <code>--DryRun</code
 reference with <code>./build.sh --help</code> or <code>pwsh -NoProfile -File build.ps1 --help</code>.</p>
 <pre><code class="lang-bash">./build.sh BuildApp -y 2026
 ./build.sh Restore --Years 2026,2027
-./build.sh BuildSelectedLocalTests --TestProjects DBTools.GM.Local.Tests -y 2026
-./build.sh BuildSelectedPureTests --TestProjects DBTools.GM.Pure.Tests
+./build.sh BuildSelectedLocalTests --TestProjects dbtools.GM.Local.Tests -y 2026
+./build.sh BuildSelectedPureTests --TestProjects dbtools.GM.Pure.Tests
 ./build.sh BuildTests
 </code></pre>
 <p>Build logs and child binlogs live under <code>.artifacts/build/&lt;build-id&gt;/</code>.
@@ -299,11 +300,11 @@ component resource URI check. It also runs the CANON gate, the MAP.md check and
 reason, and prints that they did not run, only for a push of one ref that
 fast-forwards an existing remote branch to the checked-out <code>HEAD</code> with new
 commits whose paths are all documentation or agent guidance: <code>wiki/</code>, <code>docs/</code>,
-<code>.agents/</code>, <code>.desloppify/</code>, <code>.claude/</code>, top-level <code>*.md</code> files and
-<code>desloppify.sh</code>. <code>.agents/canon/</code> and every file in <code>.agents/work/</code> except its
-<code>tests/</code> and Markdown files are inputs of these checks. A new branch, a
-deletion, a rewind or rewrite, several refs, a pushed commit other than <code>HEAD</code>
-and a commit that the remote already has run every check.</p>
+<code>.agents/</code>, <code>.claude/</code> and top-level <code>*.md</code> files. <code>.agents/canon/</code> and every
+file in <code>.agents/work/</code> except its <code>tests/</code> and Markdown files are inputs of
+these checks. A new branch, a deletion, a rewind or rewrite, several refs, a
+pushed commit other than <code>HEAD</code> and a commit that the remote already has run
+every check.</p>
 <p>Run by hand without arguments, the hook compares the working tree, untracked
 files included, with the upstream branch of <code>HEAD</code>, and uploads nothing to Git
 LFS. Without an upstream branch, or when <code>HEAD</code> does not contain it, every check
@@ -361,7 +362,7 @@ year or <code>DBTOOLS_DAEMON_REVIT_YEARS</code>. Pure-only requests are year-fre
 <tbody>
 <tr>
 <td><code>--tool TOOL[,TOOL]</code></td>
-<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>PRESENTATION</code>, <code>DA-SENTINEL</code>, <code>DIST</code>.</td>
+<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>PRESENTATION</code>, <code>DA-SENTINEL</code>, <code>DIST</code>, <code>GALLERY</code>.</td>
 </tr>
 <tr>
 <td><code>--scope SCOPE[,SCOPE]</code></td>
@@ -393,7 +394,7 @@ year or <code>DBTOOLS_DAEMON_REVIT_YEARS</code>. Pure-only requests are year-fre
 </tr>
 <tr>
 <td><code>--changed-since REV</code></td>
-<td><code>test</code> only: select affected owners. Documentation and agent guidance select none; when no other path changed, run no tests. Unknown inputs select all.</td>
+<td><code>test</code> only: select affected owners. Documentation and agent guidance select none; when no other path changed, run no tests. DIST and GALLERY are affected owners only when <code>--tool</code> names them; a path that only they read selects no other owner. Unknown inputs select all.</td>
 </tr>
 <tr>
 <td><code>--compile-only</code>, <code>--build-only</code></td>
@@ -433,9 +434,9 @@ expression to each printed method.</p>
 <p>Unknown project paths, paths outside the selected tool/scope, invalid selector
 combinations, and empty required selections fail with exit 2. There is no
 arbitrary <code>dotnet</code> argument passthrough after <code>--</code>.</p>
-<p>The APP Pure selection is <code>DBTools.App.Pure.Tests</code>. APP Local also includes
-<code>DBTools.App.HostedTurns.Local.Tests</code>. All three App test projects link
-<code>ProfileIsolationTestAssemblySetup</code>. It redirects the DBTools profile to a temporary
+<p>The APP Pure selection is <code>dbtools.App.Pure.Tests</code>. APP Local also includes
+<code>dbtools.App.HostedTurns.Local.Tests</code>. All three App test projects link
+<code>ProfileIsolationTestAssemblySetup</code>. It redirects the dbtools profile to a temporary
 root and checks the real profile for test logs and fallback records from the test
 process. Teardown restores the profile root and reports <code>realProfileUntouched=True</code>
 when these checks pass.</p>
@@ -445,15 +446,15 @@ Local test assembly's embedded resource. Real-tool composition and XAML tests us
 the tool projects they reference.</p>
 <p>CORE selects both Windows and portable Pure projects, or both Core Local and
 HostedTurns Local projects. PRESENTATION selects
-<code>DBTools.Presentation.Pure.Tests</code> or <code>DBTools.Presentation.Local.Tests</code>; it owns
+<code>dbtools.Presentation.Pure.Tests</code> or <code>dbtools.Presentation.Local.Tests</code>; it owns
 every Presentation test, including the tests of tool-specific Presentation
 types. A Local request without <code>--tool</code> includes the App, Core and Presentation
 Local projects and every tool Local project. SGT Pure
 selects its Windows and portable projects. RECORDSET Pure defaults to
-<code>DBTools.RecordSet.Pure.Tests</code>.
-<code>DBTools.RecordSet.Cad.Pure.Tests</code> declares <code>DBT_OptInTests=true</code> and contains only <code>CadLiveTests</code>.
+<code>dbtools.RecordSet.Pure.Tests</code>.
+<code>dbtools.RecordSet.Cad.Pure.Tests</code> declares <code>DBT_OptInTests=true</code> and contains only <code>CadLiveTests</code>.
 Default project selections exclude projects with this property, including global Pure selections.
-<code>--fixture CadLiveTests</code> or <code>--project src/Tools/Experimental/RecordSet/Tests/DBTools.RecordSet.Cad.Pure.Tests.csproj</code>
+<code>--fixture CadLiveTests</code> or <code>--project src/Tools/Experimental/RecordSet/Tests/dbtools.RecordSet.Cad.Pure.Tests.csproj</code>
 selects the CAD project. It requires AutoCAD.
 A selected project with zero executed tests still fails admission.
 Tool project selection follows the
@@ -565,7 +566,7 @@ belongs to daemon configuration.</p>
 <h3 id="distribution-acceptance">Distribution acceptance</h3>
 <p>DIST is a closed acceptance command, not an ordinary tool suite. It requires
 <code>test --tool DIST --scope pure</code>, automatic machine selection, and the exact
-filter <code>FullyQualifiedName=DBTools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidate</code>.
+filter <code>FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidate</code>.
 Supply <code>--result-json</code> and exactly one <code>--include</code> file named
 <code>validate-dist-&lt;64 lowercase hex digits&gt;.zip</code>. The archive contains the complete
 candidate, references, and Sandbox payload. Other tools, fixture selectors,
@@ -574,6 +575,90 @@ explicit machine pins, and arbitrary include files are rejected.</p>
 validates it before launching a fresh Sandbox for every supported year. Its
 compile-only selection builds the test graph without requiring an archive or
 executing acceptance.</p>
+<h3 id="render-gallery">Render gallery</h3>
+<p>GALLERY selects <code>dbtools.Presentation.Gallery.Pure.Tests</code>; default Pure
+selections exclude it, and it always runs through the daemon. Each fixture
+opens product surfaces with sample data in their production tool shells,
+renders each one with <code>RenderTargetBitmap</code> and attaches the PNG files to its
+test result with <code>TestContext.AddTestAttachment</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Fixture</th>
+<th>Surfaces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CatalogWindowGalleryTests</code></td>
+<td>Every Sandbox catalog window (manifest <code>sandboxWindows</code>) with its design-time ViewModel, in the shell of its window kind</td>
+</tr>
+<tr>
+<td><code>CatalogStateGalleryTests</code></td>
+<td>Catalog windows in further sample states: TDV errors, SGT closed flyout and section preview, RecordSet select step and busy</td>
+</tr>
+<tr>
+<td><code>AlertWindowGalleryTests</code></td>
+<td>The alert window, opened by <code>AlertWindowPresenter</code>: a confirmation and single and multiple selections built by the <code>IAlertService</code> extensions, the reset and load-problem alerts of <code>SettingsAlertRequestBuilder</code>, and sample message, banner-and-table, text-input, tabbed composite and long-text requests</td>
+</tr>
+<tr>
+<td><code>VtcAlertGalleryTests</code></td>
+<td>The View Template Comparer alerts: the custom bodies with their templates, the category override editor, also with the color picker popup of a swatch open and drawn at its place, and the destructive confirmation</td>
+</tr>
+<tr>
+<td><code>SettingsWindowGalleryTests</code></td>
+<td>The product Settings window over the TDV, ElevationTags, JoistGirderWeight and DialogSuppression settings packs, from sample saved settings: defaults, populated, warnings and pending changes; each pack also renders alone. The FoundationTags pack reads the Revit application and is not part of it. An alert or a banner fails the shot.</td>
+</tr>
+<tr>
+<td><code>LoggerWindowGalleryTests</code></td>
+<td>The logger window with the product view model and window options, without and with entries</td>
+</tr>
+<tr>
+<td><code>NotificationBannerGalleryTests</code></td>
+<td>The notification banner strip, as wide as its owner window and sized by its height controller: each kind, actions, stacks, long text</td>
+</tr>
+<tr>
+<td><code>ProgressOverlayGalleryTests</code></td>
+<td>The progress overlay over a tool window</td>
+</tr>
+<tr>
+<td><code>ToolDialogGalleryTests</code></td>
+<td>GM duplicate type mapping, RecordSet manage items, VTC Revit link settings and SGT change review dialogs</td>
+</tr>
+</tbody>
+</table>
+<p>Render and collect the gallery:</p>
+<pre><code class="lang-bash">./test.sh test --tool GALLERY --result-json .artifacts/test-results/gallery.json
+python3 -I build/Testing/gallery.py collect \
+  --result-json .artifacts/test-results/gallery.json --out .artifacts/gallery/RUN
+</code></pre>
+<p>Add <code>--fixture NAME</code> to render one fixture. <code>collect</code> saves the attachments of
+each child job with <code>dbtools-daemon-cli report --job ID --attachments --json</code>
+below <code>RUN/attachments/</code> and writes <code>RUN/index.html</code>. <code>RUN</code> must not exist. The
+index groups the renders by surface and state, and lists each test with its
+outcome and failure message; tests without renders follow. Failed downloads
+and attachments that the daemon dropped come first, and <code>collect</code> then exits
+1.</p>
+<p>A file is named <code>SURFACE--STATE--VARIANT--THEME.png</code>. VARIANT is <code>window</code>
+(the default size), <code>scale-150</code> (the same layout at 144 DPI), <code>tab-C-T-HEADER</code>
+(tab T of tab control C, for the tab controls visible before the first tab
+changes), <code>minimum</code> (the minimum window size) or a render that one fixture
+adds, such as <code>pack-KEY</code>, <code>color-picker</code> or <code>on-revit-dark</code>. THEME is <code>dark</code>.</p>
+<p>A render covers the window client area. The gallery lifts the Windows limit
+that keeps a window within the display. A shot fails when a window dimension
+that does not follow its content is smaller than requested, or differs from
+the window's <code>Width</code> or <code>Height</code>. The title bar is not part of the client
+area. A drop-down, tooltip or popup renders only where a fixture opens
+it. Before each render the gallery waits for queued dispatcher work and then a
+fixed 400 ms for theme transitions. A modal shot fails when it runs longer than
+8 seconds; <code>ToolWindowDialog</code> closes a modal window after 10 seconds.</p>
+<p>A test fails when its window does not open, render or retire, when a close
+failure reaches the tool-window diagnostics, when the window's error boundary
+handles an error, when the error boundary or a fixture's notifier shows a
+banner, or when WPF reports a binding error in the test process between the
+window's creation and its retirement. The binding errors are attached as
+<code>SURFACE--STATE--binding-errors--THEME.txt</code>; the PNG files and that file are
+attached before the check.</p>
 <h2 id="discovery-and-examples">Discovery and examples</h2>
 <p>These commands inspect selections without submitting tests:</p>
 <pre><code class="lang-bash">./test.sh --help
@@ -600,7 +685,7 @@ Use explicit scopes and the smallest relevant fixture while iterating.</p>
 <p>BUILD selects two Linux-native contract projects and Sandbox's Windows Pure
 project. To run only the Linux-native projects:</p>
 <pre><code class="lang-bash">./test.sh test --tool BUILD --scope pure \
-  --project testing/DBTools.Build.Tests/DBTools.Build.Tests.csproj,testing/DBTools.Distribution.Tests/DBTools.Distribution.Tests.csproj
+  --project testing/dbtools.Build.Tests/dbtools.Build.Tests.csproj,testing/dbtools.Distribution.Tests/dbtools.Distribution.Tests.csproj
 </code></pre>
 <p>On Windows, Linux-native BUILD projects and <code>*.Portable.Pure.Tests</code> are skipped
 before compilation with a notice. Explicitly selecting only native projects
@@ -649,11 +734,6 @@ describes how the entries are built.</p>
 <p>Create test projects beneath the production owner's <code>Tests/</code> directory. Follow
 <a href="../architecture/test-pipeline.html#test-projects">Test Pipeline</a> for project
 properties, source membership, portable targets, and runtime dependencies.</p>
-<p>A Desloppify score epoch reads each <code>testing/**/*.cs</code> path as <code>&quot;test&quot;</code> from
-<code>.desloppify/config.json</code> <code>zone_overrides</code>. Pushes do not check these entries.
-Before an epoch, update them and check them with:</p>
-<pre><code class="lang-bash">python3 .agents/checks/integrity.py
-</code></pre>
 <h2 id="testsupport-and-fixture-inputs">TestSupport and fixture inputs</h2>
 <p><code>testing/TestSupport</code> contains source-linked shared helpers, not replacement
 product behavior:</p>
@@ -667,7 +747,7 @@ product behavior:</p>
 <tbody>
 <tr>
 <td><code>Execution/</code></td>
-<td><code>[RevitLocal]</code> and <code>[RevitDA]</code> attributes in <code>DBTools.Tests.Shared.Execution</code>.</td>
+<td><code>[RevitLocal]</code> and <code>[RevitDA]</code> attributes in <code>dbtools.Tests.Shared.Execution</code>.</td>
 </tr>
 <tr>
 <td><code>Paths/</code></td>
@@ -703,7 +783,7 @@ product behavior:</p>
 and <code>AllBanners</code>. <code>RecordingProgressOverlay</code> exposes Show/Hide counts and step
 updates. Assert product outcomes in addition to boundary observations.
 Shared doubles live in <code>testing/TestSupport/Fakes</code> under
-<code>DBTools.Tests.Shared.Fakes</code>. <code>InlineSafeExecutor</code> exposes <code>RunCount</code> and
+<code>dbtools.Tests.Shared.Fakes</code>. <code>InlineSafeExecutor</code> exposes <code>RunCount</code> and
 <code>OptionsHistory</code>. <code>InlineTransactionRunner</code> exposes <code>RunCount</code> and
 <code>TransactionNames</code>. Use the production executor, transaction service, or call
 gate when its behavior is the subject of the test.</p>
@@ -971,7 +1051,7 @@ When <code>XDG_STATE_HOME</code> is unset or not absolute, it uses
 <code>$HOME/.local/state/dbtools/design-automation/ledger.jsonl</code>.
 <code>HOME</code> must be set to an absolute path.
 <code>HOME</code> and <code>XDG_STATE_HOME</code> must not contain a <code>..</code> path segment.
-No runner option or DBTools environment variable changes this path.
+No runner option or dbtools environment variable changes this path.
 The runner sets the directory and ledger file permissions for the account owner only.</p>
 <p>The first ledger record must initialize prior account usage for the current UTC month.
 Empty, missing and invalid ledgers stop the run before a WorkItem is submitted.
@@ -1118,7 +1198,7 @@ these prerequisites. See the <a href="../architecture/test-pipeline.html">test p
 for the complete artifact selection and its clean-source requirement.
 <code>DistributionContractTests</code> inspect real output references and reject bundled
 Revit host DLLs. Revit supplies those DLLs at runtime.</p>
-<p><code>DevModeCollectibleUnloadTests</code> (in <code>DBTools.Distribution.Tests</code>) checks on
+<p><code>DevModeCollectibleUnloadTests</code> (in <code>dbtools.Distribution.Tests</code>) checks on
 Linux that a Dev Mode generation unloads. For each of 2026 and 2027 it loads
 the <code>BuildAll</code> output into a collectible <code>AssemblyLoadContext</code>, composes it,
 unloads it and requires the context to be collected:</p>
@@ -1132,13 +1212,13 @@ WPF or Revit UI static initializer that fails on Linux is left out; the test
 lists these singletons and fails when the list changes.</li>
 </ul>
 <p>A host context stands in for the Revit process. It holds
-<code>DBTools.Presentation</code>, <code>DBTools.HandyControl</code>, the Windows Desktop runtime
+<code>dbtools.Presentation</code>, <code>dbtools.HandyControl</code>, the Windows Desktop runtime
 pack rewritten as IL-only images, and the year's Revit API reference packages
 rewritten as IL-only images whose methods throw. The test project restores the
 runtime pack that the pinned SDK bundles; <code>BuildAll</code> restores the Revit
 packages. No window opens and no Revit call runs, so Revit-side caches, Revit
 events and WPF resource lookups after a reload are outside this test.</p>
-<p>Inspect <code>%APPDATA%/DBTools/Logs/</code> first for reported application failures.
+<p>Inspect <code>%APPDATA%/dbtools/Logs/</code> first for reported application failures.
 Hosted job output returns application logs. Use the selected Revit year's
 journal for a crash only when those logs are inconclusive.</p>
 <p>See <a href="../architecture/test-pipeline.html">Test Pipeline</a> and
@@ -1163,7 +1243,7 @@ journal for a crash only when those logs are inconclusive.</p>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

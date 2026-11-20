@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Sandbox Validator | DB Tools </title>
+      <title>Sandbox Validator | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Sandbox Validator | DB Tools ">
+      <meta name="title" content="Sandbox Validator | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -89,16 +89,16 @@
         <article data-uid="">
 <h1 id="sandbox-validator">Sandbox Validator</h1>
 
-<p><code>DBTools.Sandbox</code> validates one staged product year outside a running Revit
+<p><code>dbtools.Sandbox</code> validates one staged product year outside a running Revit
 session. It checks the candidate files, metadata and manifests, then builds the
 real tool windows and checks themes, layout, bindings and Dispatcher cleanup.
 It is also a host for developing tool UI with design-time view models.</p>
-<p>Sandbox is a Windows WPF executable (<code>DBTools.Sandbox.exe</code>, <code>win-x64</code>). Both
+<p>Sandbox is a Windows WPF executable (<code>dbtools.Sandbox.exe</code>, <code>win-x64</code>). Both
 modes need the matching Revit year installed: Sandbox resolves <code>AdWindows.dll</code>,
 <code>RevitAPI.dll</code>, <code>RevitAPIUI.dll</code> and <code>UIFramework.dll</code> from the Revit
 installation directory.</p>
 <h2 id="synopsis">Synopsis</h2>
-<pre><code class="lang-text">DBTools.Sandbox [--headless] [--dist-dir DIR] [--revit-reference-dir DIR]
+<pre><code class="lang-text">dbtools.Sandbox [--headless] [--dist-dir DIR] [--revit-reference-dir DIR]
 </code></pre>
 <table>
 <thead>
@@ -128,12 +128,12 @@ Sandbox uses the installed Revit runtime as the reference. A <code>--dist-dir</c
 the form <code>/mnt/&lt;drive&gt;/...</code> is converted to a Windows path.</p>
 <p>Examples, in PowerShell on Windows after <code>./build.sh BuildAll</code>. Validate the
 2026 candidate against the installed Revit 2026 files:</p>
-<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\DBTools.Sandbox.exe --headless `
+<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe --headless `
   --dist-dir .artifacts\dist\Release\2026 `
   --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
 </code></pre>
 <p>Open the window catalog for the 2026 candidate:</p>
-<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\DBTools.Sandbox.exe `
+<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe `
   --dist-dir .artifacts\dist\Release\2026
 </code></pre>
 <p>The exit status is 0 when headless validation passes and 1 when it fails. A
@@ -162,7 +162,7 @@ loaded in the process. No third-party DLL may be present.</p>
 <h2 id="validation-sequence">Validation sequence</h2>
 <ol>
 <li>Resolve the year directory and the optional Revit reference directory.</li>
-<li>Check <code>DBTools.addin</code>, the exact top-level files, the recursive <code>Tools/</code>
+<li>Check <code>dbtools.addin</code>, the exact top-level files, the recursive <code>Tools/</code>
 files, the supported year and framework, and the PE simple names.</li>
 <li>Read the App, Core, Presentation, HandyControl and tool references and
 their source-derived versions from PE metadata, without loading Revit API
@@ -220,13 +220,13 @@ also file lengths and SHA-256 hashes.</p>
 <h2 id="tool-window-registration">Tool window registration</h2>
 <p>A tool lists its Sandbox windows in <code>manifest.yml</code>:</p>
 <pre><code class="lang-yaml">sandboxWindows:
-  - id: DBTools.MyTool.Main
+  - id: dbtools.MyTool.Main
     displayName: &quot;My Tool&quot;
     group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.MyTool.MyToolView.xaml&quot;
+    xamlResource: &quot;dbtools.ToolViews.MyTool.MyToolView.xaml&quot;
     windowKind: Modal
-    designTimeViewModelType: &quot;DBTools.MyTool.App.DesignTime.MyToolDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.MyTool&quot;
+    designTimeViewModelType: &quot;dbtools.MyTool.App.DesignTime.MyToolDesignTimeViewModel&quot;
+    designTimeViewModelAssembly: &quot;dbtools.MyTool&quot;
     designTimeViewModelVisibility: Public
 </code></pre>
 <p><code>windowKind</code> is <code>Modal</code> or <code>Modeless</code>. <code>SandboxCatalog</code> (Core) reads these
@@ -279,7 +279,7 @@ consumes that archive and writes a structured result JSON (see
 <a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>).
 The archive and the result keep normalized relative paths. The portable
 validation of the archive runs on any host and checks files and metadata only.
-The Windows acceptance suite runs <code>DBTools.Sandbox.exe --headless</code> for each
+The Windows acceptance suite runs <code>dbtools.Sandbox.exe --headless</code> for each
 year, with the reference files the archive carries under <code>revit-refs/&lt;year&gt;/</code>,
 so the window checks run there.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
@@ -297,7 +297,7 @@ so the window checks run there.</p>
 </tr>
 <tr>
 <td><code>.addin</code> entry mismatch</td>
-<td><code>build/Installer/DBTools.addin</code> and the App output</td>
+<td><code>build/Installer/dbtools.addin</code> and the App output</td>
 </tr>
 <tr>
 <td>Tool assembly missing</td>
@@ -348,7 +348,7 @@ so the window checks run there.</p>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

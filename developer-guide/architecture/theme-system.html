@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Theme System | DB Tools </title>
+      <title>Theme System | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Theme System | DB Tools ">
+      <meta name="title" content="Theme System | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -89,13 +89,13 @@
         <article data-uid="">
 <h1 id="theme-system">Theme System</h1>
 
-<p><code>DBTools.Presentation.dll</code> holds every compiled WPF resource of the product:
-the theme dictionaries, stable controls and window shells. It stays loaded for
-the life of the Revit process. Tool views are raw XAML that Presentation
-parses at run time, so App, Core and the tool assemblies contain no BAML and
-no <code>.g.resources</code>. Each window merges the theme into its own resources, never
-into <code>Application.Resources</code>, so DB Tools does not change the appearance of
-other add-ins.</p>
+<p><code>dbtools.Presentation.dll</code> holds the compiled WPF resources that must stay
+loaded for the life of the Revit process: theme dictionaries, stable controls
+and window shells, and settings views that register WPF dependency properties.
+Other tool views are raw XAML that Presentation parses at run time, so App,
+Core and tool assemblies contain no BAML or <code>.g.resources</code>. Each window merges
+the theme into its own resources, never into <code>Application.Resources</code>, so
+dbtools does not change the appearance of other add-ins.</p>
 <h2 id="assembly-roles">Assembly roles</h2>
 <table>
 <thead>
@@ -106,15 +106,15 @@ other add-ins.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>DBTools.Presentation</code></td>
-<td>Theme dictionaries, stable windows and controls, tool behaviors, converters, controls and compiled settings views under <code>Tools/&lt;TOOL&gt;/</code>, and the merged Helix theme</td>
+<td><code>dbtools.Presentation</code></td>
+<td>Theme dictionaries, stable windows and controls, tool behaviors, converters and controls, ElevationTags and FoundationTags settings views, and the merged Helix theme</td>
 </tr>
 <tr>
-<td><code>DBTools.HandyControl</code></td>
+<td><code>dbtools.HandyControl</code></td>
 <td>The HandyControl skins and themes</td>
 </tr>
 <tr>
-<td><code>DBTools.Core</code></td>
+<td><code>dbtools.Core</code></td>
 <td>None. Window lifecycle, error boundaries, registry, commands and runtime hosts can be reloaded</td>
 </tr>
 <tr>
@@ -127,27 +127,28 @@ other add-ins.</p>
 (<code>EnableDefaultPageItems=false</code>); default <code>Compile</code> inclusion picks up their
 code-behind. Tool assemblies contain no compiled WPF pages. A compiled settings
 view lives in Presentation under <code>Tools/&lt;TOOL&gt;/</code>, in namespace
-<code>DBTools.Presentation.Tools.&lt;TOOL&gt;</code>, as do the settings views of
-DialogSuppression, ElevationTags, FoundationTags and JoistGirderWeight. It uses
-framework and stable Presentation types only and binds to its tool context by
-property path, so Presentation does not reference the tool.</p>
+<code>dbtools.Presentation.Tools.&lt;TOOL&gt;</code>, when its code-behind registers WPF
+dependency properties. ElevationTags and FoundationTags use this form.
+DialogSuppression and JoistGirderWeight embed markup-only settings views in
+their tool assemblies as raw XAML.</p>
 <h2 id="settings-pack-views">Settings pack views</h2>
 <p><code>AddDbtSettingsPackDefinition&lt;TOptions, TContext&gt;</code> accepts a view factory with
 the type <code>Func&lt;ISettingsPackContext&lt;TOptions&gt;, FrameworkElement&gt;</code>. A tool module
 supplies the view in one of two forms:</p>
 <ul>
-<li>a compiled view from <code>DBTools.Presentation.Tools.&lt;TOOL&gt;</code>, created with <code>new</code>
+<li>a compiled view from <code>dbtools.Presentation.Tools.&lt;TOOL&gt;</code>, created with <code>new</code>
 and given the context as <code>DataContext</code>;</li>
 <li>a markup-only view embedded in the tool as raw XAML with the logical name
-<code>DBTools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>, which the factory loads with
+<code>dbtools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>, which the factory loads with
 <code>ToolWindowXaml.LoadElement</code> before it assigns the <code>DataContext</code>. TDV's
 <code>LibrarySettingsView</code> uses this form through
 <code>TdvToolModule.LoadLibrarySettingsView</code>.</li>
 </ul>
-<p>A view that needs code-behind uses the compiled form.</p>
+<p>A view that registers dependency properties or needs code-behind uses the
+compiled form.</p>
 <h2 id="tool-views">Tool views</h2>
 <p>A tool embeds each view as an <code>EmbeddedResource</code> with the logical name
-<code>DBTools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>. <code>ToolWindowFactory.CreateModal</code> or <code>CreateModeless</code> (Core) opens
+<code>dbtools.ToolViews.&lt;TOOL&gt;.&lt;View&gt;.xaml</code>. <code>ToolWindowFactory.CreateModal</code> or <code>CreateModeless</code> (Core) opens
 a view in a stable shell.</p>
 <p>The modal factory returns <code>IModalToolWindowSession</code> with <code>ShowDialog</code> and
 <code>HideForPick</code>. The modeless factory returns <code>IModelessToolWindowSession</code> with
@@ -184,21 +185,21 @@ pass immutable scene data to the stable 3D viewport, which owns camera,
 material, picking and device state (see <a href="structural-preview.html">Structural Preview</a>).</p>
 <h2 id="theme-dictionaries">Theme dictionaries</h2>
 <p>The root dictionary is:</p>
-<pre><code class="lang-text">/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Theme.xaml
+<pre><code class="lang-text">/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Theme.xaml
 </code></pre>
 <p><code>&lt;PresentationVersion&gt;</code> is the content version of the Presentation assembly
 (see <a href="build-pipeline.html#content-versions">Build Pipeline</a>). The root merges,
 in this order:</p>
 <ol>
-<li><code>/DBTools.HandyControl;V&lt;HandyControlVersion&gt;;component/Themes/SkinDark.xaml</code></li>
-<li><code>/DBTools.HandyControl;V&lt;HandyControlVersion&gt;;component/Themes/Theme.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Tokens.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Converters.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Controls.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/DataGrid.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Menus.xaml</code></li>
-<li><code>/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Components.xaml</code></li>
+<li><code>/dbtools.HandyControl;V&lt;HandyControlVersion&gt;;component/Themes/SkinDark.xaml</code></li>
+<li><code>/dbtools.HandyControl;V&lt;HandyControlVersion&gt;;component/Themes/Theme.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Tokens.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Converters.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Controls.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/DataGrid.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Menus.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Components.xaml</code></li>
 </ol>
 <p><code>ThemeResourceLoader</code> (Core) checks this order. At startup
 <code>ThemeValidator.ValidateOrThrow</code> registers the pack URI scheme, loads each
@@ -209,7 +210,7 @@ standard controls. A failure stops startup; see
 <h2 id="resource-uris">Resource URIs</h2>
 <p>Every compiled resource URI contains the assembly's version. A changed stable
 assembly therefore has a new identity, and WPF cannot select an older copy of
-Presentation or HandyControl that an earlier DB Tools version has already
+Presentation or HandyControl that an earlier dbtools version has already
 loaded. Presentation URIs use the Presentation version, and HandyControl
 URIs use the HandyControl version.</p>
 <p>The component URI is relative, so <code>Application.LoadComponent</code> does not need
@@ -226,7 +227,7 @@ inside its warning boundary; otherwise WPF can defer the file lookup until it
 creates the window handle.</p>
 <h3 id="xaml-namespaces">XAML namespaces</h3>
 <p>XAML outside Presentation refers to stable types with
-<code>clr-namespace:...;assembly=DBTools.Presentation</code>. XAML compiled by
+<code>clr-namespace:...;assembly=dbtools.Presentation</code>. XAML compiled by
 Presentation uses the namespace form without <code>assembly=</code>. This keeps the BAML
 compiler from resolving Presentation types through a reloadable assembly.</p>
 <h3 id="baml-assembly-versions">BAML assembly versions</h3>
@@ -251,27 +252,27 @@ and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/a
 </thead>
 <tbody>
 <tr>
-<td><code>src/DBTools.Presentation/DBTools.Presentation.csproj</code></td>
+<td><code>src/dbtools.Presentation/dbtools.Presentation.csproj</code></td>
 <td>Assembly identity and the explicit list of compiled pages and embedded views</td>
 </tr>
 <tr>
-<td><code>src/DBTools.Presentation/Resources/Theme.xaml</code></td>
+<td><code>src/dbtools.Presentation/Resources/Theme.xaml</code></td>
 <td>Root theme dictionary</td>
 </tr>
 <tr>
-<td><code>src/DBTools.Presentation/Resources/ResourceUri.cs</code></td>
+<td><code>src/dbtools.Presentation/Resources/ResourceUri.cs</code></td>
 <td>Versioned resource URIs</td>
 </tr>
 <tr>
-<td><code>src/DBTools.Core/UI/Theming/ThemeResource/ThemeResourceLoader.cs</code></td>
+<td><code>src/dbtools.Core/UI/Theming/ThemeResource/ThemeResourceLoader.cs</code></td>
 <td>Merge order check</td>
 </tr>
 <tr>
-<td><code>src/DBTools.Core/UI/Theming/ThemeValidator.cs</code></td>
+<td><code>src/dbtools.Core/UI/Theming/ThemeValidator.cs</code></td>
 <td>Startup theme validation</td>
 </tr>
 <tr>
-<td><code>src/DBTools.App/DBTools.App.csproj</code></td>
+<td><code>src/dbtools.App/dbtools.App.csproj</code></td>
 <td>App resources and embedded manifests; no tool XAML</td>
 </tr>
 <tr>
@@ -280,7 +281,7 @@ and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/a
 </tr>
 </tbody>
 </table>
-<p>See <a href="../projects/presentation.html">DBTools.Presentation</a>,
+<p>See <a href="../projects/presentation.html">dbtools.Presentation</a>,
 <a href="overview.html#contracts">Architecture Overview</a> and
 <a href="assembly-loading.html">Assembly Loading Contract</a>.</p>
 
@@ -303,7 +304,7 @@ and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/a
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

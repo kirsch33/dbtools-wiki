@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Sandbox Integration | DB Tools </title>
+      <title>Sandbox Integration | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Sandbox Integration | DB Tools ">
+      <meta name="title" content="Sandbox Integration | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -100,23 +100,23 @@ validation and live Dev Mode injection require Windows.</p>
 <h2 id="register-a-window">Register a window</h2>
 <p>Declare a raw view in the tool's <code>manifest.yml</code>:</p>
 <pre><code class="lang-yaml">sandboxWindows:
-  - id: DBTools.MyTool.Main
+  - id: dbtools.MyTool.Main
     displayName: &quot;My Tool&quot;
     group: &quot;Common&quot;
-    xamlResource: &quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot;
+    xamlResource: &quot;dbtools.ToolViews.MyTool.MyToolWindow.xaml&quot;
     windowKind: Modal
     width: 1200
     height: 700
     minWidth: 900
     minHeight: 500
     startupLocation: CenterScreen
-    designTimeViewModelType: &quot;DBTools.MyTool.App.DesignTime.MyToolWindowDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;DBTools.MyTool&quot;
+    designTimeViewModelType: &quot;dbtools.MyTool.App.DesignTime.MyToolWindowDesignTimeViewModel&quot;
+    designTimeViewModelAssembly: &quot;dbtools.MyTool&quot;
     designTimeViewModelVisibility: Public
 </code></pre>
 <p>Embed the matching resource in the owning tool project:</p>
 <pre><code class="lang-xml">&lt;EmbeddedResource Include=&quot;App\Views\MyToolWindow.xaml&quot;
-                  LogicalName=&quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot; /&gt;
+                  LogicalName=&quot;dbtools.ToolViews.MyTool.MyToolWindow.xaml&quot; /&gt;
 </code></pre>
 <table>
 <thead>
@@ -199,7 +199,7 @@ must be non-public and have a public or non-public parameterless constructor.
 The manifest must select the matching visibility. The type must be constructible.
 Keep construction independent of Revit documents, external events, network
 services, and production settings.</p>
-<pre><code class="lang-csharp">namespace DBTools.MyTool.App.DesignTime;
+<pre><code class="lang-csharp">namespace dbtools.MyTool.App.DesignTime;
 
 public sealed class MyToolWindowDesignTimeViewModel
 {
@@ -208,7 +208,10 @@ public sealed class MyToolWindowDesignTimeViewModel
 }
 </code></pre>
 <p>Populate the ViewModel with sample state and commands. A display-only action
-can use <code>NoOpCommand</code> from <code>DBTools.Core.UI.Commanding.DesignTime.NoOp</code>.</p>
+can use <code>NoOpCommand</code> from <code>dbtools.Core.UI.Commanding.DesignTime.NoOp</code>.
+The <a href="testing-tools.html#render-gallery">render gallery</a> renders every catalog
+window with its design-time ViewModel; a binding error that WPF reports while
+the window is open fails its test and is attached to it.</p>
 <p>Use Global Mapper (GM) and Super Girt Tool (SGT) manifests under <code>src/Tools/</code>
 as examples of raw-view and design-time ViewModel registration.</p>
 <h2 id="build-and-run">Build and run</h2>
@@ -225,12 +228,12 @@ candidate directory:</p>
 <p>Run Sandbox on Windows with the matching Revit year installed. Both modes
 resolve that installation, require its runtime files, and check metadata/runtime
 compatibility. Run these commands from the repository root:</p>
-<pre><code class="lang-powershell">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj -p:RevitYear=2026 -- --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026
+<pre><code class="lang-powershell">dotnet run --project src/dbtools.Sandbox/dbtools.Sandbox.csproj -p:RevitYear=2026 -- --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026
 </code></pre>
 <p>Replace <code>&lt;build-id&gt;</code> with the ID printed by the candidate build. To validate
 without the interactive catalog, add headless mode and the matching installed
 Revit reference directory:</p>
-<pre><code class="lang-powershell">dotnet run --project src/DBTools.Sandbox/DBTools.Sandbox.csproj -p:RevitYear=2026 -- --headless --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026 --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
+<pre><code class="lang-powershell">dotnet run --project src/dbtools.Sandbox/dbtools.Sandbox.csproj -p:RevitYear=2026 -- --headless --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026 --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
 </code></pre>
 <p>These are native Windows commands. Daemon-routed acceptance uses its hidden
 desktop. See <a href="testing-tools.html#execution-hosts">Testing Tools</a> for routing.</p>
@@ -261,7 +264,7 @@ desktop. See <a href="testing-tools.html#execution-hosts">Testing Tools</a> for 
 </table>
 <p>Both path options also accept <code>--name=value</code>. Blank values and unknown arguments
 fail. A distribution root selects the newest supported year containing
-<code>DBTools.dll</code>. It does not reject a root merely because both years are present.
+<code>dbtools.dll</code>. It does not reject a root merely because both years are present.
 Use an explicit year directory to select 2026 when 2027 also exists.
 A missing candidate fails before WPF startup.</p>
 <p>Headless mode suppresses interactive UI but still creates native WPF windows,
@@ -343,7 +346,7 @@ native, and live Dev Mode validation, see
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Revit Execution and Progress Overlay | DB Tools </title>
+      <title>Revit Execution and Progress Overlay | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Revit Execution and Progress Overlay | DB Tools ">
+      <meta name="title" content="Revit Execution and Progress Overlay | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -89,9 +89,9 @@
         <article data-uid="">
 <h1 id="revit-execution-and-progress-overlay">Revit Execution and Progress Overlay</h1>
 
-<p>DB Tools runs all Revit API work through a call gate, inside a run scope that each command, modeless session or test owns. Tool windows report long operations through the progress overlay. This page owns the design of run scopes, call gates, transaction services and the progress overlay. <a href="../projects/core.html">DBTools.Core</a> describes the rest of the Core library and its source folders.</p>
+<p>dbtools runs all Revit API work through a call gate, inside a run scope that each command, modeless session or test owns. Tool windows report long operations through the progress overlay. This page owns the design of run scopes, call gates, transaction services and the progress overlay. <a href="../projects/core.html">dbtools.Core</a> describes the rest of the Core library and its source folders.</p>
 <h2 id="command-entry">Command entry</h2>
-<p><code>ToolCommand</code> (<code>src/DBTools.Core/Tools/Commands/ToolCommand.cs</code>) is the base class of every Revit command. Its public <code>Execute</code> runs the command body inside <code>ISafeExecutor</code> and gives the protected <code>RunAsync</code> hook one owning <code>CommandContext</code>; see <a href="../projects/core.html#toolcommand"><code>ToolCommand</code></a> for the API. Command subclasses resolve services from <code>ICommandContext</code>. Its base interface <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code>. A feature that owns a window composes <code>ToolWindowFactory</code> and calls <code>CreateModal</code> for an <code>IModalToolWindowSession</code> with <code>ShowDialog</code>/<code>HideForPick</code>, or <code>CreateModeless</code> for an <code>IModelessToolWindowSession</code> with <code>Show</code>. The session owns the reflection scope and the window's retirement.</p>
+<p><code>ToolCommand</code> (<code>src/dbtools.Core/Tools/Commands/ToolCommand.cs</code>) is the base class of every Revit command. Its public <code>Execute</code> runs the command body inside <code>ISafeExecutor</code> and gives the protected <code>RunAsync</code> hook one owning <code>CommandContext</code>; see <a href="../projects/core.html#toolcommand"><code>ToolCommand</code></a> for the API. Command subclasses resolve services from <code>ICommandContext</code>. Its base interface <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code>. A feature that owns a window composes <code>ToolWindowFactory</code> and calls <code>CreateModal</code> for an <code>IModalToolWindowSession</code> with <code>ShowDialog</code>/<code>HideForPick</code>, or <code>CreateModeless</code> for an <code>IModelessToolWindowSession</code> with <code>Show</code>. The session owns the reflection scope and the window's retirement.</p>
 <p>An expected refusal throws <code>SafeExecutionRefusedException</code> with a reason for the user. <code>SafeExecutor</code> then returns <code>SafeExecutionStatus.Refused</code>, with no failure surface and no exception diagnostics. <code>SafeExecutionRefusalReporter</code> shows a Warning banner, which writes the one Warning log entry; an execution without a banner logs <code>[Refused] {Name}: {Message}</code>. <code>ToolCommand</code> returns Revit <code>Result.Cancelled</code> for a refusal and for a failure. An unexpected exception writes Error diagnostics and shows an Error banner.</p>
 <h2 id="run-scopes">Run scopes</h2>
 <p>App composition (<code>AppServiceProviderFactory</code>) registers <code>IAppRunScopeFactory</code> with the Core implementation <code>AppRunScopeFactory</code>. <code>CommandContextFactory</code> calls <code>Create(UIApplication, AppRunScopeProfile)</code>. The factory selects the call gate for the profile, constructs <code>RevitRunScope</code>, and returns the concrete <code>AppRunScope</code>, which owns scoped service resolution, its <code>IRevitRunScope</code> and disposal. Construction and disposal keep the primary failure, attempt every owned cleanup step and report further cleanup failures in order.</p>
@@ -189,7 +189,7 @@
 <li>After invocation, a reference-typed result gets a runtime <code>Task</code>/<code>ValueTask</code> check, which also finds interface-typed <code>Task</code> and boxed <code>ValueTask</code> values.</li>
 <li>Custom awaiter structs are not detected.</li>
 </ul>
-<p>Sources: <code>src/DBTools.Core/Revit/Execution/CallGate/{CallGateDelegateValidator,InlineRevitCallGate,QueuedRevitCallGate,RevitCallGateTask,RevitCallGateTaskQueue}.cs</code>.</p>
+<p>Sources: <code>src/dbtools.Core/Revit/Execution/CallGate/{CallGateDelegateValidator,InlineRevitCallGate,QueuedRevitCallGate,RevitCallGateTask,RevitCallGateTaskQueue}.cs</code>.</p>
 <h3 id="api-context-admission">API-context admission</h3>
 <p><code>RevitCallGateApiContext.IsActive</code> decides whether the current code has Revit API context.</p>
 <ul>
@@ -201,7 +201,7 @@
 <p>The public <code>UIApplication</code> constructor requires <code>ApplicationServices.Application</code>; there is no public conversion from <code>UIControlledApplication.ControlledApplication</code>. If startup has not received a <code>UIApplication</code>, queued work gets one from the real <code>ExternalEvent</code> callback. No private-field reflection is used.</p>
 <p>The probe creates a new event instead of adding and removing a handler on a Revit event. It does not change the subscriber collection of the current event and does not write a document, so it is legal in <code>Idling</code>, <code>ViewActivated</code>, <code>DocumentChanged</code> and updater callbacks. Admission does not permit an API that a particular callback forbids; callers must obey read-only and dynamic-update restrictions.</p>
 <p>The <a href="https://rvtdocs.com/2026/Autodesk.Revit.UI.ExternalEvent.Create">2026</a> and <a href="https://rvtdocs.com/2027/Autodesk.Revit.UI.ExternalEvent.Create">2027</a> API references list the <code>Create</code> signature and the null-handler exception, but not the outside-context exception. An <a href="https://forums.autodesk.com/t5/revit-api-forum/externalevent/m-p/9029307">Autodesk forum thread</a> describes that runtime check and the difference between UI-thread access and API context.</p>
-<p>The probe does not identify which add-in owns a callback. Inside another add-in's main-thread API callback it returns <code>true</code>, and DB Tools runs inline without its own scope. Callbacks that DB Tools owns enter an explicit synchronous <code>UIApplication</code> scope; later continuations must probe or queue again.</p>
+<p>The probe does not identify which add-in owns a callback. Inside another add-in's main-thread API callback it returns <code>true</code>, and dbtools runs inline without its own scope. Callbacks that dbtools owns enter an explicit synchronous <code>UIApplication</code> scope; later continuations must probe or queue again.</p>
 <p>The scope is a <code>ref struct</code>, so a caller cannot hold it across an <code>await</code>. Its shared lifetime lets a wrong-thread disposal revoke the context before the misuse is reported. <code>Enter</code> is internal. The build contract suite (<code>RevitCallGateApiContextEntryContractTests</code>) inspects the compiled production assemblies and allows <code>Enter</code> only in <code>ToolCommand.ExecuteCore</code>, the explicit <code>IExternalEventHandler.Execute</code> of <code>RevitCallGateTask</code>, the contextual ribbon <code>SelectionChanged</code> and edit-event callbacks, the <code>ViewActivated</code> dispatcher, the FoundationTags <code>Idling</code> retry tick and <code>InlineRevitCallGate</code> after its own thread and <code>IsActive</code> check. Only <code>Enter</code> constructs the scope. The suite checks call sites in the build; it does not authenticate callers at run time. Global Mapper (GM) has access for synchronous-delegate validation only and does not enter scopes.</p>
 <h3 id="queued-turns">Queued turns</h3>
 <p>Each native <code>Execute</code> turn of the queued gate runs, in FIFO order, every item that was waiting when the turn started. N waiting calls cost one Revit round trip.</p>
@@ -236,7 +236,7 @@
 <li>It refuses to start a transaction on one document while another document is modifiable.</li>
 <li>It attaches <code>TransactionFailurePreprocessor</code>, which suppresses non-critical Revit warnings.</li>
 </ul>
-<p><code>TransactionRunner</code> enters the call gate and resolves the target document through <code>TransactionBoundary</code> (<code>RunAsync</code>, <code>GetActiveDocument</code> and <code>EnsureNoCrossDocNesting</code>). <code>TransactionExecutor</code> owns the <code>Transaction</code> or <code>SubTransaction</code> lifecycle and names an unnamed transaction <code>DBTools Transaction</code>. The static status validators of <code>TransactionBoundary</code> turn an unexpected start, commit or group-finalization status into <code>TransactionFailureException</code>; <code>TransactionExecutor</code> and <code>TransactionGroupSession</code> call them, and <code>TransactionGroupSession</code> names an unnamed group <code>DBTools Apply Group</code>.</p>
+<p><code>TransactionRunner</code> enters the call gate and resolves the target document through <code>TransactionBoundary</code> (<code>RunAsync</code>, <code>GetActiveDocument</code> and <code>EnsureNoCrossDocNesting</code>). <code>TransactionExecutor</code> owns the <code>Transaction</code> or <code>SubTransaction</code> lifecycle and names an unnamed transaction <code>dbtools Transaction</code>. The static status validators of <code>TransactionBoundary</code> turn an unexpected start, commit or group-finalization status into <code>TransactionFailureException</code>; <code>TransactionExecutor</code> and <code>TransactionGroupSession</code> call them, and <code>TransactionGroupSession</code> names an unnamed group <code>dbtools Apply Group</code>.</p>
 <pre><code class="lang-csharp">await _transactionRunner.RunInActiveDocumentAsync(&quot;Create Wall&quot;, context =&gt;
 {
     Wall.Create(context.Document, curve, levelId, false);
@@ -266,7 +266,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </ul>
 <p>A runner built with <code>new TransactionRunner(gate, logger)</code> logs every record and every accessor fault at Warning after the commit; the one-argument constructor logs nothing. GM's apply runners use the logging form.</p>
 <p><code>TransactionFailureException</code> is the public diagnostic for a transaction that did not reach <code>Committed</code>. Its constructors are internal to Core. Callers read the transaction name, final status, warnings, blocking failure text and failure-definition identities from its properties. <code>BlockingFailureDefinitionIds</code> keeps the IDs in the order Revit reported them, duplicates included, and <code>BlockingFailureDefinitionGuids</code> holds their GUIDs in the same order. The exception implements <code>ITransactionFailureDefinitionSource</code>, which exposes only the GUID list, so code without the Revit API can read it. Core does not classify the GUIDs; GM's <code>GroupEditErrorMatcher</code> matches Revit's four group-edit failures. A posted blocking failure rolls back a runner-managed transaction and raises this exception with the transaction name and the blocking diagnostic. Tool write boundaries map this exception and Revit refusal exceptions to their own typed failures and keep the original exception as the inner cause.</p>
-<p>Sources: <code>src/DBTools.Core/Revit/Transactions/{TransactionRunner,TransactionExecutor,TransactionDisposal,TransactionBoundary,TransactionFailurePreprocessor}.cs</code>.</p>
+<p>Sources: <code>src/dbtools.Core/Revit/Transactions/{TransactionRunner,TransactionExecutor,TransactionDisposal,TransactionBoundary,TransactionFailurePreprocessor}.cs</code>.</p>
 <h3 id="transaction-groups">Transaction groups</h3>
 <p><code>ITransactionGroupService</code> makes several transactions on the active document one Revit undo entry. It is the manual lifecycle; the caller owns the <code>try</code>/<code>finally</code> around <code>FinalizeAsync</code>, in the workflow that knows whether to commit or roll back.</p>
 <pre><code class="lang-csharp">public interface ITransactionGroupService
@@ -359,7 +359,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </code></pre>
 <h3 id="progress-values">Progress values</h3>
 <p>Tools report <code>IProgress&lt;(string message, double? progress01)&gt;</code>: a status message and an optional fraction in <code>[0,1]</code>.</p>
-<p><code>MonotonicProgressAdapter</code> (<code>src/DBTools.Core/Progress/Aggregation</code>) wraps such a reporter and forwards non-decreasing values clamped to <code>[0,1]</code>. A <code>null</code> fraction forwards the status and does not change the tracked value. A non-finite fraction throws <code>ArgumentOutOfRangeException</code> and does not change the tracked value. Create one adapter per operation.</p>
+<p><code>MonotonicProgressAdapter</code> (<code>src/dbtools.Core/Progress/Aggregation</code>) wraps such a reporter and forwards non-decreasing values clamped to <code>[0,1]</code>. A <code>null</code> fraction forwards the status and does not change the tracked value. A non-finite fraction throws <code>ArgumentOutOfRangeException</code> and does not change the tracked value. Create one adapter per operation.</p>
 <table>
 <thead>
 <tr>
@@ -416,7 +416,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

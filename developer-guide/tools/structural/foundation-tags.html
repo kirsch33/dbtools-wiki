@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Combined Foundation Tags | DB Tools </title>
+      <title>Combined Foundation Tags | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Combined Foundation Tags | DB Tools ">
+      <meta name="title" content="Combined Foundation Tags | dbtools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../../index.html">
-            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -91,7 +91,7 @@
 
 <h2 id="overview">Overview</h2>
 <p>Combined Foundation Tags updates pier/footing association parameters and moves combined tags to footing corners.
-Source: <code>src/Tools/Structural/FoundationTags/</code>. The assembly and tool ID are <code>DBTools.FoundationTags</code>.</p>
+Source: <code>src/Tools/Structural/FoundationTags/</code>. The assembly and tool ID are <code>dbtools.FoundationTags</code>.</p>
 <h2 id="architecture">Architecture</h2>
 <h3 id="ownership">Ownership</h3>
 <p><code>App/Composition/FoundationTagsToolModule</code> binds settings, registers the pack, and delegates feature registration
@@ -112,12 +112,12 @@ own manual execution and completion reporting. Queued result-selection gates rec
 <tbody>
 <tr>
 <td>Update Combined Foundation Tags</td>
-<td><code>DBTools.UpdateCombinedFoundationTags</code></td>
+<td><code>dbtools.UpdateCombinedFoundationTags</code></td>
 <td>0</td>
 </tr>
 <tr>
 <td>Move Combined Tags</td>
-<td><code>DBTools.MoveCombinedFoundationTags</code></td>
+<td><code>dbtools.MoveCombinedFoundationTags</code></td>
 <td>1</td>
 </tr>
 </tbody>
@@ -175,7 +175,7 @@ This includes nested members when any enclosing group type has multiple placed i
 A single placement remains writable. Group failures enter Failed once per element and share the ten-line detailed log limit.
 The final diagnostic reports the total failed/skipped count.</p>
 <p>When a pier-top write is skipped for a repeated group, its computed top remains available to footings.
-If computation fails, both grouped and ungrouped piers supply the stored top instead.
+If computation or a write fails, footings do not use a stored pier top. The updater reports the failure and leaves the associated elevation unchanged.
 Length parameters cannot vary between group instances, and the Revit API cannot enter group edit mode.
 Text parameters such as <code>Associated Pier</code> can vary when the project definition permits it.</p>
 <p>A missing or invalid Top Level records a pier failure. Missing Top Offset uses zero.
@@ -201,8 +201,8 @@ The manual workflow offers <strong>Select Modified</strong> and <strong>Select S
 Those banner actions check that the source document is still active before selecting IDs.
 With no updates, it shows an Info or Warning toast without selection actions.</p>
 <p>If neither Modified nor Failed contains an ID, selection-set publication returns without creating or pruning sets.</p>
-<p>Selection sets use <code>DB Tools - FoundationTags - Modified Elements (...)</code> and
-<code>DB Tools - FoundationTags - Skipped Elements (...)</code> names with Eastern-time timestamps.
+<p>Selection sets use <code>dbtools - FoundationTags - Modified Elements (...)</code> and
+<code>dbtools - FoundationTags - Skipped Elements (...)</code> names with Eastern-time timestamps.
 Repeated names receive suffixes starting at <code>(2)</code>.
 Pruning retains five sets across both kinds, ordered by descending element ID.</p>
 <h3 id="move">Move</h3>
@@ -217,7 +217,7 @@ labels them against the view's RightDirection and UpDirection.
 The edge most aligned with view-right becomes horizontal. A tie uses the second declared edge.
 The tag retains its current Z.</p>
 <p>Unsupported names, missing point locations, and geometry without usable corners are skips.
-All candidate moves share <code>DB Tools - Move Combined Foundation Tags</code>.
+All candidate moves share <code>dbtools - Move Combined Foundation Tags</code>.
 Unexpected transform, geometry, tessellation, or tag-write errors log the tag ID and propagate, rolling back every move.
 <code>MoveRunResult</code> separates moved, skipped, candidate, total-view-tag, structural-foundation, and pattern-rejection counts,
 with rejected-name samples for diagnostics.</p>
@@ -260,7 +260,7 @@ The required definitions are owned by <code>Features/Prerequisite/PrerequisiteRe
 </table>
 <p>The GUIDs match the company's DB shared parameter file (group <code>DB Structural</code>), so projects that
 use that file already satisfy the prerequisites. A project with a parameter that has a required name and
-another GUID, such as one set up with the DB Tools GUIDs used before November 2026, reports <code>GUID_MISMATCH</code>.
+another GUID, such as one set up with the dbtools GUIDs used before November 2026, reports <code>GUID_MISMATCH</code>.
 When the company parameter is bound and a parameter with the name and another GUID has no binding, and loaded families
 show it on their types or placed elements (<code>SharedParameterFamilyMigration.FindFamilyNames</code>), the row reports
 <code>FAMILY_GUID_MISMATCH</code>. The description of <code>GUID_MISMATCH</code>, <code>FAMILY_GUID_MISMATCH</code> and <code>DUPLICATE_NAME</code> ends with up to
@@ -297,7 +297,7 @@ monitor and the automatic update activate the warning and do not retry.</p>
 the warning card's Fix action (<code>FixLabel</code> <strong>Install/Repair</strong>) runs the same repair. A successful repair clears the warning and re-enables the commands.
 Construction of the settings context is passive and leaves the list unchecked. <code>FoundationTagsSettingsPackView</code>
 binds its <code>ShownCommand</code> to <code>LoadRequiredParametersCommand</code> and runs it from its <code>Loaded</code> event, so the pack reads
-the active document each time it is shown. The view compiles into <code>DBTools.Presentation</code>, so it binds the command
+the active document each time it is shown. The view compiles into <code>dbtools.Presentation</code>, so it binds the command
 by name and does not reference the context type. The Settings window is modal, so the active document cannot
 change while it is open; each opening creates a new context. <code>SettingsRuntime</code> receives the settings host's <code>UIApplication</code> explicitly and
 classifies the active document (<code>ActiveDocumentKind</code>: <code>None</code>, <code>Family</code> or <code>Project</code>). Without a project the list
@@ -318,7 +318,7 @@ template has no scroll viewer, because the Settings page scrolls; it keeps keybo
 <code>AutomationProperties.Name</code> (the parameter), <code>ItemStatus</code> (the status) and <code>HelpText</code> (the description). Nothing
 uses its selection. The item bindings use <code>OneTime</code>.
 <code>HasWarning</code> belongs to the session context and is not persisted in <code>FoundationTagsSettings</code>.</p>
-<p>Install/Repair uses embedded definitions in group <code>DBTools.Structural.FoundationTags</code>.
+<p>Install/Repair uses embedded definitions in group <code>dbtools.Structural.FoundationTags</code>.
 Their columns and values match the company file: <code>VISIBLE</code> 1, an empty <code>DESCRIPTION</code>,
 <code>USERMODIFIABLE</code> 1 and <code>HIDEWHENNOVALUE</code> 1. Only the group name differs; a project does not store it.
 It creates a temporary shared-parameter file, restores Revit's original shared-parameter path,
@@ -416,7 +416,7 @@ An unexpected runtime fault sets no prerequisite warning. Core's <code>ViewActiv
 <p><code>PrerequisiteMonitorTask</code> checks prerequisite state, sets or clears the warning without a banner, logs an invalid
 state at Information, and schedules an Idling retry for transient initialization states.
 <code>PrerequisiteRetryCoordinator</code> retains each original event source and detach callback.
-Evaluation faults log and can be checked again on the next view activation.
+If the retry window expires, it cancels the retry and leaves warning state unchanged until a later view activation checks the document again. Evaluation faults log and can be checked again on the next view activation.
 The monitor disposes its own retry coordinator at synchronous App shutdown. An injected coordinator remains caller-owned.
 Disposed lifetimes reject scheduling. Failed-detach entries retain cleanup state without retry work.
 A late Idling event can retry detachment.</p>
@@ -467,7 +467,7 @@ of the project parameter cannot tell. Family files on disk keep the other GUID.<
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

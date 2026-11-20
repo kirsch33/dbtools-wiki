@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>DBTools.App | DB Tools </title>
+      <title>dbtools.App | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="DBTools.App | DB Tools ">
+      <meta name="title" content="dbtools.App | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -87,9 +87,9 @@
         </div>
 
         <article data-uid="">
-<h1 id="dbtools.app">DBTools.App</h1>
+<h1 id="dbtools.app">dbtools.App</h1>
 
-<p><code>DBTools.App</code> builds <code>DBTools.dll</code>, the Revit add-in entry and the App runtime. It targets <code>net10.0-windows</code> (<code>DBT_RevitTargetFramework</code>) for desktop Revit 2026 (2026.5 or later) and Revit 2027.</p>
+<p><code>dbtools.App</code> builds <code>dbtools.dll</code>, the Revit add-in entry and the App runtime. It targets <code>net10.0-windows</code> (<code>DBT_RevitTargetFramework</code>) for desktop Revit 2026 (2026.5 or later) and Revit 2027.</p>
 <h2 id="project">Project</h2>
 <table>
 <thead>
@@ -101,11 +101,11 @@
 <tbody>
 <tr>
 <td>Project</td>
-<td><code>src/DBTools.App/DBTools.App.csproj</code></td>
+<td><code>src/dbtools.App/dbtools.App.csproj</code></td>
 </tr>
 <tr>
 <td>Assembly</td>
-<td><code>DBTools.dll</code></td>
+<td><code>dbtools.dll</code></td>
 </tr>
 <tr>
 <td>Target</td>
@@ -113,11 +113,11 @@
 </tr>
 <tr>
 <td>Product references</td>
-<td><code>DBTools.Core</code>, <code>DBTools.Presentation</code></td>
+<td><code>dbtools.Core</code>, <code>dbtools.Presentation</code></td>
 </tr>
 <tr>
 <td>Merged package</td>
-<td><code>ricaun.Revit.UI</code>, folded into <code>DBTools.dll</code> by the declared assembly merge</td>
+<td><code>ricaun.Revit.UI</code>, folded into <code>dbtools.dll</code> by the declared assembly merge</td>
 </tr>
 <tr>
 <td>Manifests</td>
@@ -136,7 +136,7 @@
 </ul>
 <p>The fourteen tool projects under <code>src/Tools/</code> own their tool assemblies, including the Super Girt Tool (SGT), Settings and DialogSuppression. Each tool owner embeds its icons, raw views and manifest-declared design-time view models. Presentation owns the stable themes and compiled WPF controls.</p>
 <h2 id="source-tree">Source tree</h2>
-<pre><code class="lang-text">src/DBTools.App/
+<pre><code class="lang-text">src/dbtools.App/
 ├── Addin/             # Revit entry and installed-copy idle acknowledgement
 ├── Composition/       # DI and manifest-facing registration
 ├── Host/              # failure, test-run and window-owner boundaries
@@ -151,7 +151,7 @@
 <h2 id="startup">Startup</h2>
 <p><code>AddinEntry</code> has a public parameterless constructor for Revit. The first action of <code>OnStartup</code> checks <code>DBTOOLS_DAEMON_REVIT_ROLE</code> and the load context of the entry assembly.</p>
 <ul>
-<li><strong>Idle copy:</strong> only a file-backed entry in <code>AssemblyLoadContext.Default</code> acknowledges the installed idle copy. It records the key <code>DBToolsDaemon.IdleAddin:&lt;simple-name&gt;</code> (for App, <code>DBToolsDaemon.IdleAddin:DBTools</code>) with the entry location as its value, and returns success without touching the ribbon, events or other startup work.</li>
+<li><strong>Idle copy:</strong> only a file-backed entry in <code>AssemblyLoadContext.Default</code> acknowledges the installed idle copy. It records the key <code>dbtools-daemon.IdleAddin:&lt;simple-name&gt;</code> (for App, <code>dbtools-daemon.IdleAddin:dbtools</code>) with the entry location as its value, and returns success without touching the ribbon, events or other startup work.</li>
 <li><strong>Normal startup:</strong> every other context (<code>ProductLoadContext</code>, <code>DevModeLoadContext</code>, a null context and any other context) enters <code>ToolWindowCallbackScope</code> and the non-inlined <code>AppStartupBoundary</code>. Startup initializes the App runtime, validates themes, composes the ribbon, starts the Revit call gate and publishes deferred startup work.</li>
 </ul>
 <p>Startup parses the Revit year from <code>ControlledApplication.VersionNumber</code>. <code>AppRuntimeInitializer</code> passes it to <code>AppRuntimeHostLifecycle.InitializeHost(ribbonTarget, revitYear)</code>. <code>InitializeHost</code> publishes the year to <code>RevitInstanceIdentity</code> before it creates logging or services; <code>RevitInstanceIdentity</code> accepts the same year again and rejects a different one. Logging, the per-year settings file and the container take the year from the <code>InitializeHost</code> argument, not from <code>RevitInstanceIdentity</code>.</p>
@@ -159,7 +159,7 @@
 <p>Preparation runs these phases in order: <code>ValidateTheme</code>, <code>CreateDeferredStartupRunner</code>, <code>ComposeRibbon</code>, <code>PublishInitialStartupEffects</code> and <code>StartBackgroundStartup</code>. A failed phase is logged as <code>Startup phase {Phase} failed</code> with the original exception, is presented with the theme, ribbon, startup effects, background startup or preparation message, and returns the captured handles for cleanup. A failure outside the phases is reported as phase <code>TransferStartupOwnership</code> with the preparation message. Startup state publication failures use the publication message whether registration fails before publication or observation registration fails after publication. Publication cleanup finishes before one presentation attempt. A rejected candidate is cleaned directly without publishing it over the incumbent lifecycle state. Deferred UI failures use the <code>Deferred UI Startup</code> safe-execution path.</p>
 <p>The lifecycle cleanup subscription and the deferred startup subscription each register their own <code>Idling</code> handler through a separate <code>AppLifecycleIdlingRegistration</code>. The optional Idling subscribe and unsubscribe pair of <code>AppStartupConfiguration</code> reaches both. Cleanup registers first, so a pending failed-startup cleanup gets the first <code>Idling</code> callback. The cleanup subscription attempts its handler removal once. Startup ownership captures the deferred subscription before it registers, so a deferred handler removal that fails, also during a failed registration, keeps the handler for the next cleanup to retry.</p>
 <p>Startup failure dialogs are suppressed while <code>DBT_TEST_RUN_ID</code> is active. A failed dialog callback is contained and recorded in the fallback log with the initiating failure first. App log templates identify their emitting owner with <code>[EmittingType]</code>; tool-module registration uses the <code>AppToolModuleRegistrar</code> bootstrap logger category. A registration failure names the tool, the manifest resource, the registration stage and the module type, or <code>manifest-only</code> for a manifest without a module.</p>
-<p>Failure cleanup runs synchronously at the Revit API boundary and combines the primary and cleanup failures. A startup, shutdown or ribbon-runtime failure that cannot reach the normal log is written by a BCL-only writer to <code>Logs\DBTools.Fallback.log</code> below <code>AppPaths.BaseDir</code> (default <code>%APPDATA%\DBTools</code>), so a missing Core or UI dependency does not hide the diagnostic. After a refused <code>DBTOOLS_USER_DATA_DIR</code>, <code>AppFallbackFailureLog</code> writes no file and its records reach <code>Trace</code> only.</p>
+<p>Failure cleanup runs synchronously at the Revit API boundary and combines the primary and cleanup failures. A startup, shutdown or ribbon-runtime failure that cannot reach the normal log is written by a BCL-only writer to <code>Logs\dbtools.Fallback.log</code> below <code>AppPaths.BaseDir</code> (default <code>%APPDATA%\dbtools</code>), so a missing Core or UI dependency does not hide the diagnostic. After a refused <code>DBTOOLS_USER_DATA_DIR</code>, <code>AppFallbackFailureLog</code> writes no file and its records reach <code>Trace</code> only.</p>
 <h2 id="shutdown">Shutdown</h2>
 <p><code>OnShutdown</code> uses the same boundary and returns only after the lifecycle cleanup result is complete. An idle installed entry, and an entry that refused <code>DBTOOLS_USER_DATA_DIR</code>, has no runtime and returns success directly. Without a published lifecycle state, shutdown succeeds. While cleanup that another owner started is unfinished, shutdown fails and leaves the state published. Completed cleanup returns its recorded result, and shutdown clears only the publication that it cleaned.</p>
 <p>Each generation keeps the handles it acquired. <code>AppStartupOwnership</code> holds the background startup task state, the ribbon composition, the <code>AppDeferredStartupSubscription</code>, the lifecycle cleanup subscription and the <code>RevitCallGateTask</code> that <code>AppLocalRevitTaskLifecycle.Start</code> published; <code>AppRuntimeResources</code> holds the <code>AppRuntime</code>. Shutdown releases these captured handles, not whatever the process slots hold:</p>
@@ -247,7 +247,7 @@
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

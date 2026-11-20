@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Settings Packs | DB Tools </title>
+      <title>Settings Packs | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Settings Packs | DB Tools ">
+      <meta name="title" content="Settings Packs | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -89,7 +89,7 @@
         <article data-uid="">
 <h1 id="settings-packs">Settings Packs</h1>
 
-<p>A settings pack supplies a tool's editor in the DB Tools Settings window. It
+<p>A settings pack supplies a tool's editor in the dbtools Settings window. It
 binds a typed settings section, an editor context, a WPF view, and optional
 warnings. Packs appear as cards grouped by their registered ribbon panel.</p>
 <p><code>ISettingsProvider</code> reads current settings and commits section batches.
@@ -97,10 +97,10 @@ warnings. Packs appear as cards grouped by their registered ribbon panel.</p>
 <code>SettingsPersistenceWorkflow</code>. Pack contexts edit state and validate it. They
 do not save independently.</p>
 <h2 id="files-and-typed-sections">Files and typed sections</h2>
-<p>The default user file is <code>%APPDATA%/DBTools/settings.&lt;year&gt;.json</code>.
+<p>The default user file is <code>%APPDATA%/dbtools/settings.&lt;year&gt;.json</code>.
 <code>AppPaths.GetSettingsFile(revitYear)</code> returns it for the year that App
 bootstrap receives and rejects a year outside 2015-2100 with
-<code>ArgumentOutOfRangeException</code>. The <code>DBTools.AppPaths.BaseDir</code> AppContext
+<code>ArgumentOutOfRangeException</code>. The <code>dbtools.AppPaths.BaseDir</code> AppContext
 value relocates the base directory for the process; App startup sets it from
 <code>DBTOOLS_USER_DATA_DIR</code>.</p>
 <p><code>SettingsSectionReader</code> reads <code>appsettings.json</code> from its base directory,
@@ -121,9 +121,9 @@ Section and property lookup is case-insensitive.</p>
 <p>Register generated <code>System.Text.Json</code> metadata with the section as
 <code>JsonTypeInfo&lt;T&gt;</code>. The same metadata reads options and serializes writes:</p>
 <pre><code class="lang-csharp">using System.Text.Json.Serialization;
-using DBTools.Core.Settings.Domain;
+using dbtools.Core.Settings.Domain;
 
-namespace DBTools.MyTool.Settings;
+namespace dbtools.MyTool.Settings;
 
 public sealed class MyToolSettings : IAutoUpdateSettings
 {
@@ -134,7 +134,7 @@ public sealed class MyToolSettings : IAutoUpdateSettings
 <p>Place its JSON context in a separate matching file:</p>
 <pre><code class="lang-csharp">using System.Text.Json.Serialization;
 
-namespace DBTools.MyTool.Settings;
+namespace dbtools.MyTool.Settings;
 
 [JsonSerializable(typeof(MyToolSettings))]
 internal partial class MyToolSettingsJsonContext : JsonSerializerContext
@@ -164,9 +164,9 @@ errors. Comments and trailing commas are accepted. Commits preserve unrelated
 sections but do not retain comments.</p>
 <h2 id="manifest-declaration">Manifest declaration</h2>
 <p>Declare the persistence key and pack metadata in <code>manifest.yml</code>:</p>
-<pre><code class="lang-yaml">id: DBTools.MyTool
-assembly: DBTools.MyTool
-moduleType: DBTools.MyTool.App.Composition.MyToolToolModule
+<pre><code class="lang-yaml">id: dbtools.MyTool
+assembly: dbtools.MyTool
+moduleType: dbtools.MyTool.App.Composition.MyToolToolModule
 order: 0
 panel: Common
 tool:
@@ -180,7 +180,7 @@ tool:
           title: &quot;My Tool Configuration Invalid&quot;
           message: &quot;Correct the family pattern and save settings.&quot;
           disableTools:
-            - DBTools.MyTool
+            - dbtools.MyTool
 </code></pre>
 <p><code>configSection</code> names the JSON property. Pack <code>key</code> and warning <code>id</code> are unique
 catalog identities. They do not have to equal that property. Existing keys use
@@ -198,23 +198,23 @@ See <a href="feature-warnings.html">Feature Warnings</a> for activation and comm
 <tbody>
 <tr>
 <td><code>Settings</code></td>
-<td>DB Tools Settings</td>
+<td>dbtools Settings</td>
 </tr>
 <tr>
 <td><code>Common</code></td>
-<td>DB Tools Common</td>
+<td>dbtools Common</td>
 </tr>
 <tr>
 <td><code>Structural</code></td>
-<td>DB Tools Structural</td>
+<td>dbtools Structural</td>
 </tr>
 <tr>
 <td><code>Testing</code></td>
-<td>DB Tools Testing</td>
+<td>dbtools Testing</td>
 </tr>
 <tr>
 <td><code>Services</code></td>
-<td>DB Tools Services</td>
+<td>dbtools Services</td>
 </tr>
 </tbody>
 </table>
@@ -242,9 +242,9 @@ excerpt assumes <code>SettingsPackContext</code> implements
         (context, active) =&gt; context.HasWarning = active);
 }
 </code></pre>
-<p>These APIs live under <code>DBTools.Core.Settings.Composition</code>, <code>.Persistence</code>,
+<p>These APIs live under <code>dbtools.Core.Settings.Composition</code>, <code>.Persistence</code>,
 <code>.SettingsPack</code>, and <code>.Warnings</code>. Manifest extension methods live under
-<code>DBTools.Core.Tools.Manifest</code>. Use the tool's real namespaces for its context,
+<code>dbtools.Core.Tools.Manifest</code>. Use the tool's real namespaces for its context,
 view, and DTO.</p>
 <p><code>AddDbtSettingsPackDefinition</code> reads the single settings pack and panel from the
 manifest. It resolves the same registered <code>SettingsSection&lt;TOptions&gt;</code> used by
@@ -352,7 +352,7 @@ Honor cancellation and return messages that identify the invalid value and
 its correction.</p>
 <h3 id="auto-update-editor-base">Auto-update editor base</h3>
 <p><code>SettingsPackAutoUpdateStateContext&lt;TOptions&gt;</code> in
-<code>DBTools.Core.Settings.SettingsPack.AutoUpdate</code> implements the required lifecycle.
+<code>dbtools.Core.Settings.SettingsPack.AutoUpdate</code> implements the required lifecycle.
 It owns title/description/tooltip text, <code>AutoUpdateEnabled</code>, <code>HasWarning</code>,
 <code>ToggleEnabled</code>, pending-change tracking, <code>StateChanged</code>, and validation.
 It blocks saving invalid options. Its protected constructor takes title,
@@ -442,7 +442,7 @@ Core retains the public catalog, warning service, warning validator and pack
 contracts. Core-only composition registers no Settings window or startup publisher.
 The tool uses these public contracts without Core friend access.</p>
 <p><code>SettingsWindowFactory</code> opens the raw
-<code>DBTools.Presentation.Settings.Views.SettingsWindow.xaml</code> resource through
+<code>dbtools.Presentation.Settings.Views.SettingsWindow.xaml</code> resource through
 <code>ToolWindowFactory</code>. The registered modal session owns the window, error
 boundary, owner, handlers, and cleanup. Packs remain separate tool-owned views.</p>
 <p><code>SettingsPackViewModel</code> owns one bound runtime, lazy view creation, pending
@@ -548,8 +548,8 @@ Common and Structural panels. Three use <code>DesignTimeAutoUpdatePackContext</c
 private subclass of the production auto-update context. The Structural warning
 sample starts with an active warning. The library sample uses an empty
 serialization model and a text preview. The manifest names the public
-<code>DBTools.Settings.App.DesignTime.SettingsWindowDesignTimeViewModel</code> in
-<code>DBTools.Settings</code>.</p>
+<code>dbtools.Settings.App.DesignTime.SettingsWindowDesignTimeViewModel</code> in
+<code>dbtools.Settings</code>.</p>
 <h2 id="editor-views">Editor views</h2>
 <p>Create a tool-owned view for the editor. Bind the auto-update toggle to
 <code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit
@@ -596,7 +596,7 @@ names the reason or the next step.</p>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

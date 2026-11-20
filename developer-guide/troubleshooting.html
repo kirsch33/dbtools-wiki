@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Troubleshooting | DB Tools </title>
+      <title>Troubleshooting | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Troubleshooting | DB Tools ">
+      <meta name="title" content="Troubleshooting | dbtools ">
       
       
       <link rel="icon" href="../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../index.html">
-            <img id="logo" src="../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -90,8 +90,8 @@
 <h1 id="troubleshooting">Troubleshooting</h1>
 
 <p>This page lists common build, runtime and tool errors, and how to read the
-DB Tools logs. For a reported failure, read the logs in
-<code>%APPDATA%\DBTools\Logs\</code> first.</p>
+dbtools logs. For a reported failure, read the logs in
+<code>%APPDATA%\dbtools\Logs\</code> first.</p>
 <h2 id="build">Build</h2>
 <h3 id="choosing-a-build-command">Choosing a build command</h3>
 <p>Build one project or test project with plain MSBuild:</p>
@@ -113,8 +113,8 @@ test discovery. Install Python and rerun the command:</p>
 bash build/DotNet/sdk.sh
 </code></pre>
 <p>On Windows, <code>build.ps1</code> installs and verifies the SDK without Python.</p>
-<h3 id="dbtoolsdaemon.protocol-package-missing-or-mismatched">DbToolsDaemon.Protocol package missing or mismatched</h3>
-<p><code>BuildAll</code> requires the <code>DbToolsDaemon.Protocol</code> package version pinned in
+<h3 id="dbtools-daemon.protocol-package-missing-or-mismatched">dbtools-daemon.Protocol package missing or mismatched</h3>
+<p><code>BuildAll</code> requires the <code>dbtools-daemon.Protocol</code> package version pinned in
 <code>build/Distribution/protocol-package-lock.json</code>, with the SHA-256 recorded
 there. The Validation Runner loads the package after the build tasks verify it.
 If the package is missing or its bytes differ from the lock, obtain the pinned
@@ -133,14 +133,14 @@ and Revit-hosted tests use the daemon CLI.</p>
 A failed policy, boundary, graph, identity or candidate-byte check needs a
 source fix and a new build.</p>
 <h3 id="handycontrol-output-missing">HandyControl output missing</h3>
-<p>A missing vendor import, resource or <code>DBTools.HandyControl</code> output means the
+<p>A missing vendor import, resource or <code>dbtools.HandyControl</code> output means the
 <code>vendor/HandyControl</code> submodule is not initialized. <code>build.sh</code> and <code>build.ps1</code>
 initialize it automatically, which requires a Git checkout and network access:</p>
 <pre><code class="lang-bash">git submodule update --init --recursive vendor/HandyControl
 ./build.sh BuildAll
 </code></pre>
 <p>The output is
-<code>.artifacts/vendor/&lt;Configuration&gt;/handycontrol/net10.0-windows/DBTools.HandyControl.dll</code>.</p>
+<code>.artifacts/vendor/&lt;Configuration&gt;/handycontrol/net10.0-windows/dbtools.HandyControl.dll</code>.</p>
 <h3 id="unsupported-revit-year">Unsupported Revit year</h3>
 <p>The supported desktop years are Revit 2026 (2026.5 or later) and Revit 2027;
 the distribution and reference metadata use the year keys 2026 and 2027. A
@@ -152,7 +152,7 @@ Under <code>testing/RevitTestModels/</code> these files are ignored by Git. The 
 not delete them; remove them by hand when you no longer need them.</p>
 <h2 id="runtime">Runtime</h2>
 <h3 id="tool-assembly-fails-to-load">Tool assembly fails to load</h3>
-<pre><code class="lang-text">InvalidOperationException: Failed to load tool assembly 'DBTools.GM' from the declared Tools path '&lt;path&gt;' in ALC rooted at 'DBTools'.
+<pre><code class="lang-text">InvalidOperationException: Failed to load tool assembly 'dbtools.GM' from the declared Tools path '&lt;path&gt;' in ALC rooted at 'dbtools'.
 </code></pre>
 <p>Related errors from <code>ToolAssemblyResolver</code>:</p>
 <ul>
@@ -160,7 +160,7 @@ not delete them; remove them by hand when you no longer need them.</p>
 <li><code>Tool assembly path '&lt;path&gt;' declares simple name '&lt;x&gt;', expected '&lt;name&gt;'.</code></li>
 <li><code>Tool assembly '&lt;name&gt;' is already loaded from '&lt;path&gt;', but the declared Tools path is '&lt;path&gt;'.</code></li>
 </ul>
-<p>App loads each tool from <code>Tools/&lt;name&gt;.dll</code> beside <code>DBTools.dll</code>. Check that
+<p>App loads each tool from <code>Tools/&lt;name&gt;.dll</code> beside <code>dbtools.dll</code>. Check that
 the year directory has the complete product tree (see
 <a href="architecture/assembly-loading.html">Assembly Loading Contract</a>) and that the
 manifest's assembly name matches the file. Rebuild with <code>./build.sh BuildAll</code>.</p>
@@ -172,7 +172,7 @@ Causes:</p>
 <li>The driver watches the multi-year root <code>.artifacts/dist/Release</code> instead of
 one year directory.</li>
 <li>A reload starts while promotion replaces the files.</li>
-<li>DB Tools code loaded or resolved a <code>DBTools.*</code> assembly or type outside the
+<li>dbtools code loaded or resolved a <code>dbtools.*</code> assembly or type outside the
 driver's collectible <code>AssemblyLoadContext</code> (for example through an
 <code>AppDomain</code>-wide scan or <code>Assembly.Load</code>), so the context cannot unload.</li>
 </ul>
@@ -187,12 +187,12 @@ each Dev Mode inspection.</p>
 stops startup. In a Revit-hosted test run, read the daemon job's startup
 failure output instead of waiting for a dialog.</p>
 <h4 id="theme-dictionary-merge-failed">Theme dictionary merge failed</h4>
-<pre><code class="lang-text">InvalidOperationException: Theme dictionary merge failed at '/DBTools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml'.
+<pre><code class="lang-text">InvalidOperationException: Theme dictionary merge failed at '/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml'.
 </code></pre>
 <p>A resource dictionary did not load: a missing assembly reference, a broken
 <code>StaticResource</code> chain or invalid XAML. Rebuild with <code>./build.sh BuildAll</code> and
-check that the year directory contains <code>DBTools.Presentation.dll</code> and
-<code>DBTools.HandyControl.dll</code> from the same build.</p>
+check that the year directory contains <code>dbtools.Presentation.dll</code> and
+<code>dbtools.HandyControl.dll</code> from the same build.</p>
 <h4 id="theme-resource-freeze-failed">Theme resource freeze failed</h4>
 <pre><code class="lang-text">InvalidOperationException: Theme resource freeze failed for key '&lt;key&gt;' in '&lt;source&gt;'.
 </code></pre>
@@ -303,16 +303,16 @@ buttons with <code>Add</code>, and remove them when the selection no longer matc
 </tbody>
 </table>
 <h3 id="view-template-comparer-vtc-raw-xaml-resource-not-found">View Template Comparer (VTC): raw XAML resource not found</h3>
-<pre><code class="lang-text">System.IO.FileNotFoundException: Embedded tool XAML resource 'DBTools.ToolViews.VTC.AlertBodyTemplates.xaml' was not found.
+<pre><code class="lang-text">System.IO.FileNotFoundException: Embedded tool XAML resource 'dbtools.ToolViews.VTC.AlertBodyTemplates.xaml' was not found.
 </code></pre>
 <p>The VTC alert body templates are an <code>EmbeddedResource</code> with the logical name
-<code>DBTools.ToolViews.VTC.AlertBodyTemplates.xaml</code>, read with
+<code>dbtools.ToolViews.VTC.AlertBodyTemplates.xaml</code>, read with
 <code>ToolWindowXaml.ReadEmbeddedResource</code>. Check the item and its <code>LogicalName</code> in
-<code>DBTools.VTC.csproj</code>. The shared VTC dictionaries are in
-<code>src/DBTools.Presentation/Tools/VTC</code>.</p>
+<code>dbtools.VTC.csproj</code>. The shared VTC dictionaries are in
+<code>src/dbtools.Presentation/Tools/VTC</code>.</p>
 <h2 id="logs">Logs</h2>
 <h3 id="log-files">Log files</h3>
-<p>Logs are written to <code>%APPDATA%\DBTools\Logs\</code>. File names use Eastern time:</p>
+<p>Logs are written to <code>%APPDATA%\dbtools\Logs\</code>. File names use Eastern time:</p>
 <pre><code class="lang-text">dbtools-&lt;RevitYear&gt;-&lt;InstanceId&gt;-&lt;Timestamp&gt;-&lt;Nonce&gt;.log
 dbtools-&lt;RevitYear&gt;-&lt;InstanceId&gt;-&lt;Timestamp&gt;-&lt;Nonce&gt;-manual-&lt;ManualTimestamp&gt;.log
 </code></pre>
@@ -323,9 +323,9 @@ Example: <code>dbtools-2026-ABC123-20260124-143022345-a1b2c3d4.log</code>.</p>
 days old, and at most 100 MB in total while more than one file remains (the
 newest file is kept even if it alone is larger).</p>
 <p>Failures that occur before logging starts are written to
-<code>%APPDATA%\DBTools\Logs\DBTools.Fallback.log</code>.</p>
+<code>%APPDATA%\dbtools\Logs\dbtools.Fallback.log</code>.</p>
 <p>When <code>DBTOOLS_USER_DATA_DIR</code> names a directory, the log files and
-<code>DBTools.Fallback.log</code> are in <code>Logs\</code> below that directory. A refused value
+<code>dbtools.Fallback.log</code> are in <code>Logs\</code> below that directory. A refused value
 writes no file; the startup failure goes to <code>Trace</code> and to the startup failure
 dialog, which <code>DBT_TEST_RUN_ID</code> suppresses.</p>
 <h3 id="debug-mode">Debug mode</h3>
@@ -340,14 +340,14 @@ startup can show it.</li>
 </ul>
 <p>Closing the logger window turns debug mode off.</p>
 <h3 id="logger-window">Logger window</h3>
-<p>The title is <code>DB Tools Log - Revit &lt;Year&gt; [&lt;InstanceId&gt;]</code>. The window is a
+<p>The title is <code>dbtools Log - Revit &lt;Year&gt; [&lt;InstanceId&gt;]</code>. The window is a
 modeless utility window. The logger host applies pin mode changes centrally:
 a change that keeps the owner mode only updates <code>Topmost</code>, and a change of
 owner mode closes and recreates the window. Code must not change the owner of
 the live window directly. The window provides:</p>
 <ul>
 <li>the columns Source, Time, Level, Message and Duration. Source is narrow
-and shows the first namespace segment after <code>DBTools</code> and the type name,
+and shows the first namespace segment after <code>dbtools</code> and the type name,
 for example <code>JoistGirderWeight · AutoUpdateTask</code>. A name that does not fit
 is still and shortened in the middle, keeping the start of the tool and the
 end of the type name (<code>Joist…AutoUpdateTask</code>). While the pointer is over the
@@ -373,7 +373,7 @@ start row;</li>
 that matches the logged text and the displayed text;</li>
 <li><strong>Copy All</strong> and <strong>Export</strong>, which save every retained entry in arrival
 order regardless of the filters, with the logged text unchanged. Export
-writes <code>DBToolsLog_&lt;yyyyMMdd_hhmmss&gt;&lt;AM|PM&gt;.txt</code>;</li>
+writes <code>dbtools-log_&lt;yyyyMMdd_hhmmss&gt;&lt;AM|PM&gt;.txt</code>;</li>
 <li>auto-scroll, which follows new entries. Scrolling up pauses it until you
 scroll back to the bottom or until a new entry arrives after 15 s idle;
 turning it off keeps it off;</li>
@@ -425,9 +425,9 @@ duration.</p>
 <h2 id="reporting-a-problem">Reporting a problem</h2>
 <p>Include:</p>
 <ol>
-<li>the log file from <code>%APPDATA%\DBTools\Logs\</code>, or a logger window export;</li>
+<li>the log file from <code>%APPDATA%\dbtools\Logs\</code>, or a logger window export;</li>
 <li>the Revit version (year and build number);</li>
-<li>the DB Tools version;</li>
+<li>the dbtools version;</li>
 <li>the correlation ID of the failed operation;</li>
 <li>the steps to reproduce;</li>
 <li>a screenshot of any error dialog.</li>
@@ -452,7 +452,7 @@ duration.</p>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

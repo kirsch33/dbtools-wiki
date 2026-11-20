@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>DBTools.ERFT | DB Tools </title>
+      <title>dbtools.ERFT | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="DBTools.ERFT | DB Tools ">
+      <meta name="title" content="dbtools.ERFT | dbtools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../../index.html">
-            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -87,17 +87,17 @@
         </div>
 
         <article data-uid="">
-<h1 id="dbtools.erft">DBTools.ERFT</h1>
+<h1 id="dbtools.erft">dbtools.ERFT</h1>
 
 <h2 id="name">NAME</h2>
-<p>DBTools.ERFT - the assembly behind the Extreme Roof Framing Tool</p>
+<p>dbtools.ERFT - the assembly behind the Extreme Roof Framing Tool</p>
 <h2 id="synopsis">SYNOPSIS</h2>
 <pre><code class="lang-text">source    src/Tools/Experimental/ERFT/   (MAP.md, manifest.yml)
-assembly  DBTools.ERFT
+assembly  dbtools.ERFT
 entry     ErftToolModule
 command   ErftNewCommand                 (run profile InlineUi, panel Testing)
 hook      ErftContextualRibbonInjector   (Edit ERFT on contextual Modify tabs)
-view      App/Views/ErftWindow.xaml, src/DBTools.Presentation/Tools/ERFT/
+view      App/Views/ErftWindow.xaml, src/dbtools.Presentation/Tools/ERFT/
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
 <p><code>FramingAdjustmentWorkflow</code> runs both flows. <code>RunNewModalFlow</code> picks a target
@@ -192,9 +192,11 @@ open dependency, beams that frame to columns go first, then lower IDs.
 <code>FramingGraphBuilderTests</code> checks the connections.</li>
 <li><strong>Target.</strong> The bottom surface is every face whose normal Z, at the middle
 of its UV box, is -0.1 or less in host coordinates. A link uses
-<code>GetTotalTransform</code>. <code>TargetSurfaceProjector</code> returns the nearest point in
-3D over all triangles, not a vertical intersection. Expected target
-failures return a <code>TargetGeometryFailureReason</code>, not an exception.
+<code>GetTotalTransform</code>. <code>TargetSurfaceProjector</code> preserves the query X and Y
+and interpolates Z on each triangle that covers that point. It chooses the
+nearest vertical intersection when triangles overlap and returns no point
+when no triangle covers the query X and Y. Expected target failures return
+a <code>TargetGeometryFailureReason</code>, not an exception.
 <code>TargetSurfaceProjectorTests</code> checks the projection. No Revit test uses a
 loaded linked target.</li>
 <li><strong>Rounding.</strong> <code>RoundingEvaluator.ApplyRounding</code> uses <code>Math.Round</code>
@@ -214,10 +216,10 @@ tags each changed member and saves the system. A
 result. Before the writer runs, <code>AdjustmentPlanExecutor</code> refuses rows with
 <code>Error</code> as <code>Apply/PlanHasErrors</code>. <code>AdjustmentWriterTests</code> and
 <code>FramingAdjustmentEndToEndTests</code> check this.</li>
-<li><strong>Snapshot.</strong> <code>StoredPlanMapper.CreateSnapshot</code> stores only <code>Pending</code>
-rows. <code>SystemPlanRepository.Save</code> replaces the one record of the system,
-so a later Apply drops the members that it did not change.
-<code>CreateSnapshot_IncludesOnlyPendingAdjustments</code> checks the filter.</li>
+<li><strong>Snapshot.</strong> <code>StoredPlanMapper.CreateSnapshot</code> stores every column and
+beam in the plan. <code>SystemPlanRepository.Save</code> replaces the one record of
+the system, so <strong>Edit ERFT</strong> restores every member from the last applied
+plan. <code>CreateSnapshot_IncludesEveryMember</code> checks the stored rows.</li>
 <li><strong>Admission.</strong> <code>StoredPlanMapper.Deserialize</code> requires the tolerance, the
 rounding mode, the <code>Columns</code> and <code>Beams</code> lists, positive element IDs, a matching <code>SystemId</code> and
 a host target or a link and linked target pair. It fails with a
@@ -248,7 +250,8 @@ selection and chooses one system. Its <code>RunEditFlow</code> calls
 geometry and offsets of the stored members.</li>
 </ol>
 <h2 id="data">DATA</h2>
-<p>All fields are simple <code>String</code> fields with vendor <code>DBTools</code>.</p>
+<p>All fields are simple <code>String</code> fields with vendor input <code>dbtools</code>. Revit
+stores the vendor ID in uppercase.</p>
 <table>
 <thead>
 <tr>
@@ -259,20 +262,22 @@ geometry and offsets of the stored members.</li>
 </thead>
 <tbody>
 <tr>
-<td><code>DBTools_ERFT_V2</code>, on members</td>
-<td><code>C736C6F5-34C8-4E50-A890-E5420C3E5391</code></td>
+<td><code>dbtools_ERFT_V2</code>, on members</td>
+<td><code>20af133f-34e7-4ff7-910e-bf351e04f3d0</code></td>
 <td><code>Tag</code> (<code>ERFT</code>), <code>SystemId</code>, <code>MemberRole</code> (<code>Column</code> or <code>Beam</code>), <code>OriginalOffset</code>, <code>Timestamp</code></td>
 </tr>
 <tr>
-<td><code>DBTools_ERFT_System_V2</code>, on a <code>DataStorage</code></td>
-<td><code>06C087B9-DA5B-4E3B-9496-13C7C8732B0E</code></td>
+<td><code>dbtools_ERFT_System_V2</code>, on a <code>DataStorage</code></td>
+<td><code>f2e43724-0569-469b-85b3-64c3810e7aea</code></td>
 <td><code>SystemIdString</code>, <code>DataJson</code> (camel-case <code>StoredPlan</code> JSON)</td>
 </tr>
 </tbody>
 </table>
-<p>Apply deletes entities of the retired schemas <code>DBTools_ERFT</code> and
-<code>DBTools_ERFT_System</code> only when the vendor and name match. It deletes a
-<code>DataStorage</code> that has no entity left.</p>
+<p>Apply deletes entities of the retired schemas <code>dbtools_ERFT</code> and
+<code>dbtools_ERFT_System</code> only when the vendor and name match. It deletes a
+<code>DataStorage</code> that has no entity left.
+Apply also deletes the entities of the four schemas of the earlier product
+spelling, by their earlier GUIDs and names. Their data is not migrated.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
 <p><code>FramingAdjustmentFailure.Tag</code> formats codes as <code>[SpecFail/&lt;code&gt;]</code>.
 Alerts and repository failures show the tag. Profile extraction logs one
@@ -309,7 +314,7 @@ saving it (<a href="../../developing/testing-tools.html#model-paths">Model paths
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

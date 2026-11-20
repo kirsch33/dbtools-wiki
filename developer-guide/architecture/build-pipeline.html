@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Build Pipeline | DB Tools </title>
+      <title>Build Pipeline | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Build Pipeline | DB Tools ">
+      <meta name="title" content="Build Pipeline | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -93,7 +93,7 @@
 entry points. Both run <code>dotnet build build/Build.proj -t:&lt;Target&gt;</code> with the
 pinned SDK. They map public <code>Restore</code> to the build graph's restore target
 because MSBuild reserves the target name <code>Restore</code> for its own package restore.
-Use either wrapper to run DBTools' restore step. A plain
+Use either wrapper to run dbtools' restore step. A plain
 <code>dotnet build build/Build.proj -t:Restore</code> does not run that step. The default
 target is <code>BuildAll</code>, which builds, validates and publishes the complete
 distribution for Revit 2026 and 2027. <code>BuildAll</code> compiles no test projects.</p>
@@ -215,7 +215,7 @@ other than <code>true</code> or <code>false</code> fails before any target runs.
 </tr>
 <tr>
 <td><code>BuildBundle</code></td>
-<td>Package the promoted tree into <code>.artifacts/bundle/DBTools.bundle</code>, one year tree per Revit year, under the <code>Version.props</code> product version</td>
+<td>Package the promoted tree into <code>.artifacts/bundle/dbtools.bundle</code>, one year tree per Revit year, under the <code>Version.props</code> product version</td>
 </tr>
 <tr>
 <td><code>Restore [-y &lt;year&gt;]</code></td>
@@ -250,7 +250,7 @@ with <code>ValidateProductVersions</code>, <code>VerifyArtifacts</code>,
 ./build.sh BuildApp --Configuration Debug --Years 2026
 ./build.sh Restore --Years 2026,2027
 ./build.sh BuildTests
-./build.sh BuildSelectedLocalTests --TestProjects DBTools.App.Local.Tests -y 2026
+./build.sh BuildSelectedLocalTests --TestProjects dbtools.App.Local.Tests -y 2026
 pwsh -NoProfile -File build.ps1 BuildAll
 pwsh -NoProfile -File build.ps1 Restore -y 2026,2027
 </code></pre>
@@ -266,7 +266,7 @@ pwsh -NoProfile -File .github/scripts/compile-installer.ps1
 <p><code>BuildBundle</code> writes the bundle and <code>installer-defines.json</code>. The compile script
 reads those files. It finds <code>ISCC.exe</code> and its version through the <code>Inno Setup 6_is1</code>
 uninstall entry (HKLM, then HKCU) and refuses a version outside 6.7.1 to 6.x. It writes
-<code>DBTools-Setup-&lt;version&gt;.exe</code> under <code>.artifacts/release-assets/</code>.</p>
+<code>dbtools-Setup-&lt;version&gt;.exe</code> under <code>.artifacts/release-assets/</code>.</p>
 <h2 id="implementation">Implementation</h2>
 <p>Each entry maps its options to MSBuild properties, acquires the pinned SDK,
 initializes the HandyControl submodule when needed, and runs <code>Build.proj</code>. Both
@@ -275,7 +275,7 @@ runs bash or Python, so <code>BuildAll</code> and
 <code>BuildTests</code> behave the same on Windows. Test execution is done by <code>test.sh</code>.</p>
 <p><code>Build.proj</code> owns the target graph and starts each child <code>dotnet build</code> with
 its own binary log. The C# code of each target is a <code>BuildPipelineStep</code> in
-<code>build/Tasks</code> (<code>DBTools.Build.Tasks</code>, <code>net8.0</code>, loaded by the SDK's MSBuild on
+<code>build/Tasks</code> (<code>dbtools.Build.Tasks</code>, <code>net8.0</code>, loaded by the SDK's MSBuild on
 .NET 10). It owns option validation, Revit reference checks and distribution
 steps. The task assembly is written to
 <code>.artifacts/build-tasks/&lt;Configuration&gt;/</code> and recompiles only when its inputs
@@ -317,19 +317,19 @@ to have the same version and SHA-256 in every year.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>DBTools.dll</code> (App)</td>
+<td><code>dbtools.dll</code> (App)</td>
 <td><code>ricaun.Revit.UI</code></td>
 </tr>
 <tr>
-<td><code>DBTools.Core</code></td>
-<td><code>DBTools.Manifest</code>, YamlDotNet, CommunityToolkit.Mvvm, CSharpFunctionalExtensions, Microsoft.Extensions.DependencyInjection, .Logging, .Options, .Primitives, Serilog.Extensions.Logging</td>
+<td><code>dbtools.Core</code></td>
+<td><code>dbtools.Manifest</code>, YamlDotNet, CommunityToolkit.Mvvm, CSharpFunctionalExtensions, Microsoft.Extensions.DependencyInjection, .Logging, .Options, .Primitives, Serilog.Extensions.Logging</td>
 </tr>
 <tr>
-<td><code>DBTools.SGT</code></td>
+<td><code>dbtools.SGT</code></td>
 <td>LibTessDotNet (private types; no double-precision assembly)</td>
 </tr>
 <tr>
-<td><code>DBTools.Presentation</code></td>
+<td><code>dbtools.Presentation</code></td>
 <td>HelixToolkit and SharpDX assemblies, Cyotek.Drawing.BitmapFont, CommunityToolkit.Diagnostics, Serilog, Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.DependencyInjection.Abstractions</td>
 </tr>
 </tbody>
@@ -445,7 +445,7 @@ that file and all remaining files. No step writes into a published file. Point
 Dev Mode at <code>.artifacts/dist/Release/&lt;year&gt;</code> directly; a copy is a set of new
 files that the scanner scans again.</p>
 <h2 id="tool-contract">Tool contract</h2>
-<p><code>build/Distribution/tool-contracts.json</code> holds the DBTools texts that the live
+<p><code>build/Distribution/tool-contracts.json</code> holds the dbtools texts that the live
 Tools check of dbtools-daemon compares with the running product: window
 titles, interaction kinds, prerequisite refusal names, and banner, control and
 status texts. Its <code>tools</code> object is keyed by command type name without the
@@ -467,7 +467,7 @@ nothing and ends the command as <code>Cancelled</code> with no banner; the alert
 the warning on, so a later gated command in the same session is refused by the
 warning.</p>
 <p>Change a source text that an entry names and this file in the same commit.
-<code>ToolContractsTests</code> in <code>testing/DBTools.Build.Tests</code> fails when a
+<code>ToolContractsTests</code> in <code>testing/dbtools.Build.Tests</code> fails when a
 <code>source_files</code> path does not exist, or when a text equals no whole string value
 of its tool's source files:</p>
 <pre><code class="lang-bash">./test.sh test --tool BUILD --fixture ToolContractsTests
@@ -708,13 +708,8 @@ file log is always detailed.</p>
 </tr>
 <tr>
 <td><code>.artifacts/tmp/</code></td>
-<td>Scratch of the Dev Mode preflight and <code>desloppify.sh</code></td>
+<td>Scratch of the Dev Mode preflight</td>
 <td>Each writer; <code>Clean</code></td>
-</tr>
-<tr>
-<td><code>.artifacts/desloppify-venv/</code></td>
-<td>Desloppify environment</td>
-<td>Kept</td>
 </tr>
 </tbody>
 </table>
@@ -729,9 +724,9 @@ framework is <code>net10.0-windows</code>; Design Automation uses <code>net8.0-w
 designer fixes and product and test staging hooks.</p>
 <h2 id="handycontrol">HandyControl</h2>
 <p>HandyControl is built from the <code>vendor/HandyControl</code> submodule through
-<code>build/HandyControl/DBTools.HandyControl.csproj</code>. The project imports the four
+<code>build/HandyControl/dbtools.HandyControl.csproj</code>. The project imports the four
 upstream shared <code>.projitems</code> files and the upstream resources, writes
-transformed intermediate copies that use the DBTools assembly name and
+transformed intermediate copies that use the dbtools assembly name and
 versioned pack URIs, and compiles <code>Shared/Themes/Theme.xaml</code> as the theme. The
 upstream project-root <code>Theme.xaml</code> generated by its PreBuild step is not an
 input. A missing submodule, resource or transform input fails with its path.</p>
@@ -870,7 +865,7 @@ vocabulary and unresolved rulings for the declared source roots.</li>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

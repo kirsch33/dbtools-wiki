@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Creating New Tools | DB Tools </title>
+      <title>Creating New Tools | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Creating New Tools | DB Tools ">
+      <meta name="title" content="Creating New Tools | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -89,7 +89,7 @@
         <article data-uid="">
 <h1 id="creating-new-tools">Creating New Tools</h1>
 
-<p>A DB Tools tool owns its source, manifest, resources, production assembly, and tests.
+<p>A dbtools tool owns its source, manifest, resources, production assembly, and tests.
 App discovers embedded manifests, registers services, and composes ribbon controls.
 Each tool assembly ships under the product year's <code>Tools/</code> directory.
 Service and settings modules follow the same assembly contract as ribbon tools.</p>
@@ -114,7 +114,7 @@ explains the targets, defaults, logs, and source gates.</p>
 <h2 id="choose-the-owner-and-names">1. Choose the owner and names</h2>
 <p>Place a tool under <code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;/</code>. Categories such as <code>Common</code>,
 <code>Structural</code>, <code>Experimental</code>, and <code>Services</code> organize source. They do not enter
-CLR namespaces. A tool's namespace root is <code>DBTools.&lt;Tool&gt;</code>.</p>
+CLR namespaces. A tool's namespace root is <code>dbtools.&lt;Tool&gt;</code>.</p>
 <p>Follow the repository's <code>.agents/canon/CANON.md</code> naming contract:</p>
 <ul>
 <li>Mirror folders in namespaces beneath the component root.</li>
@@ -146,7 +146,7 @@ owners and treats <code>Models</code> as a generic kind bucket.</li>
 │       └── InspectionWorkflow.cs
 ├── Settings/
 ├── Tests/
-├── DBTools.MyTool.csproj
+├── dbtools.MyTool.csproj
 └── manifest.yml
 </code></pre>
 <p>The optional <code>Settings/</code> and <code>Tests/</code> entries represent actual content, not
@@ -157,19 +157,19 @@ ViewModels, for example <code>GmWindow</code>, <code>GmWindowViewModel</code>, a
 <h2 id="create-the-production-project">2. Create the production project</h2>
 <p>Every tool manifest root needs a production project with
 <code>DBT_IsToolAssembly=true</code>, including a module with no ribbon commands.
-Add production and test projects to <code>DBTools.sln</code> under the owning solution folder.</p>
-<p>This project is a starting point for the example tool's <code>DBTools.MyTool.csproj</code>:</p>
+Add production and test projects to <code>dbtools.sln</code> under the owning solution folder.</p>
+<p>This project is a starting point for the example tool's <code>dbtools.MyTool.csproj</code>:</p>
 <pre><code class="lang-xml">&lt;Project Sdk=&quot;Microsoft.NET.Sdk&quot;&gt;
   &lt;PropertyGroup&gt;
     &lt;TargetFramework&gt;$(DBT_RevitTargetFramework)&lt;/TargetFramework&gt;
     &lt;DBT_RevitHostIdentity&gt;$(DBT_DesktopRevitHostIdentity)&lt;/DBT_RevitHostIdentity&gt;
     &lt;DBT_IsToolAssembly&gt;true&lt;/DBT_IsToolAssembly&gt;
-    &lt;RootNamespace&gt;DBTools.MyTool&lt;/RootNamespace&gt;
+    &lt;RootNamespace&gt;dbtools.MyTool&lt;/RootNamespace&gt;
     &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
   &lt;/PropertyGroup&gt;
   &lt;ItemGroup&gt;
     &lt;Compile Remove=&quot;Tests\**\*.cs&quot; /&gt;
-    &lt;ProjectReference Include=&quot;..\..\..\DBTools.Core\DBTools.Core.csproj&quot; /&gt;
+    &lt;ProjectReference Include=&quot;..\..\..\dbtools.Core\dbtools.Core.csproj&quot; /&gt;
     &lt;PackageReference Include=&quot;Microsoft.Extensions.Logging.Abstractions&quot; /&gt;
     &lt;EmbeddedResource Include=&quot;Assets\*.png&quot;&gt;
       &lt;Link&gt;Resources\Icons\%(Filename)%(Extension)&lt;/Link&gt;
@@ -184,8 +184,8 @@ API. Prefer the smallest package that supplies the API.</p>
 <p>When tests need internal production types, declare visibility in the tool
 project for the exact consuming assembly names:</p>
 <pre><code class="lang-xml">&lt;ItemGroup&gt;
-  &lt;InternalsVisibleTo Include=&quot;DBTools.MyTool.Pure.Tests&quot; /&gt;
-  &lt;InternalsVisibleTo Include=&quot;DBTools.MyTool.Local.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;dbtools.MyTool.Pure.Tests&quot; /&gt;
+  &lt;InternalsVisibleTo Include=&quot;dbtools.MyTool.Local.Tests&quot; /&gt;
 &lt;/ItemGroup&gt;
 </code></pre>
 <p>Content-derived assembly identity applies by default to tool assemblies through
@@ -199,10 +199,10 @@ logical name:</p>
   &lt;EnableDefaultPageItems&gt;false&lt;/EnableDefaultPageItems&gt;
 &lt;/PropertyGroup&gt;
 &lt;ItemGroup&gt;
-  &lt;ProjectReference Include=&quot;..\..\..\DBTools.Presentation\DBTools.Presentation.csproj&quot; /&gt;
+  &lt;ProjectReference Include=&quot;..\..\..\dbtools.Presentation\dbtools.Presentation.csproj&quot; /&gt;
   &lt;PackageReference Include=&quot;CommunityToolkit.Mvvm&quot; /&gt;
   &lt;EmbeddedResource Include=&quot;App\Views\MyToolWindow.xaml&quot;
-                    LogicalName=&quot;DBTools.ToolViews.MyTool.MyToolWindow.xaml&quot; /&gt;
+                    LogicalName=&quot;dbtools.ToolViews.MyTool.MyToolWindow.xaml&quot; /&gt;
 &lt;/ItemGroup&gt;
 </code></pre>
 <p>Tools with Revit-dependent designer source can exclude <code>**\Revit\**\*.cs</code> when
@@ -212,15 +212,15 @@ its Page metadata can declare <code>SubType=Designer</code>, <code>Generator=MSB
 and <code>ContainsDesignTimeResources=true</code>.</p>
 <h2 id="declare-the-manifest">3. Declare the manifest</h2>
 <p>A ribbon module can use this manifest:</p>
-<pre><code class="lang-yaml">id: DBTools.MyTool
-assembly: DBTools.MyTool
-moduleType: DBTools.MyTool.App.Composition.MyToolToolModule
+<pre><code class="lang-yaml">id: dbtools.MyTool
+assembly: dbtools.MyTool
+moduleType: dbtools.MyTool.App.Composition.MyToolToolModule
 order: 0
 panel: Common
 tool:
   ribbonTools:
-    - internalName: DBTools.MyTool
-      commandType: DBTools.MyTool.App.Composition.MyToolCommand
+    - internalName: dbtools.MyTool
+      commandType: dbtools.MyTool.App.Composition.MyToolCommand
       runProfile: InlineUi
       displayText: &quot;My Tool&quot;
       iconBaseKey: my_tool
@@ -286,9 +286,9 @@ context. Runtime resolves modules, commands, icons, and raw views from that owne
 packs, or registered lifecycle hooks. A moduleless manifest requires <code>panel</code> and
 at least one ribbon tool. It cannot declare settings or settings packs.</p>
 <p>For a service module, retain the project and declare its actual owner:</p>
-<pre><code class="lang-yaml">id: DBTools.DialogSuppression
-assembly: DBTools.DialogSuppression
-moduleType: DBTools.DialogSuppression.App.Composition.DialogSuppressionToolModule
+<pre><code class="lang-yaml">id: dbtools.DialogSuppression
+assembly: dbtools.DialogSuppression
+moduleType: dbtools.DialogSuppression.App.Composition.DialogSuppressionToolModule
 order: -1
 panel: Services
 tool:
@@ -369,9 +369,9 @@ commands. App planning and Revit construction use that sequence.</p>
 <p>Use a 32×32 main icon such as <code>my_tool.png</code>. An optional 16×16 companion is
 <code>my_tool_16.png</code>. Match the base filename to <code>iconBaseKey</code>.</p>
 <h2 id="register-services">4. Register services</h2>
-<p><code>ToolModule</code> lives in <code>DBTools.Core.Tools.Modules.Composition</code>.
+<p><code>ToolModule</code> lives in <code>dbtools.Core.Tools.Modules.Composition</code>.
 Its registration methods receive the manifest from
-<code>DBTools.Core.Tools.Manifest</code>:</p>
+<code>dbtools.Core.Tools.Manifest</code>:</p>
 <table>
 <thead>
 <tr>
@@ -403,12 +403,12 @@ and <code>RegisterHooks</code> in that order for each module before validating a
 its registrations. Keep modules limited to composition. Put behavior with the
 feature that owns it.
 For example, a module can register a feature workflow:</p>
-<pre><code class="lang-csharp">using DBTools.Core.Tools.Manifest;
-using DBTools.Core.Tools.Modules.Composition;
-using DBTools.MyTool.Features.Inspection;
+<pre><code class="lang-csharp">using dbtools.Core.Tools.Manifest;
+using dbtools.Core.Tools.Modules.Composition;
+using dbtools.MyTool.Features.Inspection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DBTools.MyTool.App.Composition;
+namespace dbtools.MyTool.App.Composition;
 
 public sealed class MyToolToolModule : ToolModule
 {
@@ -425,16 +425,16 @@ the command. Framing Joins uses this pattern for <code>FramingJoinsWorkflow</cod
 Do not reconstruct ribbon registrations in a module. App resolves concrete
 command and availability types. Core constructs their shared registrations.</p>
 <h2 id="implement-the-command">5. Implement the command</h2>
-<p>Use <code>ToolCommand</code> from <code>DBTools.Core.Tools.Commands</code> for ribbon commands.
+<p>Use <code>ToolCommand</code> from <code>dbtools.Core.Tools.Commands</code> for ribbon commands.
 It supplies safe execution, contextual logging, command preflight, and scope
 creation/disposal. Revit constructs the command with an inert parameterless
 constructor. Resolve services inside <code>RunAsync</code>:</p>
 <pre><code class="lang-csharp">using Autodesk.Revit.Attributes;
-using DBTools.Core.Tools.Commands;
-using DBTools.Core.Tools.Commands.Context;
-using DBTools.MyTool.Features.Inspection;
+using dbtools.Core.Tools.Commands;
+using dbtools.Core.Tools.Commands.Context;
+using dbtools.MyTool.Features.Inspection;
 
-namespace DBTools.MyTool.App.Composition;
+namespace dbtools.MyTool.App.Composition;
 
 [Transaction(TransactionMode.Manual)]
 public sealed class MyToolCommand : ToolCommand
@@ -490,8 +490,8 @@ describes configuration failures that disable commands.</p>
 ├── Features/Inspection/InspectionWorkflowTests.cs
 ├── Integration/Revit/Features/Inspection/InspectionWorkflowHostedTests.cs
 ├── Support/
-├── DBTools.MyTool.Pure.Tests.csproj
-└── DBTools.MyTool.Local.Tests.csproj
+├── dbtools.MyTool.Pure.Tests.csproj
+└── dbtools.MyTool.Local.Tests.csproj
 </code></pre>
 <p>Pure projects compile plain NUnit tests against the tool project. Local projects
 use explicit positive compile membership for <code>[RevitLocal]</code> fixtures and their
@@ -501,7 +501,7 @@ on Linux. Keep the execution projects separate.</p>
 <p>Use focused commands during development:</p>
 <pre><code class="lang-bash">./test.sh list --tool GM --scope pure --fixture DuplicateDetectionEngineTests
 ./test.sh test --tool GM --scope pure --fixture DuplicateDetectionEngineTests
-./build.sh BuildSelectedLocalTests --TestProjects DBTools.GM.Local.Tests -y 2026
+./build.sh BuildSelectedLocalTests --TestProjects dbtools.GM.Local.Tests -y 2026
 </code></pre>
 <p>Replace <code>GM</code> with the new tool's directory key after its test projects exist.
 See <a href="testing-tools.html#execution-hosts">Testing Tools</a> for execution hosts and routing.</p>
@@ -529,7 +529,7 @@ fixtures for WPF bindings, themes, and window cleanup. See
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

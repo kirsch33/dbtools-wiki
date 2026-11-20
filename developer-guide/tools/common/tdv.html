@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>DBTools.TDV | DB Tools </title>
+      <title>dbtools.TDV | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="DBTools.TDV | DB Tools ">
+      <meta name="title" content="dbtools.TDV | dbtools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../../index.html">
-            <img id="logo" src="../../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -87,24 +87,27 @@
         </div>
 
         <article data-uid="">
-<h1 id="dbtools.tdv">DBTools.TDV</h1>
+<h1 id="dbtools.tdv">dbtools.TDV</h1>
 
 <h2 id="name">NAME</h2>
-<p>DBTools.TDV - the assembly behind Import From Library and Export To Library</p>
+<p>dbtools.TDV - the assembly behind Import From Library and Export To Library</p>
 <h2 id="synopsis">SYNOPSIS</h2>
 <pre><code class="lang-text">source    src/Tools/Common/TDV/   (MAP.md, manifest.yml)
-assembly  DBTools.TDV
+assembly  dbtools.TDV
 entry     TdvToolModule
 commands  TdvImportCommand, TdvExportCommand   (run profile InlineUi)
 views     App/Views/TdvWindow.xaml, Features/Library/Settings/Views/LibrarySettingsView.xaml
-behavior  src/DBTools.Presentation/Tools/TDV/TdvPanZoomBehavior.cs
+behavior  src/dbtools.Presentation/Tools/TDV/TdvPanZoomBehavior.cs
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
 <p>The commands run <code>ImportTransferWorkflow</code> and <code>ExportTransferWorkflow</code>.
 Both use <code>LibraryTransferWorkflow</code> to select a library and
 <code>LibraryDocumentService</code> to open it without activating it. <code>WindowSession</code>
-then shows the modal window, and <code>TransferExecutor</code> copies the checked views
-into the destination document. The
+shows the modal transfer window, and <code>TransferExecutor</code> copies the checked
+views into the destination document. The Select Library File alert lists valid
+configured paths and has a <strong>Browse for file</strong> action. <code>LibraryFilePicker</code>
+uses <code>FilePickerFileType.RevitProject</code>. A browsed path is used for one transfer
+and is not written to <code>LibraryOptions</code>. The
 <a href="../../../user-guide/tools/tdv.html">user page</a> describes the behavior.</p>
 <h2 id="structure">STRUCTURE</h2>
 <p>Paths are under <code>src/Tools/Common/TDV/</code>.</p>
@@ -122,7 +125,7 @@ into the destination document. The
 </tr>
 <tr>
 <td><code>App/Sessions/</code></td>
-<td><code>WindowSession</code> implements <code>ILibrarySelectionDialog</code> and <code>ITransferDialog</code>. <code>WindowSessionDialogRunner</code> owns the modal loop and Dev Mode retirement.</td>
+<td><code>WindowSession</code> implements <code>ILibrarySelectionDialog</code> and <code>ITransferDialog</code>. It adds the one-transfer file picker action to the library selection alert. <code>WindowSessionDialogRunner</code> owns the modal loop and Dev Mode retirement.</td>
 </tr>
 <tr>
 <td><code>App/ViewModels/</code></td>
@@ -130,7 +133,7 @@ into the destination document. The
 </tr>
 <tr>
 <td><code>Features/Library/</code></td>
-<td><code>LibraryCatalog</code>, <code>RevitYearProbe</code>, <code>LibraryDocumentService</code>, the settings context and view, and the library workflows.</td>
+<td><code>LibraryCatalog</code>, <code>LibraryFilePicker</code>, <code>RevitYearProbe</code>, <code>LibraryDocumentService</code>, the settings context and view, and the library workflows.</td>
 </tr>
 <tr>
 <td><code>Features/Transfer/</code></td>
@@ -198,13 +201,19 @@ changes of every transfer in a window. A transfer that ends without a
 verified commit or rollback sets <code>Unverified</code>. An export saves or syncs the
 library when <code>Any</code> is true, and discards it only when it is false.
 <code>TransferDestinationChangesTests</code> and <code>TransferWorkflowTests</code> check this.</li>
+<li><strong>Library selection.</strong> The selection alert returns a configured path or a
+browsed path. <code>LibrarySelectionWorkflow</code> validates the returned path with
+<code>LibraryCatalog</code> and refuses the open document. Canceling the native file
+picker keeps the alert open. <code>LibrarySelectionWorkflowTests</code> checks the
+path result, refusal and unchanged catalog.</li>
 </ol>
 <h2 id="flow">FLOW</h2>
 <ol>
 <li><code>LibraryTransferWorkflow</code> calls <code>LibrarySelectionWorkflow</code>, which builds a
-<code>LibraryCatalog</code> from the settings. It
-throws <code>SafeExecutionRefusedException</code> when the settings hold no path or
-no valid path.</li>
+<code>LibraryCatalog</code> from the settings. It throws <code>SafeExecutionRefusedException</code>
+when the settings hold no path or no valid path. The selection alert can
+return a configured path or a path from <strong>Browse for file</strong>. The workflow
+validates that path again and refuses the open document.</li>
 <li><code>OpenLibraryAsync</code> copies a workshared library with <code>CreateNewLocal</code> and
 opens all worksets. It opens other files in place. Both use
 <code>Application.OpenDocumentFile</code>, so the host stays active.</li>
@@ -242,7 +251,7 @@ transfer commits or rolls back.</li>
 </tr>
 <tr>
 <td>Pack warning</td>
-<td><code>core.library.invalid</code>. It disables <code>DBTools.ExportToLibrary</code> and <code>DBTools.ImportFromLibrary</code>.</td>
+<td><code>core.library.invalid</code>. It disables <code>dbtools.ExportToLibrary</code> and <code>dbtools.ImportFromLibrary</code>.</td>
 </tr>
 <tr>
 <td>Cache</td>
@@ -255,6 +264,10 @@ transfer commits or rolls back.</li>
 <tr>
 <td>Writes</td>
 <td>Destination drafting views and missing drafting view types. On export, the library file.</td>
+</tr>
+<tr>
+<td>One-transfer file</td>
+<td><strong>Browse for file</strong> supplies a path to one transfer. TDV does not add the path to settings.</td>
 </tr>
 </tbody>
 </table>
@@ -274,7 +287,9 @@ session and the view model. <code>LibraryDocumentServiceTests</code> includes a
 workshared round trip on a temporary central model. The Revit tests open
 <code>gm_test_model.rvt</code> and <code>sgt_test_model.rvt</code>
 (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).
-<code>TdvPanZoomBehaviorTests</code> lives in <code>src/DBTools.Presentation/Tests/</code>.</p>
+<code>TransferWorkflowTests.ImportWorkflow_TransfersADraftingViewFromABrowsedLibraryFile</code>
+checks a transfer from a browsed Revit file.
+<code>TdvPanZoomBehaviorTests</code> lives in <code>src/dbtools.Presentation/Tests/</code>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/settings-packs.html">Settings Packs</a>,
 <a href="../../developing/feature-warnings.html">Feature Warnings</a>,
@@ -299,7 +314,7 @@ workshared round trip on a temporary central model. The Revit tests open
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Feature Warnings | DB Tools </title>
+      <title>Feature Warnings | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Feature Warnings | DB Tools ">
+      <meta name="title" content="Feature Warnings | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -93,10 +93,11 @@
 Active warnings block the commands named by their definitions and publish
 ribbon enablement updates. Warning state lasts for the current runtime session.
 It is not persisted to settings.</p>
-<p>The Settings window displays warning cards. The Settings button shows a warning
-icon, and the DB Tools tab receives a highlight when warnings exist. Command
-preflight and contextual edit flows use the same registered warning policy as
-ribbon controls.</p>
+<p>The Settings window displays warning cards and opens each panel that contains an
+active warning. The Settings button shows a warning icon, and the dbtools tab
+receives a highlight when warnings exist. A disabled command's tooltip names
+every active warning that blocks it. Command preflight and contextual edit flows
+use the same registered warning policy as ribbon controls.</p>
 <h2 id="defining-warnings-in-manifest.yml">Defining warnings in manifest.yml</h2>
 <p>Declare warnings under a settings pack:</p>
 <pre><code class="lang-yaml">tool:
@@ -108,9 +109,9 @@ ribbon controls.</p>
           title: &quot;Combined Foundation Tags Disabled&quot;
           message: &quot;Use Settings -&gt; Combined Foundation Tags -&gt; Install/Repair. A successful repair clears the warning and re-enables the commands.&quot;
           disableTools:
-            - DBTools.UpdateCombinedFoundationTags
-            - DBTools.MoveCombinedFoundationTags
-            - DBTools.OrganizeFoundationTypes
+            - dbtools.UpdateCombinedFoundationTags
+            - dbtools.MoveCombinedFoundationTags
+            - dbtools.OrganizeFoundationTypes
 </code></pre>
 <table>
 <thead>
@@ -165,7 +166,7 @@ owns persisted preferences such as <code>AutoUpdateEnabled</code>. <code>IAutoUp
 requires only that preference. Do not serialize a warning flag or derive
 command blocking from a saved flag.</p>
 <h2 id="triggering-warnings">Triggering warnings</h2>
-<p>Tools use <code>DBTools.Core.Settings.Warnings.ISettingsWarningService</code>:</p>
+<p>Tools use <code>dbtools.Core.Settings.Warnings.ISettingsWarningService</code>:</p>
 <pre><code class="lang-csharp">IReadOnlyCollection&lt;ISettingsWarningDefinition&gt; Definitions { get; }
 bool IsWarningActive(string warningId);
 SettingsWarningStateChange SetWarning(string warningId, bool active);
@@ -213,11 +214,11 @@ Do not report an unexpected I/O or programming exception as invalid settings.</p
 </tr>
 <tr>
 <td>Open Settings</td>
-<td>Validate loaded options and publish warning state.</td>
+<td>Validate loaded options and publish warning state. A cleared warning also releases the per-document failure gate for tasks that declare it.</td>
 </tr>
 <tr>
 <td>Validate button</td>
-<td>Evaluate unsaved drafts and editor flags. Do not change shared command blocking.</td>
+<td>Evaluate every pack, report its validation errors and name active warnings that remain. Do not change shared command blocking.</td>
 </tr>
 <tr>
 <td>Save before commit</td>
@@ -277,18 +278,18 @@ availability. The warning card binds to that row state.</p>
 updates. <code>RibbonSettingsObserver</code> owns subscription lifetime and dispatcher
 delivery. <code>RibbonCompositionState</code> owns the registered controls and panel state.</p>
 <p>Command preflight checks every applicable active warning. Ribbon enablement
-instead applies each warning's latest update directly. If several warnings
-name one command, clearing one can visually enable its button while another
-still blocks execution. Give each disabled command one warning definition when its ribbon state must
-match command preflight.</p>
-<p><code>WarningChangedEventArgs</code> carries <code>WarningId</code>, <code>PackKey</code>, <code>IsActive</code>, and
-<code>ToolInternalNamesToDisable</code>. <code>WarningSetChangedEventArgs</code> carries aggregate
-<code>HasWarnings</code>. Treat these as published state, not persistence requests.</p>
+combines all active warnings for each command, so clearing one warning does not
+enable a button while another still blocks it.</p>
+<p><code>WarningChangedEventArgs</code> carries <code>WarningId</code>, <code>WarningTitle</code>, <code>PackKey</code>,
+<code>IsActive</code>, and <code>ToolInternalNamesToDisable</code>. <code>WarningSetChangedEventArgs</code>
+carries aggregate <code>HasWarnings</code>. Treat these as published state, not
+persistence requests.</p>
 <h2 id="clearing-and-fixing-warnings">Clearing and fixing warnings</h2>
 <p>Clear sets the bound context warning false and calls
 <code>ISettingsWarningService.SetWarning(id, false)</code>. It does not repair prerequisites
-or save settings. A later validation or prerequisite check can activate the
-warning again.</p>
+or save settings. For view-activation tasks that declare the warning, clearing
+it releases their per-document failure gates so a later view activation can try
+again. A later validation or prerequisite check can activate the warning again.</p>
 <p>A tool can clear a warning programmatically after its prerequisite check
 succeeds:</p>
 <pre><code class="lang-csharp">warnings.SetWarning(&quot;core.structural.combined_tags&quot;, false);
@@ -338,7 +339,7 @@ its update command. Their manifests under <code>src/Tools/</code> define the IDs
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>

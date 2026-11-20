@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Test Pipeline | DB Tools </title>
+      <title>Test Pipeline | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Test Pipeline | DB Tools ">
+      <meta name="title" content="Test Pipeline | dbtools ">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -46,8 +46,8 @@
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
           <a class="navbar-brand" href="../../index.html">
-            <img id="logo" src="../../images/logo.png" alt="DB Tools" width="32" height="32">
-            DB Tools
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
           </a>
           <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
             <i class="bi bi-three-dots"></i>
@@ -89,17 +89,17 @@
         <article data-uid="">
 <h1 id="test-pipeline">Test Pipeline</h1>
 
-<p>This page describes how DB Tools tests are selected, staged and run. For the
+<p>This page describes how dbtools tests are selected, staged and run. For the
 <code>test.sh</code> options, examples and the rules for writing tests, see
 <a href="../developing/testing-tools.html">Testing Tools</a>.</p>
-<p>DB Tools tests run through one of two routes:</p>
+<p>dbtools tests run through one of two routes:</p>
 <ul>
 <li><code>./test.sh</code> resolves the selected projects, builds them, freezes their inputs
 and runs them locally or submits them to the dbtools-daemon fleet. It writes
 the receipts that <code>--no-build</code> and CI consume. See the
 <a href="../developing/testing-tools.html#testsh-command-reference">test.sh command reference</a>.</li>
 <li>Plain <code>dotnet test</code> on an entry project in <code>testing/Daemon/</code> uses the pinned
-daemon VSTest adapter (<code>DbToolsDaemon.RevitTest.TestAdapter</code>). MSBuild builds
+daemon VSTest adapter (<code>dbtools-daemon.RevitTest.TestAdapter</code>). MSBuild builds
 the selected assemblies, models, includes and per-year sources, and the
 adapter submits them in one request. See
 <a href="../developing/testing-tools.html#daemon-adapter-entry-projects">Daemon adapter entry projects</a>.</li>
@@ -138,6 +138,11 @@ route accepts or stores them.</p>
 <td>The Windows distribution acceptance suite, always a daemon PureSuite job</td>
 </tr>
 <tr>
+<td>GALLERY</td>
+<td></td>
+<td>The Windows render gallery, always a daemon PureSuite job</td>
+</tr>
+<tr>
 <td>BUILD</td>
 <td></td>
 <td>Linux-native build and distribution contract suites</td>
@@ -169,7 +174,7 @@ cannot be mapped exits with status 2 instead of selecting the whole assembly.</p
 <code>.runtimeconfig.json</code> and the output-local <code>NUnit3.TestAdapter.dll</code>, then
 routes it:</p>
 <ul>
-<li>to the daemon if it is the DIST suite or a machine is pinned;</li>
+<li>to the daemon if it is the DIST or GALLERY suite or a machine is pinned;</li>
 <li>to the daemon if it targets Windows and the host is not Windows;</li>
 <li>to the daemon if the host lacks <code>Microsoft.WindowsDesktop.App</code>; a missing
 other framework is an error;</li>
@@ -211,7 +216,7 @@ these and refuses stale or missing files. CI resolves the selectors once with
 runs them with <code>--no-build</code>. The consumer never rebuilds. Linux BUILD and DIST
 jobs do not depend on the Windows transfer.</p>
 <p>The portable BUILD project selection requires no prebuilt product or candidate output:</p>
-<pre><code class="lang-bash">./test.sh test --tool BUILD --project testing/DBTools.Build.Tests/DBTools.Build.Tests.csproj --scope pure --filter 'TestCategory!=ProductArtifacts'
+<pre><code class="lang-bash">./test.sh test --tool BUILD --project testing/dbtools.Build.Tests/dbtools.Build.Tests.csproj --scope pure --filter 'TestCategory!=ProductArtifacts'
 </code></pre>
 <p><code>--tool BUILD</code> also selects the Distribution and Sandbox projects. Their setup
 requirements remain separate. Ordinary test compilation creates test
@@ -258,12 +263,13 @@ returns 2 after a zero submit exit. Independent scopes in one request continue a
 failure, but <code>test.sh</code> returns the first nonzero status.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
 <p><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code> builds
-<code>DBTools.&lt;Tool&gt;.Local.Tests</code> for both years (<code>Hosted2026.proj</code>,
+<code>dbtools.&lt;Tool&gt;.Local.Tests</code> for both years (<code>Hosted2026.proj</code>,
 <code>Hosted2027.proj</code>). <code>&lt;Tool&gt;</code> is a tool key or <code>App</code>, <code>Core</code> or <code>Presentation</code>.
 The App and Core entries also build
-<code>DBTools.&lt;Tool&gt;.HostedTurns.Local.Tests</code>.
+<code>dbtools.&lt;Tool&gt;.HostedTurns.Local.Tests</code>.
 <code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code> selects every
-<code>DBTools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner. After the build, the
+<code>dbtools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner, except
+<code>dbtools.Presentation.Gallery.Pure.Tests</code>. After the build, the
 entry writes <code>dbtools-daemon.runsettings</code> from <code>Hosted.runsettings</code> or
 <code>Pure.runsettings</code> with the literal sources, models and includes. The hosted
 settings default to years <code>2026,2027</code>, isolated execution and a 30-minute
@@ -278,14 +284,15 @@ NUnit and adapter dependencies are separate inputs. App loads tools from
 the staged tree. Test support installs no resolver for product assemblies.</p>
 <h2 id="test-projects">Test projects</h2>
 <p>Test projects are next to their production owners:</p>
-<pre><code class="lang-text">src/DBTools.App/Tests/DBTools.App.{Pure,Local}.Tests.csproj
-src/DBTools.Core/Tests/DBTools.Core.{Pure,Local}.Tests.csproj
-src/DBTools.Presentation/Tests/DBTools.Presentation.{Pure,Local}.Tests.csproj
-src/DBTools.Sandbox/Tests/DBTools.Sandbox.Pure.Tests.csproj
-src/Tools/&lt;Category&gt;/&lt;Tool&gt;/Tests/DBTools.&lt;Tool&gt;.{Pure,Local}.Tests.csproj
-testing/DBTools.Build.Tests/                  build and distribution contracts (Linux)
-testing/DBTools.Distribution.Tests/           portable archive contracts, Dev Mode unload (Linux)
-testing/DBTools.Distribution.Windows.Tests/   DIST suite
+<pre><code class="lang-text">src/dbtools.App/Tests/dbtools.App.{Pure,Local}.Tests.csproj
+src/dbtools.Core/Tests/dbtools.Core.{Pure,Local}.Tests.csproj
+src/dbtools.Presentation/Tests/dbtools.Presentation.{Pure,Local}.Tests.csproj
+src/dbtools.Presentation/Tests/dbtools.Presentation.Gallery.Pure.Tests.csproj   GALLERY suite
+src/dbtools.Sandbox/Tests/dbtools.Sandbox.Pure.Tests.csproj
+src/Tools/&lt;Category&gt;/&lt;Tool&gt;/Tests/dbtools.&lt;Tool&gt;.{Pure,Local}.Tests.csproj
+testing/dbtools.Build.Tests/                  build and distribution contracts (Linux)
+testing/dbtools.Distribution.Tests/           portable archive contracts, Dev Mode unload (Linux)
+testing/dbtools.Distribution.Windows.Tests/   DIST suite
 testing/RevitTestModels/                      test models by year and tool
 </code></pre>
 <p>An owner has both a <code>.Pure.Tests</code> and a <code>.Local.Tests</code> project only when both
@@ -388,7 +395,7 @@ and <a href="sandbox-validator.html">Sandbox Validator</a>.</p>
     <footer class="border-top text-secondary">
       <div class="container-xxl">
         <div class="flex-fill">
-          DB Tools - Revit Add-in Toolkit
+          dbtools - Revit Add-in Toolkit
         </div>
       </div>
     </footer>
