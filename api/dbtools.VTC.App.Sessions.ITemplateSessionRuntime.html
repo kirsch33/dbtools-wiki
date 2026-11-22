@@ -129,11 +129,12 @@ Interface ITemplateSessionRuntime
   
   </h3>
 
-  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 summary"><p>Applies only captured snapshot values that differ from the target. Expected row failures roll back that row and appear in the result.</p>
+</div>
   <div class="markdown level1 conceptual"></div>
 
   <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">void ApplyModel(long targetTemplateId, TemplateSnapshot model)</code></pre>
+    <pre><code class="lang-csharp hljs">TemplateApplyResult ApplyModel(long targetTemplateId, TemplateSnapshot model)</code></pre>
   </div>
 
   <h4 class="section">Parameters</h4>
@@ -144,6 +145,11 @@ Interface ITemplateSessionRuntime
     <dd></dd>
   </dl>
 
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="dbtools.VTC.Features.TemplateApply.Domain.TemplateApplyResult.html">TemplateApplyResult</a></dt>
+    <dd></dd>
+  </dl>
 
 
 
@@ -298,7 +304,7 @@ Interface ITemplateSessionRuntime
   
   </h3>
 
-  <div class="markdown level1 summary"><p>Creates template <code class="paramref">newName</code> from <code class="paramref">model</code> on base template <code class="paramref">baseTemplateId</code>, then applies <code class="paramref">pendingOverrides</code> to it, in one transaction group assimilated into one Undo entry.</p>
+  <div class="markdown level1 summary"><p>Creates template <code class="paramref">newName</code> from <code class="paramref">model</code> on base template <code class="paramref">baseTemplateId</code>, applies captured changes and <code class="paramref">pendingOverrides</code> in one transaction group, and assimilates it into one Undo entry.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 
@@ -323,7 +329,7 @@ Interface ITemplateSessionRuntime
   <h4 class="section">Returns</h4>
   <dl class="parameters">
     <dt><a class="xref" href="dbtools.VTC.Features.TemplateApply.Domain.TemplateApplyResult.html">TemplateApplyResult</a></dt>
-    <dd><p>The <a class="xref" href="dbtools.VTC.App.Sessions.ITemplateSessionRuntime.html#dbtools_VTC_App_Sessions_ITemplateSessionRuntime_BatchApply_System_Int64_dbtools_VTC_Features_TemplateComparison_System_Collections_Generic_IReadOnlyList_dbtools_VTC_Domain_SettingSelection__System_Collections_Generic_IReadOnlyList_dbtools_VTC_Features_TemplateApply_Pending_PendingCategoryOverride__">BatchApply(long, TemplateComparison, IReadOnlyList&lt;SettingSelection&gt;, IReadOnlyList&lt;PendingCategoryOverride&gt;)</a> result for <code class="paramref">pendingOverrides</code>; expected per-setting conflicts are reported there and do not undo the new template.</p>
+    <dd><p>The combined per-setting results for captured model changes and pending overrides. Expected conflicts leave those rows at their base-template values and do not undo the new template.</p>
 </dd>
   </dl>
 

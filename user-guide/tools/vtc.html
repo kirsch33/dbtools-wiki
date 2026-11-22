@@ -102,7 +102,7 @@
 <li>Click <strong>Process</strong> and choose the target.</li>
 </ol>
 <h3 id="comparison-tree">Comparison tree</h3>
-<p>The tree has these top-level groups: Template Parameters, Model Categories, Annotation Categories, Analytical Model Categories, Imported Categories, Filters, Filter Overrides, Revit Links, Worksets and Design Options.</p>
+<p>The tree has these top-level groups: Display Settings, Template Parameters, Model Categories, Annotation Categories, Analytical Model Categories, Imported Categories, Filter Overrides, Revit Links and Worksets. Design Options are not listed because Revit exposes document options, not template-specific option visibility.</p>
 <table>
 <thead>
 <tr>
@@ -151,6 +151,11 @@
 <li><strong>Configured in Left</strong> and <strong>Configured in Right</strong>: rows configured in that template.</li>
 </ul>
 <p>Rows that are not category, filter-override or template-parameter rows are always shown. <strong>Select Left</strong> and <strong>Select Right</strong> select every differing row that the filter and search show. Under <strong>Configured in Left</strong>, <strong>Select Left</strong> can therefore select a row that both templates hide when only Right overrides its graphics. Processing that row to the right template keeps it hidden and clears those overrides.</p>
+<h3 id="template-parameters-and-display-settings">Template parameters and display settings</h3>
+<p>Template Parameters show each parameter's inclusion state and, when Revit exposes a writable value, its number, whole number, text or element value. VTC applies a value only when the selected side includes the parameter and the snapshot contains the value. A shared parameter with a captured GUID matches by GUID and data spec. Other parameters with captured identity match by unique name and data spec. Revit ignores the spec version suffix. Older snapshots without parameter identity or value data resolve by unique name and apply only the inclusion state. Element values map by name and kind when project IDs differ. A missing or ambiguous required match is a row conflict.</p>
+<p>Display Settings include category-kind visibility, View Display Model, background, depth cueing, sketchy lines, shadow and sunlight intensity, plan view range, color-fill schemes, point-cloud overrides and coordination-model overrides. View-range levels, color-fill schemes, line styles and graphics patterns are matched by name when project IDs differ. A missing or ambiguous match is a conflict.</p>
+<p>VTC matches a silhouette style by its name, kind and category across projects. Revit checks whether the style is valid for the target view.</p>
+<p>Filter Overrides include each filter's enabled state. Filter Order applies after all filter rows. The target must contain the same filters as the selected order. VTC removes and re-adds them in source order, restores visibility, graphic overrides and enabled state, then checks the order by filter name.</p>
 <h3 id="process">Process</h3>
 <p><strong>Process</strong> applies the selected rows and the eligible staged edits in one batch. A staged edit is eligible when its row has a selected side and that side is the edited side, or when its row is not in the current comparison. An edit on a visible row with no selected side, or with the other side selected, is not applied. The dialog asks <strong>Apply changes to:</strong></p>
 <table>
@@ -175,15 +180,16 @@
 </tr>
 </tbody>
 </table>
-<p>A merged template starts as a copy of the Left template, so settings VTC does not compare, such as the view scale, keep the Left values. Use <strong>Swap</strong> to choose the other base.</p>
-<p>For a row that has a selected side, the target takes that side's value. When the selected side lacks the setting (it is absent there), the row in the target is reset to its default, instead of keeping the base value. This applies to categories, worksets and Revit link settings.</p>
-<p>A setting that cannot be applied is reported as a conflict, and the others are applied. Any other failure undoes the whole batch. Overwriting a template is one undo entry. <strong>Create Merged Template</strong> is one undo entry named <code>Create Merged View Template</code>. If it fails, no template remains, so you can retry with the same name.</p>
+<p>A merged template starts as a copy of the Left template. Settings outside the selected changes keep their Left values. Use <strong>Swap</strong> to choose the other base.</p>
+<p>For a row that has a selected side, the target takes that side's captured value. An absent category row resets visibility and graphic overrides. An absent filter row removes that filter. An absent workset or Revit-link row resets that setting to its default. An absent template-parameter row excludes that parameter. A missing optional display member is uncaptured, so VTC skips it. A display setting unsupported by the target view type is a row conflict. VTC always applies the template-parameter inclusion state. It writes a parameter value only when the selected side includes the parameter and the snapshot contains that value.</p>
+<p>VTC reports a setting it cannot apply as a conflict and continues with other rows. If a category supports graphics changes but refuses the requested visibility, VTC keeps the graphics changes and reports the visibility conflict. An unexpected failure rolls back the batch. Overwriting a template makes one Undo entry. <strong>Create Merged Template</strong> makes one Undo entry named <code>Create Merged View Template</code>.</p>
 <h3 id="imported-categories">Imported categories</h3>
 <p>Imported categories (DWG, DXF and other imports) appear under their own <strong>Imported Categories</strong> group. They use the same compare, edit, preview and process flow as other categories.</p>
 <h3 id="revit-links">Revit links</h3>
 <p>Revit link settings appear under <strong>Revit Links</strong>, grouped by link. Type-level and instance-level link targets are listed separately. VTC lists only the settings that the running Revit version lets add-ins both read and write:</p>
 <p><code>Visibility Mode</code>, <code>Linked View</code>, <code>Filters</code>, <code>Nested Links</code>, <code>Object Styles</code>, <code>Color Fill</code>, <code>View Range</code>, <code>Phase</code>, <code>Phase Filter</code>, <code>Detail Level</code>, <code>Discipline</code>.</p>
-<p>VTC matches links between the two templates by link name. If two links have the same name, VTC stops with an error.</p>
+<p><strong>Line Weights</strong> appears in live comparisons in Revit 2027. If its new value differs from <strong>Visibility Mode</strong>, VTC sets <strong>Visibility Mode</strong> to <strong>Custom</strong>. VTC applies the supported settings individually.</p>
+<p>VTC matches links between the two templates by link name and target kind. If two links of the same kind have the same name, VTC stops with an error.</p>
 <table>
 <thead>
 <tr>
@@ -198,11 +204,11 @@
 </tr>
 <tr>
 <td><strong>Copy Revit Link Settings To...</strong></td>
-<td>Copies the supported settings to other link targets. <code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> are matched by name in the target linked model. If the name is unavailable because the linked document is unloaded, the raw id is reused only when source and target reference the same linked model. The copy is one undo entry. A target that cannot accept the settings is reported and the others are copied. Any other failure leaves every target unchanged.</td>
+<td>Copies the supported settings to other link targets. <code>Linked View</code> is matched by name and view type. <code>Phase</code> and <code>Phase Filter</code> are matched by name in the target linked model. If a name is unavailable because the linked document is unloaded, the raw ID is reused only when source and target reference the same linked model. Otherwise, the copy fails for that target. The copy is one undo entry. A target that cannot accept the settings is reported and the others are copied. Any other failure leaves every target unchanged.</td>
 </tr>
 </tbody>
 </table>
-<p>Loading a saved template from the library also remaps <code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> by name in the target linked model. If the saved name is not found there, the setting fails with a not-found error. If the snapshot holds no name (the linked document was unloaded), the stored id is reused.</p>
+<p>Loading a saved template from the library remaps <code>Linked View</code> by name and view type. VTC checks for a unique match even when that row's displayed value already matches the target. It remaps <code>Phase</code> and <code>Phase Filter</code> by name. A missing or ambiguous name is a row conflict. A linked-element ID without a saved name is refused because VTC cannot prove that it identifies the same linked element.</p>
 <p>When only one template contains the link row, VTC uses that template. When both do and you have not selected a side, VTC asks which template to use.</p>
 <h3 id="library">Library</h3>
 <p>The <strong>Library</strong> tab saves template snapshots to disk and applies them back to a template.</p>
@@ -211,10 +217,11 @@
 <li><strong>Load</strong> applies the selected saved template to the side chosen in <strong>Load to:</strong>. It first asks for confirmation, because it overwrites the template's settings in Revit.</li>
 <li>A delete button removes the selected saved template, and a refresh button reloads the list.</li>
 </ul>
-<p>Snapshots are stored under <code>%APPDATA%\dbtools\Cache\VTC\</code>. VTC creates the folder on the first save. Saved names ignore case and surrounding spaces. Saving under an existing name asks <code>Replace saved template 'X'?</code>; Cancel saves nothing. If VTC cannot check the name, or another Revit session saves that name during your save, the save fails and nothing is overwritten. A snapshot that is incomplete or malformed fails to load with a storage error. VTC does not repair or migrate it.</p>
+<p>VTC stores snapshots under <code>%APPDATA%\dbtools\Cache\VTC\</code> and creates the folder on the first save. Saved names ignore case and surrounding spaces. Saving under an existing name asks <code>Replace saved template 'X'?</code>. A save without confirmation leaves an existing file in place, including a file another Revit session creates at the same time. VTC accepts snapshots without optional values and rejects missing required data or malformed values.</p>
+<p>Library Load applies captured rows that differ from the target. It reports the number of applied settings and names rows with conflicts. An expected conflict leaves the other rows eligible for apply. If VTC cannot rebuild the comparison after applying the settings, one warning gives the apply result and the reason the comparison failed.</p>
 <p>If a save or delete succeeds but the list cannot refresh, VTC shows a warning that names the template. A save or delete that fails shows an error.</p>
 <h2 id="result">Result</h2>
-<p><strong>Process</strong>, <strong>Apply to Template</strong> and <strong>Copy Revit Link Settings To...</strong> each make one undo entry. VTC reports each result in an alert titled <code>View Template Comparer</code>. Rows that failed to apply are conflicts; after <strong>Process</strong>, <strong>Show:</strong> Conflicts lists them.</p>
+<p><strong>Process</strong>, <strong>Apply to Template</strong> and <strong>Copy Revit Link Settings To...</strong> each make one undo entry. VTC reports each result in an alert titled <code>View Template Comparer</code>. When <strong>Process</strong> reports conflicts, use <strong>Show: Conflicts</strong> to see those rows. <strong>Show: Success</strong> includes applied rows whose values now match, subject to the current comparison filter.</p>
 <h2 id="messages">Messages</h2>
 <table>
 <thead>
@@ -309,8 +316,12 @@
 <td>Confirm <strong>Load</strong>.</td>
 </tr>
 <tr>
-<td><code>Applied '&lt;saved&gt;' to &lt;template&gt;.</code></td>
-<td><strong>Load</strong> finished.</td>
+<td><code>Applied '&lt;saved&gt;' to &lt;template&gt;. &lt;n&gt; settings applied.</code></td>
+<td><strong>Load</strong> finished. If any rows conflict, the message gives the count and names those rows.</td>
+</tr>
+<tr>
+<td><code>No captured settings in '&lt;saved&gt;' differed from &lt;template&gt;.</code></td>
+<td><strong>Load</strong> found no captured change to write.</td>
 </tr>
 <tr>
 <td><code>Deleted saved template '&lt;name&gt;'.</code></td>
@@ -318,7 +329,7 @@
 </tr>
 <tr>
 <td><code>Failed to save template: &lt;reason&gt;</code>, <code>Failed to load template: &lt;reason&gt;</code>, <code>Failed to delete template '&lt;name&gt;': &lt;reason&gt;</code></td>
-<td>The library action failed and changed nothing.</td>
+<td>The library action failed. The message gives the reason.</td>
 </tr>
 <tr>
 <td><code>... but the displayed saved-template list could not refresh.</code></td>
@@ -330,6 +341,9 @@
 <ul>
 <li>VTC compares templates in the open project. It does not compare templates across projects, except through the library.</li>
 <li>Link settings that Revit does not let add-ins read and write are not shown.</li>
+<li>VTC cannot apply a background of type <strong>None</strong> because Revit exposes no public setter for that value.</li>
+<li>Coordination-model reference-level overrides are not enumerated by the public API used by VTC.</li>
+<li>Design-option visibility, link Custom-tab tables, and link Visible, Halftone and Underlay values are not available through the supported API path.</li>
 <li>Create Merged Template copies the Left template, so use <strong>Swap</strong> to base the merge on the other template.</li>
 </ul>
 

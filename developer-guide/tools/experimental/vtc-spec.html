@@ -89,134 +89,140 @@
         <article data-uid="">
 <h1 id="view-template-comparer-vtc-specification">View Template Comparer (VTC) specification</h1>
 
-<h2 id="overview">Overview</h2>
-<p>This page specifies the data contract of View Template Comparer (VTC): what it reads from a view template, how it keys and compares settings, and how it applies, copies and stores them. The <a href="vtc.html">VTC developer guide</a> describes the architecture.</p>
-<h2 id="architecture">Architecture</h2>
-<p><code>TemplateExtractor</code> and <code>RevitLinkSettingsAdapter</code> read snapshots. <code>TemplateDifferenceEvaluator</code> compares them; <code>TemplateApplier</code> applies selected changes. <code>TemplateStorage</code> owns cached JSON. See <a href="vtc.html#architecture">VTC architecture</a> for composition and views.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<h3 id="scope">Scope</h3>
-<ul>
-<li>VTC compares two view templates of the current document.</li>
-<li>Category edits stay staged locally until Process.</li>
-<li>Imported categories are ordinary category rows on their own tab.</li>
-<li>Revit-link settings are limited to settings that the public Revit API can both read and write. VTC reads and writes a setting through the public API or does not handle it.</li>
-</ul>
-<h3 id="tabs">Tabs</h3>
-<p>The tree follows the Visibility/Graphics dialog. <code>SettingTab</code> values:</p>
-<ul>
-<li><code>ModelCategories</code></li>
-<li><code>AnnotationCategories</code></li>
-<li><code>AnalyticalModelCategories</code></li>
-<li><code>ImportedCategories</code></li>
-<li><code>Filters</code></li>
-<li><code>RevitLinks</code></li>
-<li><code>Worksets</code></li>
-<li><code>DesignOptions</code></li>
-</ul>
-<p><code>CategoryTabClassifier</code> sends a model category with a positive ID (an imported DWG, SAT or similar category) to <code>ImportedCategories</code>. Internal categories, which the dialog does not show, are classified as model categories. Other category types keep their native tab.</p>
-<h3 id="imported-categories">Imported categories</h3>
-<ul>
-<li>Extraction emits imported parents and their layers and subcategories as <code>CategoryGraphicsData</code>. Layers and subcategories inherit the imported parent's tab.</li>
-<li>Imported rows keep <code>SettingType=CategoryOverride</code> and use the same compare pipeline as every other category. There is no import-specific apply path.</li>
-<li>Inline edit, Inspector edit, Preview, pending overrides, batch apply, merged save and snapshot apply all use the standard category path.</li>
-<li>A selection whose side is missing resets visibility and graphics as for any other category row.</li>
-</ul>
-<h3 id="revit-links">Revit links</h3>
-<h4 id="data">Data</h4>
-<p><code>TemplateSnapshot.RevitLinks</code> is a list of <code>RevitLinkSetting</code> records:</p>
-<pre><code class="lang-csharp">public sealed record RevitLinkSetting(
-    long LinkElementId,
-    RevitLinkTargetKind TargetKind,     // RevitLinkType or RevitLinkInstance
-    string LinkName,
-    string LinkDisplayName,
-    RevitLinkSettingKind SettingKind,
-    RevitLinkSettingValue Value);
-</code></pre>
-<p>Each row is one target and one native setting. VTC extracts both <code>RevitLinkType</code> and <code>RevitLinkInstance</code> targets; they are keyed, labeled and copied separately.</p>
-<h4 id="setting-kinds">Setting kinds</h4>
-<p><code>RevitLinkSettingKind</code> has 11 values, all members of <code>RevitLinkGraphicsSettings</code>:</p>
+<p>This page defines the VTC snapshot, comparison, apply, copy and library contracts. The <a href="vtc.html">developer guide</a> describes the implementation.</p>
+<h2 id="scope-and-tabs">Scope and tabs</h2>
+<p>VTC compares view templates in the open document. It applies selected differences, stages category edits until Process, creates merged templates and stores snapshots in the local library.</p>
+<p>The tree follows the Visibility/Graphics dialog. <code>SettingTab</code> contains <code>ModelCategories</code>, <code>AnnotationCategories</code>, <code>AnalyticalModelCategories</code>, <code>ImportedCategories</code>, <code>Filters</code>, <code>RevitLinks</code> and <code>Worksets</code>. It has no Design Options tab because the public API exposes document options, not per-template option visibility.</p>
+<p><code>CategoryTabClassifier</code> sends model categories with positive IDs, such as DWG and SAT imports, to <code>ImportedCategories</code>. Internal categories that the Visibility/Graphics dialog does not show use <code>ModelCategories</code>. Other category types retain their native tabs. Imported parents, layers and subcategories follow the same category compare, edit, preview, apply, merge and snapshot paths as other categories. Imported layers and subcategories use the imported parent's tab.</p>
+<h2 id="snapshot-data">Snapshot data</h2>
+<p><code>TemplateSnapshot</code> requires <code>Name</code>, <code>Display</code>, <code>Includes</code>, <code>Categories</code>, <code>Filters</code>, <code>RevitLinks</code> and <code>Worksets</code>. Other snapshot members are optional. A missing optional member means that the snapshot did not capture that value.</p>
 <table>
 <thead>
 <tr>
-<th>Kind</th>
-<th>Kind</th>
+<th>Member</th>
+<th>Data</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>LinkVisibilityType</code></td>
-<td><code>ColorFill</code></td>
+<td><code>SourceDocumentGuid</code></td>
+<td>Revit's host-document creation GUID. VTC uses matching GUIDs for project-local IDs. It does not identify a linked document.</td>
 </tr>
 <tr>
-<td><code>LinkedViewId</code></td>
-<td><code>ViewRange</code></td>
+<td><code>FilterOrder</code></td>
+<td>Ordered filter IDs and names.</td>
 </tr>
 <tr>
-<td><code>ViewFilterType</code></td>
-<td><code>Phase</code></td>
+<td><code>TemplateIncludeData.SpecId</code> and <code>SharedParameterGuid</code></td>
+<td>Parameter identity used to verify a cross-project match.</td>
 </tr>
 <tr>
-<td><code>NestedLinks</code></td>
-<td><code>PhaseFilter</code></td>
+<td><code>TemplateIncludeData.Value</code></td>
+<td>A writable number, whole number, text or ElementId value, captured only for included parameters that are not owned by a display row.</td>
 </tr>
 <tr>
-<td><code>ObjectStyles</code></td>
-<td><code>ViewDetailLevel</code></td>
+<td><code>TemplateIncludeData.ParameterValueData.CategoryParentName</code></td>
+<td>Parent category name for a category-valued parameter.</td>
 </tr>
 <tr>
-<td></td>
-<td><code>Discipline</code></td>
+<td><code>FilterGraphicsData.IsEnabled</code></td>
+<td>Filter enabled state.</td>
+</tr>
+<tr>
+<td>Pattern names and <code>FillPatternTarget</code></td>
+<td>Names and kinds for line and fill pattern references.</td>
+</tr>
+<tr>
+<td><code>ViewDisplayModelData.SilhouetteEdgesGraphicsStyleType</code> and <code>SilhouetteEdgesStyleCategoryName</code></td>
+<td>Graphics style kind and category for silhouette mapping.</td>
+</tr>
+<tr>
+<td><code>RevitLinkSettingValue.ElementViewType</code></td>
+<td>View type for a linked-view setting.</td>
+</tr>
+<tr>
+<td><code>WorksetOverride.Kind</code></td>
+<td>Workset kind used with its name to match project-local worksets.</td>
+</tr>
+<tr>
+<td><code>DisplaySettingData</code> optional members</td>
+<td>Category-kind visibility, View Display Model, background, depth cueing, sketchy lines, shadow and sunlight intensity, plan view range, color-fill schemes, point-cloud overrides and coordination-model overrides.</td>
 </tr>
 </tbody>
 </table>
-<p>The adapter binds all 11 kinds directly to typed public API members for Revit 2026 (2026.5 or later) and Revit 2027.</p>
-<h4 id="extraction">Extraction</h4>
-<ul>
-<li><code>RevitLinkSettingsAdapter.Extract</code> enumerates link targets, reads <code>View.GetLinkOverrides(...)</code> (a new <code>RevitLinkGraphicsSettings</code> when there are none) and emits one row per setting kind.</li>
-<li>Simple settings use the native <code>LinkVisibility</code> or <code>ElementId</code> value. Phase, Phase Filter, Detail Level and Discipline use their public getter and setter and are stored as one row each.</li>
-<li>Linked element names are read from the linked document when it is loaded. These names identify <code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> across models.</li>
-</ul>
-<h4 id="keys-and-comparison">Keys and comparison</h4>
-<ul>
-<li><code>RevitLinkDiffEvaluator</code> keys each row as <code>link.{type|instance}.name.{LinkName}.{SettingKind}</code>, for example <code>link.type.name.ARCH_Model.rvt.LinkVisibilityType</code>.</li>
-<li><code>LinkName</code> is the only cross-model key. Compare, save, load and apply all use it; there is no element-ID key. If a key is ambiguous within a target kind, compare throws <code>InvalidOperationException</code> (&quot;Revit link key '...' is ambiguous. ...&quot;).</li>
-<li><code>TemplateDifferenceEvaluator</code> compares typed <code>SettingValue</code> cases.</li>
-<li><code>DiffTreeBuilder</code> groups the rows under <code>Revit Links</code> by <code>LinkDisplayName</code>, with one leaf per setting kind.</li>
-</ul>
-<h3 id="library-storage">Library storage</h3>
-<p><code>TemplateStorage</code> stores saved templates as JSON in the VTC cache directory (<code>AppPaths.GetToolCacheDir(&quot;VTC&quot;)</code>).</p>
-<ul>
-<li>It is the only code that derives cache file paths. Callers use logical template names. A rooted name, or a name with a path separator, is rejected before any path is derived. <code>SavedTemplateInfo</code> exposes only the name and modification time.</li>
-<li>Load and save accept only one complete <code>TemplateSnapshot</code> shape: required top-level members and collections must be present, explicit nulls and invalid nested elements are rejected, and the same validation runs before an in-memory snapshot is saved. There is no normalization and no recovery of other formats; incompatible data raises <code>TemplateStorageException</code>.</li>
-<li>Saved Revit-link rows must have a non-blank <code>LinkName</code> and <code>LinkDisplayName</code>, defined <code>TargetKind</code> and <code>SettingKind</code> values and a value valid for the kind: a visibility mode from 0 to 2, no mode for linked-view IDs, a detail level from 0 to 3, a defined discipline, and no enum value for other kinds.</li>
-<li><code>GetSavedTemplates</code> returns an empty list when the cache directory does not exist, without creating it. Other enumeration failures raise <code>TemplateStorageException</code> (operation <code>enumerate</code>).</li>
-<li><code>TemplateExists</code> returns <code>false</code> for a missing file or directory. Other probe failures raise <code>TemplateStorageException</code> (operation <code>probe</code>), so the save is refused instead of overwriting.</li>
-<li>Only <code>SaveTemplate</code> creates the directory. An existing name is replaced only after the user answers Replace; otherwise the file is written with overwrite disabled, so a template that another process saved under the name after the probe is kept and the save fails with <code>TemplateStorageException</code>.</li>
-<li><code>MergedTemplateBuilder</code> writes <code>RevitLinks</code> rows like any other diff rows. Revit-link rows take part in Preview, Process, Create Merged and merged save.</li>
-</ul>
-<p>Sources: <code>src/Tools/Experimental/VTC/Domain/Template/TemplateSnapshot.cs</code>, <code>src/Tools/Experimental/VTC/Features/Library/Operations/TemplateStorage.cs</code>, <code>src/Tools/Experimental/VTC/Features/RevitLinks/</code>.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="apply-and-copy">Apply and copy</h3>
-<h4 id="apply">Apply</h4>
-<ul>
-<li>Applying a Revit-link row reads the current link overrides, changes only the selected setting and writes the settings back with <code>View.SetLinkOverrides(...)</code>.</li>
-<li>Targets are resolved by <code>LinkName</code> only.</li>
-<li><code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> are remapped by linked-element name. Dependent rows first set the required top-level visibility mode.</li>
-<li>A selection whose side is missing resets only that setting to its host default.</li>
-<li>Applying from the Revit-link modal uses <code>BatchApply</code> in one <code>VTC Process Apply</code> transaction, with one sub-transaction per setting and one Undo entry. A missing comparison key is an <code>ElementNotFound</code> conflict; an unexpected fault rolls back the whole apply.</li>
-</ul>
-<h4 id="copy">Copy</h4>
-<ul>
-<li>The context menu of a concrete link group or leaf row (not the <code>Revit Links</code> tab root) has <strong>Open Revit Link Settings...</strong> and <strong>Copy Revit Link Settings To...</strong>.</li>
-<li>Opening the modal from a leaf row shows the full group of that link target, so the modal always shows all 11 kinds. A successful modal apply refreshes the main comparison.</li>
-<li>The modal and the copy command work on one template side. <code>RevitLinkActionSourceResolver</code> selects the only side with a value, or a viable selected side, and reports &quot;no Revit-link value&quot; or a real two-sided ambiguity without showing UI. On ambiguity App asks which template to use; it never defaults to Left.</li>
-<li>Copy uses <code>TemplateRuntime.GetRevitLinkTargets()</code> and <code>CopyRevitLinkSettings(...)</code> and always copies all 11 kinds. Each target is copied in its own transaction; the transactions run in the <code>Copy Revit Link Settings</code> transaction group (started through <code>RevitTransactionGroups.Begin</code>) and are assimilated into one Undo entry. An expected failure skips only that target and is logged; an unexpected fault rolls back every target.</li>
-<li><code>Linked View</code>, <code>Phase</code> and <code>Phase Filter</code> are copied by finding the source linked-element name in the target linked model; raw linked-document IDs are not copied across models. If the source linked document is unloaded and the name is not available, the raw ID is reused only when source and target reference the same linked model. Otherwise copy fails.</li>
-</ul>
+<p>VTC captures Detail Level, Display Style and Discipline only when the matching <code>View.Has...</code> method returns true. VTC does not capture extended display members for schedule, legend or drafting views. A null optional member means that the snapshot did not capture that setting.</p>
+<p>VTC captures a parameter value only when the parameter is writable, included and has a value. A captured value also requires a captured data spec. Revit compares <code>ForgeTypeId</code> values without the version suffix, and VTC uses the same comparison. A shared parameter with captured identity matches by GUID and spec. Other parameters with captured identity match by unique name and spec. A legacy parameter row without identity data maps by unique name and applies only its inclusion flag. VTC stores an ElementId value's name and type when available. Category values also store the parent category name when available. Built-in and sentinel IDs can remain negative IDs.</p>
+<p>Some built-in parameters return an empty <code>ForgeTypeId</code>. The library preserves that empty spec and requires the same spec on the target.</p>
+<h2 id="identity-and-comparison">Identity and comparison</h2>
+<p>For project-local ElementId references, VTC uses an ID when the source and target are the same document and the element kind matches. Across documents, VTC maps by unique name and kind. Fill patterns use <code>FillPatternTarget</code>. Worksets use name and workset kind. Linked views use name and <code>ViewType</code>. A missing or ambiguous required match is a row conflict. The negative Solid line-pattern ID maps to Solid. A positive pattern ID without a name means that reference was not captured, so VTC keeps the target value. VTC does not substitute another named element.</p>
+<p>Silhouettes use the captured graphics style kind and category for name mapping. Older snapshots without a silhouette category map names within <code>Lines</code>. Revit determines whether the resolved graphics style is valid for the target view.</p>
+<p>Template parameter resolution searches only <code>View.GetTemplateParameterIds()</code>. A shared parameter with a captured GUID matches by GUID. Other parameters match by unique name. VTC checks every captured data spec and shared GUID, using Revit's version-insensitive <code>ForgeTypeId</code> equality. A value write occurs only when the selected side includes the parameter and captures a value.</p>
+<p>Parameter rows always apply the inclusion flag. VTC writes a captured parameter value only when the selected side includes the parameter and the snapshot contains its data spec and value. A null value or missing optional identity data does not capture a writable value.</p>
+<p>Filter order compares the ordered filter names. The target's filter set must equal the selected order's set before VTC changes precedence. Two comparison rows with the same key are conflicts for both rows. VTC does not select the first row silently.</p>
+<h2 id="revit-link-settings">Revit-link settings</h2>
+<p><code>TemplateSnapshot.RevitLinks</code> contains one row per link type or instance and supported setting. The row key uses target kind, link name and setting kind. Link names must be unique within a target kind.</p>
+<p>VTC supports <code>Visibility Mode</code>, <code>Linked View</code>, <code>Filters</code>, <code>Nested Links</code>, <code>Object Styles</code>, <code>Color Fill</code>, <code>View Range</code>, <code>Phase</code>, <code>Phase Filter</code>, <code>Detail Level</code> and <code>Discipline</code> in Revit 2026 and 2027. Revit 2027 also exposes <code>Line Weights</code>. The 2026 extractor omits that setting.</p>
+<p><code>RevitLinkDiffEvaluator</code> keys each row as <code>link.{type|instance}.name.{LinkName}.{SettingKind}</code>, for example <code>link.type.name.ARCH_Model.rvt.LinkVisibilityType</code>. A link ID is used only for a matching same-document link of the same target kind. Across documents, the link name and target kind must resolve uniquely. Duplicate names within one target kind are refused with <code>Revit link key '&lt;key&gt;' is ambiguous. Link names must resolve uniquely per target kind and setting.</code> Linked views use their saved view type. VTC refuses an ambiguous linked-view name and type.</p>
+<p>Link setting values use the fields and ranges in this table. Revit 2027 Line Weights accepts only modes 0 or 1.</p>
+<p>VTC reads and writes supported link settings through <code>View.GetLinkOverrides</code> and <code>View.SetLinkOverrides</code>. It does not copy the complete <code>V/G Overrides RVT Links</code> template-parameter group.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Valid saved values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Link Visibility Type, Filters, Nested Links, Object Styles, Color Fill, View Range, Phase and Phase Filter</td>
+<td><code>ModeValue</code> is 0 (By Host View), 1 (By Link View) or 2 (Custom). <code>EnumValue</code> is null.</td>
+</tr>
+<tr>
+<td>Linked View</td>
+<td><code>ElementIdValue</code>, <code>ElementName</code> and <code>ElementViewType</code> are optional. <code>ModeValue</code> and <code>EnumValue</code> are null. A captured <code>ElementViewType</code> must name a defined <code>ViewType</code>.</td>
+</tr>
+<tr>
+<td>View Detail Level</td>
+<td><code>ModeValue</code> is 0, 1 or 2. <code>EnumValue</code> is 0 through 3.</td>
+</tr>
+<tr>
+<td>Discipline</td>
+<td><code>ModeValue</code> is 0, 1 or 2. <code>EnumValue</code> is <code>Architectural</code> (1), <code>Structural</code> (2), <code>Mechanical</code> (4), <code>Electrical</code> (8), <code>Plumbing</code> (16) or <code>Coordination</code> (4095).</td>
+</tr>
+<tr>
+<td>Line Weights</td>
+<td>Revit 2027 only. <code>ModeValue</code> is 0 or 1. <code>EnumValue</code> is null.</td>
+</tr>
+</tbody>
+</table>
+<p>Phase and Phase Filter also store optional <code>ElementIdValue</code> and <code>ElementName</code> values. VTC parses a captured linked-view type as a defined <code>ViewType</code> before mapping the saved view.</p>
+<p>Before it applies a Custom dependent link setting, VTC sets the link visibility mode to Custom. Line Weights accepts By Host View or By Link View. When that value differs from the current visibility mode, VTC sets the visibility mode to Custom.</p>
+<h2 id="apply-and-copy">Apply and copy</h2>
+<p>VTC applies each selected row in its own subtransaction and reads the setting back through the public Revit API. A mismatch rolls back that row and returns a conflict. For a category with unsupported visibility, VTC keeps any successful graphics write and flags the row as a conflict. An unexpected failure rolls back the batch.</p>
+<p>Library Load and Create Merged write only rows that differ from the target template. They report expected conflicts per row. They also validate saved linked-view names and types when the displayed values compare equal. A missing or ambiguous linked-view match is a row conflict. Missing optional snapshot members are skipped. For template parameters, a missing value skips the value write while the inclusion flag still applies. A filter row absent on the selected side removes that filter. A template-parameter row absent on the selected side excludes that parameter. A display value unsupported by the target view type produces a row conflict. For a link present on both sides, VTC skips a Line Weights row captured on only one side.</p>
+<p>Filter rows apply before Filter Order. VTC refuses Filter Order if the target and selected filter sets differ. Otherwise it removes and re-adds filters in source order, restores each filter's visibility, graphic overrides and enabled state, and reads back the order by source names.</p>
+<p>Category rows absent on the selected side reset target visibility and graphic overrides. Workset and Revit-link rows absent on the selected side reset only the selected setting to its host default. Missing optional display values do not reset the target.</p>
+<p>The Revit-link modal applies selected settings in one <code>VTC Process Apply</code> transaction with one subtransaction per setting. A missing comparison key is an <code>ElementNotFound</code> conflict. An unexpected fault rolls back the batch.</p>
+<p>The context menu of a concrete Revit-link group or leaf row, not the <code>Revit Links</code> root, provides <strong>Open Revit Link Settings...</strong> and <strong>Copy Revit Link Settings To...</strong>. Opening the modal from a leaf shows all supported settings for that target. A successful modal apply refreshes the main comparison.</p>
+<p>The modal and copy command use one template side. <code>RevitLinkActionSourceResolver</code> selects the only side with a value or a viable selected side. When both sides are possible, App asks which template to use. It does not default to Left.</p>
+<p>Copy writes all supported settings to each target in a separate transaction inside one <code>Copy Revit Link Settings</code> transaction group. Expected failures skip only that target. An unexpected fault rolls back all copied targets. <code>Linked View</code> maps by name and view type. <code>Phase</code> and <code>Phase Filter</code> map by name. If the source link is unloaded, VTC reuses a raw ID only when source and target refer to the same linked model. Otherwise copy fails.</p>
+<h2 id="library-storage">Library storage</h2>
+<p><code>TemplateStorage</code> stores saved templates as JSON in the VTC cache directory returned by <code>AppPaths.GetToolCacheDir(&quot;VTC&quot;)</code>, normally <code>%APPDATA%\dbtools\Cache\VTC\</code>.</p>
+<p><code>TemplateStorage</code> alone derives file paths. Callers use logical template names. Rooted names and names containing path separators are rejected. <code>SavedTemplateInfo</code> exposes only the name and modification time.</p>
+<p>Required top-level members and nested values are validated on save and load. Optional members may be absent. Null entries, invalid enums and malformed nested collections are rejected with <code>TemplateStorageException</code>. VTC does not normalize or repair incompatible files.</p>
+<p><code>GetSavedTemplates</code> returns an empty list when the cache directory does not exist and does not create it. Other enumeration errors raise <code>TemplateStorageException</code> with operation <code>enumerate</code>. <code>TemplateExists</code> returns false for a missing file or directory. Other probe errors raise <code>TemplateStorageException</code> with operation <code>probe</code>, so saving does not overwrite an unverified path.</p>
+<p>Only <code>SaveTemplate</code> creates the directory. Replacing an existing name requires the user's Replace choice. Without replacement, atomic creation keeps a file saved concurrently by another process and reports a storage error.</p>
+<p><code>MergedTemplateBuilder</code> writes <code>RevitLinks</code> rows like other diff rows. Link rows participate in Preview, Process, Create Merged and merged save.</p>
 <h2 id="testing">Testing</h2>
 <p>See <a href="vtc.html#testing">VTC testing</a> for Pure and Revit-hosted fixture inventories.</p>
 <h2 id="limitations">Limitations</h2>
-<p>A Revit-link key must be unique within its target kind. Cross-model Linked View, Phase, and Phase Filter remapping requires the linked-element name. When the source link is unloaded, raw IDs are reused only for the same linked model; copying to a different linked model fails.</p>
+<ul>
+<li>VTC compares templates in one open document. The library stores snapshots for use in another project.</li>
+<li>The public API path does not expose the complete Revit-link Custom-tab category tables, link Visible, Halftone and Underlay values, per-template Design Option visibility, shadow on/off, ambient shadows, lighting scheme, exposure or coordination-model reference-level overrides.</li>
+<li>Revit exposes no public setter for a background of type <code>None</code>. VTC extracts and compares that value but refuses to apply it.</li>
+<li>The hosted <code>ApplyViewTemplateParameters</code> probe covers basic link visibility type and linked-view settings. It does not establish that custom per-category tables are copied, and VTC does not use that whole-tab route.</li>
+<li>Library Load requires a saved name and kind to map linked elements. A row without that identity is refused. Copy can reuse an ID only when both link targets reference the same linked model; otherwise copy fails.</li>
+</ul>
 
 </article>
 
