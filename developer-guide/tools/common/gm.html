@@ -297,7 +297,7 @@ values of its first instance. Gate calls made inside the callback run inline. A 
 callback queues its later calls, and <code>GmSessionDocumentCallBatch</code> logs that at Debug. The expansion reads no views list;
 the Views panel reads it for the selected row. A views-list double-click calls
 <code>IViewOps.ShowElementInViewAsync</code>. Selecting a type updates the parameter examples from its first placed instance.
-A parameter-example read canceled when GM closes finishes without a window error.</p>
+A parameter-example read that GM cancels finishes without a window error.</p>
 <p><code>ViewOpsQuery</code> checks a view-owned element only in the view group of its owner view: the primary view and its
 dependent views. Both the cross-view search of a navigation and the views list of a family use this rule.
 <code>QueryElementsByParam</code> walks the views in name order, stops at its cap, and reads the parameters of an element
@@ -362,9 +362,10 @@ transaction-group finalization failures also fail and are aggregated with a prim
 failure when both occur.</p>
 <p>GM Local tests enter the native callback through <code>RevitHost</code> for calls that finish in the current turn.
 The <code>RevitTestBase</code> gate refuses work that would wait for a later callback and names the test.
-<code>dbtools.GM.HostedTurns.Local.Tests</code> owns <code>DeepScanOrchestratorPipelineTests</code>. The fixture uses <code>RevitHostedTurns</code>
-because cache hydration can reach the gate after asynchronous file I/O. It uses the real queued task and gives
-each pipeline operation a two-minute deadline. Both GM Local projects use the shared profile isolation setup.</p>
+<code>dbtools.GM.HostedTurns.Local.Tests</code> owns <code>DeepScanOrchestratorPipelineTests</code> and <code>FamilyDeepScanTests</code>.
+The pipeline and overlay cancellation tests use the queued Revit task for work after a file read or a dispatcher yield.
+They give each pipeline operation or cancellation scan a two-minute deadline. Both GM Local projects use the shared
+profile isolation setup.</p>
 <p><code>dbtools.GM.Pure.Tests.csproj</code> contains owner-local fixtures and shared test support and references the desktop <code>dbtools.GM.csproj</code>. The production assembly grants the Pure assembly internal access. Revit references are compile-only; loading a Revit-typed member requires a Revit host.</p>
 <p>The repository wrappers run the GM checks. Run the ones that the change can
 affect (<a href="../../index.html#choosing-checks">Choosing checks</a>):</p>

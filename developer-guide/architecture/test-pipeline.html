@@ -304,9 +304,16 @@ kinds of test exist.</p>
 normal production owners. Shared props give every Pure project
 <code>$(DBT_PureRevitYear)</code> (2026) and static graph restore, and pass that year
 on owner references, so a plain <code>dotnet build</code> or <code>dotnet test</code> of one
-project needs no properties. Revit is compile-only in Pure tests: a test
-must not load Revit-typed members or scan owner types outside the loadable
-set.</li>
+project needs no properties. Windows Pure projects compile against the pinned
+desktop Revit references. Their runtime output contains IL-only copies of
+<code>RevitAPI</code>, <code>RevitAPIUI</code>, <code>AdWindows</code>, and <code>UIFramework</code>. These stubs preserve
+Revit type definitions, constants, and enum values. A stub method throws
+<code>NotSupportedException</code> with the message <code>&lt;assembly&gt; is a test stub. Its API calls require the host.</code> This applies during type initialization and when
+<code>GetCustomAttribute&lt;TransactionAttribute&gt;()</code> constructs a Revit attribute.
+An NUnit action records the exception when it is thrown and fails the case
+even if a catch block handles it. Mark a test with <code>[AllowRevitStubCalls]</code>
+when it checks the stub failure itself. Sandbox Pure leaves assembly
+resolution to the Sandbox Revit runtime resolver.</li>
 <li><strong><code>.Local.Tests</code> projects</strong> disable default compile items and include only
 Revit-hosted fixtures.</li>
 <li><strong>Presentation tests</strong> are under Presentation and belong to the

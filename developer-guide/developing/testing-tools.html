@@ -887,9 +887,16 @@ doubles for external inputs such as Revit, network, filesystem, and time.</li>
 <li>List the selection, run the focused fixture, and run the affected Pure suites.
 Compile Revit-hosted fixtures separately when a Revit worker is unavailable.</li>
 </ol>
-<p>When moving a fixture to Pure, replace incidental Revit data carriers with
-native values or snapshots at an existing product boundary. Keep actual WPF
-behavior in Windows Pure tests and document/API behavior in Revit-hosted tests.
+<p>Windows Pure tests can load Revit types and use their constants and enum values.
+Use production registrations and pass incidental Revit data through existing
+product boundaries. A Revit stub method throws <code>NotSupportedException</code> with
+the message <code>&lt;assembly&gt; is a test stub. Its API calls require the host.</code> This
+includes calls from type initializers and calls that construct a Revit attribute
+through <code>GetCustomAttribute&lt;TransactionAttribute&gt;()</code>. Use <code>GetCustomAttributesData()</code>
+to read attribute metadata. An NUnit action fails the case even if a catch block
+handles the stub exception. Apply <code>[AllowRevitStubCalls]</code> to a test method that
+checks this failure. Use Windows Pure tests for actual WPF behavior. Use
+Revit-hosted tests for document changes and other behavior that calls Revit.
 <code>Local</code>, <code>Both</code>, and <code>DA</code> NUnit categories are invalid routing metadata.
 Use <code>[RevitLocal]</code> and <code>[RevitDA]</code> for those execution hosts. Other categories
 can describe properties independent of the host.</p>
