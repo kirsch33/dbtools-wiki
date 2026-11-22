@@ -174,6 +174,39 @@ fails.</p>
 
 
 
+  <a id="dbtools_Core_Revit_Transactions_TransactionGroup_ITransactionGroupService_LastFinalizationOutcome_" data-uid="dbtools.Core.Revit.Transactions.TransactionGroup.ITransactionGroupService.LastFinalizationOutcome*"></a>
+
+  <h3 id="dbtools_Core_Revit_Transactions_TransactionGroup_ITransactionGroupService_LastFinalizationOutcome" data-uid="dbtools.Core.Revit.Transactions.TransactionGroup.ITransactionGroupService.LastFinalizationOutcome">
+  LastFinalizationOutcome
+  
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the last confirmed outcome, including a confirmed outcome followed by a finalization error.
+Beginning a new session resets it to <a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.TransactionGroupOutcome.html#dbtools_Core_Revit_Transactions_TransactionGroup_TransactionGroupOutcome_Unconfirmed">Unconfirmed</a>.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">TransactionGroupOutcome LastFinalizationOutcome { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.TransactionGroupOutcome.html">TransactionGroupOutcome</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
   <h2 class="section" id="methods">Methods
 </h2>
 
@@ -216,7 +249,7 @@ fails.</p>
   <h4 class="section" id="dbtools_Core_Revit_Transactions_TransactionGroup_ITransactionGroupService_BeginAsync_System_String_System_Threading_CancellationToken__remarks">Remarks</h4>
   <div class="markdown level1 remarks"><p>The task faults with <span class="xref">InvalidOperationException</span> when there is no active document
 or a session is already active, and with <a class="xref" href="dbtools.Core.Revit.Transactions.TransactionFailureException.html">TransactionFailureException</a> when an owned
-group does not reach <span class="xref">Autodesk.Revit.DB.TransactionStatus.Started</span>.</p>
+group fails to start.</p>
 </div>
 
 
@@ -261,10 +294,8 @@ group does not reach <span class="xref">Autodesk.Revit.DB.TransactionStatus.Star
   <div class="markdown level1 remarks"><p>An unsupported <code class="paramref">finalization</code> value faults the task with
 <span class="xref">ArgumentOutOfRangeException</span> and leaves the session and its group unchanged. A
 supported value does nothing when no session is active.
-<a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.TransactionGroupFinalization.html#dbtools_Core_Revit_Transactions_TransactionGroup_TransactionGroupFinalization_Commit">Commit</a> expects
-<span class="xref">Autodesk.Revit.DB.TransactionStatus.Committed</span> and
-<a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.TransactionGroupFinalization.html#dbtools_Core_Revit_Transactions_TransactionGroup_TransactionGroupFinalization_Rollback">Rollback</a> expects
-<span class="xref">Autodesk.Revit.DB.TransactionStatus.RolledBack</span>. Another status raises
+<a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.TransactionGroupFinalization.html#dbtools_Core_Revit_Transactions_TransactionGroup_TransactionGroupFinalization_Commit">Commit</a> expects a confirmed commit and
+<a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.TransactionGroupFinalization.html#dbtools_Core_Revit_Transactions_TransactionGroup_TransactionGroupFinalization_Rollback">Rollback</a> expects a confirmed rollback. Another result raises
 <a class="xref" href="dbtools.Core.Revit.Transactions.TransactionFailureException.html">TransactionFailureException</a>, unless a Revit exception from the assimilation or
 rollback is already the failure.</p>
 </div>
@@ -280,9 +311,8 @@ rollback is already the failure.</p>
   </h3>
 
   <div class="markdown level1 summary"><p>Returns <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">true</a> without scheduling Revit work when no owned group exists.
-Otherwise returns whether the group status is
-<span class="xref">Autodesk.Revit.DB.TransactionStatus.Started</span>; <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">false</a> alone does
-not show that the group was rolled back.</p>
+Otherwise returns whether the group is still started. Use <a class="xref" href="dbtools.Core.Revit.Transactions.TransactionGroup.ITransactionGroupService.html#dbtools_Core_Revit_Transactions_TransactionGroup_ITransactionGroupService_LastFinalizationOutcome">LastFinalizationOutcome</a>
+to identify a confirmed rollback.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 

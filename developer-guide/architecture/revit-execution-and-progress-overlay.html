@@ -132,10 +132,9 @@
 <h3 id="revit-task">Revit task</h3>
 <p>Each App service root owns one <code>RevitCallGateTask</code>, the <code>ExternalEvent</code> host that queued gates schedule through. <code>AppServiceProviderFactory</code> registers it as a singleton that is created on first request, with <code>ILogger&lt;RevitCallGateTask&gt;</code>, and registers <code>Func&lt;IRevitCallGateTask&gt;</code>, which returns the task of the same root. Registration creates no <code>ExternalEvent</code>.</p>
 <ul>
-<li>Startup resolves the task on the Revit main thread after the synchronous preparation steps and passes it to <code>AppLocalRevitTaskLifecycle.Start</code>, which publishes it in <code>RevitCallGateTaskHost</code>. Startup keeps the returned task in its <code>AppStartupOwnership</code>. Shutdown retires and disposes that task before the service root and resets <code>RevitCallGateTaskHost</code> only while it still publishes that task.</li>
+<li>After synchronous preparation, startup resolves the task on the Revit main thread and captures it in <code>AppStartupOwnership</code>. Shutdown retires and disposes that task before it disposes the service root.</li>
 <li><code>AppRunScopeFactory</code>, <code>HookHost</code>, <code>ContextualRibbonRuntime</code> and the Foundation Tags update workflow receive the provider. They call it only when they build a <code>QueuedRevitCallGate</code>: a <code>QueuedModeless</code> run scope, a <code>ViewActivated</code> hook attachment or rollback, a contextual ribbon UI call, or the selection actions of an update result. An <code>InlineUi</code> run scope does not resolve the task.</li>
 <li>A gate keeps the task it was built with. After that generation retires, a new queued call completes canceled and does not reach a replacement task. A provider called after its root is disposed throws <code>ObjectDisposedException</code>.</li>
-<li><code>RevitCallGateTaskHost</code> holds the published task for <code>RevitCallGateApiContext</code>, which reads its known application. Call gates do not read it.</li>
 </ul>
 <h2 id="call-gates">Call gates</h2>
 <p><code>IRevitCallGate</code> is the single entry point for Revit API access. It runs synchronous callbacks on the Revit UI thread. Revit API calls outside the call gate can raise invalid-context exceptions or break UI-thread rules.</p>
@@ -191,18 +190,69 @@
 </ul>
 <p>Sources: <code>src/dbtools.Core/Revit/Execution/CallGate/{CallGateDelegateValidator,InlineRevitCallGate,QueuedRevitCallGate,RevitCallGateTask,RevitCallGateTaskQueue}.cs</code>.</p>
 <h3 id="api-context-admission">API-context admission</h3>
-<p><code>RevitCallGateApiContext.IsActive</code> decides whether the current code has Revit API context.</p>
-<ul>
-<li>Known native entry points use the internal synchronous <code>Enter</code> scope.</li>
-<li>An untracked call first checks the Revit dispatcher thread, then creates and immediately disposes an unraised <code>ExternalEvent</code> with a stateless no-op handler. Worker threads return <code>false</code> before the probe.</li>
-<li>Every untracked call probes again. No result is cached across turns.</li>
-<li><code>Current</code> exposes a known <code>UIApplication</code> only while the context is active. An ambient application reference does not grant API context.</li>
-</ul>
-<p>The public <code>UIApplication</code> constructor requires <code>ApplicationServices.Application</code>; there is no public conversion from <code>UIControlledApplication.ControlledApplication</code>. If startup has not received a <code>UIApplication</code>, queued work gets one from the real <code>ExternalEvent</code> callback. No private-field reflection is used.</p>
-<p>The probe creates a new event instead of adding and removing a handler on a Revit event. It does not change the subscriber collection of the current event and does not write a document, so it is legal in <code>Idling</code>, <code>ViewActivated</code>, <code>DocumentChanged</code> and updater callbacks. Admission does not permit an API that a particular callback forbids; callers must obey read-only and dynamic-update restrictions.</p>
-<p>The <a href="https://rvtdocs.com/2026/Autodesk.Revit.UI.ExternalEvent.Create">2026</a> and <a href="https://rvtdocs.com/2027/Autodesk.Revit.UI.ExternalEvent.Create">2027</a> API references list the <code>Create</code> signature and the null-handler exception, but not the outside-context exception. An <a href="https://forums.autodesk.com/t5/revit-api-forum/externalevent/m-p/9029307">Autodesk forum thread</a> describes that runtime check and the difference between UI-thread access and API context.</p>
-<p>The probe does not identify which add-in owns a callback. Inside another add-in's main-thread API callback it returns <code>true</code>, and dbtools runs inline without its own scope. Callbacks that dbtools owns enter an explicit synchronous <code>UIApplication</code> scope; later continuations must probe or queue again.</p>
-<p>The scope is a <code>ref struct</code>, so a caller cannot hold it across an <code>await</code>. Its shared lifetime lets a wrong-thread disposal revoke the context before the misuse is reported. <code>Enter</code> is internal. The build contract suite (<code>RevitCallGateApiContextEntryContractTests</code>) inspects the compiled production assemblies and allows <code>Enter</code> only in <code>ToolCommand.ExecuteCore</code>, the explicit <code>IExternalEventHandler.Execute</code> of <code>RevitCallGateTask</code>, the contextual ribbon <code>SelectionChanged</code> and edit-event callbacks, the <code>ViewActivated</code> dispatcher, the FoundationTags <code>Idling</code> retry tick and <code>InlineRevitCallGate</code> after its own thread and <code>IsActive</code> check. Only <code>Enter</code> constructs the scope. The suite checks call sites in the build; it does not authenticate callers at run time. Global Mapper (GM) has access for synchronous-delegate validation only and does not enter scopes.</p>
+<p><code>RevitCallGateApiContext.IsActive</code> requires the Revit dispatcher thread and an explicit
+API scope. It reads this state without calling Revit. The scope lasts for the current
+synchronous callback. The <code>ref struct</code> scope ends before an asynchronous continuation
+resumes outside the callback.</p>
+<table>
+<thead>
+<tr>
+<th>Revit entry</th>
+<th>Scope owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tool commands</td>
+<td><code>ToolCommand.ExecuteCore</code></td>
+</tr>
+<tr>
+<td>Add-in startup</td>
+<td><code>AppLifecycleCoordinator.Start</code></td>
+</tr>
+<tr>
+<td>Add-in shutdown with a published lifecycle state</td>
+<td><code>AppLifecycleCoordinator.Shutdown</code></td>
+</tr>
+<tr>
+<td>ApplicationInitialized</td>
+<td><code>AppDeferredStartupSubscription.OnApplicationInitialized</code></td>
+</tr>
+<tr>
+<td>Idling</td>
+<td><code>AppLifecycleIdlingRegistration.RunCallback</code> and <code>PrerequisiteRetryCoordinator.RunRetryTick</code></td>
+</tr>
+<tr>
+<td>ViewActivated</td>
+<td><code>ViewActivationHookDispatcher.BeginDispatchHandlers</code></td>
+</tr>
+<tr>
+<td>SelectionChanged</td>
+<td><code>ContextualRibbonSelectionChangeController.BeginSelectionChanged</code></td>
+</tr>
+<tr>
+<td>ExternalEvent</td>
+<td><code>RevitCallGateTask.Execute</code> and <code>ContextualRibbonEditEventHandler.Execute</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Current</code> returns the scope's <code>UIApplication</code> when available. A nested scope
+without a <code>UIApplication</code> inherits the enclosing scope's application. Startup and
+shutdown receive <code>UIControlledApplication</code> and enter without a <code>UIApplication</code>.
+If the scope has no application, the Revit task uses its own known application.
+If neither supplies one, queued work gets it in the next <code>ExternalEvent</code> callback.
+An application reference alone grants no authority. Revit still enforces the
+restrictions of the active callback. Document change handlers update the document
+stamp directly.</p>
+<p>A callback owned by another add-in runs without dbtools API authority until
+it enters a dbtools callback. Use a queued gate and return control to Revit
+before waiting for the result. A synchronous wait on the Revit thread can
+prevent the queued callback from running. An inline gate refuses an unscoped
+call.</p>
+<p><code>Enter</code> is internal. <code>RevitCallGateApiContextEntryContractTests</code> checks the
+compiled call sites and scope constructor and rejects native <code>ExternalEvent</code>
+references in API context methods. <code>InlineRevitCallGate</code> may enter a nested
+scope after it verifies thread and API access.</p>
 <h3 id="queued-turns">Queued turns</h3>
 <p>Each native <code>Execute</code> turn of the queued gate runs, in FIFO order, every item that was waiting when the turn started. N waiting calls cost one Revit round trip.</p>
 <ul>
@@ -217,7 +267,14 @@
 <p>A transaction group without an open transaction is not visible to the open-transaction check. Production code therefore creates every <code>TransactionGroup</code> through <code>RevitTransactionGroups.Begin(document, name, validateStart)</code>. The factory calls <code>RevitCallGateTurnBoundary.EndAfterCurrentCall()</code>, so the current turn ends when the running call returns, then constructs and starts the group and disposes it if the start fails. The build contract suite (<code>TransactionGroupTurnBoundaryContractTests</code>) inspects the compiled production assemblies and rejects <code>TransactionGroup</code> construction outside that factory.</p>
 <p>A caller on the Revit thread outside <code>Execute</code> raises at once; native <code>Raise</code> takes under a millisecond. A worker posts its raise to the Revit dispatcher at <code>Normal</code> priority, because native <code>Raise</code> runs only on that thread. The raise for work left after a turn is also posted, so it runs after <code>Execute</code> returns. A call queued by a running callback raises nothing. Calls queued before the accepted raise runs share it.</p>
 <p><code>Denied</code> and <code>TimedOut</code> raise results keep the queue and retry with a backoff from 50 ms, doubling to at most 500 ms, for at most 5 seconds (<code>RevitCallGateRaiseRetry</code>). When that time expires, the waiting batch faults; the scheduler still accepts new work.</p>
-<p>Each turn feeds a Debug summary with the prefix <code>[CallGate/Turns]</code>: turns and calls, maximum queue depth, the queue-to-raise time, the Raise-to-Execute gap, Execute duration, native Raise duration and results, refused-raise retries, and the API-context checks on the Revit thread. The queue-to-raise time runs from the enqueue of the oldest waiting call to the start of its accepted native <code>Raise</code>. An API-context check is timed when a caller on the Revit thread without an explicit scope runs the native probe before it queues. The summary is written when a turn leaves the queue empty, at most once per second, or after 10 s of a queue that stays busy. Turns inside the one-second interval are reported with the next activity.</p>
+<p>Each turn feeds a Debug summary with the prefix <code>[CallGate/Turns]</code>. It reports
+turns and calls, maximum queue depth, queue-to-raise time, the Raise-to-Execute
+gap, Execute duration, native Raise duration and results, and refused-raise
+retries. Queue-to-raise time starts when the oldest waiting call enters the
+queue and ends when its accepted native <code>Raise</code> starts. The summary is written
+when a turn leaves the queue empty, at most once per second, or after 10 s of
+a queue that stays busy. Turns inside the one-second interval are reported with
+the next activity.</p>
 <p>Each call also records when it was queued, started and finished into the <code>RevitCallGateActionTiming</code> that was current where it was made. <code>SafeExecutor</code> begins one per run and writes the totals into the run's Information completion line (see <a href="../projects/core.html">Core</a>). Every <code>RevitCallGateTask</code> uses one process clock, so the calls of one run share a time base.</p>
 <p>Retirement cancels the posted raise, stops and detaches the retry timer, releases queued delegates and disposes the native event. Dropped tasks never complete, so a worker that waits synchronously on one hangs. Cleanup after a failed startup cancels the tasks instead, because Revit and its callers are still running.</p>
 <h2 id="transactions">Transactions</h2>
@@ -273,6 +330,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 <pre><code class="lang-csharp">public interface ITransactionGroupService
 {
     bool IsActive { get; }
+    TransactionGroupOutcome LastFinalizationOutcome { get; }
     Task BeginAsync(string name, CancellationToken ct = default);
     Task FinalizeAsync(TransactionGroupFinalization finalization, CancellationToken ct = default);
     Task&lt;bool&gt; IsGroupHealthyAsync(CancellationToken ct = default);
@@ -280,6 +338,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </code></pre>
 <ul>
 <li>If the document is already modifiable, <code>BeginAsync</code> creates no group, <code>IsActive</code> becomes <code>true</code>, and <code>FinalizeAsync</code> only resets state.</li>
+<li><code>LastFinalizationOutcome</code> reports <code>Committed</code> or <code>RolledBack</code> when Revit confirms that result, including when a later cleanup step fails. It is <code>Unconfirmed</code> before confirmation and resets when a new session begins.</li>
 <li><code>FinalizeAsync</code> accepts only <code>TransactionGroupFinalization.Commit</code> (assimilate) and <code>Rollback</code>; another value fails before the inactive-session check. Finalization always clears the active group state and attempts disposal of the owned group. If the operation and the cleanup both fail, the operation failure comes first in an ordered aggregate.</li>
 <li>Revit rolls back a group that is still open when the API callback that started it returns, and <code>RevitTransactionGroups.Begin</code> ends the queued turn after the current call. Separate <code>BeginAsync</code> and <code>FinalizeAsync</code> calls therefore keep one group only on an <code>InlineUi</code> gate inside one callback, as the modal Super Girt Tool (SGT) and Transfer Drafting Views (TDV) commands use them.</li>
 </ul>

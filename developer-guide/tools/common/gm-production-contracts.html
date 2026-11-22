@@ -100,21 +100,173 @@ this page with it. See <a href="gm.html">Global Mapper</a> for the tool design.<
 <p>The usage index samples one family instance per family type (symbol), at most
 2500 instances (<code>MaxSampleInstances</code> in <code>UsageIndexSource.cs</code>). It streams
 view-independent (model) instances first and returns as soon as it has 2250
-samples. Only when the model instances give fewer than 2250 samples does it add
-view-owned instances of the active view, up to the cap.</p>
+samples. When the model instances give fewer than 2250 samples, it adds
+view-owned instances up to the cap. The view collector applies visibility in
+each eligible owner view. The active view is visited first when eligible.</p>
 <p>Unbounded iteration scales with views times instances: a project with 200
 views and 50,000 instances stalls for minutes.</p>
-<h2 id="one-geometry-pass-per-usage-kind">One geometry pass per usage kind</h2>
+<h2 id="style-body-material-and-paint-geometry">Style, body material and paint geometry</h2>
 <p><code>Features/Usage/Revit/Operations/Indexing/StyleMaterial/UsageStyleMaterialCollector.cs</code>,
 <code>QueryStyleMaterialUsageChunk</code></p>
-<p>Style and material usage are captured from the same sample. Instance geometry
-is requested once for styles and once for materials, both with
-<code>IncludeNonVisibleObjects = true</code>. Symbol geometry is requested only when the
-instance has no geometry.</p>
-<p>Style geometry uses the owning or active view; material geometry uses
-view-independent <code>Fine</code> detail. Sharing one geometry result between them
-changes coverage. The combined chunk shares element lookup and the traversal of
-family-dependent styles.</p>
+<p>Style and material usage share the sample and element lookup. Style geometry
+uses the owning or active view. Body material geometry uses view-independent
+<code>Fine</code> detail. Both include non-visible geometry. Style and non-column body
+reads use symbol geometry when the placed instance returns none. Column body
+reads use original instance geometry. Eligible instances use a separate
+project paint read of visible placed faces with references enabled.</p>
+<p>Revit can wrap a placed family's own geometry in a <code>GeometryInstance</code> with a
+different symbol ID, or flatten an embedded family's solids into the placed
+type. The walker treats a matching placed-symbol wrapper as direct usage.
+Family browsing and Material planning also walk placed shared subcomponents
+exposed by Revit. They reuse each child type's material evidence within the
+query and read the material IDs of each placement. Their material paths
+follow the subcomponent hierarchy. The project usage index attributes each
+separately sampled shared instance to its own
+family for verification. Flattened embedded solids can supply material usage
+without an observable nested path.
+Object Style and Material batches discover nested documents even when the
+placed sample shows only direct usage. A complete Deep Scan that establishes
+the family has no children limits the edit to the root.</p>
+<p>For a Material mapping, GM opens eligible children when the parent document
+contains the source material name or a category or subcategory in that
+document resolves to the source through project Object Styles. This check
+applies to shared and embedded children.
+<code>ApplyPlanAsync_ReplacesMaterialFromAnIndependentlyReloadedSharedChild</code>
+checks that Edit Family exposes a reloaded shared child's new material
+in a direct parent and through one embedded intermediate. For an eligible
+shared child already loaded in the project, GM opens the current project definition. Discovery
+caches material matches and misses and closes a document that has no
+eligible operations when its check ends. GM reports a failed close and
+retries once during batch cleanup.</p>
+<h2 id="replacement-verification-uses-the-write-scope">Replacement verification uses the write scope</h2>
+<p><code>Features/CommitReview/Verification/CommitReviewPlanVerifier.cs</code>,
+<code>VerifyAfterApplyAsync</code></p>
+<p>GM discovers all family documents needed by a batch before applying changes.
+A batch whose discovery fails contributes no operations to shared children.
+GM reports an error on any family mapping that skipped a child because of
+a project mapping whose discovery subsequently failed. Successful
+batches capture the original references in each planned family document.
+The writers read each changed reference back and report write and reload
+failures. A protected group reference stays in place and appears in the report
+as a warning. Commit Review checks that each result matches its planned
+operation and owner family.</p>
+<p>Commit Review checks the remaining restylable curves for project Line Styles.
+It checks sampled Object Style and Material usage across the project for a
+project mapping. It samples every placed type in owner families, planned
+batch roots and families named by write receipts or incomplete-write warnings.
+A family mapping checks usage in its owner, its batch roots and the families
+named by its incomplete-write warnings. Commit Review reports a verification
+warning when the project sample reaches its limit.</p>
+<p>Family Material verification reads the shared subcomponents of every
+placement of an owner or batch root. It merges material usage by root and
+shared family path. GM reads body geometry at most once per child symbol
+and checks each occurrence's effective body materials where Revit reports
+them. If Revit cannot establish the body materials of another occurrence,
+verification reports that path as unverified and rolls back the attempt.
+Verification omits paths through excluded families and families reported as
+skipped for scope. Separate placements of a shared family do not contribute
+to this check.</p>
+<p>For Object Style and Material, a write that introduces an outgoing source
+explains its remaining use only in a family named by the incoming receipt.
+Each outgoing operation planned for that family must also report a change
+there. If no outgoing work was planned for a family in scope, verification
+requires a complete planning sample or a completed Deep Scan with no partial
+results for that family. For a shared child on a Material mapping's path,
+an incoming receipt requires a successful outgoing receipt or pre-Apply
+evidence that the child did not use the outgoing source. An incomplete-write
+warning blocks the explanation for the family it names. Source-absence warnings describe an individual
+document and leave the verification check in place. Receipts record host
+parameter writes and reloaded family edits. A root receives credit for its
+own edits and edits to its embedded families. A shared child and its embedded
+families contribute changes under the shared child's project ID. A root reload can
+publish a shared child for the first time or change the child's element ID.
+GM resolves shared children by name and category after the last reload.
+A family edit receipt records the planning ID when one exists and the
+final project ID for a newly loaded child. The reload map resolves earlier
+IDs to their current IDs. An equivalent shared mapping contributes one
+write, credited to the operation that made it. A group skip explains the
+matching operation and family when the receipt reports no incomplete write there.</p>
+<p>Project Material replacement captures writable host type and instance
+parameters before family and type writes. A family Material mapping captures
+writable parameters on the owner family's placed instances and checks that
+they still belong to that family when it writes. Revit can return an old
+value for a placed instance parameter until the transaction commits. The
+writer reads each accepted write back after commit. It reports the fatal
+<code>HostMaterialWriteNotRetained</code> error if the value differs from the target.
+A parameter already set to the planned target needs no write and
+adds no host count. Other changed values and parameters that become
+unwritable fail the rule. Missing captured elements or parameters are
+reported as warnings.</p>
+<p>Material batch planning combines geometry evidence from one placed instance
+per type of each affected family. A family-owned Material or Object Style
+mapping takes precedence over the project choice for that source. The same
+family can exclude the project choice by clearing Apply on its row. The
+project operation excludes those families from its work and verification.
+A shared child follows its own mapping or Apply exclusion. A family-scoped
+operation also skips a shared child when project traversal reaches that child
+for the same source. GM checks material references in these skipped families
+only to report the skip. An inspection failure in a skipped shared child is
+a warning. GM reports a skip when the inspection finds source use.
+A mapping can still update host parameters
+when there is no evidence for a family edit. Planned family edits require a
+batch result. Paint applied in the project remains in place. For a family
+Material mapping, the writer warns about painted instances and verification
+checks unpainted material usage. Project Material mappings also check
+project paint for remaining source usage. Revit can return an empty
+<code>GetMaterialIds(true)</code> collection for a column with paint on a face.
+A saved face reference can also fail to resolve after painting changes
+the instance geometry. A painted column's <code>GetMaterialIds(false)</code> and placed
+faces can include the project finish. The material walker reads column body
+materials from <code>FamilyInstance.GetOriginalGeometry</code>, which retains the placed instance values
+and excludes post-processing such as joins. When Revit supplies no original
+geometry, GM checks the placed geometry for solid faces. A column without
+solid faces contributes no body geometry. Placed solid faces without an original
+representation or a Revit read failure report the column and document identity.
+The body pass reads solid faces at Fine detail. Materials present only in
+meshes, other detail levels or takeoff data can be absent from this column index.</p>
+<p>The walker reads project paint from visible surfaces of the placed geometry
+through <code>Document.GetPaintedMaterial</code>. The surface reference must belong to
+the placed family instance. GM requests referenced geometry for columns,
+masses, in-place families, and model instances with top-level solids or modified
+geometry. A top-level solid can represent geometry that Revit owns on the
+placement. Host capture requests paint for families with a scoped source.
+Separate reads allow a material used for both the body and paint to appear
+in both indexes.
+<a href="https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/fe25b14f-5866-ca0f-a660-c157484c3a56.htm">Revit API geometry instances</a> ·
+<a href="https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API/files/Revit_API_Developers_Guide/Revit_Geometric_Elements/Family_Instances/Revit_API_Revit_API_Developers_Guide_Revit_Geometric_Elements_Family_Instances_FamilyInstances_html.html">Revit family instance geometry</a> ·
+<a href="https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/d28a0880-bff8-1acc-ddf1-ce3205f2e8b3.htm">Revit original instance geometry</a> ·
+<a href="https://help.autodesk.com/cloudhelp/2026/ENU/Revit-Model/files/GUID-8BAA7C07-D174-4F02-AA81-239FD33BE363.htm">Revit project paint</a> ·
+<a href="https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/Paint-tool-does-not-work-on-certain-family-entities.html">Paint on family instances with their own geometry</a></p>
+<p>Capture reports named warnings for
+shared nested type values, read-only material references and material set
+By Category. In a placed family, Revit resolves a By Category solid using
+the existing project Object Styles subcategory of the same name. An
+unassigned subcategory inherits the project category material. Edit Family
+can expose that project material in the parent document's material table.
+Capture checks the element's assignment for By Category use. For a form
+without a subcategory, capture uses the owning family's category. A missing
+material ID and <code>InvalidElementId</code> represent an unset material on an
+associated material parameter. Family capture checks type assignments for
+placed types. It also checks instance defaults when the mapping's host
+capture excludes that family's instances. Host capture uses each covered
+project instance's effective parameter value and body material usage. It
+uses original geometry for columns. A covered instance whose override
+selects a concrete material contributes no By Category warning from its
+family default.</p>
+<p>Capture and write warnings name the edited document's project family when
+known. Warnings for embedded documents name the enclosing project family,
+and the path identifies the specific document. A skipped shared type
+projection names the shared family because loading the parent with
+<code>FamilySource.Project</code> keeps the project's shared type. A newly loaded
+shared family receives its project ID in these diagnostics after the final
+reload. A failed nested reload keeps that child out of the set of changed
+identities for the parent's reload. A nonshared type projection that matches
+a child edit receives the child value during reload. A different parent
+override retains its value.
+GM reports <code>NoWritableMaterialReferences</code> when the document's own
+non-nested elements use the source and capture finds neither a writable
+reference nor another warning.
+Remaining unexplained usage fails verification.</p>
 <h2 id="one-instance-for-parameter-discovery">One instance for parameter discovery</h2>
 <p><code>Features/Families/Revit/FamilyScanner.ParameterNames.cs</code>,
 <code>QueryMappableParamNamesForFamily</code></p>
@@ -127,8 +279,13 @@ has the same definitions; scanning more instances adds cost and no data.</p>
 family. It runs only from a user action: <strong>Scan Family</strong> on a family row, deep
 scan of all visible families, or deep scan of unscanned families with zero
 instances (after a confirmation). Background prewarm only reads the deep scan
-cache; it never starts a scan. See
-<a href="gm-spec.html">GM specification</a>.</p>
+cache; it never starts a scan. Family and type edits and deletions invalidate
+affected evidence. Instance changes invalidate evidence when the inventory
+shows a change in placement counts. Commit Review tracks family changes until
+Revit settles each attempt and the session group. It discards pending family
+changes after confirmed rollbacks and reads <code>LastFinalizationOutcome</code> when
+settling the session group.
+See <a href="gm-spec.html">GM specification</a>.</p>
 <h2 id="parameter-discovery-filter">Parameter discovery filter</h2>
 <p><code>Revit/ParameterDiscovery/ParameterDiscoveryEligibility.cs</code></p>
 <p>Discovery excludes read-only parameters, built-in parameters

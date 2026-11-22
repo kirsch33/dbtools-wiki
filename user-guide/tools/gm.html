@@ -178,6 +178,10 @@ Startup clears the loading state after the reads finish.</p>
 <td>Show or hide those panes.</td>
 </tr>
 <tr>
+<td><strong>Refresh Cache</strong></td>
+<td>Rebuilds Duplicates, Families, the three Usage tabs and Shared Parameters from the current project. Keeps saved mapping choices and Deep Scan results for unchanged families.</td>
+</tr>
+<tr>
 <td><strong>Clear...</strong> menu</td>
 <td><strong>Clear Saved Mappings</strong>, <strong>Clear Saved UI State</strong>, <strong>Clear Deep Scan Cache</strong> (see Saved state).</td>
 </tr>
@@ -189,17 +193,17 @@ Startup clears the loading state after the reads finish.</p>
 </table>
 <p>The status line at the bottom left shows the loading state, the number of visible rows and the number of applied and conflicting rows of the current tab. A grid shows <code>Loading...</code> while data loads and a <code>No ...</code> message when a loaded result is empty.</p>
 <h3 id="similarity-and-threshold">Similarity and threshold</h3>
-<p>GM scores each target against its source. Scores use the same theme roles in every pane: 90–100 Success, 70–89 Secondary, 50–69 Warning, and 0–49 Muted. Options without a score use Body. At a threshold, an unchanged row selects the highest-scoring target at or above it. If no target qualifies, the row stays empty. A manual choice is never changed by the threshold. Opening a list and closing it without picking another entry is not a manual choice. <code>&lt;Do Not Map&gt;</code> is an explicit choice.</p>
+<p>GM scores each target against its source. Scores use the same theme roles in every pane: 90–100 Success, 70–89 Secondary, 50–69 Warning, and 0–49 Muted. Options without a score use Body. At a threshold, an unchanged row selects the highest-scoring target at or above it. If no target qualifies, the row stays empty. A manual target choice stays when you change the threshold. Opening a list and closing it without picking another entry keeps the current selection.</p>
+<p>Use <strong>Apply</strong> to include a mapping with a valid target. Clear <strong>Apply</strong> to exclude a mapping and keep its target. GM remembers that choice when you change the threshold or category, change the parent target, or refresh or rescan the project.</p>
 <p>On the Duplicates tab, the threshold controls which keep-target candidates appear for each source row.</p>
 <h3 id="duplicates-tab">Duplicates tab</h3>
-<p>The tab scans automatically when you open it. It groups elements that look like duplicates by name and property similarity. Styles and materials are matched on their previews. GM does not report two styles or materials as duplicates when it cannot read their previews.</p>
+<p>The tab scans automatically when you open it. It groups elements that look like duplicates by name and property similarity. Styles and materials are matched on their previews. Material previews must match in shading color, transparency, and each surface and cut pattern layer. GM does not report two styles or materials as duplicates when it cannot read their previews.</p>
 <p>Line-style detection covers the whole line-style catalog, including styles with no family usage. Detect refreshes the catalog and the Usage rows and keeps your keep targets. Usage indexing decides which keep targets every restylable curve of a source can accept. While indexing runs, rows show <code>line-style targets pending Usage indexing</code>. A saved keep target stays visible, and Review Plan validates the targets after indexing.</p>
 <h4 id="steps">Steps</h4>
 <ol>
 <li>Scope the rows. <strong>Category</strong> limits family rows and follows the category selected elsewhere in GM. <strong>Kind</strong> filters sources: All, Families, Materials, Line Styles, Object Styles or Shared Params. The status bar filters groups by All, Open, Resolved, Excluded or Conflicts. Group nodes show resolved counts, for example <code>Families (133) · 45 resolved</code>.</li>
 <li>For each source row, choose the <strong>Keep Target</strong>. A target must be in the same domain and category as the source.</li>
-<li>Check <strong>Apply</strong> for the rows that are ready to commit.</li>
-<li>Click <strong>Accept Applied</strong> to stage the rows that are ready.</li>
+<li>Click <strong>Accept</strong> in the inspector for each mapping to stage.</li>
 <li>Click <strong>Review Plan</strong>.</li>
 </ol>
 <h4 id="columns">Columns</h4>
@@ -233,8 +237,16 @@ Startup clears the loading state after the reads finish.</p>
 </tr>
 </tbody>
 </table>
-<p>A row is <code>Ready</code> when Apply is on, the keep target is not the source itself, the row is not excluded, and it has no validation or conflict flag. Choosing the source itself as the keep target marks the row as the keeper and turns Apply off. <strong>Accept Applied</strong> stages the rows that are <code>Ready</code>, not every row with Apply on.</p>
+<p>A row is <code>Ready</code> when Apply is on, the keep target is not the source itself, the row is not excluded, and it has no validation or conflict flag. Choosing the source itself as the keep target marks the row as the keeper and turns Apply off.</p>
 <p>The inspector pane shows candidate details and a Metadata section with the Source ID and instance count. Its <strong>Accept</strong> split button accepts the selection. The drop-down <strong>Accept Once</strong> keeps it for this session only. For a family row, <strong>Accept</strong> prefers a keep type with the same name and case, then the same name with different case, then the best match at or above <strong>Threshold</strong>. Automatic matching requires the names of both types. <strong>Edit Type Mapping...</strong> in the context menu overrides these type mappings. Changing the category on the Families tab keeps accepted mappings. The Families tab shows them in its <strong>Apply</strong> column, with a <code>From the Duplicates tab</code> chain badge. Shared-parameter duplicate rows can drive the selections on the Shared Parameters tab (Map From and Apply).</p>
+<p><strong>Accept</strong> and <strong>Accept Once</strong> include the rows they map, including rows you previously unchecked.
+For families, only matched types or types set to <strong>Create</strong> are included. The type badge counts the included mappings.
+An active Material or Object Style mapping accepted in Duplicates includes
+matching Families rows with the accepted target or no target selected. A
+Families row with a different target keeps its choice and Apply setting.
+For Shared Parameters, GM includes rows that have the matching <strong>Map From</strong> option.
+When family targets conflict, the accepted type choices take effect if you choose <strong>Use Duplicate</strong>.
+An exclusion made after Accept survives refresh and <strong>Use Duplicate</strong>. Accept the mapping again to include its rows.</p>
 <p>Keep targets, the one-time-save choice, ignored candidates and exclusions are restored with the saved state. Exclusion badges (<code>Saved</code>, <code>Session</code>, <code>Saved (Overridden)</code>) show the exclusion time in a tooltip when it is known.</p>
 <p>A chain badge on a candidate shows that its source is already mapped. The tooltip reads <code>Accepted as duplicate → &lt;target&gt;.</code> when the candidate is accepted, or <code>Mapped on the &lt;tab&gt; → &lt;target&gt;.</code> when another tab maps the source. Accepting a candidate whose source another tab maps to a different target raises a <code>Duplicate vs Manual</code> conflict.</p>
 <h4 id="conflicts">Conflicts</h4>
@@ -267,7 +279,7 @@ curve-based placements and show the reason. <strong>Review Plan</strong> rejects
 </tr>
 <tr>
 <td>Apply</td>
-<td>Includes the mapping.</td>
+<td>Shows and changes which of the family’s types are included.</td>
 </tr>
 <tr>
 <td>Source</td>
@@ -280,7 +292,10 @@ curve-based placements and show the reason. <strong>Review Plan</strong> rejects
 </tbody>
 </table>
 <p>Choose the family categories to show, then choose a target for each row. The target dropdown shows its similarity
-score. When <strong>Apply</strong> is on, choosing a target family stages the type replacements that have valid targets.</p>
+score. Checking a family’s <strong>Apply</strong> box checks each type with a valid target. Clearing it unchecks every type.
+The box is partly checked when some types are checked and others are unchecked. Changing the target family
+keeps the types you excluded unchecked. Commit Review replaces only checked types. The source family remains
+loaded, and the instances of its excluded types keep their original types.</p>
 <p>The <strong>Quantity</strong> column counts family instances in the project, including sheet-owned instances and instances hidden in
 their own view. A family with no instances can still be mapped. When Revit reports a family as unused, the selected
 family row has a <strong>Purge</strong> action.
@@ -292,12 +307,11 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <h4 id="row-details">Row details</h4>
 <p>Expand a row to map its parts. The detail tabs are Types, Object Styles, Materials and Parameters. Object Styles and Materials are disabled when empty. The nested target lists use the same sort mode and threshold as the parent list. When you change the parent target, nested lists refill and keep the rows you changed by hand.</p>
 <ul>
-<li><strong>Types</strong>: map each source type to a target type, or select <code>&lt;Do Not Map&gt;</code>. To create a type in the source family, check <strong>Create</strong> on the type row and enter a <strong>New Type Name</strong> that is unique in that family. Review Plan rejects a name that matches an existing type or another new type, regardless of case. The refresh after type creation shows the new type and keeps pending replacements for types that are still available.</li>
-<li><strong>Parameters</strong>: map parameter names, with example values. Instance and type parameters are separate mappings, labeled <code>(Instance)</code> and <code>(Type)</code>. A parameter maps only to a target of the same scope. GM copies parameter values only through these mappings, and they run with the type replacements. A red <code>!</code> badge marks a conflict, such as a duplicate target parameter or a missing type-write policy. Resolve it before <strong>Review Plan</strong>.</li>
+<li><strong>Types</strong>: choose a target type and check <strong>Apply</strong> for each replacement. To create a type in the source family, select <strong>Create</strong> on the type row, enter a <strong>New Type Name</strong> that is unique in that family, and check <strong>Apply</strong>. Review Plan rejects a name that matches an existing type or another new type, regardless of case. The refresh after type creation shows the new type and keeps pending replacements for types that are still available.</li>
+<li><strong>Parameters</strong>: choose a target name and check <strong>Apply</strong>. The examples come from the selected source type. Instance and type parameters are separate mappings, labeled <code>(Instance)</code> and <code>(Type)</code>. A parameter maps only to a target of the same scope. GM copies parameter values only through these mappings, and they run with the type replacements. A red <code>!</code> badge marks a conflict, such as a duplicate target parameter or a missing type-write policy. Resolve it before <strong>Review Plan</strong>.</li>
 <li>The Parameters tab shows <code>Parameter scanning is unavailable; parameter mapping is disabled.</code> when scanning is unavailable, and <code>No mappable parameters detected for this family.</code> when it finds none. Expanded rows restored from saved state refresh their Object Styles and Materials usage automatically once usage data is loaded. While a target list is open, the mouse wheel scrolls that list, not the grid behind it.</li>
 <li><strong>Type-scope writes</strong>: if a type-scope mapping writes into a target type that already has instances, GM blocks the commit until you choose <strong>Keep target type values</strong> (skip type-scope copies) or <strong>Overwrite target type values</strong> (copy them). GM takes the decision from the model state before the replacement batch starts. Moving the target's instances away earlier in the batch does not cancel <strong>Keep target type values</strong>. When overwriting is allowed, each mapping copies the original source values, even if an earlier mapping changed that source type.</li>
 <li><strong>Object Styles</strong> and <strong>Materials</strong>: usage found by walking one placed instance. Rows from a deep scan carry a <code>DS</code> badge.</li>
-<li>An instance cycler, with previous and next buttons and a zoom button, moves to the sampled instance, even when it is in another view.</li>
 </ul>
 <h4 id="previews">Previews</h4>
 <p>The <strong>Preview</strong> column of the Object Styles and Materials details shows the source and the target as Revit draws them, on a white canvas like Revit's drawing area. Hover a preview for a larger view.</p>
@@ -356,7 +370,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <tbody>
 <tr>
 <td><code>OS</code>, <code>MAT</code>, <code>OS+MAT</code></td>
-<td>The family Apply state is linked from the Object Styles or Materials tab.</td>
+<td>A mapping from the Object Styles or Materials tab affects this family.</td>
 </tr>
 <tr>
 <td><code>LK</code> (<code>OS</code>/<code>MAT</code>)</td>
@@ -368,7 +382,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 </tr>
 </tbody>
 </table>
-<p>A linked Apply marks the family row, but family-owned operations (type swaps, parameter maps, type creation) run only when you checked that family row yourself.</p>
+<p>A linked Apply marks the family row. Checked type rows drive type replacement and type creation. Parameter mappings apply to the selected type replacements in their family.</p>
 <p>A saved target that is no longer among the options is flagged as incompatible. Choose the target again.</p>
 <p>When you review a plan, GM removes type and parameter mappings from deleted source families. A warning lists those families.</p>
 <h3 id="line-styles-tab">Line Styles tab</h3>
@@ -405,12 +419,12 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 </table>
 <p>GM captures each source's curves before it applies any line-style mapping, so a swap A to B and B to A exchanges the two populations, and a chain A to B to C leaves A's curves on B and B's curves on C. The mappings commit one after another inside the single undo step of the apply. A failed mapping rolls back the whole apply.</p>
 <p>GM restyles a grouped curve only when its group, and every enclosing group, has exactly one placed instance of its group type. Curves in groups with more than one instance are not counted and not replaced, because Revit requires Edit Group mode for them. GM does not enter that mode and does not ungroup elements. Ordinary curves with the same style are counted normally.</p>
-<p>A target has to be usable by every restylable curve of the source. A saved target that is not usable stays in the saved intent, shows a warning and is left out of the plan until you choose a valid target or <strong>Do Not Map</strong>. On the Line Styles, Object Styles and Materials tabs, an unavailable saved or chosen target stays visible as a disabled entry with a reason. A refresh keeps it; choose another target to replace it.</p>
+<p>A target has to be usable by every restylable curve of the source. A saved target that is not usable stays in the saved intent, shows a warning and is left out of the plan until you choose a valid target and check <strong>Apply</strong>. On the Line Styles, Object Styles and Materials tabs, an unavailable saved or chosen target stays visible as a disabled entry with a reason. A refresh keeps it; choose another target to replace it.</p>
 <h3 id="object-styles-tab">Object Styles tab</h3>
 <p>The tab replaces object styles of Detail Items subcategories (styles that are not line styles).</p>
 <ul>
 <li>Selecting a style lists the families that use it. A preview pane shows the style.</li>
-<li>Checking <strong>Apply</strong> links the affected families on the Families tab. Unchecking it removes the link. A family keeps its Apply if you checked it or another source links it.</li>
+<li>Checking <strong>Apply</strong> marks the affected families with an <strong>OS</strong> badge on the Families tab. Unchecking it removes the badge when no other object style mapping affects the family.</li>
 <li>A chain badge beside the source shows that another tab, an accepted duplicate or a saved mapping file set the mapping. Its tooltip names the origin, for example <code>From the Duplicates tab. Edit to override.</code> Choosing another target overrides the mapping and removes the badge. The Line Styles and Materials tabs show the same badge.</li>
 </ul>
 <p>At commit, GM opens each affected family document and ensures the target style exists in it, creating the style when it is missing. It copies the core style appearance from the project target, rewrites the references to the source style, and reloads the family into the project.</p>
@@ -449,10 +463,11 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 </table>
 <ul>
 <li>Families affected by a mapping are linked on the Families tab with the badge <code>MAT</code> or <code>OS+MAT</code>. In <strong>Families Using This Material</strong>, the Apply indicator shows the active link, so a linked family stays marked when a filter hides it from the Families list.</li>
-<li>At commit, GM updates material parameters in the project and in the affected family documents. When the target material is missing in a family document, GM creates it, copies its core properties and rewrites the references. It then reloads the family.</li>
+<li>In the project, GM points writable material parameters to the selected project material. In an affected family document, GM reuses a same-name target material or creates it, copies the project material’s shading color and transparency, and rewrites the writable references. It then reloads the family.</li>
+<li>A Material mapping in an expanded family row updates the family document and writable material parameters on placed instances of that family. Paint applied to those instances in the project stays in place and appears as a warning in Commit Review.</li>
 <li>A mapping whose source or target cannot be resolved in the project is ignored before commit and shown as a warning.</li>
 <li>Revit does not support formulas for parameters of the Material data type. GM migrates writable material defaults for each family type. It leaves formula-determined parameters outside the replacement.</li>
-<li>A replacement material takes over the appearance and the physical and thermal properties of the new material everywhere the old one was used.</li>
+<li>A reused family material keeps its appearance, surface and cut patterns, and physical and thermal assets. A new family material uses Revit’s defaults for those properties.</li>
 </ul>
 <h3 id="shared-parameters-tab">Shared Parameters tab</h3>
 <p>The tab adds shared parameters to families and categories, maps existing parameters to shared parameters, and repairs a shared parameter that has the company name but another GUID.</p>
@@ -526,11 +541,14 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <p>Plan validation checks that each selected type still belongs to its family and category. It rejects a mismatched or stale selection with an error before apply.</p>
 <p><strong>Map From</strong> writes the value that the Examples column shows:</p>
 <ul>
+<li>For an instance target, GM reads the source on the instance. If the instance lacks the source parameter, GM reads it on the type.</li>
+<li>If both lack the source, GM skips the instance. Commit Review reports the number skipped. The warning details record up to five example element IDs.</li>
+<li>For an instance mapping, GM checks every instance of the type before it copies values. If an instance lacks the target, the operation fails and GM rolls back the whole apply. The error reports the missing target count and any missing sources found in the operation.</li>
 <li>Between two parameters of the same type (Length to Length, Text to Text, Yes/No to Yes/No), the stored value is copied exactly.</li>
 <li>Into a Text parameter, GM writes the source as shown, with the document's units (<code>300 mm</code>, <code>Yes</code>, or the name of a phase or level).</li>
 <li>Into a Length, Area or other measured parameter, GM reads the source as Revit reads typed input, in the document's units. In a millimeter project, <code>12</code> is 12 mm.</li>
 <li>Text read into a Number or Integer parameter uses the decimal separator of your Windows number format and no thousands separators. With a decimal point, <code>1.5</code> is 1.5, and <code>1,5</code> or <code>1,500</code> is not written. With a decimal comma, <code>1,5</code> is 1.5, and <code>1.5</code> or <code>1.500</code> is not written. An Integer parameter takes only whole numbers, so <code>2.5</code> is not written.</li>
-<li>A value that cannot be read this way is not written. Examples are a Yes/No into a Number, <code>300 mm</code> into an Integer, or a level or phase name into another element parameter. Commit Review lists the operation as Failed, with the value, the parameter and the reason, and writes none of its values.</li>
+<li>A value that cannot be read this way fails the operation. Examples are a Yes/No into a Number, <code>300 mm</code> into an Integer, or a level or phase name into another element parameter. Commit Review lists the value, the parameter and the reason. GM rolls back the whole apply.</li>
 </ul>
 <p>The Formula preview reads values by the same rules, including a measured value in the unit it shows. When a value cannot be read as a number, the preview shows that it is unavailable and names the parameter. The preview cannot evaluate functions such as <code>if</code>; it shows that it is unavailable and names the function.</p>
 <p>The instance navigator, beside <strong>SP Group</strong>, steps through the sampled instances of the selected type with the previous and next buttons, and selects that instance in the tree. <strong>Zoom</strong> shows the current instance in Revit, even when it is not in the active view. With <strong>Auto-zoom</strong> checked, each step also zooms to the new instance. The instance navigator, <strong>Auto-zoom</strong> and <strong>Zoom</strong> show in By family only.</p>
@@ -700,7 +718,8 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <li>unlock the expanded details of a family with no instances (<code>Scan required</code>);</li>
 <li>read embedded definitions, such as nested family graphs, that a placed instance does not expose.</li>
 </ul>
-<p>For a family with instances, the Object Styles and Materials details come from walking one placed instance, so a deep scan is usually not needed. That walk records whether a source appears directly in the root family or only inside nested family content, and planning reuses that.</p>
+<p>Moving an instance keeps its family’s Deep Scan results. Refresh Cache checks the family definition and the number of placed instances of each type before reusing a result.</p>
+<p>For a family with instances, GM reads Object Styles and Materials from one placed instance. Materials also include the placed shared components inside it. When planning a material replacement, GM checks one placed instance of each type for the source. During Apply, nested children are eligible when the parent contains the source material by name or one of its categories or subcategories takes that material from project Object Styles. GM checks eligible shared children already loaded in the project against their current definition.</p>
 <table>
 <thead>
 <tr>
@@ -729,7 +748,8 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <p>A malformed or incomplete cache entry is deleted and needs a new scan. The cache is disposable and is not migrated between formats.</p>
 <h3 id="saved-state">Saved state</h3>
 <p>GM saves your mappings and window state for each project, by its file path. Each unsaved document has its own state, so unsaved documents with the same title do not share state.</p>
-<p>On reopen, saved targets are restored as suggestions. Apply is left off, so nothing is enabled for commit.</p>
+<p>On reopen, saved targets are restored with <strong>Apply</strong> off. An explicit exclusion is saved with its target
+and stays in effect until you check <strong>Apply</strong> again.</p>
 <table>
 <thead>
 <tr>
@@ -752,8 +772,17 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 </tr>
 </tbody>
 </table>
-<p>Each <strong>Clear...</strong> item asks for confirmation, and <strong>Cancel</strong> clears nothing. A completed clear shows a success banner, for example <code>Cleared saved mappings for this document.</code> A failed clear shows an error banner titled with the action, for example <code>GM Clear Saved Mappings</code>, and no success banner. If GM cannot write the saved mappings, it logs the failure and shows an error banner, and your mappings may not persist. If the saved-mappings file has a format that this GM version cannot read, GM shows a banner and continues without restoring it. A saved target, or a saved Shared Parameters <code>Map From</code> source, that no longer exists is flagged as incompatible and must be created again.</p>
+<p>Each <strong>Clear...</strong> item asks for confirmation, and <strong>Cancel</strong> clears nothing. A completed clear shows a success banner, for example <code>Cleared saved mappings for this document.</code> A failed clear shows an error banner titled with the action, for example <code>GM Clear Saved Mappings</code>, and no success banner. If GM cannot write the saved mappings, it logs the failure and shows an error banner, and your mappings may not persist. A saved row with no target restores as excluded. An exclusion is saved separately from the last committed mapping for that row. An invalid saved-mappings file produces an error banner and stays on disk. GM flags a saved target that is unavailable so you can choose it again. A Shared Parameters <code>Map From</code> choice stays pending while its source is unavailable. If a later scan finds the source, GM restores the choice and its Apply setting.</p>
 <p>A style target must belong to the scope of its source (Line Styles or Object Styles). Each of the Materials, Line Styles and Object Styles tabs lists only its own kind of element.</p>
+<p>When a family and a project tab map the same Material or Object Style source,
+the family uses its own mapping. Clearing Apply on a family row excludes the
+source in that family from the project mapping. A shared nested family also
+keeps its own mapping or Apply exclusion when a parent maps the same source.
+If the child has no choice of its own and the project mapping reaches it,
+the project mapping handles the shared document. GM reports the skipped
+child on the parent mapping. A family Material mapping
+updates writable material parameters on its placed instances. Project face
+paint stays in place and appears as a warning.</p>
 <h2 id="result">Result</h2>
 <h3 id="commit-review">Commit Review</h3>
 <p>While GM builds the plan, its overlay names the current step. <strong>Review Plan</strong> then opens <strong>Commit Review</strong> centered on the GM window. Revit is blocked and the GM window is dimmed while it is open. The window shows:</p>
@@ -867,10 +896,6 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <td>The remaining conflicts need a manual choice.</td>
 </tr>
 <tr>
-<td><code>Queued creation of new type: '&lt;name&gt;'. You can rename before commit in Commit Review.</code></td>
-<td>A <strong>Create</strong> row was added on the Types detail tab.</td>
-</tr>
-<tr>
 <td><code>No unscanned (0-instance) families are eligible for deep scan.</code></td>
 <td><strong>Deep Scan Unscanned</strong> has no family to scan in the current category.</td>
 </tr>
@@ -887,12 +912,8 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <td><strong>Clear Saved UI State</strong> finished.</td>
 </tr>
 <tr>
-<td><code>No placed instances found to navigate to.</code></td>
-<td>The instance cycler has no instance to show.</td>
-</tr>
-<tr>
-<td><code>Saved mapping source parameter '&lt;name&gt;' is not available. Re-create the mapping.</code></td>
-<td>A saved Shared Parameters <strong>Map From</strong> source no longer exists.</td>
+<td><code>Map From source parameter '&lt;name&gt;' is not available.</code></td>
+<td>A Shared Parameters <strong>Map From</strong> source is missing from the current options. The choice and its Apply setting wait for the source to return.</td>
 </tr>
 <tr>
 <td><code>Configure a Revit shared parameter file that has at least one group to use this tab.</code></td>
@@ -905,6 +926,18 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <tr>
 <td><code>Commit Review could not build the plan: &lt;reason&gt;</code></td>
 <td><strong>Review Plan</strong> failed. The banner title is <code>GM Commit Review</code>. Commit Review does not open.</td>
+</tr>
+<tr>
+<td><code>The plan selects more than one GUID for shared parameter '&lt;name&gt;' (&lt;GUID&gt;, &lt;GUID&gt;). Pick one definition for this name.</code></td>
+<td><strong>Review Plan</strong> found mappings to different definitions with the same name. Use one definition for all mappings with that name.</td>
+</tr>
+<tr>
+<td><code>Shared parameter '&lt;name&gt;' with GUID &lt;GUID&gt; is missing from the current shared parameter file.</code></td>
+<td><strong>Review Plan</strong>, <strong>By parameter</strong>, or <strong>Apply</strong> could not find the selected definition in the current file. Load the file that contains it, or select a definition from the current file again.</td>
+</tr>
+<tr>
+<td><code>More than one shared parameter definition matches '&lt;name&gt;'. Select the definition again.</code></td>
+<td><strong>Review Plan</strong>, <strong>By parameter</strong>, or <strong>Apply</strong> found several definitions for a selection by name. Select the intended definition from its <strong>SP Group</strong>.</td>
 </tr>
 <tr>
 <td><code>Apply the repair on its own: clear the other mappings, or apply them first.</code></td>
@@ -940,8 +973,8 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <li><code>Scan the families first.</code> (By parameter repair table): the scan did not finish, or Revit did not open every editable family. Click <strong>Scan families</strong>.</li>
 <li><code>No families in the shown categories.</code> (By parameter family table): no family of the shown categories can take the parameter. Check <strong>Show all categories</strong>.</li>
 </ul>
-<p>When an action fails unexpectedly, GM shows an error banner titled with the action, for example <code>GM Duplicate Type Mapping</code>, <code>GM Deep Scan</code> or <code>GM Clear Saved Mappings</code>, followed by the error text. The action changes nothing. Retry it, and read the dbtools log if it fails again.</p>
-<p><strong>Review Plan</strong> is disabled when no operation is selected or a blocking conflict exists. A family Apply setting does not create an operation by itself. Map one or more types in the family first. If the target list is empty, the category has no other family. If some instances were not replaced, open the family and check that every type is mapped.</p>
+<p>When an action fails unexpectedly, GM shows an error banner titled with the action, for example <code>GM Duplicate Type Mapping</code>, <code>GM Deep Scan</code> or <code>GM Clear Saved Mappings</code>, followed by the error text. Retry it, and read the dbtools log if it fails again. If Refresh Cache cannot read the fresh project data, affected Usage rows return to their pending state. Saved mapping choices are kept.</p>
+<p><strong>Review Plan</strong> is disabled when no operation is selected or a blocking conflict exists. Checking a family checks each type with a valid target. You can also check individual types. If the target list is empty, the category has no other family. If some instances were not replaced, open the family and check that every type is mapped.</p>
 <h2 id="limitations">Limitations</h2>
 <ul>
 <li>GM changes the active document only.</li>

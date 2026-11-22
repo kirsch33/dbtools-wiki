@@ -267,7 +267,7 @@ failure, but <code>test.sh</code> returns the first nonzero status.</p>
 <p><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code> builds
 <code>dbtools.&lt;Tool&gt;.Local.Tests</code> for both years (<code>Hosted2026.proj</code>,
 <code>Hosted2027.proj</code>). <code>&lt;Tool&gt;</code> is a tool key or <code>App</code>, <code>Core</code> or <code>Presentation</code>.
-The App and Core entries also build
+The App, Core and GM entries also build
 <code>dbtools.&lt;Tool&gt;.HostedTurns.Local.Tests</code>.
 <code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code> selects every
 <code>dbtools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner, except
@@ -355,15 +355,12 @@ externals. Tool-specific doubles are under <code>testing/TestSupport/&lt;Tool&gt
 linked as source by the matching test projects; they are not a separate
 assembly.</p>
 <ul>
-<li><code>Revit/RevitHost.cs</code> initializes the year, the App runtime and the product
-Revit call gate before the test body, and supplies the real <code>UIApplication</code>
-through an ambient scope that does not carry API access across an <code>await</code>.
-It owns the scheduler unless a fixture holds a longer lease. A test that
-builds a <code>QueuedRevitCallGate</code> passes the fixture's Revit task; a borrowed
-task stays with its publisher. A <code>QueuedModeless</code> run scope from the App
-runtime schedules through that runtime's own task. Forced-queue tests call
-the real external-event handler synchronously to model a later API turn;
-one daemon NUnit callback contains no second native turn.</li>
+<li><code>Revit/RevitHost.cs</code> initializes the year and App runtime. It opens an API
+scope with the <code>UIApplication</code> for the synchronous prefix of the test body.
+The scope closes when the body returns its task. A fixture that constructs a
+Revit task owns its disposal. An App <code>QueuedModeless</code> run scope uses the
+service root's task. A forced-queue test calls the real event handler
+synchronously to model a later turn.</li>
 <li><code>Wpf/WpfTestRuntimeBootstrap.cs</code> registers pack URI support, installs the
 shared window owner, validates themes in the runtime assembly's contextual
 reflection scope, and releases only its own provider at teardown. It adds no

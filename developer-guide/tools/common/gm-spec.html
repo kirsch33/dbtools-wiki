@@ -151,7 +151,7 @@ It implements feature-owned <code>ICommitReviewRowRefresh</code>, <code>IFamilyM
 App/Sessions owns session records and runtime lifetime. Composition owns construction.
 Feature implementations do not import <code>dbtools.GM.App</code>.</p>
 <p><code>FamilyMappingFactory</code> returns <code>FamilyMappingComposition</code>: FamilyMappingViewModel, FamilyMappingScanWorkflow,
-FamilyMappingRowRefresh, FamilyMappingTypeCreation, and one MappingRowSet spanning family/type and supplied Usage rows.
+FamilyMappingRowRefresh, and one MappingRowSet spanning family/type and supplied Usage rows.
 FamilyMappingScanStateApplier belongs to scan sequencing. The row builders and refresh owners receive the same row set.
 The factory shares one FamilyMappingState across these objects. FamilyMappingState.SelectedFamilyRow holds the
 selected family row. FamilyMappingViewModel.SelectedFamilyRow reads and writes it, raises one notification per change,
@@ -309,8 +309,9 @@ An update with another snapshot type throws ArgumentException before it runs the
 Style and material source and target IDs are positive. AffectedFamilyResolver returns no families for a nonpositive ID.
 Commit Review planning fails an applied style mapping with a nonpositive source or target as an invalid mapping.</p>
 <p>The Rows package owns row-to-intent translation, projection, origin mutation, and family-apply behavior.
-<code>MappingRowIntentProjection.ApplyTo</code> sets <code>Apply</code> once to the final intent state during projection.
-Only intents that can produce planned operations count as pending operations. A family intent enables family-owned mappings but creates no operation by itself; a type intent counts only when its source resolves to an eligible applied owner family.
+<code>MappingRowIntentProjection.ApplyTo</code> assigns <code>ApplySelection</code> after it sets the target and origin.
+When the row refuses inclusion, <code>ApplyTo</code> writes the resulting selection back to the intent store.
+Only intents that can produce planned operations count as pending operations. An included type with a valid target or create name counts when its source resolves to an owner family. A family intent supplies the target family and type-parameter write policy.
 Signal-driven usage-linked family refreshes hold <code>MappingUpdateSuppression</code> while they project rows and refresh Apply indicators.
 FamilyMappingIntentRefreshRequested also reapplies accepted family intents to loaded type rows under suppression.
 Conflict/Rows owns row conflict matching. Detection consumes an immutable MappingSelectionSnapshot.
@@ -357,7 +358,8 @@ Design-time projection does not construct unused persistence.</p>
 Cancellation or I/O failure preserves the last good snapshot.
 Only confirmed missing files/directories count as absent. Access, sharing, invalid-path, and other I/O faults propagate.
 UI-state and Deep Scan snapshots are disposable caches: malformed, invalid, or old snapshots are discarded and logged.
-Saved mappings are user data and use strict nullable-ingress validation with contextual failures.
+Saved mappings use strict nullable-ingress validation with contextual failures.
+A missing target marks a mapping as excluded. Excluded entries are saved alongside any last committed entry for the same key. Clearing an exclusion keeps the committed entry. Read errors leave the file intact.
 Cache results are immutable hit/miss values. Hits always contain data.
 Persistence and cache stores propagate unhandled failures to the operation boundary for logging.
 DeepScanCacheCoordinator retains warnings for hydration failures, key preparation failures, and optional cache writes.</p>
@@ -372,7 +374,7 @@ and resets one-shot suppression even on failure. Confirmed clears drain before c
 PaneStateProjector supplies SavedAt. Saving preserves the supplied timestamp.</p>
 <p>Saved Mappings validates exact document identity and every persisted key before admission.
 Parameter mappings retain ScopedParameterName scope. The persistence port exposes load, save, and clear.
-MappingIntentStore owns merging. Commit Review constructs the restore workflow, merges persisted intent,
+MappingIntentStore owns merging and captures explicit Apply exclusions for close persistence. Commit Review constructs the restore workflow, merges persisted intent,
 and reapplies through row owners.</p>
 <p>Clearing saved mappings follows this order:</p>
 <ol>
@@ -445,7 +447,7 @@ CurrentDuplicateDetection owns the last fully completed artifact.
 Detection collects its unpublished full state, executes stable DuplicateKind stages, hydrates names,
 then publishes and returns the same artifact reference. Earlier failure/cancellation preserves the prior artifact.
 Family-row counts use that same detection state.
-Accepting a family duplicate writes type intents when its keep target becomes the applied family target. A manual mapping survives until the user chooses the duplicate side of a conflict. GM prefers an exact-case type name, then a name that differs only in case, then the highest score at or above Threshold. Type names that are unavailable do not take part in matching. An Edit Type Mapping result takes precedence over automatic matches. The signal-driven refresh applies the intent to loaded Families rows through MappingRowSet.ApplyIntent.</p>
+Accepting a family duplicate writes type intents when its keep target becomes the applied family target. A manual mapping survives until the user chooses the duplicate side of a conflict. Accept includes the excluded types it maps. An exclusion made after Accept survives refresh and Use Duplicate. A second Accept includes the mapped type again. GM prefers an exact-case type name, then a name that differs only in case, then the highest score at or above Threshold. Type names that are unavailable do not take part in matching. An Edit Type Mapping result takes precedence over automatic matches. The signal-driven refresh applies the intent to loaded Families rows through MappingRowSet.ApplyIntent.</p>
 <p>The immediate rebuild receives the artifact explicitly. Other readers inject CurrentDuplicateDetection.
 Cached refresh runs a worker request on the GM window's dispatcher and waits for it. A reentrant request replaces the queued request.
 The outer refresh runs the latest queued rebuild before returning, including propagating its failure.
@@ -473,7 +475,7 @@ A thrown Document.Close or false result is a cleanup failure under the shared st
 FamilyMetadataService preserves each curve-based placement variant. FamilyPlacementCompatibility disables targets whose curve-based placement differs and plan selection rejects incompatible pairs with the named Incompatible family placement issue.
 FamilyMappingOptionProjector derives each family and type row's target pool from that source row's family category.
 Type intents keep their owner across category filter changes. Cached rows reapply current intents under live update suppression.
-Selecting a target for a family with Apply on stages the child type replacements with valid targets. The pending operation count includes those replacements.
+The family target scopes the child target lists. The family Apply box changes the child Apply selections and shows a mixed state for a combination of checked and unchecked types. The pending operation count includes checked types with valid targets.
 Type creation planning resolves every existing owner-family type name and rejects names already used by that family or another planned type.</p>
 <p>FamilyMappingViewModel owns binding state and interactions.
 FamilyMappingScanWorkflow owns asynchronous scan/cache/post-commit sequencing and its private scan-state applier.
@@ -792,13 +794,23 @@ rolls back an open apply group through the inline commit gate, disposes child/se
 and skips close persistence with a log entry. It opens no dispatcher frame.
 An existing normal-close task stops before its next stage when retirement takes over.</p>
 <p><code>DevModeStatus</code> exposes <code>Idle</code> or <code>Busy: &lt;operations&gt;</code> in the root UI Automation ItemStatus.
-It includes name lookup, navigation, both auto-zoom debounces, duplicate rebuilds, Type Mapping,
+It includes name lookup, navigation, the Shared Parameters auto-zoom debounce, duplicate rebuilds, Type Mapping,
 Commit Review, cache posts, and pending page selection.
 App, Family Mapping, and Shared Parameters navigation use Mapping-owned NavigationLifetime leases.
 Leases start inside admitted callbacks or around awaited execution.
-Both feature auto-zoom debounces use 200 ms and the lease token.
+The Shared Parameters auto-zoom debounce uses 200 ms and the lease token.
 Disposal cancels outside the lifetime lock and prevents later selection, activation, or zoom.
 Core alerts use observed nested modal loops and diagnose reload during a dialog.</p>
+<h3 id="refresh-cache">Refresh Cache</h3>
+<p>RefreshCacheWorkflow drains background prewarm and reads the new inventory, duplicate detection and Usage snapshot.
+It publishes the inventory and duplicates before the Usage publication reaches its subscribers.
+Families restores the selected row and expanded details from the new rows. Shared Parameters rebuilds its definition
+groups, authoring tree and parameter use rows. A failed read keeps the previous inventory and rebuilds affected rows
+with Usage pending. Prewarm restarts after the action unless GM is closing.</p>
+<p>FamilyChangeMonitor records family, type and placement changes reported by Revit during the GM session. Deep Scan
+retention compares the fresh family inventory and discards evidence for changed families and scans that include changed
+nested families. Deep Scan also checks for changes during a read before publishing its results. Prewarm bypasses cached
+scans for families with changes reported during the session.</p>
 <h3 id="mapping-execution">Mapping execution</h3>
 <p>RevitMappingPlanExecutor validates document identity and supplies document operations to MappingPlanExecutor.
 MappingPlanExecutor owns the stage loop, capture boundaries, and result builder.</p>
@@ -838,8 +850,12 @@ type-parameter source values before the writer loop. Host material references
 are captured at the fixed boundary after Host recreation and before Nested
 Families or Type Replacements, including plans with no Host operations. They
 refer to recreated element IDs without consuming values introduced by later
-type-parameter migration or family reloads. Each family document captures all applicable material,
-object-style and nested-symbol references before its operation loop. Missing
+type-parameter migration or family reloads. A family-scoped material mapping
+captures only material parameters on placed instances of its owner family.
+A captured parameter that already holds the planned target at write time adds no host
+write or count. Other changes to the captured value fail the operation.
+Each family document captures all applicable material, object-style and
+nested-symbol references before its operation loop. Missing
 sources are explicit capture results. An absent source in a traversed
 family is zero work with a non-fatal reason. A missing host source or an
 ambiguous family material name remains an error. Apply never discovers an
@@ -996,24 +1012,31 @@ the mapping. A rolled-back clean attempt lists the verifier's lines.</li>
 <li><code>Problems</code>, one table: validation issues, operation failures and warnings, and plan warnings. Each row has a
 source, a target, a stage and a reason. The reason holds no diagnostic code. The row keeps its codes (<code>Codes</code>, for
 example <code>HostParameterCopyWarning</code>) and its operation id, and Copy Report prints both.</li>
-<li><code>DetailsText</code>, one collapsed section that merges the operation summary, timing, stage summary and family changes.
+<li><code>DetailsText</code>, one collapsed section with the operation summary, family changes, host replacements and nested
+families. It includes the Shared Parameters summary before Apply and the timing and stage summary after Apply.
 OperationRows is its per-operation table.</li>
 </ul>
 <p>The failure banner repeats the outcome title and its first line. Copy Report starts with the outcome and the problems.
-The raw view binds the section properties OutcomeText, VerificationWarningText, OperationErrors, FamilyBreakdown
-and the summary texts.</p>
+The raw view binds <code>Outcome</code>, <code>Problems</code>, <code>DetailsText</code> and the tables in Details. The problem reason wraps, and
+the grids scroll horizontally when the columns exceed the available width.</p>
 <p>Type replacements retain their selecting intent key, so acceptance records intent for its actual owner.
 Apply transactions log each Revit failure at Warning with definition ID and failing elements.
 Pre-commit issues retain their validation label.</p>
-<p>Family-document material replacement resolves source and target by material name.
+<p>Family-document material replacement resolves source and target by material name. It reuses or creates the target
+material in the family and copies the project target’s shading color and transparency. The appearance, fill pattern,
+physical and thermal assets of the family material are outside this write.
 Errors retain planned operation ID and host source/target IDs.
 Family-document material IDs and affected elements are diagnostic details.
+Material receipts include the families changed by the host writer or reloaded
+with a material edit. Commit Review uses those receipts to scope allowances for
+incoming material chains and swaps. A family-scoped material mapping warns
+about project face paint and verifies unpainted source material usage.
 Report grouping uses the owning operation even when operations share a host pair or family documents assign different IDs.</p>
 <h4 id="reloaded-family-identity">Reloaded family identity</h4>
 <p>Family-owned apply retains the family ID returned by Revit reload. Accepted mappings use that identity, including existing saved and pending mappings for the same family. Rollback leaves mapping identities unchanged.
 MappingApplyResult.ReloadedFamilyIds snapshots changed root identities.
 Finalization remaps applied/persistable family keys and targets before merging.
-MappingIntentStore also remaps existing saved/pending intents, manual family-apply state, and usage links.
+MappingIntentStore also remaps existing saved and pending intents, Apply exclusions, and usage links.
 One replaced identity must not retain a second saved mapping.</p>
 <h4 id="host-replacement">Host replacement</h4>
 <p>Each host replacement is atomic per instance. Placement and required facing, hand, and
@@ -1048,9 +1071,9 @@ A single ordinary fault keeps its identity and stack.
 Multiple ordinary faults form an aggregate in family-category, shared-parameter-category, then parameter-group order, regardless of completion order.
 Other exception wrappers keep their context.
 With cancellation alone, the first cancellation in that order keeps its token.
-Expanding a family with instances makes one Revit callback and opens no family document (owner rule; test <code>ToggleFamilyRowCommand_ExpandingAFamilyWithInstancesMakesOneRevitCallbackAndDoesNotWaitForZoom</code>).
+Expanding a family with instances makes one Revit callback and opens no family document (owner rule; test <code>ToggleFamilyRowCommand_ExpandingAFamilyWithInstancesReadsExamplesInOneRevitCallback</code>).
 The expansion builds a missing usage index first, then runs its reads through <code>IRevitCallBatch</code>; the first failure propagates.
-The expansion reads no views list, and its auto-zoom starts after its overlay ends.
+The Views panel owns the views list.
 The views list is read for the selected row while the views panel shows and the workspace is ready, once per family until the next family scan or post-commit refresh. When the workspace becomes ready after startup or an operation, the selected row's list is read.
 A views-list double-click is one Revit call.
 Selected-type instance examples are read once through type selection.

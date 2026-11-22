@@ -454,7 +454,8 @@ when these checks pass.</p>
 Local test assembly's embedded resource. Real-tool composition and XAML tests use
 the tool projects they reference.</p>
 <p>CORE selects both Windows and portable Pure projects, or both Core Local and
-HostedTurns Local projects. PRESENTATION selects
+HostedTurns Local projects. GM Local includes <code>dbtools.GM.Local.Tests</code> and
+<code>dbtools.GM.HostedTurns.Local.Tests</code>. PRESENTATION selects
 <code>dbtools.Presentation.Pure.Tests</code> or <code>dbtools.Presentation.Local.Tests</code>; it owns
 every Presentation test, including the tests of tool-specific Presentation
 types. A Local request without <code>--tool</code> includes the App, Core and Presentation
@@ -810,7 +811,9 @@ and runs its gate calls through a real <code>ExternalEvent</code> turn. The resu
 the gate request count and the native turn summaries. Use it for hosted tests of
 modeless user actions that ordinary hosted callbacks would run inline. Mark its
 fixture with <code>[Category(&quot;RevitHostedTurns&quot;)]</code> so the daemon releases the current
-API callback at an incomplete await.</p>
+API callback at an incomplete await. Compile these fixtures in a
+<code>*.HostedTurns.Local.Tests</code> project so shared assembly setup owns fixtures with
+one turn mode.</p>
 <p><code>ScaleRevitTestModelGeneratorTests</code> creates the year-specific model with 200
 loadable families, at least 800 types, 40 drafting views and sheets, 160
 girders and 40 foundations. Run the hosted fixture once for each supported Revit year:
@@ -846,20 +849,22 @@ No matching installed template yields Inconclusive with observed formats/errors.
 Repository-controlled models and assets are different: missing staged files
 must fail the test.</p>
 <h3 id="hosted-context-and-cleanup">Hosted context and cleanup</h3>
-<p>Use <code>RevitHost.RunAsync(...)</code> for the daemon-provided <code>UIApplication</code>. It
-initializes runtime assembly resolution and calls
-<code>AppHostedComposition.EnsureRuntime(app.Application?.VersionNumber)</code> before
-it ensures that a call-gate task is available. <code>EnsureRuntime</code> parses an unset
-Revit year and initializes the App runtime once with an isolated ribbon target.
+<p>Use <code>RevitHost.RunAsync(...)</code> to run a hosted body with the daemon-provided
+<code>UIApplication</code>. It initializes runtime assembly resolution and calls
+<code>AppHostedComposition.EnsureRuntime(app.Application?.VersionNumber)</code>.
+<code>EnsureRuntime</code> parses an unset Revit year and initializes the App runtime once
+with an isolated ribbon target.
 A fixture that builds its own App container uses
 <code>AppHostedComposition.CreateLoggingRuntime()</code> and
 <code>AppHostedComposition.BuildServiceProvider(logging, isolationName, configure)</code>.
 The optional <code>configure</code> callback runs after App registrations. The fixture
 disposes its provider and logging runtime. WPF name-only product loads resolve
 with the active App assembly.
-<code>RevitAmbientScope</code> owns publication/restoration of the ambient UIApplication.
-A native callback's API scope applies only to its synchronous prefix. Later
-continuations use a fresh product probe or gate.</p>
+<code>RevitAmbientScope</code> supplies ambient <code>UIApplication</code> data. The API scope ends
+when the synchronous test body returns its task. A fixture without the App
+runtime opens the same scope around its synchronous product call. After an
+incomplete await, enter a scope again only if the driver still owns the native
+callback on the Revit dispatcher. Use a queued gate after the callback returns.</p>
 <p><code>DBT_TEST_RUN_ID</code> identifies automation so startup errors remain headless.
 Fixtures release only runtime/task hosts, owners, static state, documents, and
 overlays they own. The daemon terminal owns final release of its active
@@ -923,8 +928,8 @@ Keep preview data native until the WPF boundary.</p>
 <td>Saved-mapping restoration.</td>
 </tr>
 <tr>
-<td><code>FamilyMappingSelectionNavigationWorkflowTests</code></td>
-<td>Family-details navigation.</td>
+<td><code>FamilyMappingSelectionDetailsTests</code></td>
+<td>Family parameter examples and selection failures.</td>
 </tr>
 <tr>
 <td><code>FamilyMappingOptionProjectorTests</code></td>
