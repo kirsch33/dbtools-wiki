@@ -6,7 +6,7 @@
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta name="title" content="Class WpfDispatcher | dbtools ">
       
-      
+      <meta name="description" content="Routes WPF dispatcher work through the generation-owned operation registry.">
       <link rel="icon" href="../images/favicon.ico">
       <link rel="stylesheet" href="../public/docfx.min.css">
       <link rel="stylesheet" href="../public/main.css?v=20261030">
@@ -99,7 +99,8 @@ Class WpfDispatcher
   <dl><dt>Assembly</dt><dd>dbtools.Core.dll</dd></dl>
   </div>
 
-  <div class="markdown summary"></div>
+  <div class="markdown summary"><p>Routes WPF dispatcher work through the generation-owned operation registry.</p>
+</div>
   <div class="markdown conceptual"></div>
 
   <div class="codewrapper">
@@ -148,6 +149,15 @@ Class WpfDispatcher
 
 
 
+  <h2 id="dbtools_Core_UI_Dispatching_WpfDispatcher_remarks">Remarks</h2>
+  <div class="markdown level0 remarks"><p>After the registry retires, <a class="xref" href="dbtools.Core.UI.Dispatching.WpfDispatcher.html#dbtools_Core_UI_Dispatching_WpfDispatcher_Post_System_Action_System_Windows_Threading_DispatcherPriority_">Post(Action, DispatcherPriority)</a> returns a task that stays pending and never runs its callback.
+<a class="xref" href="dbtools.Core.UI.Dispatching.WpfDispatcher.html#dbtools_Core_UI_Dispatching_WpfDispatcher_Queue_System_Windows_Threading_Dispatcher_System_Action_System_Windows_Threading_DispatcherPriority_">Queue(Dispatcher, Action, DispatcherPriority)</a> and <a class="xref" href="dbtools.Core.UI.Dispatching.WpfDispatcher.html#dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke_System_Windows_Threading_Dispatcher_System_Action_System_Windows_Threading_DispatcherPriority_">Invoke(Dispatcher, Action, DispatcherPriority)</a>
+throw <span class="xref">InvalidOperationException</span> with the retired-registry message, including when Invoke runs on the dispatcher thread.
+An Invoke already waiting on a worker thread receives the same exception when retirement drops its queued callback.
+A Post reporter failure stays on its task and does not reach <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcher.unhandledexception">UnhandledException</a>.
+A Queue callback failure reaches <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcher.unhandledexception">UnhandledException</a> after registry cleanup.
+When the registry is open, Post throws <span class="xref">InvalidOperationException</span> if no dispatcher is available or it is shutting down.</p>
+</div>
 
 
   <h2 class="section" id="methods">Methods
@@ -323,6 +333,41 @@ Class WpfDispatcher
 
   <a id="dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Invoke*"></a>
 
+  <h3 id="dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke_System_Windows_Threading_Dispatcher_System_Action_System_Windows_Threading_DispatcherPriority_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Invoke(System.Windows.Threading.Dispatcher,System.Action,System.Windows.Threading.DispatcherPriority)">
+  Invoke(Dispatcher, Action, DispatcherPriority)
+  
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void Invoke(Dispatcher dispatcher, Action action, DispatcherPriority priority = DispatcherPriority.Send)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>dispatcher</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcher">Dispatcher</a></dt>
+    <dd></dd>
+    <dt><code>action</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action">Action</a></dt>
+    <dd></dd>
+    <dt><code>priority</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcherpriority">DispatcherPriority</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Invoke*"></a>
+
   <h3 id="dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke_dbtools_Core_UI_Windows_Ownership_WindowOwnerHandle_IWindowOwnerDispatcherProvider_System_Action_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Invoke(dbtools.Core.UI.Windows.Ownership.WindowOwnerHandle.IWindowOwnerDispatcherProvider,System.Action)">
   Invoke(IWindowOwnerDispatcherProvider, Action)
   
@@ -432,6 +477,51 @@ the dispatcher. A dispatcher that is shutting down throws instead of running the
 
 
 
+  <a id="dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Invoke*"></a>
+
+  <h3 id="dbtools_Core_UI_Dispatching_WpfDispatcher_Invoke__1_System_Windows_Threading_Dispatcher_System_Func___0__System_Windows_Threading_DispatcherPriority_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Invoke``1(System.Windows.Threading.Dispatcher,System.Func{``0},System.Windows.Threading.DispatcherPriority)">
+  Invoke&lt;T&gt;(Dispatcher, Func&lt;T&gt;, DispatcherPriority)
+  
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static T Invoke&lt;T&gt;(Dispatcher dispatcher, Func&lt;T&gt; action, DispatcherPriority priority = DispatcherPriority.Send)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>dispatcher</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcher">Dispatcher</a></dt>
+    <dd></dd>
+    <dt><code>action</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-1">Func</a>&lt;T&gt;</dt>
+    <dd></dd>
+    <dt><code>priority</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcherpriority">DispatcherPriority</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><span class="xref">T</span></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
   <a id="dbtools_Core_UI_Dispatching_WpfDispatcher_Post_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Post*"></a>
 
   <h3 id="dbtools_Core_UI_Dispatching_WpfDispatcher_Post_System_Action_System_Windows_Threading_DispatcherPriority_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Post(System.Action,System.Windows.Threading.DispatcherPriority)">
@@ -439,9 +529,7 @@ the dispatcher. A dispatcher that is shutting down throws instead of running the
   
   </h3>
 
-  <div class="markdown level1 summary"><p>Queues the action on the application UI dispatcher.
-The returned task completes after the action runs, and faults with the exception the action throws.
-When no dispatcher is available or it is shutting down, the call throws instead of returning a task.</p>
+  <div class="markdown level1 summary"><p>Queues an action on the application UI dispatcher.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 
@@ -469,13 +557,13 @@ When no dispatcher is available or it is shutting down, the call throws instead 
 
 
 
-  <h4 class="section" id="dbtools_Core_UI_Dispatching_WpfDispatcher_Post_System_Action_System_Windows_Threading_DispatcherPriority__remarks">Remarks</h4>
-  <div class="markdown level1 remarks"><p>A post made after the application generation retires its dispatcher operations is refused before it reaches the dispatcher, and its task is canceled.
-A queued operation that the dispatcher aborts before it runs faults with <span class="xref">InvalidOperationException</span>.
-Accepted work that has not run when the generation retires is dropped, and its task never completes.
-Callers must not await or block on such a task during shutdown.</p>
-</div>
 
+  <h4 class="section">Exceptions</h4>
+  <dl class="parameters">
+    <dt><span class="xref">InvalidOperationException</span></dt>
+    <dd><p>The registry is open and no dispatcher is available, or its dispatcher is shutting down.</p>
+</dd>
+  </dl>
 
 
 
@@ -486,9 +574,7 @@ Callers must not await or block on such a task during shutdown.</p>
   
   </h3>
 
-  <div class="markdown level1 summary"><p>Queues the action on the dispatcher that owns the owner window handle, or on the application dispatcher when no WPF source owns that handle.
-The returned task completes after the action runs, and faults with the exception the action throws.
-When no dispatcher is available or it is shutting down, the call throws instead of returning a task.</p>
+  <div class="markdown level1 summary"><p>Queues an action on the dispatcher that owns the owner window handle.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 
@@ -518,12 +604,105 @@ When no dispatcher is available or it is shutting down, the call throws instead 
 
 
 
-  <h4 class="section" id="dbtools_Core_UI_Dispatching_WpfDispatcher_Post_System_IntPtr_System_Action_System_Windows_Threading_DispatcherPriority__remarks">Remarks</h4>
-  <div class="markdown level1 remarks"><p>A post made after the application generation retires its dispatcher operations is refused before it reaches the dispatcher, and its task is canceled.
-A queued operation that the dispatcher aborts before it runs faults with <span class="xref">InvalidOperationException</span>.
-Accepted work that has not run when the generation retires is dropped, and its task never completes.
-Callers must not await or block on such a task during shutdown.</p>
+
+  <h4 class="section">Exceptions</h4>
+  <dl class="parameters">
+    <dt><span class="xref">InvalidOperationException</span></dt>
+    <dd><p>The registry is open and the owner has no dispatcher, or its dispatcher is shutting down.</p>
+</dd>
+  </dl>
+
+
+
+  <a id="dbtools_Core_UI_Dispatching_WpfDispatcher_Post_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Post*"></a>
+
+  <h3 id="dbtools_Core_UI_Dispatching_WpfDispatcher_Post_System_Windows_Threading_Dispatcher_System_Action_System_Windows_Threading_DispatcherPriority_System_Action_System_Exception__System_Action_System_Threading_CancellationToken_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Post(System.Windows.Threading.Dispatcher,System.Action,System.Windows.Threading.DispatcherPriority,System.Action{System.Exception},System.Action,System.Threading.CancellationToken)">
+  Post(Dispatcher, Action, DispatcherPriority, Action&lt;Exception&gt;?, Action?, CancellationToken)
+  
+  </h3>
+
+  <div class="markdown level1 summary"><p>Queues an action on the specified dispatcher.</p>
 </div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static Task Post(Dispatcher dispatcher, Action action, DispatcherPriority priority = DispatcherPriority.Normal, Action&lt;Exception&gt;? failureCallback = null, Action? completionCallback = null, CancellationToken cancellationToken = default)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>dispatcher</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcher">Dispatcher</a></dt>
+    <dd></dd>
+    <dt><code>action</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action">Action</a></dt>
+    <dd></dd>
+    <dt><code>priority</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcherpriority">DispatcherPriority</a></dt>
+    <dd></dd>
+    <dt><code>failureCallback</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action-1">Action</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.exception">Exception</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>completionCallback</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action">Action</a></dt>
+    <dd></dd>
+    <dt><code>cancellationToken</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h4 class="section">Exceptions</h4>
+  <dl class="parameters">
+    <dt><span class="xref">InvalidOperationException</span></dt>
+    <dd><p>The registry is open and the dispatcher is shutting down.</p>
+</dd>
+  </dl>
+
+
+
+  <a id="dbtools_Core_UI_Dispatching_WpfDispatcher_Queue_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Queue*"></a>
+
+  <h3 id="dbtools_Core_UI_Dispatching_WpfDispatcher_Queue_System_Windows_Threading_Dispatcher_System_Action_System_Windows_Threading_DispatcherPriority_" data-uid="dbtools.Core.UI.Dispatching.WpfDispatcher.Queue(System.Windows.Threading.Dispatcher,System.Action,System.Windows.Threading.DispatcherPriority)">
+  Queue(Dispatcher, Action, DispatcherPriority)
+  
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static DispatcherOperation Queue(Dispatcher dispatcher, Action action, DispatcherPriority priority = DispatcherPriority.Normal)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>dispatcher</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcher">Dispatcher</a></dt>
+    <dd></dd>
+    <dt><code>action</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action">Action</a></dt>
+    <dd></dd>
+    <dt><code>priority</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcherpriority">DispatcherPriority</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.windows.threading.dispatcheroperation">DispatcherOperation</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
 
 
 
@@ -562,8 +741,6 @@ Callers must not await or block on such a task during shutdown.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
 
       </div>

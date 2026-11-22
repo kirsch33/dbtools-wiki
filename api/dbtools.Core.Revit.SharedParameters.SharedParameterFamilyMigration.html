@@ -6,7 +6,7 @@
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta name="title" content="Class SharedParameterFamilyMigration | dbtools ">
       
-      <meta name="description" content="Replaces, in the loaded families of a project, each shared family parameter that has the name of a target and another GUID with the target, reloads each changed family into the project and keeps every value.">
+      <meta name="description" content="Moves family parameters to target definitions and, for opted-in targets, direct annotation labels.">
       <link rel="icon" href="../images/favicon.ico">
       <link rel="stylesheet" href="../public/docfx.min.css">
       <link rel="stylesheet" href="../public/main.css?v=20261030">
@@ -99,8 +99,7 @@ Class SharedParameterFamilyMigration
   <dl><dt>Assembly</dt><dd>dbtools.Core.dll</dd></dl>
   </div>
 
-  <div class="markdown summary"><p>Replaces, in the loaded families of a project, each shared family parameter that has the name of a target and
-another GUID with the target, reloads each changed family into the project and keeps every value.</p>
+  <div class="markdown summary"><p>Moves family parameters to target definitions and, for opted-in targets, direct annotation labels.</p>
 </div>
   <div class="markdown conceptual"></div>
 
@@ -155,16 +154,20 @@ Deleting that parameter from the project also removes it from the labels of load
 this migration before <a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterMigration_Migrate_Autodesk_Revit_DB_Document_Autodesk_Revit_DB_ParameterElement_Autodesk_Revit_DB_ExternalDefinition_System_Collections_Generic_IReadOnlyCollection_Autodesk_Revit_DB_Category__dbtools_Core_Revit_SharedParameters_SharedParameterUseHandling_">Migrate(Document, ParameterElement, ExternalDefinition, IReadOnlyCollection&lt;Category&gt;, SharedParameterUseHandling)</a> or any delete of the old parameter.
 </p>
 <p>
-<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_Plan_Autodesk_Revit_DB_Document_System_Collections_Generic_IReadOnlyList_dbtools_Core_Revit_SharedParameters_SharedParameterFamilyTarget__">Plan(Document, IReadOnlyList&lt;SharedParameterFamilyTarget&gt;)</a> changes nothing. When the project has a parameter with the name of a target and another GUID, it
-opens every editable loadable family (<span class="xref">Autodesk.Revit.DB.Document.EditFamily(Autodesk.Revit.DB.Family)</span>) and closes it unsaved. It opens editable
-nested families recursively. It does not open a non-editable nested family; it checks its symbols and instances for
-the GUID. A carrier parameter can proceed when those elements do not show the GUID. A direct-use path refuses when
-any non-editable nested family could hide a label, formula or other use. A family parameter with the name and
-another GUID becomes a change. A use that is not a family parameter is refused: a label that shows the parameter
-directly (added through Edit Label in a tag or title block family) or a nested family that defines it. Revit 2027
-names each such label with its detail group and formatting. Revit 2026 refuses every direct shared-parameter element
-because it cannot read labels. It describes an annotation-family element as an unread label, and does not call a
-model-family element an annotation label.
+<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_Plan_Autodesk_Revit_DB_Document_System_Collections_Generic_IReadOnlyList_dbtools_Core_Revit_SharedParameters_SharedParameterFamilyTarget__">Plan(Document, IReadOnlyList&lt;SharedParameterFamilyTarget&gt;)</a> changes nothing. It opens each editable loadable family that may use a target and closes it
+unsaved. It also opens editable nested families recursively. A non-editable nested family is checked through its
+symbols and instances. Every <a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyTarget.html">SharedParameterFamilyTarget</a> defaults to refusing a direct shared-parameter
+element that no family parameter carries. GM repair opts in to direct label moves. In Revit 2027, that path requires
+readable labels, the internal writer members, the target's spec, a non-measurable spec, no family record of the target
+GUID with another spec, no detail group type without placements, and no nested or uninspected family use. A label in
+a plain detail group moves after the change ungroups the group; an attached, nested or pinned group, a group with a
+member whose location cannot be read, or one with an assigned value that ungrouping would delete, refuses. It trials all changes
+for one family together, in apply order, in a transaction that commits with the failure handling of
+<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_Migrate_Autodesk_Revit_DB_Document_dbtools_Core_Revit_SharedParameters_SharedParameterFamilyPlan_">Migrate(Document, SharedParameterFamilyPlan)</a> inside a transaction group that always rolls back. A family parameter still uses
+<code>FamilyManager.ReplaceParameter(FamilyParameter, string, ForgeTypeId, bool)</code> and Revit moves its label
+entries. This path does not require <span class="xref">dbtools.Core.Revit.SharedParameters.SharedParameterLabels.CanWrite</span>. A failed
+family-parameter trial is a family refusal. A failed direct-label trial remains a hand-fix label row. Revit 2026
+refuses direct shared-parameter elements because it cannot read annotation labels.
 Other refusals: a nested shared family, another data type, a type parameter in a category that the target binds as
 an instance parameter, an element whose old and new values differ, and an in-place or non-editable top-level family
 that defines the parameter or may define it. Revit does not open such a family; when its elements show the parameter
@@ -172,13 +175,22 @@ and a project binding could explain that, the plan rebinds the project parameter
 transaction that always rolls back and reads the elements again.
 </p>
 <p>
-<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_Migrate_Autodesk_Revit_DB_Document_dbtools_Core_Revit_SharedParameters_SharedParameterFamilyPlan_">Migrate(Document, SharedParameterFamilyPlan)</a> runs in one transaction group. For each family it records the old values of its types or
-elements, opens the family, replaces the parameter through a temporary family parameter
-(FamilyManager.ReplaceParameter(FamilyParameter, string, ForgeTypeId, bool), then the target
+<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_Migrate_Autodesk_Revit_DB_Document_dbtools_Core_Revit_SharedParameters_SharedParameterFamilyPlan_">Migrate(Document, SharedParameterFamilyPlan)</a> runs in one transaction group. A family that was reloaded or deleted after the plan refuses.
+Before writing, it opens each family and compares the planned label state, including label IDs, group membership and
+group type. A changed label refuses before the family write.
+For each family it records the old values of its types or elements, opens the family, replaces the parameter through a temporary family parameter
+(<code>FamilyManager.ReplaceParameter(FamilyParameter, string, ForgeTypeId, bool)</code>, then the target
 definition) with the same group and instance or type kind, and checks in the family that every formula, value,
-dimension label, associated element parameter and, in Revit 2027, label follows. It also checks for a remaining
-family parameter, nested-family symbol or instance, or readable label that uses the old GUID. Project view-filter
-rules are handled by <a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterMigration_FindFilterRules_Autodesk_Revit_DB_Document_Autodesk_Revit_DB_ParameterElement_">FindFilterRules(Document, ParameterElement)</a> when the project parameter is deleted.
+dimension label, associated element parameter and label entry follows. For direct label changes it updates only the
+selected entries through the internal parameter-ID setter, validates them and checks their public formatting and
+the internal leading-parameter flag. It refuses measurable specs because Revit does not expose the label's unit
+format for comparison. It also checks for a remaining family parameter, nested-family symbol or instance, or
+readable label that uses the old GUID. Project view-filter rules are handled by
+<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterMigration.html#dbtools_Core_Revit_SharedParameters_SharedParameterMigration_FindFilterRules_Autodesk_Revit_DB_Document_Autodesk_Revit_DB_ParameterElement_">FindFilterRules(Document, ParameterElement)</a> when the project parameter is deleted. The family
+transaction and the reload delete no Revit warning outside a fixed list; any other warning or error rolls back and
+refuses with its description. Migrate compares every label with its expected state again after the commit, with
+every element of the family after an ungroup, and, by owner view, detail group name and position, in the reloaded
+family, where it also counts every element of the former group members' kinds at each place.
 An unused <span class="xref">Autodesk.Revit.DB.SharedParameterElement</span> may remain after replacement. In Revit 2026 it refuses an annotation family
 when that element remains because the family may use the GUID in a label that dbtools cannot read. It reloads the
 family over the loaded one, writes each recorded value that the reload did not keep and reads every value back. Any
@@ -229,6 +241,86 @@ Family files on disk do not change. A family loaded again from such a file bring
 
   <h2 class="section" id="methods">Methods
 </h2>
+
+
+  <a id="dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_FindFamilyNames_" data-uid="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.FindFamilyNames*"></a>
+
+  <h3 id="dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_FindFamilyNames_Autodesk_Revit_DB_Document_System_Collections_Generic_IReadOnlyList_System_ValueTuple_System_String_System_Guid___" data-uid="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.FindFamilyNames(Autodesk.Revit.DB.Document,System.Collections.Generic.IReadOnlyList{System.ValueTuple{System.String,System.Guid}})">
+  FindFamilyNames(Document, IReadOnlyList&lt;(string Name, Guid TargetGuid)&gt;)
+  
+  </h3>
+
+  <div class="markdown level1 summary"><p>Finds the family names for each shared parameter conflict in one project scan. Opens no family.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static IReadOnlyList&lt;IReadOnlyList&lt;string&gt;&gt; FindFamilyNames(Document project, IReadOnlyList&lt;(string Name, Guid TargetGuid)&gt; queries)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>project</code> <span class="xref">Document</span></dt>
+    <dd></dd>
+    <dt><code>queries</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;(<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.guid-.name">Name</a>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.guid-.targetguid">TargetGuid</a>)&gt;</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_FindFamilyNames_" data-uid="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.FindFamilyNames*"></a>
+
+  <h3 id="dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_FindFamilyNames_Autodesk_Revit_DB_Document_System_Collections_Generic_IReadOnlyList_System_ValueTuple_System_String_System_Guid___System_Collections_Generic_IReadOnlyList_Autodesk_Revit_DB_SharedParameterElement__" data-uid="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.FindFamilyNames(Autodesk.Revit.DB.Document,System.Collections.Generic.IReadOnlyList{System.ValueTuple{System.String,System.Guid}},System.Collections.Generic.IReadOnlyList{Autodesk.Revit.DB.SharedParameterElement})">
+  FindFamilyNames(Document, IReadOnlyList&lt;(string Name, Guid TargetGuid)&gt;, IReadOnlyList&lt;SharedParameterElement&gt;)
+  
+  </h3>
+
+  <div class="markdown level1 summary"><p>Finds family names for conflicts using shared parameter elements already read by the caller.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static IReadOnlyList&lt;IReadOnlyList&lt;string&gt;&gt; FindFamilyNames(Document project, IReadOnlyList&lt;(string Name, Guid TargetGuid)&gt; queries, IReadOnlyList&lt;SharedParameterElement&gt; sharedParameters)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>project</code> <span class="xref">Document</span></dt>
+    <dd></dd>
+    <dt><code>queries</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;(<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.guid-.name">Name</a>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.guid-.targetguid">TargetGuid</a>)&gt;</dt>
+    <dd></dd>
+    <dt><code>sharedParameters</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<span class="xref">SharedParameterElement</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
 
 
   <a id="dbtools_Core_Revit_SharedParameters_SharedParameterFamilyMigration_FindFamilyNames_" data-uid="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyMigration.FindFamilyNames*"></a>
@@ -285,7 +377,7 @@ use.</p>
   
   </h3>
 
-  <div class="markdown level1 summary"><p>Replaces each family parameter of <code class="paramref">plan</code> and keeps every value.</p>
+  <div class="markdown level1 summary"><p>Moves each family parameter and opted-in annotation label of <code class="paramref">plan</code> and keeps every value.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 
@@ -304,7 +396,7 @@ use.</p>
   <h4 class="section">Returns</h4>
   <dl class="parameters">
     <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="dbtools.Core.Revit.SharedParameters.SharedParameterFamilyReport.html">SharedParameterFamilyReport</a>&gt;</dt>
-    <dd><p>One report per replaced family parameter, in plan order.</p>
+    <dd><p>One report per family change, in plan order.</p>
 </dd>
   </dl>
 
@@ -382,8 +474,6 @@ an in-place or non-editable top-level family opens a transaction that always rol
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
 
       </div>

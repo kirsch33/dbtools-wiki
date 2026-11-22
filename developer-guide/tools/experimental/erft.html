@@ -90,215 +90,156 @@
 <h1 id="dbtools.erft">dbtools.ERFT</h1>
 
 <h2 id="name">NAME</h2>
-<p>dbtools.ERFT - the assembly behind the Extreme Roof Framing Tool</p>
+<p>dbtools.ERFT - plan and apply framing offset changes</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Experimental/ERFT/   (MAP.md, manifest.yml)
-assembly  dbtools.ERFT
-entry     ErftToolModule
-command   ErftNewCommand                 (run profile InlineUi, panel Testing)
-hook      ErftContextualRibbonInjector   (Edit ERFT on contextual Modify tabs)
-view      App/Views/ErftWindow.xaml, src/dbtools.Presentation/Tools/ERFT/
+<pre><code class="lang-text">source    src/Tools/Experimental/ERFT/
+assembly  dbtools.ERFT.dll
+module    App/Composition/ErftToolModule.cs
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p><code>FramingAdjustmentWorkflow</code> runs both flows. <code>RunNewModalFlow</code> picks a target
-and the sources, then calls <code>PlanPreparationBuilder.Prepare</code>.
-<code>RunEditModalFlow</code> takes a loaded <code>StoredPlan</code> and calls
-<code>PrepareFromStoredPlan</code>. The window changes the
-tolerance and rounding of <code>AdjustmentPlanStore.Current</code> and recalculates.
-<strong>Apply</strong> runs <code>AdjustmentPlanExecutor</code>. Lengths are in feet, and element IDs
-are <code>long</code>. The <a href="../../../user-guide/tools/erft.html">user page</a> describes the
-behavior. <a href="../../architecture/structural-preview.html">Structural Preview</a>
-describes the 3D presenter.</p>
+<p><code>AdjustmentPlan</code> holds column and beam offset changes for a floor or roof target.
+See <a href="../../../user-guide/tools/erft.html">Extreme Roof Framing Tool</a>.</p>
 <h2 id="structure">STRUCTURE</h2>
-<p>Paths are under <code>src/Tools/Experimental/ERFT/</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Path</th>
-<th>Contents</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>App/Composition/</code></td>
-<td><code>ErftToolModule</code>, <code>AddErft</code> (scoped services), <code>ErftNewCommand</code> and <code>ErftContextualRibbonInjector</code>.</td>
-</tr>
-<tr>
-<td><code>App/Sessions/</code></td>
-<td><code>WindowSession</code> implements <code>IWindowSession</code>: the modal shell, alerts, banners and the preview host.</td>
-</tr>
-<tr>
-<td><code>App/ViewModels/</code></td>
-<td><code>ErftWindowViewModel</code>, <code>TolerancePreset</code>.</td>
-</tr>
-<tr>
-<td><code>Features/Selection/</code></td>
-<td>Selection filters, pickers, <code>SourceSelectionCollector</code> and <code>SourceSelectionValidator</code>.</td>
-</tr>
-<tr>
-<td><code>Features/Operations/</code></td>
-<td>Column, beam, target geometry and member profile readers.</td>
-</tr>
-<tr>
-<td><code>Features/Domain/</code></td>
-<td><code>AdjustmentPlan</code>, <code>FramingGraphBuilder</code>, <code>TargetSurfaceProjector</code>, <code>FramingAdjustmentFailure</code>.</td>
-</tr>
-<tr>
-<td><code>Features/Planning/</code></td>
-<td>Plan preparation, edit reconstruction, target re-pick, <code>AdjustmentEvaluator</code> and <code>RoundingEvaluator</code>.</td>
-</tr>
-<tr>
-<td><code>Features/Execution/</code></td>
-<td><code>AdjustmentPlanExecutor</code> and <code>AdjustmentWriter</code>.</td>
-</tr>
-<tr>
-<td><code>Features/Persistence/</code></td>
-<td><code>StorageSchema</code>, <code>StoredPlanMapper</code> and <code>SystemPlanRepository</code>.</td>
-</tr>
-<tr>
-<td><code>Features/Preview/</code></td>
-<td><code>PreviewSceneBuilder</code> and <code>PreviewProjector</code>.</td>
-</tr>
-<tr>
-<td><code>Features/State/</code></td>
-<td><code>AdjustmentPlanStore</code> holds the current plan.</td>
-</tr>
-<tr>
-<td><code>Features/Workflow/</code></td>
-<td><code>FramingAdjustmentWorkflow</code> and the <code>IWindowSession</code> port.</td>
-</tr>
-</tbody>
-</table>
+<p><code>manifest.yml</code> gives <code>ErftNewCommand</code> panel <code>Testing</code> and profile <code>InlineUi</code>.
+The <code>sandboxWindows</code> entry <code>dbtools.ERFT.Main</code> uses <code>ErftWindowDesignTimeViewModel</code>.
+<code>ErftWindowDesignTimeViewModelTests</code> checks that model's defaults.
+<code>WindowSession.EnsureSession</code> loads the embedded <code>App/Views/ErftWindow.xaml</code>
+and repeats the manifest dimensions.</p>
+<p>For <strong>Edit ERFT</strong>, see <code>ErftContextualRibbonInjector.BuildButton</code>.
+<code>ErftCompositionContractsTests</code> checks the hook registration.
+<code>FindTargetTabs</code> looks for <strong>Structural Columns</strong>, <strong>Structural Framing</strong> and
+<strong>Multi-Select</strong>, with <strong>Multi</strong> and <strong>Multi-Category</strong> as fallbacks.
+<code>EvaluateSelection</code> checks selected elements for structural column or framing
+category, a valid entity, <code>Tag</code> equal to <code>ERFT</code> and a nonblank <code>SystemId</code>.
+<code>ContextualEditCommandType</code> names <code>ErftNewCommand</code>.</p>
+<p><code>ErftWindowInteractionBehavior</code> handles Escape and clicks outside grid rows.
+Model readers live in <code>Features/Operations/</code>. <code>PreviewSceneBuilder</code> prepares
+the preview scene, and <code>PreviewProjector</code> converts it for the shared presenter.</p>
 <h2 id="contracts">CONTRACTS</h2>
-<ol>
-<li><strong>Sources.</strong> <code>SourceSelectionFilter</code> admits host <code>FamilyInstance</code>
-columns with a <code>LocationPoint</code> and framing with a <code>Line</code> that is not
-<code>StructuralType.Brace</code>. <code>SourceSelectionPicker</code> drops members whose
-structural material matches <code>\bconcrete\b</code>, case-insensitive. If a
-reader returns fewer members than the user selected, the launch fails with
-<code>Selection/SourceExtractionFailed</code>.</li>
-<li><strong>Column check.</strong> A selection with no column must have a beam within the
-connection tolerance of a model column, or it fails with
-<code>Selection/NoColumnConnection</code>. The check runs on clones of the selected
-beams, so it changes no connection. The plan graph uses the selected
-members only. <code>SourceSelectionValidatorTests</code> checks this.</li>
-<li><strong>Graph.</strong> <code>FramingGraphBuilder.ConnectionToleranceFeet</code> is <code>0.5 / 12</code>
-ft. A beam end connects to the first column, in selection order, whose top
-is within the tolerance (inclusive). A free end then connects to the
-nearest other beam segment that is closer than the tolerance. An end whose
-connection would make a cycle stays <code>Free</code>, with a warning. The processing
-order is the columns, then a Kahn sort of the beams. Among beams with no
-open dependency, beams that frame to columns go first, then lower IDs.
-<code>FramingGraphBuilderTests</code> checks the connections.</li>
-<li><strong>Target.</strong> The bottom surface is every face whose normal Z, at the middle
-of its UV box, is -0.1 or less in host coordinates. A link uses
-<code>GetTotalTransform</code>. <code>TargetSurfaceProjector</code> preserves the query X and Y
-and interpolates Z on each triangle that covers that point. It chooses the
-nearest vertical intersection when triangles overlap and returns no point
-when no triangle covers the query X and Y. Expected target failures return
-a <code>TargetGeometryFailureReason</code>, not an exception.
-<code>TargetSurfaceProjectorTests</code> checks the projection. No Revit test uses a
-loaded linked target.</li>
-<li><strong>Rounding.</strong> <code>RoundingEvaluator.ApplyRounding</code> uses <code>Math.Round</code>
-(midpoint to even), <code>Math.Ceiling</code> or <code>Math.Floor</code> of
-<code>delta / tolerance</code>. A column, or a beam at both ends, is
-<code>NoChangeNeeded</code> when the rounded change is 0 (<code>IsWithinTolerance</code>: less
-than half the tolerance).
-A beam end on a beam takes the adjusted Z of the supporting beam at the
-XY parameter, clamped to the segment.
-<code>AdjustmentCalculationTests</code> checks the rounding and the propagation.</li>
-<li><strong>Apply.</strong> <code>AdjustmentWriter</code> runs one transaction,
-<code>ERFT Apply Adjustments</code>, in the active document. It purges retired
-entities, sets <code>FAMILY_TOP_LEVEL_OFFSET_PARAM</code>,
-<code>STRUCTURAL_BEAM_END0_ELEVATION</code> and <code>STRUCTURAL_BEAM_END1_ELEVATION</code>,
-tags each changed member and saves the system. A
-<code>FramingAdjustmentFailureException</code> rolls it back and becomes a failed
-result. Before the writer runs, <code>AdjustmentPlanExecutor</code> refuses rows with
-<code>Error</code> as <code>Apply/PlanHasErrors</code>. <code>AdjustmentWriterTests</code> and
-<code>FramingAdjustmentEndToEndTests</code> check this.</li>
-<li><strong>Snapshot.</strong> <code>StoredPlanMapper.CreateSnapshot</code> stores every column and
-beam in the plan. <code>SystemPlanRepository.Save</code> replaces the one record of
-the system, so <strong>Edit ERFT</strong> restores every member from the last applied
-plan. <code>CreateSnapshot_IncludesEveryMember</code> checks the stored rows.</li>
-<li><strong>Admission.</strong> <code>StoredPlanMapper.Deserialize</code> requires the tolerance, the
-rounding mode, the <code>Columns</code> and <code>Beams</code> lists, positive element IDs, a matching <code>SystemId</code> and
-a host target or a link and linked target pair. It fails with a
-<code>Storage/*</code> code. <code>StoredPlanMapperTests</code> checks this.</li>
-<li><strong>Profiles.</strong> <code>MemberProfileExtractor</code> places one temporary instance of
-each type on the lowest level and deletes it. It commits three
-transactions for each type in the host document, outside any group.
-Expected <code>ProfileLoops/*</code> conditions fail one type. Other faults propagate.
-The <code>ExtractProfiles_*</code> cases in <code>PlanPreparationBuilderTests</code> check this.</li>
-<li><strong>Apply gate.</strong> While <code>IsApplyInProgress</code> is true, the session ignores
-Apply and Pick, and <code>CanClose</code> blocks closing. An expected failure keeps
-the window open. A thrown failure closes it and reaches the command.
-<code>WindowSessionTests</code> checks this.</li>
-</ol>
+<ul>
+<li><code>AddErft</code> scopes <code>AdjustmentPlanStore</code> per run (<code>ServiceCollectionExtensionsTests</code>).</li>
+<li><code>SourceSelectionCollector.IsValidSourceSelection</code> admits beams alone when
+one connects to a model column. <code>SourceSelectionValidator</code> checks copies
+of the beams (<code>SourceSelectionValidatorTests</code>).
+<code>PlanPreparationBuilder.CompletePreparation</code> builds the graph from selected
+members.</li>
+<li>For a resolved top level, <code>ColumnReader</code> adds the top offset to the level's
+<code>ProjectElevation</code>.
+This uses the datum of the location line read by <code>BeamReader</code>.
+<code>FramingGraphBuilder</code> uses a 1/2 in. distance in three dimensions. It checks
+the nearest column top first, then beam interiors and nearby directly
+supported ends. A supporting interior point must be more than 1/2 in. from
+both beam ends. The builder skips cycles and orders supports first
+(<code>FramingGraphBuilderTests</code>).</li>
+<li><code>TargetGeometryReader</code> triangulates the target's solids and reads each
+face's generating elements. <code>TargetGeometryBuilder</code> accepts faces whose
+reported generators are the target or Revit <code>Opening</code> elements. It
+samples the outward normal at each triangle center and uses triangles
+with host normal Z below <code>-1e-9</code>. For a linked target, it maps the points
+and normals with <code>GetTotalTransform</code> (<code>TargetGeometryBuilderTests</code>).
+<code>TargetSurfaceProjector</code> projects vertically to the eligible surface
+nearest the member end. At equal distances, it uses the lower elevation.
+It accepts the closest edge of a triangle when the plan miss is within
+<code>Application.VertexTolerance</code> (<code>TargetSurfaceProjectorTests</code>).</li>
+<li><code>FramingGraphBuilder</code> groups remaining free ends by beam ID, with one end
+per beam and every pair within 1/2 in. in three dimensions.
+<code>AdjustmentEvaluator</code> picks a shared splice target from rounded projected
+elevations. Up picks the highest, Down the lowest, and Nearest the first
+successful projection in group order. A failed projection still gives an
+error for that end.</li>
+<li><code>AdjustmentEvaluator</code> uses the selected mode for projections. An end that
+follows a support or uses a shared target rounds its own change with
+Nearest. A follower uses the support elevation at the followed end.
+<code>RoundingEvaluator</code> treats a change with magnitude 0.000001 ft or less as
+zero. It normalizes whole and half steps within that distance
+(<code>AdjustmentCalculationTests</code>).</li>
+<li><code>ErftWindowViewModel.CanApply</code> checks <code>PendingCount &gt; 0</code>, zero row errors
+and valid tolerance. <code>ErftWindowViewModelTests</code> covers row errors and
+tolerance, including the 0.01 in custom minimum.</li>
+<li>During <strong>Apply</strong>, <code>WindowSession.Interaction</code> ignores apply and pick requests.
+<code>ErftWindowViewModel.CanClose</code> blocks closing. An expected Apply failure
+keeps the window open. <code>WindowSessionTests</code> checks these gates and the
+<code>ShowModal</code> overload that rethrows a thrown Apply exception.</li>
+<li><code>AdjustmentPlanExecutor</code> rejects row errors and skips writes when nothing
+is pending (<code>AdjustmentPlanExecutorTests</code>).</li>
+</ul>
 <h2 id="flow">FLOW</h2>
-<ol>
-<li><code>TargetSelectionPicker</code> obtains a floor or roof target.</li>
-<li><code>SourceSelectionPicker</code> picks the sources. <code>SourceSelectionCollector</code>
-extracts and checks them.</li>
-<li><code>PlanPreparationBuilder</code> reads the target, builds the graph, calculates,
-and extracts the profiles before the window opens.</li>
-<li><code>ShowModal</code> returns <code>RepickTarget</code>, <code>Applied</code> or <code>Cancelled</code>. Re-pick hides
-the shell, runs <code>TargetRepickWorkflow</code> and shows the same shell again.</li>
-<li>Edit: <code>ErftContextualRibbonInjector</code> reads the <code>Tag</code> and <code>SystemId</code> of the
-selection and chooses one system. Its <code>RunEditFlow</code> calls
-<code>RunEditModalFlow</code> in a command context that Core creates for
-<code>ErftNewCommand</code>. <code>EditReconstructionBuilder</code> reads the current
-geometry and offsets of the stored members.</li>
-</ol>
+<p><code>FramingAdjustmentWorkflow</code> calls <code>PlanPreparationBuilder.Prepare</code> for launch
+and <code>PrepareFromStoredPlan</code> for edit. See <code>EditReconstructionBuilder.TryCreatePlan</code>
+for stored member resolution.</p>
+<p><code>FramingAdjustmentWorkflow.RunSession</code> starts the <code>Extreme Roof Framing Tool</code>
+transaction group before preparation. On success it assimilates the group
+into one Undo entry before showing the success alert. Canceling or failing
+the session rolls back the group.</p>
+<p><code>WindowSession</code> reuses the shell after <strong>Pick</strong> (<code>WindowSessionTests</code>).
+<code>TargetRepickWorkflow.Repick</code> preserves the plan if target resolution fails
+(<code>TargetRepickWorkflowTests</code>).</p>
+<p><code>MemberProfileExtractor</code> passes <code>ERFT Extract Member Profile</code>,
+<code>ERFT Extract Member Profile Bake</code> and <code>ERFT Extract Member Profile Cleanup</code>
+to separate transactions per member type inside the session group.
+<code>PlanPreparationBuilderTests</code> checks temporary instance cleanup.</p>
+<p><code>AdjustmentWriter.ApplyAsync</code> passes <code>ERFT Apply Adjustments</code> to the
+transaction runner. <code>ApplyColumnAdjustment</code> writes <code>FAMILY_TOP_LEVEL_OFFSET_PARAM</code>
+(<code>FramingAdjustmentEndToEndTests</code>). <code>ApplyBeamAdjustment</code> writes
+<code>STRUCTURAL_BEAM_END0_ELEVATION</code> and <code>STRUCTURAL_BEAM_END1_ELEVATION</code>.</p>
 <h2 id="data">DATA</h2>
-<p>All fields are simple <code>String</code> fields with vendor input <code>dbtools</code>. Revit
-stores the vendor ID in uppercase.</p>
-<table>
-<thead>
-<tr>
-<th>Schema</th>
-<th>GUID</th>
-<th>Fields</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>dbtools_ERFT_V2</code>, on members</td>
-<td><code>20af133f-34e7-4ff7-910e-bf351e04f3d0</code></td>
-<td><code>Tag</code> (<code>ERFT</code>), <code>SystemId</code>, <code>MemberRole</code> (<code>Column</code> or <code>Beam</code>), <code>OriginalOffset</code>, <code>Timestamp</code></td>
-</tr>
-<tr>
-<td><code>dbtools_ERFT_System_V2</code>, on a <code>DataStorage</code></td>
-<td><code>f2e43724-0569-469b-85b3-64c3810e7aea</code></td>
-<td><code>SystemIdString</code>, <code>DataJson</code> (camel-case <code>StoredPlan</code> JSON)</td>
-</tr>
-</tbody>
-</table>
-<p>Apply deletes entities of the retired schemas <code>dbtools_ERFT</code> and
-<code>dbtools_ERFT_System</code> only when the vendor and name match. It deletes a
-<code>DataStorage</code> that has no entity left.
-Apply also deletes the entities of the four schemas of the earlier product
-spelling, by their earlier GUIDs and names. Their data is not migrated.</p>
+<p><code>TargetGeometryReader.GetTargetDisplayName</code> formats the target type and level.
+<code>GetLevelName</code> reads the footprint roof base level, extrusion roof constraint
+level or face roof level. It uses <code>Element.LevelId</code> if that parameter does not
+resolve a level.</p>
+<p>Lengths are in feet. Element IDs are <code>long</code>. Change the 1/4 in default in
+<code>AdjustmentPlan.ToleranceFeet</code> and <code>TolerancePreset.Default</code> (the
+<code>ErftWindowViewModel.TryGetCurrentToleranceFeet</code> fallback). Update <code>&quot;0.25&quot;</code>
+in <code>ErftWindowViewModel._customToleranceText</code> and
+<code>ErftWindowDesignTimeViewModel.CustomToleranceText</code>.</p>
+<p><code>SystemPlanRepository.Save</code> sets <code>SystemIdString</code> and <code>DataJson</code> on the
+<code>DataStorage</code> entity. <code>Save</code> and <code>Load</code> reject duplicate system records
+with <code>SystemRepository/DuplicateSystemRecords</code>.</p>
+<p><code>AdjustmentWriter.TagElement</code> sets <code>Tag</code>, <code>SystemId</code>, <code>MemberRole</code>,
+<code>OriginalOffset</code> and <code>Timestamp</code>. <code>StoredPlanMapperTests</code> checks the JSON
+shape and inclusion of every plan row.</p>
+<p><code>AdjustmentWriter.ValidateSchema</code>, <code>SystemPlanRepository.ValidateSystemSchema</code>
+and <code>StorageSchema.IsElementSchemaCompatible</code> compare schema names and required
+simple <code>string</code> fields. <code>StorageSchemaFieldValidatorTests</code> checks field
+names, types and containers. <code>EvaluateSelection</code> catches schema identity
+collisions, logs a warning and returns
+<code>hasElements = false</code>.</p>
+<p>For a schema field change, use a distinct GUID. Add the prior <code>(Id, Name)</code> to
+<code>StorageSchema.RetiredElementSchemas</code> or <code>StorageSchema.RetiredSystemSchemas</code>.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p><code>FramingAdjustmentFailure.Tag</code> formats codes as <code>[SpecFail/&lt;code&gt;]</code>.
-Alerts and repository failures show the tag. Profile extraction logs one
-Info summary of total, extracted and unsupported types.</p>
+<p><code>ErftNew</code> in <code>build/Distribution/tool-contracts.json</code> declares the command
+type and window title. <code>DevModeScenarioTests.Verified_proxies_match_the_tool_contract</code>
+checks the command proxy. <code>DevModeScenarioTests.Routes</code> excludes the pick
+route. <code>TargetSelectionPicker</code> ties each prompt to its own Revit pick.
+<code>NotificationBannerHost</code> logs the prompt text when it closes.</p>
+<p><code>AdjustmentEvaluator</code> keeps the original offsets on error rows and records
+the reason in <code>ErrorMessage</code>. The <strong>Status</strong> cells show that reason as a
+tooltip. An underside miss can report the plan distance. A failed follower
+names the followed end and its support when available.</p>
+<p>For <strong>Apply</strong> alerts, see <code>WindowSession.ShowNoPlanToApply</code>, <code>ShowApplyFailure</code>
+and <code>ShowApplySuccess</code>. See <code>SourceSelectionPicker.ShowConcreteFilterToast</code>
+for the concrete-filter message and <code>WindowSession.ShowSelectionDiagnostic</code>
+for selection messages.</p>
+<p><code>ErftNewCommand.RunAsync</code> defines <code>New/RunFailed</code>.
+<code>ErftContextualRibbonInjector.RunEditFlow</code> defines <code>Edit/RunFailed</code>.
+<code>FramingAdjustmentFailure.Tag</code> formats codes as <code>[SpecFail/&lt;code&gt;]</code>.</p>
 <h2 id="tests">TESTS</h2>
-<pre><code class="lang-bash">./test.sh test --tool ERFT                         # pure scope, the default
-./test.sh test --tool ERFT --scope local -y 2026   # -y 2027 for Revit 2027
+<pre><code class="lang-bash">./test.sh test --tool ERFT --scope pure
+./test.sh test --tool ERFT --scope local -y 2026
 </code></pre>
-<p>Pure tests cover the graph, projection, rounding, storage admission, preview
-projection and the window session. <code>FramingAdjustmentEndToEndTests</code> uses
-<code>gm_test_model.rvt</code> with transient host floors. A Revit 2027 case checks the
-cleanup of retired schemas on <code>2027/Regression/realtest_model.rvt</code> without
-saving it (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).</p>
+<p><code>ErftRevitTestBase</code> resolves <code>&lt;year&gt;/GM/gm_test_model.rvt</code>.
+<code>TargetGeometryReaderTests</code> checks a footprint roof's base-level label,
+projection to a steep roof's underside, and the floor geometry cut by a
+joined column.
+<code>FramingAdjustmentEndToEndTests</code> checks removal of retired entities and
+emptied <code>DataStorage</code> records in <code>2027/Regression/realtest_model.rvt</code> (<code>-y 2027</code>).
+See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/hooks.html">Hooks</a>,
 <a href="../../architecture/structural-preview.html">Structural Preview</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

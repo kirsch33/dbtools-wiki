@@ -92,7 +92,7 @@
 <h2 id="name">NAME</h2>
 <p>dbtools.SGT - the assembly behind Super Girt Tool</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Structural/SGT/        (MAP.md, manifest.yml)
+<pre><code class="lang-text">source    src/Tools/Structural/SGT/        (manifest.yml)
 assembly  dbtools.SGT                       (net10.0-windows; net10.0 portable build for pure tests)
 entry     SgtToolModule
 command   SgtCommand                        (run profile InlineUi)
@@ -158,6 +158,9 @@ host.</p>
 <p>Presentation holds the stable WPF side: the grid and preview behaviors and
 drag input in <code>Tools/SGT/</code>, and the Helix viewport behind
 <code>IStructuralPreview3D</code>. SGT code has no Helix reference.</p>
+<p><code>PreviewLengthFormatter</code> formats girt segment lengths and wall layer thicknesses
+in preview tooltips. It rounds to one decimal place in inches and carries 12.0
+inches to the next foot. Wall layer labels show inches alone below one foot.</p>
 <h2 id="contracts">CONTRACTS</h2>
 <ol>
 <li><strong>One session group.</strong> <code>SgtWindowSession.Start</code> refuses an
@@ -180,21 +183,70 @@ its <code>Version</code>. <code>PlanStoreUpdatePolicyTests</code> and
 <code>PlanAdmissionValidatorTests</code> check this.</li>
 <li><strong>One segmentation.</strong> <code>GirtSegmentBoundarySet.Split</code> is the only girt
 segment computation. Plan-row segmentation, the preview, placement and
-the usable-span check all call it. <code>GirtSegmentBoundarySetTests</code> checks
+the usable-span check all call it. Jamb extent resolution uses these
+spans to find girts that reach each jamb. A failed span lookup identifies
+the girt and endpoint. <code>OpeningSegmentationReconciler</code> splits usable
+pieces outside the default jamb span and preserves manual joints. It
+ends an extension 1/2&quot; from the girt face when the next piece cannot fit.
+The requested mode and target remain the inputs to each recompute. The
+effective end supplies the preview status and the placed geometry.
+<code>GirtSegmentBoundarySetTests</code> checks
 the rules, and <code>PreviewPlacementParityTests</code> the shared use.</li>
 <li><strong>One resolved member.</strong> <code>ResolvedMemberContractResolver</code> builds one
 <code>ResolvedMemberContract</code> per member, and <code>OpeningMemberContractCatalog</code>
-lists the opening segments once. The preview modes and
+lists the opening segments once. <code>WallFrameBuilder</code> locates the wall center
+from the Revit side faces. It transforms linked faces into host coordinates
+and pairs side planes separated by the full compound thickness. It sums
+coplanar face areas on each side, then compares the smaller area of each
+pair first and the larger area second. A tie
+between distinct exterior planes or a missing pair fails wall analysis.
+A slanted or tapered cross-section also fails. <code>WallTargetFrameBuilder</code> adds
+<code>WallOffsetFeet</code> to the exterior face of the selected layer. The target
+plane serves analysis, preview and placement. The preview modes and
 <code>WallSystemWriter</code> read these values and compute no transform of their
-own. <code>PreviewPlacementParityTests</code> compares the preview with the placed
-members.</li>
-<li><strong>Write order.</strong> Profile warming places temporary instances
-(<code>TemporaryTransactionRunner</code>) to capture each section. It and
-placement set the cross-section rotation, then Flip, then Y and Z
-justification, then set the offsets to zero. Jambs add the
-<code>WallRotationCompensationEvaluator</code> angle to the rotation; the grid rows
-still show 0, 90, 180 or 270. <code>FamilyInstanceMutatorTests</code> and
-<code>WallRotationCompensationEvaluatorTests</code> check this.</li>
+own. <code>DirectionalGapEvaluator</code> measures the gap at a jamb
+in the wall's along direction. <code>PreviewPlacementParityTests</code> compares
+the preview with the placed members. It measures the Section anchors and
+placed location lines against the selected layer plane. It checks section
+seating, channel toe direction and Z flange heights, and it measures two
+sizes of the same channel family on a compound wall. It measures placed
+header and sill clearances at jambs in every representative state and girt
+clearances in the seeded states.</li>
+<li><strong>Framing analysis and write order.</strong> <code>WallAnalysisFramingTypeAnalyzer</code>
+groups types by family and cross-section shape. Square and rectangular HSS
+form separate groups. The analyzer calibrates one sample and solves each
+eligible role. Probe inputs are the type parameter values and the initial
+instance parameter values and Flip capability for the role's probe axis.
+They exclude Revit identity metadata and IFC export GUIDs. A type can reuse
+a failed role from the sample or from a previous variant with matching inputs. Each type
+verifies inherited settings against its own geometry. If those settings
+fail seating or the probe inputs differ, the analyzer solves only failed
+roles and verifies the new settings on the existing profile probes.
+<code>FamilyOrientationAnalyzer</code> checks visible framing solids against the
+target and role planes. The target plane allows 0.0005 ft of modelling
+tolerance. The geometry reader excludes solids identified as non-steel and
+lists their material names and classes if every visible solid is excluded.
+A channel jamb must have a measured toe direction away from the opening.
+A Z girt seats its exterior flange below its interior flange.
+An angle girt seats the back of its long leg flat on the target plane,
+facing the exterior, with the short leg at the bottom toward the interior.
+The analyzer captures each type's profile and reads its Start and End
+Extension limits in a rollback transaction. For each rotation and Flip,
+it measures the separate Y and Z justification translations and combines
+them for mixed settings. It checks that the samples share the same pose,
+section axes and outline. It measures solved defaults directly on Revit
+geometry to check seating and verifies the combined profiles for mixed
+defaults against those measurements. A saved row outside the
+orientation catalog can still supply a profile. The session reuses results
+while the type parameter values, target frame and sample settings match.
+The writer checks
+the recorded extension limits for each girt segment before member writes.
+Profile warming and placement set rotation, Flip, Y and Z justification,
+then zero the offsets. Jambs add the <code>WallRotationCompensationEvaluator</code>
+angle to the rotation. The grid shows 0, 90, 180 or 270.
+The writer regenerates the batch before it records the placed endpoints.
+<code>FramingTypeProbeBudgetTests</code> checks the analysis cost, and
+<code>FamilyInstanceMutatorTests</code> checks the written parameters.</li>
 <li><strong>Storage format.</strong> <code>SystemStorageMapper</code> reads and writes format
 version 3 only. Every transport field is <code>JsonRequired</code>. It rejects
 unknown fields, numeric enum tokens and payloads over 4,000,000
@@ -207,9 +259,11 @@ only if it is Structural Framing and its tag has the marker <code>SGT</code> and
 system ID. Selection, update, deletion and deconstruction use it.
 <code>ContextualEditTargetEvaluatorTests</code> checks this.</li>
 <li><strong>Update by identity.</strong> <code>WallSystemWriter</code> indexes the owned members by
-role and tag identity. It moves each match in place, creates a member
-for a target without a match, and deletes owned members that no target
-uses. Two owned members with one identity fail with
+role and tag identity. It compares each match's live curve, type,
+orientation, offsets, joins and girt extensions with the requested
+placement. It writes and reports a match as <code>Moved</code> when a value differs.
+It creates a member for a target without a match and deletes owned
+members that no target uses. Two owned members with one identity fail with
 <code>Update/DuplicateIdentity</code>. <code>WallSystemWriter.UpdatesTests</code> checks this.</li>
 <li><strong>Layers.</strong> Domain uses no App, Features, Persistence, WPF or Revit API
 code. Features use no App code, and Placement uses no WallAnalysis code.
@@ -233,21 +287,86 @@ selected system IDs instead, through <code>ContextualEditTargetEvaluator</code>.
 <code>WindowSessionBuilder</code> composes the window, view model and
 <code>SessionAnalysisOwner</code>.</li>
 <li><code>PlanBuilder.BuildNewPlanAsync</code> sets the framing mode, then runs
-<code>FamilyCalibrationStep</code>, <code>WallAnalysisStep</code>, <code>ProfileWarmStep</code>,
-<code>PlanSeedingStep</code> and admission. For an edit, <code>StartupAnalysisWorkflow</code>
+<code>WallAnalysisStep</code>, <code>PlanSeedingStep</code> and admission. <code>GirtElevationBuilder</code>
+supplies whole 5'-0&quot; intervals from the base through the framing band.
+For an edit, <code>StartupAnalysisWorkflow</code>
 rebuilds the plan with <code>PlanBaselineMapper</code> and <code>ChangeReviewPlanBuilder</code>,
 and <code>AnalyzeEditPlanAsync</code> analyzes a copy of it against the wall. A
 stored system that does not load falls back to a wall pick
 (<code>FallBackToPick</code>).</li>
 <li>Grid edits reach <code>PlanStore</code> through <code>PlanSynchronizationCoordinator</code>.
-Preview edits go through <code>PreviewEditingWorkflow</code>, which records the
-window's Undo steps. <code>PreviewRefreshCoordinator</code> refreshes in <code>UIEdit</code>,
-<code>PlanMutation</code> or <code>RenderOnly</code> mode.</li>
+A girt elevation edit applies to its row at cell commit or focus loss.
+Other girt cell edits apply to selected girts. SGT checks a type change
+for every selected girt before applying it. An opening row commit updates
+<strong>Center Along</strong> for the edited opening and other edited fields for the
+selected editable openings in the same plan write. Other plan writes
+read the committed opening while its row has a draft. <code>OpeningAlong</code>
+converts between wall start in the plan and the exterior left end in the
+grid and elevation. Opening row refresh keeps default names by opening
+key as it sorts rows.
+<code>PlanSynchronizationCoordinator</code> records Wall Offset and wall layer changes, grid edits,
+<strong>Bulk Apply</strong>, segment flyout edits, opening segment commands, and edits
+from <code>PreviewEditingWorkflow</code>. Each commit normalizes segments and stores
+the editable state before and after the write in <code>UndoRedoHistory</code>.
+<code>MemberSegmentationReconciler</code> repeats its pass until the opening and girt
+segments settle. It fails if they still change after eight passes.
+A failed recompute blocks the preview and refreshes the accepted plan.
+Anchor repair captures inner girt grids before merging rows. Recompute
+tries the saved grids within each inner end's solid span, starting with
+the closest to its opening edge. The grid line must leave 6&quot; of span and
+clear the resolved jamb by the default gap. A gap override adjusts the
+end from that line. Recompute reports discarded grid ends and uses the
+opening edge for a split without a valid saved grid. Parent ends keep
+their anchors and gaps when a short pier is omitted. Inner-end drags
+and opening-edge snap offers are limited to the current solid span,
+including end spans bounded by the wall.
+The opening draft and native grid edit end before the refresh. A refresh that changes
+girt row identities runs on the dispatcher after the edit. Each replay checks the
+current plan version in the same <code>PlanStore.Update</code> that restores the
+editable state. If another write supersedes that version, SGT clears the
+stale history when a commit or replay encounters a version conflict.
+SGT keeps the newer plan and reports the refusal. After an accepted write
+with a notification failure, recovery reports the failure, clears the
+history, and refreshes the accepted plan. The recovered write completes
+the grid edit or replay. Only a recovery failure propagates from that path.
+An active opening
+draft or invalid field blocks replay against the current plan. The grids
+and preview refresh from the restored plan. A no-op leaves both stacks
+as they are. <code>UIEdit</code> validates input and renders the stored plan.
+<code>RenderOnly</code> renders the stored plan. <code>PlanMutation</code> normalizes the
+baseline from analysis or Change Review, which starts a fresh history.
+A merge records the openings it joins as bypassed, so recompute preserves
+the merged member. With <strong>Live Preview</strong> on, startup waits for the elevation
+refresh and paint inside the analysis progress overlay. With <strong>Live Preview</strong>
+off, startup keeps the current preview mode and finishes without waiting for
+paint. SGT logs one warning when the elevation takes longer than 10 seconds. Click <strong>Cancel</strong>
+to close SGT without changes. A preview failure opens the session with
+a blocked preview.</li>
 <li>After an edit startup, <code>ChangeReviewWorkflow</code> opens <strong>Change Review</strong> when
 <code>ChangeReviewEvaluator</code> reports <code>NeedsAttention</code>. Confirm analyzes the
-reviewed plan and saves only the decision ledger (<code>SaveLedgerAsync</code>).</li>
-<li>Place and Update synchronize and normalize the plan, run the preflight,
-then call <code>PlacementWorkflow</code>, <code>PlacementExecutor</code> and
+reviewed plan and saves only the decision ledger (<code>SaveLedgerAsync</code>).
+It publishes the draft, clears the window's Undo history and shows an
+information banner. Opening measures and manual edits use <code>OpeningAlong</code>
+to convert between each wall's exterior left end and its plan start.
+<code>ChangeReviewRowSuggestionBuilder</code> infers spacing from the most frequent
+gaps of 6 inches or more at the start of the review. For a taller wall it
+uses that spacing to offer <strong>Add</strong> at the next whole intervals. When the
+accepted base changes, <strong>Move</strong> applies the draft rows' existing heights
+above the new base. Returning to <strong>Accept</strong> on the same wall restores the
+applied move. <strong>Add</strong> records each new row's chosen height above the
+accepted base and preserves it after <strong>Relink</strong>. <code>ChangeReviewPlanBuilder</code>
+calls <code>GirtEndpointAnchorResolver</code> on a copy for preflight at the new
+elevations. That leaves the original grid anchors available when the
+published draft goes through the same segmentation as ordinary edits.
+Segmentation splits spans at openings. Preflight offers <strong>Remove</strong> for
+rejected rows, including those above the accepted wall. <strong>Relink</strong>
+clears the applied move and derives a fresh suggestion from the new wall.</li>
+<li>Place, Update and Review Changes finish the active opening row before
+proceeding. A refused row commit preserves the draft and stops the
+command. Place and Update validate the input and stop if recompute would
+change the committed framing. SGT logs and displays a framing check
+exception once per plan version. Place and Update run preflight on the
+accepted plan, then call <code>PlacementWorkflow</code>, <code>PlacementExecutor</code> and
 <code>WallSystemWriter</code>. The writer places members, tags them and calls
 <code>ISystemRepository.Save</code> in one transaction. A successful write closes
 the window with a commit; a failed or canceled write closes it with a
@@ -296,7 +415,11 @@ the storage and tags that the earlier product spelling wrote.</p>
 <code>[SGT.Place.Cutback]</code>. A plan rejection is a <code>SpecFailure</code> with the text
 <code>[SpecFail/&lt;area&gt;/&lt;rule&gt;] &lt;detail&gt;</code> (<code>SpecFailureCodes</code>). A UI error shows
 <code>&lt;action&gt;: [SGT.UI.&lt;area&gt;.&lt;name&gt;] &lt;detail&gt;</code> (<code>UserErrorCodes</code>).
-<code>DiagnosticsPreflightLogger</code> records analysis outcomes.</p>
+<code>DiagnosticsPreflightLogger</code> records analysis outcomes. The orientation
+warning counts girt families and opening role/family groups with failed or
+missing orientation results for eligible types. Wall geometry build messages
+log at Debug. Per-segment preview cutbacks log at Trace, which the application
+log file omits.</p>
 <h2 id="tests">TESTS</h2>
 <pre><code class="lang-bash">./test.sh test --tool SGT                         # pure: portable and Windows projects
 ./test.sh test --tool SGT --scope local -y 2026   # -y 2027 for Revit 2027
@@ -333,8 +456,6 @@ model, they fail.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

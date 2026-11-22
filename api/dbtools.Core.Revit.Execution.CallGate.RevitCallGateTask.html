@@ -164,8 +164,13 @@ Revit discards what a callback leaves open only when the callback returns. A cal
 when it leaves a transaction open in any document, or when it creates a transaction group, which
 every production group owner reports through <span class="xref">dbtools.Core.Revit.Execution.CallGate.RevitCallGateTurnBoundary</span>. No later
 call of the turn then runs inside state that an earlier call left open.
-Every raise is posted, also from the dispatcher thread, so a caller never waits on native Raise.
-Turn timing is logged at Debug level, throttled by <span class="xref">dbtools.Core.Revit.Execution.CallGate.RevitCallGateTurnStatistics</span>.
+A caller on the Revit thread outside Execute raises at once: native Raise takes under a
+millisecond, and a posted raise waits behind other dispatcher work. A worker posts its raise,
+because native Raise runs only on the Revit thread. Calls queued before the accepted raise runs
+share it.
+Turn timing is logged at Debug level, throttled by <span class="xref">dbtools.Core.Revit.Execution.CallGate.RevitCallGateTurnStatistics</span>. Each call
+also records its queue and execute times into the <span class="xref">dbtools.Core.Revit.Execution.CallGate.RevitCallGateActionTiming</span> that was current
+where it was made.
 </p>
 <p>
 Retirement drops queued delegates and registrations without completing their tasks.
@@ -528,8 +533,6 @@ task during shutdown. Failed-startup cleanup cancels pending work instead.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
 
       </div>

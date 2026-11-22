@@ -135,7 +135,7 @@ Startup clears the loading state after the reads finish.</p>
 <ol>
 <li>Open a tab. Choose the source rows to change and the target for each. A target can be chosen by hand or by the similarity ranking.</li>
 <li>Check <strong>Apply</strong> on each mapping to include in this run.</li>
-<li>Click <strong>Review Plan</strong>. GM opens <strong>Commit Review</strong> as a modal window and shows the plan. The model is not changed until you click <strong>Apply</strong> there.</li>
+<li>Click <strong>Review Plan</strong>. GM opens <strong>Commit Review</strong> as a modal window and shows the plan. The model is not changed until you click <strong>Apply</strong> there. If the plan has nothing to apply, GM shows the reason in a banner and does not open Commit Review.</li>
 <li>Click <strong>Apply</strong>. Then choose <strong>Keep + Continue</strong>, <strong>Keep + Close GM</strong> or <strong>Roll back</strong> (see Commit Review).</li>
 </ol>
 <p>Save the project before a bulk change.</p>
@@ -234,13 +234,20 @@ Startup clears the loading state after the reads finish.</p>
 </tbody>
 </table>
 <p>A row is <code>Ready</code> when Apply is on, the keep target is not the source itself, the row is not excluded, and it has no validation or conflict flag. Choosing the source itself as the keep target marks the row as the keeper and turns Apply off. <strong>Accept Applied</strong> stages the rows that are <code>Ready</code>, not every row with Apply on.</p>
-<p>The inspector pane shows candidate details and a Metadata section with the Source ID and instance count. Its <strong>Accept</strong> split button saves the selection. The drop-down <strong>Accept Once</strong> keeps it for this session only. For a family row, <strong>Edit Type Mapping...</strong> in the context menu sets which source types map to which keep types. Shared-parameter duplicate rows can drive the selections on the Shared Parameters tab (Map From and Apply).</p>
+<p>The inspector pane shows candidate details and a Metadata section with the Source ID and instance count. Its <strong>Accept</strong> split button accepts the selection. The drop-down <strong>Accept Once</strong> keeps it for this session only. For a family row, <strong>Accept</strong> prefers a keep type with the same name and case, then the same name with different case, then the best match at or above <strong>Threshold</strong>. Automatic matching requires the names of both types. <strong>Edit Type Mapping...</strong> in the context menu overrides these type mappings. Changing the category on the Families tab keeps accepted mappings. The Families tab shows them in its <strong>Apply</strong> column, with a <code>From the Duplicates tab</code> chain badge. Shared-parameter duplicate rows can drive the selections on the Shared Parameters tab (Map From and Apply).</p>
 <p>Keep targets, the one-time-save choice, ignored candidates and exclusions are restored with the saved state. Exclusion badges (<code>Saved</code>, <code>Session</code>, <code>Saved (Overridden)</code>) show the exclusion time in a tooltip when it is known.</p>
 <p>A chain badge on a candidate shows that its source is already mapped. The tooltip reads <code>Accepted as duplicate → &lt;target&gt;.</code> when the candidate is accepted, or <code>Mapped on the &lt;tab&gt; → &lt;target&gt;.</code> when another tab maps the source. Accepting a candidate whose source another tab maps to a different target raises a <code>Duplicate vs Manual</code> conflict.</p>
 <h4 id="conflicts">Conflicts</h4>
 <p>A blocking conflict prevents <strong>Review Plan</strong>. An advisory conflict (a restored saved choice that is not applied) shows in the conflict list only. The conflict button appears when any conflict exists. If one source is accepted to more than one target, GM raises a duplicate multi-target conflict and offers one-click cleanup. Choosing <strong>Keep Manual</strong> for a duplicate-versus-manual conflict clears the duplicate row's keep and apply state, so the same conflict does not return.</p>
 <h3 id="families-tab">Families tab</h3>
-<p>The tab maps families in the selected category to replacement families. A family can be replaced only by a family of the same category.</p>
+<p>The tab maps families to replacement families.</p>
+<p>Use <strong>Family categories</strong> to show one or more categories. The curated list is Detail Items, Generic Annotations,
+Generic Models, Structural Framing, Structural Columns, Structural Foundations, Structural Connections, Specialty
+Equipment, Mechanical Equipment, Doors, Windows, Furniture, Casework and Title Blocks. A category appears only when
+the open project has a loadable family in it. Category checks filter the loaded rows and are saved with the UI state.
+The Family table includes families from every checked category.</p>
+<p>Each family and type row offers targets from its source family's category. The target lists disable incompatible
+curve-based placements and show the reason. <strong>Review Plan</strong> rejects incompatible mappings.</p>
 <h4 id="columns-1">Columns</h4>
 <table>
 <thead>
@@ -272,16 +279,71 @@ Startup clears the loading state after the reads finish.</p>
 </tr>
 </tbody>
 </table>
-<p>Choose the category first, then the target. Select the target with the dropdown; entries show their similarity score.</p>
+<p>Choose the family categories to show, then choose a target for each row. The target dropdown shows its similarity
+score. When <strong>Apply</strong> is on, choosing a target family stages the type replacements that have valid targets.</p>
+<p>The <strong>Quantity</strong> column counts family instances in the project, including sheet-owned instances and instances hidden in
+their own view. A family with no instances can still be mapped. When Revit reports a family as unused, the selected
+family row has a <strong>Purge</strong> action.
+Choose <strong>Purge</strong> to add it to Commit Review, or <strong>Cancel Purge</strong> to remove it. Commit Review checks that Revit still
+reports the family as unused before deleting it. The deletion joins the same apply group as the other operations and
+returns with the rest if the apply is rolled back. After deletion, GM checks that the family and its types are gone. If
+any remain, GM reports up to three names and IDs and rolls back the apply group.</p>
+<p>While the <strong>Views Panel</strong> shows, <strong>Views Containing Selected Family</strong> lists up to 50 views, in name order, that show an instance of the selected family. GM reads the list once per family and keeps it until the next family scan or until Commit Review applies changes. Double-click a view to open it and zoom to an instance of the family.</p>
 <h4 id="row-details">Row details</h4>
 <p>Expand a row to map its parts. The detail tabs are Types, Object Styles, Materials and Parameters. Object Styles and Materials are disabled when empty. The nested target lists use the same sort mode and threshold as the parent list. When you change the parent target, nested lists refill and keep the rows you changed by hand.</p>
 <ul>
-<li><strong>Types</strong>: map each source type to a target type, or select <code>&lt;Do Not Map&gt;</code>. To create a type in the target family, check <strong>Create</strong> on the type row and enter <strong>New Type Name</strong>. Created types appear after the refresh that follows a commit.</li>
+<li><strong>Types</strong>: map each source type to a target type, or select <code>&lt;Do Not Map&gt;</code>. To create a type in the source family, check <strong>Create</strong> on the type row and enter a <strong>New Type Name</strong> that is unique in that family. Review Plan rejects a name that matches an existing type or another new type, regardless of case. The refresh after type creation shows the new type and keeps pending replacements for types that are still available.</li>
 <li><strong>Parameters</strong>: map parameter names, with example values. Instance and type parameters are separate mappings, labeled <code>(Instance)</code> and <code>(Type)</code>. A parameter maps only to a target of the same scope. GM copies parameter values only through these mappings, and they run with the type replacements. A red <code>!</code> badge marks a conflict, such as a duplicate target parameter or a missing type-write policy. Resolve it before <strong>Review Plan</strong>.</li>
 <li>The Parameters tab shows <code>Parameter scanning is unavailable; parameter mapping is disabled.</code> when scanning is unavailable, and <code>No mappable parameters detected for this family.</code> when it finds none. Expanded rows restored from saved state refresh their Object Styles and Materials usage automatically once usage data is loaded. While a target list is open, the mouse wheel scrolls that list, not the grid behind it.</li>
 <li><strong>Type-scope writes</strong>: if a type-scope mapping writes into a target type that already has instances, GM blocks the commit until you choose <strong>Keep target type values</strong> (skip type-scope copies) or <strong>Overwrite target type values</strong> (copy them). GM takes the decision from the model state before the replacement batch starts. Moving the target's instances away earlier in the batch does not cancel <strong>Keep target type values</strong>. When overwriting is allowed, each mapping copies the original source values, even if an earlier mapping changed that source type.</li>
 <li><strong>Object Styles</strong> and <strong>Materials</strong>: usage found by walking one placed instance. Rows from a deep scan carry a <code>DS</code> badge.</li>
 <li>An instance cycler, with previous and next buttons and a zoom button, moves to the sampled instance, even when it is in another view.</li>
+</ul>
+<h4 id="previews">Previews</h4>
+<p>The <strong>Preview</strong> column of the Object Styles and Materials details shows the source and the target as Revit draws them, on a white canvas like Revit's drawing area. Hover a preview for a larger view.</p>
+<ul>
+<li><p>A style is one line in its line color and line pattern. Widths and dash lengths are those of a Revit view at 1/8&quot; = 1'-0&quot;, shown at twice the printed size: one paper inch is 192 pixels at 100% display scaling. A line wider than the preview fills it.</p>
+</li>
+<li><p>Line widths come from the line weights of a Revit project that starts from no template (Imperial). The Revit API cannot read the Line Weights table of a project, so a project with its own table shows these widths.</p>
+<table>
+<thead>
+<tr>
+<th>Pen</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>8</th>
+<th>9</th>
+<th>10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pixels</td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+<td>5</td>
+<td>7</td>
+<td>10</td>
+<td>14</td>
+<td>19</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li><p>A material is a swatch. The left half is the surface: the shading color, with its transparency over white, under the surface background and foreground patterns. The right half is the cut: the cut background and foreground patterns on white. Patterns are shown at the printed size, model patterns at 1/8&quot; = 1'-0&quot;, with lines one pixel wide.</p>
+</li>
+<li><p>A preview follows its target. A target that GM sets, for example after a refresh, shows its preview as a target that you choose does.</p>
+</li>
+<li><p>GM reads previews again after it rebuilds usage data, for example after a commit.</p>
+</li>
 </ul>
 <h4 id="badges">Badges</h4>
 <table>
@@ -308,6 +370,7 @@ Startup clears the loading state after the reads finish.</p>
 </table>
 <p>A linked Apply marks the family row, but family-owned operations (type swaps, parameter maps, type creation) run only when you checked that family row yourself.</p>
 <p>A saved target that is no longer among the options is flagged as incompatible. Choose the target again.</p>
+<p>When you review a plan, GM removes type and parameter mappings from deleted source families. A warning lists those families.</p>
 <h3 id="line-styles-tab">Line Styles tab</h3>
 <p>The tab replaces one line style with another.</p>
 <table>
@@ -336,7 +399,7 @@ Startup clears the loading state after the reads finish.</p>
 </tr>
 <tr>
 <td>Preview</td>
-<td>A swatch of the style.</td>
+<td>The style as one line. See <a href="#previews">Previews</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -376,7 +439,7 @@ Startup clears the loading state after the reads finish.</p>
 </tr>
 <tr>
 <td>Color Preview</td>
-<td>A swatch of the material color.</td>
+<td>A swatch of the material: the surface on the left, the cut on the right. See <a href="#previews">Previews</a>.</td>
 </tr>
 <tr>
 <td>Families Count</td>
@@ -418,7 +481,7 @@ Startup clears the loading state after the reads finish.</p>
 <p>By default, the tree shows only the categories that hold a family with work to do, and the selected category. A family has work to do when one of these is true:</p>
 <ul>
 <li>It carries a parameter with the name of a definition in <strong>SP Group</strong> and another GUID.</li>
-<li>The last use scan in By parameter lists a label, an unread label or a nested family in it that you must fix by hand.</li>
+<li>The last use scan in By parameter finds another GUID in the family, including movable Revit 2027 labels and uses that need a hand fix.</li>
 <li>A definition of <strong>SP Group</strong> is missing from the family, and a family parameter scores at or above <strong>Threshold</strong> as its <strong>Map From</strong> source. A family whose parameter discovery is incomplete does not count for this reason.</li>
 <li>A mapping of the family has <strong>Apply</strong> on and <strong>Map From</strong> with no source, or the mapping has a conflict.</li>
 </ul>
@@ -433,6 +496,7 @@ Startup clears the loading state after the reads finish.</p>
 <li>Optionally fill the new parameter from an existing one: set <strong>Source</strong> to <strong>Map From</strong> and choose the parameter in <strong>From</strong>, or set it to <strong>Formula</strong>, enter it in <strong>Fmla</strong> and click <strong>Set</strong>.</li>
 <li>Click <strong>Review Plan</strong>.</li>
 </ol>
+<p>Formula requires <strong>Embed In Family</strong>. If you try to clear it, the card shows <strong>Embed required</strong> and explains why in its tooltip. You can still review the existing formula.</p>
 <p>A <strong>Map From</strong> card shows <code>← &lt;name&gt;</code> with the source name. The source card shows the <strong>FROM</strong> badge.</p>
 <p>Each card has the link <strong>Every use of this parameter →</strong>. It opens By parameter with that definition selected.</p>
 <p>When the project holds a definition of <strong>SP Group</strong> with a GUID that differs from the company file, the <strong>SP Authoring</strong> pane shows a warning above the cards:</p>
@@ -517,6 +581,7 @@ Startup clears the loading state after the reads finish.</p>
 </ol>
 <p>To add a company parameter to many families with no value, do the same steps, and choose <code>— (no value)</code> in <strong>Fill from (suggested)</strong> on each family.</p>
 <p>A tick in By parameter writes the same mappings that By family writes, one for each type of the family. A change in one view shows in the other view, and both views use one plan.</p>
+<p>Each family row with an applied Formula type shows that it requires <strong>Embed In Family</strong>. If you try to clear <strong>Embed In Family</strong>, it stays checked. The error line below the options names the first family with an applied Formula type.</p>
 <h5 id="repair-a-parameter-with-another-guid">Repair a parameter with another GUID</h5>
 <p>A parameter has a wrong GUID when it has the name of a company definition but another GUID. Revit treats the two as different parameters. GM moves each use of the old GUID to the company definition, keeps every value, or refuses.</p>
 <p>When you select a definition with <code>Two GUIDs in this project</code>, GM scans the project and opens every editable loadable family, under a progress overlay (<code>Scanning shared parameter uses...</code>). The overlay has <strong>Cancel</strong>. When you cancel the first scan of a definition, or it fails, the table shows <code>Scan the families first.</code> GM keeps a finished result until a <strong>Scan again</strong> finishes, you keep an apply, or you close GM.</p>
@@ -535,15 +600,23 @@ Startup clears the loading state after the reads finish.</p>
 </tr>
 <tr>
 <td>Move family parameter</td>
-<td>One row for each family. Tick it to move the family parameter, with its formulas, dimension labels and associated parameters.</td>
+<td>One row for each family. Tick it to move the family parameter, its formulas, dimension labels and associated parameters. On Revit 2027, its annotation labels move with it.</td>
+</tr>
+<tr>
+<td>Move labels</td>
+<td>Revit 2027: one row for a family whose labels use the old GUID directly. Tick it to move the listed entries.</td>
+</tr>
+<tr>
+<td>Ungroup and repair</td>
+<td>Revit 2027: the <strong>Move labels</strong> row of a family whose labels are in detail groups. Tick it to ungroup every placement of each listed group in the family, delete the group type and move the labels. The elements stay in place, outside any group. Unticked, the family does not change.</td>
 </tr>
 <tr>
 <td>Labels · fix by hand</td>
-<td>Not ticked. <strong>Where</strong> reads <code>&lt;family&gt;: &lt;n&gt; labels in groups &lt;names&gt;</code>. <strong>Reason</strong> says what to change.</td>
+<td>Not ticked. A label failed a check, has a measurable unit format or another data type than the company parameter, is in a family that already has the company GUID with another data type, is in a detail group that GM does not ungroup, or is in a family with a nested or uninspected use. <strong>Where</strong> lists its family and groups. <strong>Reason</strong> gives the cause and the steps.</td>
 </tr>
 <tr>
 <td>Family use · fix by hand</td>
-<td>Not ticked. A nested family or an unread label that you fix by hand.</td>
+<td>Not ticked. A nested or uninspected family, an unread direct use or a family parameter repair that failed verification.</td>
 </tr>
 <tr>
 <td>Copy stored values</td>
@@ -563,19 +636,20 @@ Startup clears the loading state after the reads finish.</p>
 <p><strong>Scan again</strong>, next to <code>Re-point to</code>, runs the full scan again for the selected definition, for example after you fix a family by hand. A tick stays when the new scan lists the row again and the row can still be ticked. GM clears every other tick. If the scan fails or you click <strong>Cancel</strong>, the table keeps the earlier result.</p>
 <p>The repair runs in two phases, because deleting the old project parameter also removes it from the labels of loaded families:</p>
 <ul>
-<li><strong>Phase 1</strong> moves the ticked family parameters. The old project parameter, its binding, schedule fields, filter rules and values stay. GM refuses phase 1 alone while a schedule field or a filter rule uses the old GUID, because the moved families would no longer fill it. Move the project binding in the same apply instead. When labels also remain, so the project binding cannot move yet, take the field out of the schedule or the rule out of the filter, repair, and then add them back with the company parameter.</li>
-<li><strong>Phase 2</strong> moves the project binding. It runs only when <strong>Move project binding</strong> is ticked, every family parameter is ticked, and no use is left to fix by hand or blocked.</li>
+<li><strong>Phase 1</strong> moves the ticked family parameters and, on Revit 2027, annotation labels. The old project parameter, its binding, schedule fields, filter rules and values stay. GM refuses phase 1 alone while a schedule field, filter rule or moved label uses the old GUID. Move the project binding in the same apply. The <strong>Move project binding</strong> reason names any selected label that needs phase 2. If the binding cannot move, do not move that label. A tag label shows the value of the tagged element. GM therefore refuses to move a label while a family that is not ticked uses the old GUID and holds a value for it, and to move a family parameter while a family that is not ticked has a label with the old GUID that GM can move. The message names those families; tick them in the same apply. A label that you must fix by hand keeps the old GUID, so GM also refuses to move a family parameter whose family holds values of that GUID while such a label remains; the message lists the labels. GM does not change linked models, so it refuses to move a label while a tag of that family shows an element of a linked model that holds a value of the old GUID. After the repair, GM compares the text of every tag in the project with its text before the repair. A tag that shows other text rolls back the whole repair. A tag whose label shows the company GUID may also show the moved value, as long as it still shows everything that it showed before.</li>
+<li><strong>Phase 2</strong> moves the project binding. It runs only when <strong>Move project binding</strong> is ticked, every movable family and label row is ticked, and no use is left to fix by hand or blocked.</li>
 </ul>
 <p>To repair a parameter:</p>
 <ol>
 <li>Select the definition with <code>Two GUIDs in this project</code>, or click <strong>Review every use →</strong> in By family. Wait for the scan.</li>
 <li>If the table shows <code>Scan the families first.</code>, the scan did not finish or Revit did not open every editable family. Close any family that is open in the Family Editor, then click <strong>Scan families</strong>.</li>
-<li>Tick <strong>Move family parameter</strong> on each family that can move.</li>
+<li>Tick <strong>Move family parameter</strong> or <strong>Move labels</strong> on each family that can move.</li>
 <li>Read each <strong>Labels · fix by hand</strong> and <strong>Family use · fix by hand</strong> row. These uses keep <strong>Move project binding</strong> closed.</li>
 <li>Tick <strong>Move project binding</strong> if it is open.</li>
 <li>Click <strong>Review Plan</strong>, then <strong>Apply</strong> in Commit Review.</li>
 </ol>
-<p>When labels remain, apply phase 1 first. Then fix the labels by hand:</p>
+<p>On Revit 2027, GM changes annotation labels through Revit's internal label API. It checks the entry count, order, parameter GUIDs, prefix, suffix, sample text, leading spaces, line breaks and non-breaking spaces. The scan trials the change and rolls it back. A missing API member, unread label or failed check leaves a hand-fix row with the reason. Nested-family labels also need a hand fix. A detail group type keeps its own copy of its labels, so GM ungroups a group before it moves its labels. GM does not ungroup an attached detail group, a group that is nested in another group, holds a group or is pinned, a group with an element whose location GM cannot read or with a sketch that belongs to no other element of the group, or a group whose type or placements have a parameter value that ungrouping would delete. A zero or No counts as a value. It does not move a label in a family that has a detail group type with no placements, because such a type keeps a copy of its members that GM cannot check. The row then reads <code>Family '&lt;family&gt;' shows '&lt;name&gt;' with GUID &lt;GUID&gt; in labels in detail group(s) '&lt;group&gt;'. dbtools ungroups such groups before it moves the labels, but &lt;reason&gt;.</code> and says what to change in the family. At apply, GM checks every label and every former group member after the family change and again in the reloaded family, where it counts every element of their kinds at each place. Revit adds automatic sketch dimensions to the former group elements, and GM keeps them. A member that moved or is missing, or any other element that the change adds or deletes, rolls back the repair. A Revit warning or error during the family change or the reload, or a failed check, rolls back the whole repair and shows the description.</p>
+<p>When labels remain, fix them by hand. If GM refuses to move a family parameter whose values those labels show, fix the labels first; the tags then show no value until the repair moves the family parameter. Otherwise, apply any available phase 1 moves first.</p>
 <ol>
 <li>Click <strong>Open in By family</strong> on the label row, or open the family in the Family Editor.</li>
 <li>Edit each listed label. In a detail group, edit the group first. Replace the parameter with the parameter of the same name and the company GUID, and keep its formatting.</li>
@@ -584,7 +658,7 @@ Startup clears the loading state after the reads finish.</p>
 </ol>
 <p>Revit 2026 does not let dbtools read annotation labels. In Revit 2026, an annotation family that contains the old GUID directly shows a <strong>Family use · fix by hand</strong> row, with <code>Family '&lt;family&gt;' contains unread label uses of '&lt;name&gt;'</code>. The row stays while the family contains the old GUID, even after you fix every label. Fix the labels, then use <strong>Purge Unused</strong> in the Family Editor to remove the unused parameter, and load the family again.</p>
 <p>A repair must be the only change in a plan. When other mappings are pending, <strong>Review Plan</strong> shows <code>Apply the repair on its own: clear the other mappings, or apply them first.</code> and <strong>Apply</strong> is disabled.</p>
-<p>In Commit Review, the repair shows in the Shared Parameters section as <code>Old GUID uses</code> → <code>&lt;name&gt; (company GUID)</code>, in the stage <code>Shared Parameters (Repair)</code>. At <strong>Apply</strong>, GM scans again. If the project changed after <strong>Review Plan</strong>, the repair fails with <code>The project changed after Review Plan. Review the plan again.</code> and changes nothing. A failure or <strong>Cancel</strong> in either phase rolls back the whole attempt, phase 1 included. When hand-fix uses remain after a successful repair, Commit Review shows <strong>Completed with Warnings</strong>, with one <code>Manual shared parameter repair remains: &lt;text&gt;</code> warning for each use.</p>
+<p>In Commit Review, the repair shows in the Shared Parameters section as <code>Old GUID uses</code> → <code>&lt;name&gt; (company GUID)</code>, in the stage <code>Shared Parameters (Repair)</code>. Each selected label entry also lists its family, detail group and formatting. Each group that the repair ungroups adds <code>Group '&lt;group&gt;' in '&lt;family&gt;' is ungrouped. Its elements stay in place.</code> At <strong>Apply</strong>, GM scans again. If the project changed after <strong>Review Plan</strong>, the repair fails with <code>The project changed after Review Plan. Review the plan again.</code> and changes nothing. A failure or <strong>Cancel</strong> in either phase rolls back the whole attempt, phase 1 included. When hand-fix uses remain after a successful repair, Commit Review shows <strong>Completed with Warnings</strong>, with one <code>Manual shared parameter repair remains: &lt;text&gt;</code> warning for each use.</p>
 <p><strong>Keep + Continue</strong> and <strong>Keep + Close GM</strong> clear the repair ticks and the use scan results. GM does not save repair ticks.</p>
 <h4 id="binding-rules">Binding rules</h4>
 <p>These rules apply to both views when GM binds a shared parameter to a category.</p>
@@ -682,7 +756,7 @@ Startup clears the loading state after the reads finish.</p>
 <p>A style target must belong to the scope of its source (Line Styles or Object Styles). Each of the Materials, Line Styles and Object Styles tabs lists only its own kind of element.</p>
 <h2 id="result">Result</h2>
 <h3 id="commit-review">Commit Review</h3>
-<p><strong>Review Plan</strong> opens <strong>Commit Review</strong>. Revit is blocked while it is open. The window shows:</p>
+<p>While GM builds the plan, its overlay names the current step. <strong>Review Plan</strong> then opens <strong>Commit Review</strong> centered on the GM window. Revit is blocked and the GM window is dimmed while it is open. The window shows:</p>
 <ul>
 <li>the planned operations, by section (Plan Overview, Planned Operations, Host Replacements, Family Changes, Nested Families, Shared Parameters, Validation Issues); sections that do not apply are hidden;</li>
 <li>after apply, Commit Results, Stage Summary (succeeded, failed and skipped counts per stage, with affected references, family and timing context) and Family Breakdown;</li>
@@ -691,8 +765,8 @@ Startup clears the loading state after the reads finish.</p>
 <p>Failed operations are summarized per mapping rule, with the source and target display names rather than element ids. The status bar shows the apply phase before the commit and the <code>Applied</code>, <code>Skipped</code> and <code>Failed</code> counts after it. Right-click a report table for <strong>Copy Selected</strong> or <strong>Copy All</strong>. <strong>Copy Report</strong> copies the whole report.</p>
 <p><code>Failed</code> in the rules summary counts failed mapping rules. One rule can run across many families. Use the Families line (<code>Planned / Attempted / Failed</code>) and the Failed Operations row, which adds up the per-family failures.</p>
 <h3 id="apply-and-keep">Apply and keep</h3>
-<p><strong>Apply</strong> runs the plan as one operation. The changes stay provisional while Commit Review shows the results. The commit continues after a failed operation: failures are recorded and the remaining operations run. The overlay <strong>Cancel</strong> button requests cancellation at once.</p>
-<p>After the run, GM verifies that no references to a source remain.</p>
+<p><strong>Apply</strong> runs the plan as one operation. The changes stay provisional while Commit Review shows the results. The commit continues after a failed operation: failures are recorded and the remaining operations run. The progress overlay shows on Commit Review, and its <strong>Cancel</strong> button requests cancellation at once.</p>
+<p>After a run in which no operation failed, GM checks that no references to a source remain. After a failed operation it does not check: the failure is the reason.</p>
 <table>
 <thead>
 <tr>
@@ -725,14 +799,15 @@ Startup clears the loading state after the reads finish.</p>
 <p>Closing the window with the <strong>X</strong>:</p>
 <ul>
 <li>during apply, requests cancellation and cleanup, then closes. If the cleanup fails, the window stays open and shows the error;</li>
-<li>after apply, asks whether to keep or roll back, with <strong>Roll back</strong> as the default.</li>
+<li>after a successful apply, asks whether to keep or roll back, with <strong>Roll back</strong> as the default;</li>
+<li>after an apply that kept nothing (failed or canceled), closes without asking.</li>
 </ul>
 <p>After any apply, GM re-reads the affected rows and counts from the model, whether the apply was kept or rolled back.</p>
 <p>A banner reports the outcome:</p>
 <ul>
-<li>A successful apply shows a green banner with the <code>Applied</code>, <code>Failed</code> and <code>Skipped</code> counts. If the apply has operation warnings, the banner is a warning banner that ends with <code>Operation warnings: &lt;n&gt;.</code></li>
-<li>A failed apply shows a red banner that starts with the reason, for example <code>Apply was rolled back: 1 operation(s) failed. No changes were kept.</code> or <code>Apply failed; no changes were kept.</code> Commit Review stays open.</li>
-<li>A canceled apply shows <code>Apply was canceled. No changes were kept.</code></li>
+<li>A successful apply shows a green banner with the <code>Applied</code>, <code>Failed</code> and <code>Skipped</code> counts. If the apply or the plan has warnings, the banner is a warning banner that ends with <code>Warnings: &lt;n&gt;.</code></li>
+<li>A failed apply shows a red banner that starts with <code>Apply failed. Nothing was changed.</code> and names the first failed mapping and its reason, for example <code>DB WWF / Wire Mesh → DB Rebar Horizontal Mat / DB Rebar Horizontal Mat: Can't change type of &quot;DB Rebar Horizontal Mat : DB Rebar Horizontal Mat&quot; from line based to non-line based or vice-versa.</code> When Revit refuses a change, the reason is Revit's own text. Commit Review stays open.</li>
+<li>A canceled apply shows <code>Apply was canceled. Nothing was changed.</code></li>
 </ul>
 <p>If an apply seems to stall near 90%, Revit is still processing one operation. Click <strong>Cancel</strong> once and wait. GM cancels and cleans up when that operation ends. If it does not recover, report it with the newest dbtools log.</p>
 <h3 id="how-replacement-batches-behave">How replacement batches behave</h3>
@@ -746,7 +821,7 @@ Startup clears the loading state after the reads finish.</p>
 <li>A parent-only material mapping leaves a shared child's material defaults unchanged. Map the child itself, or include it in the traversal, to change those defaults.</li>
 </ul>
 <h2 id="messages">Messages</h2>
-<p>GM reports results and problems in banners with the title <code>Global Mapper</code>.</p>
+<p>GM reports results and problems in banners with the title <code>Global Mapper</code>. While Commit Review is open, its banners show on the Commit Review window.</p>
 <table>
 <thead>
 <tr>
@@ -757,22 +832,26 @@ Startup clears the loading state after the reads finish.</p>
 <tbody>
 <tr>
 <td><code>Apply completed. Applied: &lt;n&gt;, Failed: &lt;n&gt;, Skipped: &lt;n&gt;. Family documents attempted: &lt;n&gt;, family document failures: &lt;n&gt;.</code></td>
-<td>The apply finished. The banner adds <code> Operation warnings: &lt;n&gt;.</code> when operations reported warnings, and <code> Verification warning: &lt;text&gt;</code> when the reference check found a problem.</td>
+<td>The apply finished. The banner adds <code> Warnings: &lt;n&gt;.</code> when operations or the plan reported warnings.</td>
 </tr>
 <tr>
-<td><code>Apply was rolled back: &lt;n&gt; operation(s) failed. No changes were kept.</code></td>
-<td>One or more operations failed. Inspect the errors in Commit Review and choose <strong>Retry Apply</strong>.</td>
+<td><code>Apply failed. Nothing was changed. &lt;source&gt; → &lt;target&gt;: &lt;reason&gt;</code></td>
+<td>An operation failed, and GM rolled the attempt back. The reason is Revit's own text when Revit refused the change. Change that mapping, or choose <strong>Retry Apply</strong> for a failure that a retry can fix.</td>
 </tr>
 <tr>
-<td><code>Apply was rolled back: &lt;reason&gt; No changes were kept.</code></td>
-<td>The check after the apply found a remaining source reference.</td>
-</tr>
-<tr>
-<td><code>Apply failed; no changes were kept.</code></td>
+<td><code>Apply failed. Nothing was changed. &lt;error&gt;</code></td>
 <td>The apply stopped with an error. Commit Review stays open.</td>
 </tr>
 <tr>
-<td><code>Apply was canceled. No changes were kept.</code></td>
+<td><code>Apply was rolled back. Nothing was changed. &lt;kind&gt; with remaining references: &lt;names&gt;.</code></td>
+<td>Every operation succeeded, but the check after the apply found a remaining source reference.</td>
+</tr>
+<tr>
+<td><code>&lt;operation&gt; failed. The dbtools log has the cause.</code></td>
+<td>An operation failed without a Revit reason, for example <code>ReplaceType failed. The dbtools log has the cause.</code> or <code>Failed to change instance type. The dbtools log has the cause.</code> Read the newest dbtools log.</td>
+</tr>
+<tr>
+<td><code>Apply was canceled. Nothing was changed.</code></td>
 <td>You canceled the apply.</td>
 </tr>
 <tr>
@@ -820,8 +899,16 @@ Startup clears the loading state after the reads finish.</p>
 <td>The Shared Parameters tab is disabled. Set a shared parameter file in Revit.</td>
 </tr>
 <tr>
+<td><code>No operations selected. Tip: check the Apply column on families, or map materials/styles on the Usage tabs.</code></td>
+<td><strong>Review Plan</strong> found nothing to apply. Commit Review does not open.</td>
+</tr>
+<tr>
+<td><code>Commit Review could not build the plan: &lt;reason&gt;</code></td>
+<td><strong>Review Plan</strong> failed. The banner title is <code>GM Commit Review</code>. Commit Review does not open.</td>
+</tr>
+<tr>
 <td><code>Apply the repair on its own: clear the other mappings, or apply them first.</code></td>
-<td>A plan holds a repair and other mappings. Commit Review shows <code>Repair must be applied on its own</code>, and <strong>Apply</strong> is disabled.</td>
+<td><strong>Review Plan</strong> found a repair and other mappings. Commit Review does not open.</td>
 </tr>
 <tr>
 <td><code>&quot;&lt;name&gt;&quot; already exists in this project with another GUID. Repair it in By parameter first.</code></td>
@@ -854,14 +941,13 @@ Startup clears the loading state after the reads finish.</p>
 <li><code>No families in the shown categories.</code> (By parameter family table): no family of the shown categories can take the parameter. Check <strong>Show all categories</strong>.</li>
 </ul>
 <p>When an action fails unexpectedly, GM shows an error banner titled with the action, for example <code>GM Duplicate Type Mapping</code>, <code>GM Deep Scan</code> or <code>GM Clear Saved Mappings</code>, followed by the error text. The action changes nothing. Retry it, and read the dbtools log if it fails again.</p>
-<p>If <strong>Review Plan</strong> is disabled, no mapping is applied, or a blocking conflict exists. If the target list is empty, the category has no other family. If some instances were not replaced, open the family and check that every type is mapped.</p>
+<p><strong>Review Plan</strong> is disabled when no operation is selected or a blocking conflict exists. A family Apply setting does not create an operation by itself. Map one or more types in the family first. If the target list is empty, the category has no other family. If some instances were not replaced, open the family and check that every type is mapped.</p>
 <h2 id="limitations">Limitations</h2>
 <ul>
 <li>GM changes the active document only.</li>
-<li>A family can only be replaced by a family of the same category.</li>
 <li>Line style and object style scopes are limited as described above: curves in multi-instance groups are not restyled, and the Object Styles tab covers Detail Items subcategories only.</li>
 <li>Commit time grows with the number of elements and families. A few dozen changes finish at once; thousands can take minutes. The progress overlay shows the state.</li>
-<li>The Revit API cannot change an annotation label. GM lists each label that uses an old GUID, and you fix it by hand.</li>
+<li>Revit 2027 repairs annotation labels when the internal API is available and every check passes. A failed check leaves a hand-fix row with its reason.</li>
 <li>Revit 2026 does not let dbtools read annotation labels. An annotation family that contains an old GUID keeps the binding move closed until the family no longer contains it.</li>
 <li>A repair changes the families loaded in the project, not the family files on disk. A family loaded again from an old file brings the old GUID back.</li>
 <li>A repair moves uses only to the company definition with the same name. To move values between two names, use <strong>Map From</strong>.</li>
@@ -881,8 +967,6 @@ Startup clears the loading state after the reads finish.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

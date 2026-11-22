@@ -148,13 +148,25 @@ type, and uses the first value found.</p>
 are in feet. A parameter of type Length works in any display units. In a
 Number or text parameter, enter 48 in. as <code>4</code>.</p>
 <h3 id="loads">Loads</h3>
-<p>The point load is the total load, or else the dead load plus the live load.
+<p>A populated total load sets the point load, including an explicit zero.
+Otherwise, the tool adds the dead and live loads if both groups have inputs
+and at least one group has a value.
 The load patterns in <a href="#settings">SETTINGS</a> find each kind by parameter name.
-The tool skips the girder if two parameters of one kind have values, if a
-load is negative, or if no usable load exists.</p>
-<p>A Force parameter is converted to kips. Other numbers are kips.
-Text can add a unit: <code>k</code>, <code>kip</code>, <code>kips</code>, <code>lb</code>, <code>lbs</code>, <code>lbf</code>, <code>pound</code>,
-<code>pounds</code> or <code>kN</code>.</p>
+The tool skips the girder when two usable inputs of one kind have values,
+when a Force load is negative, or when no usable load exists.</p>
+<p>The tool reads Revit <strong>Force</strong> parameters and converts their values to kips.
+It also reads nonnegative loads from <strong>Text</strong> parameters. A plain number means
+kips. Text accepts <code>k</code>, <code>kip</code>, <code>kips</code>, <code>lb</code>, <code>lbs</code>, <code>lbf</code>, <code>pound</code>, <code>pounds</code>, or
+<code>kN</code>. Use a decimal point and optional commas for thousands. Examples include
+<code>10</code>, <code>10 kips</code>, <code>10,000 lb</code>, and <code>45 kN</code>.</p>
+<p>The tool ignores matching parameters of other types, including Yes/No, Number,
+and Family Type. It also ignores invalid load text. If no load resolves, the
+skip message names each ignored match and its reason and shows any invalid text.</p>
+<p>The tool ignores a blank total. A dead or live load group with only blank
+Force or Text inputs counts as zero if the other group has a value. A Dead
+Load of 2 kips and a blank Live Load give 2 kips.</p>
+<p>An instance load input takes precedence over a type input with the same name,
+even when blank.</p>
 <h2 id="settings">SETTINGS</h2>
 <p>Open <strong>dbtools</strong> &gt; <strong>Settings</strong>, expand <strong>Structural Settings</strong> and find
 <strong>Joist Girder Weights</strong>.</p>
@@ -165,7 +177,7 @@ changes in a large model. To see what it skips, run the tool from the
 ribbon.</p>
 <p>The four patterns are .NET regular expressions. By default, the load
 patterns match <code>DL</code>, <code>LL</code>, and names that contain <code>Dead Load</code>,
-<code>Live Load</code>, <code>Point Load</code> or <code>Total Load</code>. The defaults are:</p>
+<code>Live Load</code>, <code>Point Load</code> or <code>Total Load</code>.</p>
 <pre><code class="lang-text">Family/Type Name Pattern   ^(?:(?:[BV]?G)|Vulcraft) Joist Girder$
 Dead Load Pattern          (?:^DL$|Dead\s*Load)
 Live Load Pattern          (?:^LL$|Live\s*Load)
@@ -201,11 +213,11 @@ skipped girders, with the first problem of each. Find each girder with
 </tr>
 <tr>
 <td><code>Missing required input for 'Point Load'. …</code></td>
-<td>No load parameter has a value. Fill in a load, or match the load patterns to your names.</td>
+<td>The tool lists missing or blank loads and explains which matching parameters it ignored. Supply a total or a dead and live pair with at least one value. Use Force or Text parameters.</td>
 </tr>
 <tr>
 <td><code>Ambiguous &lt;kind&gt; Load inputs: …</code></td>
-<td>Two parameters of one kind, such as <code>Dead Load</code> and <code>DL</code>, have values. Clear one.</td>
+<td>More than one parameter of that kind has a value, including any explicit zero. Clear all but one.</td>
 </tr>
 <tr>
 <td><code>Joist Girder Weights Disabled</code> (a warning in Settings)</td>
@@ -222,8 +234,6 @@ skipped girders, with the first problem of each. Find each girder with
 <li>The weight is an estimate from a fixed
 <a href="../../developer-guide/tools/structural/joist-girder-weight.html#formula">formula</a>,
 not from SJI or manufacturer tables.</li>
-<li>A blank Number total load counts as 0 and replaces the dead and live
-loads, so <code>Wt</code> becomes 0 with no warning. Fill in or delete it.</li>
 <li>Make <code>Wt</code> an instance parameter. A type parameter gives all girders of
 that type one value.</li>
 <li>A <code>Wt</code> with units, such as Length, shows a wrong value.</li>
@@ -239,8 +249,6 @@ this value and click <strong>Save Settings</strong>:</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

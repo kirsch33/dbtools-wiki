@@ -107,11 +107,7 @@ dbtools does not change the appearance of other add-ins.</p>
 <tbody>
 <tr>
 <td><code>dbtools.Presentation</code></td>
-<td>Theme dictionaries, stable windows and controls, tool behaviors, converters and controls, ElevationTags and FoundationTags settings views, and the merged Helix theme</td>
-</tr>
-<tr>
-<td><code>dbtools.HandyControl</code></td>
-<td>The HandyControl skins and themes</td>
+<td>Theme dictionaries, stable windows, controls, tool behaviors, converters, ElevationTags and FoundationTags settings views, and the merged Helix theme</td>
 </tr>
 <tr>
 <td><code>dbtools.Core</code></td>
@@ -191,28 +187,195 @@ material, picking and device state (see <a href="structural-preview.html">Struct
 (see <a href="build-pipeline.html#content-versions">Build Pipeline</a>). The root merges,
 in this order:</p>
 <ol>
-<li><code>/dbtools.HandyControl;V&lt;HandyControlVersion&gt;;component/Themes/SkinDark.xaml</code></li>
-<li><code>/dbtools.HandyControl;V&lt;HandyControlVersion&gt;;component/Themes/Theme.xaml</code></li>
 <li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Tokens.xaml</code></li>
-<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml</code></li>
+<li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.Dark.xaml</code> or <code>Brushes.Light.xaml</code>, the brushes of the current color theme</li>
 <li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Converters.xaml</code></li>
 <li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Controls.xaml</code></li>
 <li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/DataGrid.xaml</code></li>
 <li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Menus.xaml</code></li>
 <li><code>/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Components.xaml</code></li>
 </ol>
+<p>The theme uses plain WPF controls and no control library. Each implicit style
+that changes the look of a control supplies the control's whole template, so
+no WPF system theme template draws a dbtools control. A style that extends
+another dbtools style uses <code>BasedOn</code> only within the same dictionary file:
+when WPF loads a dictionary from its <code>Source</code>, a <code>StaticResource</code> in that file
+sees only the file, the dictionaries that the file merges itself and the
+system theme, not the other dictionaries that <code>Theme.xaml</code> merges. <code>{StaticResource {x:Type Button}}</code> in
+<code>Components.xaml</code>, for example, finds the system theme's Button style. Across
+files, a style or template uses <code>DynamicResource</code>; the TreeView style of VTC
+sets <code>Template</code> to <code>{DynamicResource TreeViewTemplate}</code> from <code>Controls.xaml</code>.</p>
 <p><code>ThemeResourceLoader</code> (Core) checks this order. At startup
 <code>ThemeValidator.ValidateOrThrow</code> registers the pack URI scheme, loads each
-dictionary separately and freezes its freezables, loads the root and checks
+dictionary separately for both color themes and freezes its freezables, loads the root and checks
 its merged dictionaries, and then measures and arranges a probe tree of
 standard controls. A failure stops startup; see
 <a href="../troubleshooting.html#theme-validation">Troubleshooting</a>.</p>
+<h2 id="color-themes">Color themes</h2>
+<p>dbtools has two color themes, Dark and Light. One theme applies to every
+dbtools window. The user chooses it under <strong>Settings &gt; General Settings &gt;
+Theme</strong>; until then dbtools uses the Revit UI theme that
+<code>UIThemeManager.CurrentTheme</code> reports at startup.</p>
+<ul>
+<li><code>ColorThemeState</code> (Presentation) holds <code>Current</code> and <code>Default</code>. At startup
+<code>AppStartupPreparationWorkflow</code> sets <code>Default</code> from the Revit UI theme and
+starts <code>ColorThemeSettingsObserver</code> (Core) with the saved
+<code>SettingsFlags.Theme</code>. The observer applies the theme again on each
+published flag change, so a change in the Settings window shows at once;
+<strong>Save</strong> keeps it.</li>
+<li><code>Theme.xaml</code> merges the brush dictionary of <code>Current</code> through
+<code>{dbtResources:ThemeBrushesUri}</code>: <code>Resources/Brushes.Dark.xaml</code> or
+<code>Resources/Brushes.Light.xaml</code>. Both define the same keys.
+<code>ColorThemeState.Apply</code> reloads every loaded brush dictionary, and open
+windows take the new brushes through their <code>DynamicResource</code> references.
+It runs on the Revit UI thread, which every dbtools window shares; a brush
+dictionary of another UI thread keeps its brushes.
+A brush that code reads once with <code>FindResource</code> keeps its old value until
+the code reads it again.</li>
+<li><code>ThemeValidator</code> loads both brush dictionaries at startup, so a broken
+dictionary stops startup and not a later theme switch.</li>
+</ul>
+<h3 id="brush-roles">Brush roles</h3>
+<p><code>ThemeBrushKeys</code> names semantic roles. New XAML uses them:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SurfaceWindow</code>, <code>SurfaceCard</code>, <code>SurfaceControl</code></td>
+<td>Elevation: window, card or panel, control rest fill. Each step is lighter in Dark</td>
+</tr>
+<tr>
+<td><code>SurfaceWell</code>, <code>SurfaceOverlay</code></td>
+<td>A list or grid inset in a card; popups, menus and tooltips</td>
+</tr>
+<tr>
+<td><code>FillHover</code>, <code>FillPressed</code></td>
+<td>Opaque hover and pressed fills of controls</td>
+</tr>
+<tr>
+<td><code>FillSubtleHover</code>, <code>FillSubtlePressed</code></td>
+<td>Translucent overlays for rows, tabs and borderless buttons</td>
+</tr>
+<tr>
+<td><code>FillSelected</code>, <code>FillSelectedHover</code>, <code>FillDisabled</code></td>
+<td>Selection and disabled filled buttons</td>
+</tr>
+<tr>
+<td><code>StrokeDivider</code>, <code>StrokeControl</code>, <code>StrokeField</code>, <code>StrokeFocus</code>, <code>StrokeWindow</code>, <code>StrokeDisabled</code></td>
+<td>Hairlines, button borders, field borders (3:1), the gold focus ring, window edges</td>
+</tr>
+<tr>
+<td><code>Text</code>, <code>TextSecondary</code>, <code>TextMuted</code>, <code>TextDisabled</code>, <code>TextPlaceholder</code></td>
+<td>Text levels; disabled text stays readable (4.5:1)</td>
+</tr>
+<tr>
+<td><code>TextAccent</code>, <code>TextSelected</code>, <code>TextSelectedSecondary</code>, <code>TextDanger</code>, <code>TextAttention</code></td>
+<td>Blue text, text on a selected row, error text, the Modified marker</td>
+</tr>
+<tr>
+<td><code>AccentFill*</code>, <code>DangerFill*</code>, <code>Attention</code></td>
+<td>Primary and danger buttons, the attention dot</td>
+</tr>
+<tr>
+<td><code>Banner*</code></td>
+<td>Notification banner surface, outline, kind colors and tints</td>
+</tr>
+</tbody>
+</table>
+<p>The older hue- and feature-named keys (<code>Paper</code>, <code>Surface</code>, <code>Body</code>,
+<code>ButtonPrimary</code> and the others) remain for existing XAML. Where a role has the
+same meaning, the older key holds the role's value.</p>
+<h3 id="tokens">Tokens</h3>
+<p><code>Tokens.xaml</code> holds the compact density and the ramps:</p>
+<ul>
+<li>Density: <code>Size.Control</code> and <code>Size.Row</code> are the compact 28 px control and
+row height; <code>MinHeight.Button</code>, <code>MinHeight.Control</code> and
+<code>Size.DataGridRow.MinHeight</code> equal them. <code>Size.ControlSmall</code> (24 px) is for
+header actions.</li>
+<li>Type: <code>FontFamily.UI</code> (Segoe UI) and <code>FontFamily.Icon</code>; sizes 12, 13, 15 and
+20 (<code>FontSize.Caption</code>, <code>FontSize.Body</code>, <code>FontSize.Subtitle</code> and
+<code>FontSize.Title</code>, <code>FontSize.Header</code>), with <code>LineHeight.*</code>.
+<code>WindowThemeApplicator</code> sets each window's font to <code>FontFamily.UI</code> and
+<code>FontSize.Body</code>, so text does not follow the system message font.</li>
+<li>Spacing: the 4 px ramp <code>Spacing4</code> to <code>Spacing32</code>, and role insets and gaps
+(<code>Inset.Button</code>, <code>Inset.Input</code>, <code>Inset.Row</code>, <code>Inset.Card</code>, <code>Inset.Dialog</code>,
+<code>Inset.Footer</code>, <code>Gap.Stack</code>, <code>Gap.Section</code>, <code>Gap.Label</code>).</li>
+<li>Radius: <code>Radius4</code> for controls, <code>Radius8</code> for cards and dialogs.</li>
+</ul>
+<h2 id="shared-controls">Shared controls</h2>
+<p><code>dbtools.Presentation.Controls</code> holds the controls that views share. Raw views
+reach them with
+<code>xmlns:controls=&quot;clr-namespace:dbtools.Presentation.Controls;assembly=dbtools.Presentation&quot;</code>.
+Their styles are in the theme.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DialogFooter</code></td>
+<td>The buttons at the bottom of a dialog. The theme sets each action button's <code>Height</code> to <code>Size.Control</code> (28 device-independent pixels). <code>DialogFooter.Role</code> places each child: <code>Tertiary</code> at the left (Reset All, Copy details), then at the right <code>Secondary</code> (Cancel, Validate) and the one <code>Primary</code>, which is rightmost whatever the declaration order. The tab order follows. In a destructive confirmation the danger button takes <code>Primary</code> and Cancel sets <code>IsDefault</code>, so Enter cancels</td>
+</tr>
+<tr>
+<td><code>SearchBox</code></td>
+<td>A filter text box with a magnifier, a <code>Placeholder</code> that names what it filters, an optional <code>ResultText</code> such as <code>2 of 12</code> and a clear button while there is text. Escape clears; the clear button and Escape update the <code>Text</code> binding at once. It is a <code>TextBox</code>, so its <code>Text</code> binding and automation id work as before</td>
+</tr>
+<tr>
+<td><code>SettingsPack</code></td>
+<td>One settings pack: a flat card with <code>Title</code>, a Modified marker while <code>IsModified</code> is true, and a small <strong>Reset to defaults</strong> button that runs <code>ResetCommand</code> only then. UI Automation sees a group; <code>ResetAutomationId</code> names the button</td>
+</tr>
+<tr>
+<td><code>ToolbarRow</code></td>
+<td>Commands that act on the list or content next to them, left to right with an 8 px gap</td>
+</tr>
+<tr>
+<td><code>ListEmptyState.Text</code></td>
+<td>An attached property: the line that a <code>ListBox</code>, <code>TreeView</code> or <code>DataGrid</code> shows while it has no items</td>
+</tr>
+</tbody>
+</table>
+<p><code>AlertWindowViewModel</code> orders the alert footer the same way: secondary and
+Cancel buttons, then the primary button, then a danger button at the right.
+An alert with a danger button makes its Cancel button the default.</p>
+<p>Every window that <code>WindowInitializer</code> sets up gets a title bar in the colors of
+the color theme (<code>WindowCaption</code>): dark or light caption, the
+<code>SurfaceWindow</code> caption fill, <code>Text</code> caption text and the <code>StrokeWindow</code>
+border. On Windows 10 the window keeps the system caption. A theme change
+repaints open windows.</p>
+<h2 id="control-behaviors">Control behaviors</h2>
+<p>The theme sets two behaviors on standard controls:</p>
+<ul>
+<li><strong>Nested scrolling.</strong> The implicit ScrollViewer style sets
+<code>WheelForwarding.IsEnabled</code>. A scroll viewer that cannot move in the
+direction of a wheel turn passes the turn to the scroll viewer around it.
+This covers the viewers in the templates of TextBox, ListBox, ListView and
+TreeView, so a short list, tree or text box inside a scrolling page does not
+stop the page. <code>DataGridMouseWheelBehavior</code> does the same for a grid at the
+end of its range. A viewer in a popup keeps its wheel. A ScrollViewer with
+its own keyed style gets the behavior only if that style is based on the
+implicit one.</li>
+<li><strong>Long text in grids.</strong> <code>DataGridTextCell</code> cuts long text with an ellipsis.
+While the text is cut, <code>CutTextToolTip</code> shows the whole text in the tool
+tip; a tool tip that the cell sets itself stays. <code>DataGridColumnsBehavior</code>
+gives generated text columns this style. A declared column sets
+<code>ElementStyle=&quot;{StaticResource DataGridTextCell}&quot;</code>: a grid column is not in
+the element tree, so a <code>DynamicResource</code> on a column property finds only
+application resources and the cell keeps the default style.
+<code>DataGridTextCell.Wrap</code> wraps a message column; give that column
+<code>Width=&quot;*&quot;</code>, so rows grow and the grid does not scroll sideways.</li>
+</ul>
 <h2 id="resource-uris">Resource URIs</h2>
 <p>Every compiled resource URI contains the assembly's version. A changed stable
 assembly therefore has a new identity, and WPF cannot select an older copy of
-Presentation or HandyControl that an earlier dbtools version has already
-loaded. Presentation URIs use the Presentation version, and HandyControl
-URIs use the HandyControl version.</p>
+Presentation that an earlier dbtools version has already loaded.</p>
 <p>The component URI is relative, so <code>Application.LoadComponent</code> does not need
 the <code>pack</code> scheme to be registered.</p>
 <ul>
@@ -236,12 +399,13 @@ resolves local markup extensions through that table separately from the outer
 pack URI. Keep SDK assembly-info generation on in WPF temporary projects. With
 it off, BAML references <code>Version=0.0.0.0</code>; if an older Presentation is already
 loaded in the default context, the CLR can satisfy that request with the older
-copy. That copy lacks <code>HandyControlResourceUriExtension</code>, and WPF throws
-<code>NotImplementedException</code> before it opens the HandyControl dictionaries. WPF's
+copy. When that copy lacks a markup extension type that the current BAML
+names, WPF throws <code>NotImplementedException</code> before it opens the merged
+dictionaries. WPF's
 local-assembly fallback runs only when loading throws, so a successful bind to
 the older copy bypasses it. See
-<a href="https://github.com/dotnet/wpf/blob/v10.0.0/src/Microsoft.DotNet.Wpf/src/PresentationFramework/System/Windows/Markup/Baml2006/Baml2006SchemaContext.cs#L418-L516">.NET 10 WPF assembly and type resolution</a>
-and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/assemblybindercommon.cpp#L42-L100">CoreCLR version compatibility</a>.</p>
+<a href="https://github.com/dotnet/wpf/blob/v10.0.0/src/Microsoft.DotNet.Wpf/src/PresentationFramework/System/Windows/Markup/Baml2006/Baml2006SchemaContext.cs">.NET 10 WPF assembly and type resolution</a>
+and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/assemblybindercommon.cpp">CoreCLR version compatibility</a>.</p>
 <h2 id="source-files">Source files</h2>
 <table>
 <thead>
@@ -258,6 +422,34 @@ and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/a
 <tr>
 <td><code>src/dbtools.Presentation/Resources/Theme.xaml</code></td>
 <td>Root theme dictionary</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Presentation/Resources/Brushes.Dark.xaml</code>, <code>Brushes.Light.xaml</code></td>
+<td>The brushes of each color theme, with the same keys</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Presentation/Theming/ColorThemeState.cs</code></td>
+<td>The current and default color theme; reloads open brush dictionaries</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Core/UI/Theming/ColorThemeSettingsObserver.cs</code></td>
+<td>Applies <code>SettingsFlags.Theme</code> at startup and on each flag change</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Presentation/Controls/</code></td>
+<td>Shared controls</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Presentation/Windows/WindowCaption.cs</code></td>
+<td>Title bar colors</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Presentation/Behaviors/WheelForwarding.cs</code></td>
+<td>Wheel turns that a nested scroll viewer cannot use</td>
+</tr>
+<tr>
+<td><code>src/dbtools.Presentation/DataGrid/Behaviors/CutTextToolTip.cs</code></td>
+<td>The tool tip of cut cell text</td>
 </tr>
 <tr>
 <td><code>src/dbtools.Presentation/Resources/ResourceUri.cs</code></td>
@@ -287,8 +479,6 @@ and <a href="https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/binder/a
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

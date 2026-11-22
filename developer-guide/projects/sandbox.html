@@ -89,73 +89,115 @@
         <article data-uid="">
 <h1 id="dbtools.sandbox">dbtools.Sandbox</h1>
 
-<p><code>dbtools.Sandbox</code> is a standalone executable that validates one product year
-and hosts tool windows for UI development without Revit. It targets
-<code>net10.0-windows</code> for Revit 2026 (2026.5 or later) and Revit 2027;
-<code>build/Distribution/RevitYearContract.cs</code> defines the supported years.</p>
-<h2 id="source-layout">Source layout</h2>
+<h2 id="name">NAME</h2>
+<p>dbtools.Sandbox - preview tool windows with design-time view models</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">Source    src/dbtools.Sandbox/
+Project   dbtools.Sandbox.csproj
+Assembly  dbtools.Sandbox.dll
+Entry     dbtools.Sandbox.App.Startup.SandboxEntry
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p><code>dbtools.Sandbox</code> is a Windows WPF application. The <strong>dbtools UI Sandbox</strong>
+catalog groups previews by the manifest <code>group</code> and labels each button
+with the <code>displayName</code>. Select a button to open its preview.</p>
+<p>See <a href="../architecture/sandbox-validator.html">Sandbox Validator</a> for
+candidate requirements, startup and headless validation.</p>
+<h2 id="structure">STRUCTURE</h2>
+<p>Paths are relative to <code>src/dbtools.Sandbox/</code>.</p>
 <table>
 <thead>
 <tr>
 <th>Path</th>
-<th>Contents</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>App/Startup/</code></td>
-<td><code>SandboxEntry</code> (BCL-only entry point), <code>CLIOptions</code>, <code>SandboxCandidate</code>, the <code>SandboxMode</code> enum (<code>Interactive</code>, <code>Headless</code>)</td>
-</tr>
-<tr>
 <td><code>App/</code></td>
-<td>The WPF application</td>
+<td>Contains the entry point, option parser and WPF application.</td>
 </tr>
 <tr>
 <td><code>Composition/</code></td>
-<td>Sandbox runtime services and <code>SandboxWindowFactory</code></td>
+<td>Creates the Sandbox runtime and window sessions.</td>
 </tr>
 <tr>
 <td><code>Features/WindowCatalog/</code></td>
-<td>The window catalog shown in interactive mode</td>
+<td>Lists the windows and launches previews.</td>
 </tr>
 <tr>
 <td><code>Runtime/</code></td>
-<td>Sandbox logging and window runtime configuration</td>
+<td>Configures logging and the default window owner mode.</td>
 </tr>
 <tr>
 <td><code>Validation/</code></td>
-<td>Candidate, manifest, metadata and window validators</td>
-</tr>
-<tr>
-<td><code>Tests/</code></td>
-<td><code>dbtools.Sandbox.Pure.Tests</code></td>
+<td>Checks product metadata and windows.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="runtime">Runtime</h2>
-<p>Sandbox starts a new default-context process for each candidate year. The
-entry point checks the year directory before any Core, Presentation or WPF type
-loads, loads the candidate's top-level assemblies and <code>Tools/</code> assemblies from
-their paths, and then starts WPF. The candidate files are the only product
-assemblies in the process; the project compiles against Core, Presentation and
-HandyControl without copying their runtime files.</p>
-<p>Sandbox reads window specifications from the tool manifests through Core's
-<code>SandboxCatalog</code> and hosts them in the stable Presentation window shells.
-Design samples can implement <code>Presentation.ToolWindows.IToolWindowSandboxComposer</code> to
-compose raw view fragments after the window session is created. Ordinary samples
-need no composition callback.
-Sandbox installs the <code>Unowned</code> default-owner policy in the window runtime.
-The SGT design-time sample supplies its own unavailable 3D state and reason.
-Building real windows and checking their cleanup requires the Windows process.</p>
-<p>For the options, the validation steps and the manifest rules, see
-<a href="../architecture/sandbox-validator.html">Sandbox Validator</a>. See also
-<a href="../developing/sandbox-integration.html">Sandbox Integration</a> and
-<a href="../architecture/assembly-loading.html">Assembly Loading Contract</a>.</p>
+<h2 id="contracts">CONTRACTS</h2>
+<ul>
+<li>The project references Core and Presentation with <code>Private=&quot;false&quot;</code> and
+<code>ExcludeAssets=&quot;runtime&quot;</code>. Sandbox loads both from the selected year.</li>
+<li><code>SandboxCatalog</code> discovers <code>sandboxWindows</code> entries in the manifests
+embedded in App. Each entry names the raw XAML resource and its
+design-time view model. See <a href="../developing/sandbox-integration.html">Sandbox Integration</a>
+for the registration rules.</li>
+<li><code>SandboxWindowFactory</code> constructs the view model with its parameterless
+constructor and creates a <code>ToolWindowHost</code> session. If the view model
+implements <code>IToolWindowSandboxComposer</code>, the factory calls <code>ComposeView</code>
+after it creates the session.</li>
+<li><code>WindowStaticRuntimeConfigurator</code> sets the default owner mode to
+<code>Unowned</code>.</li>
+</ul>
+<h2 id="flow">FLOW</h2>
+<p>For a manual preview, use a promoted Revit 2026 distribution on Windows
+with Revit 2026 installed. Run the commands from the checkout root.</p>
+<pre><code class="lang-powershell">pwsh -NoProfile -File build.ps1 BuildSandbox -y 2026
+.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe `
+  --dist-dir .artifacts\dist\Release\2026
+</code></pre>
+<h2 id="data">DATA</h2>
+<p><code>BuildSandbox</code> writes to
+<code>.artifacts/sandbox/&lt;Configuration&gt;/&lt;year&gt;/net10.0-windows/</code>.</p>
+<h2 id="tests">TESTS</h2>
+<p>Select the <code>dbtools.Sandbox.Pure.Tests</code> fixtures with the <code>BUILD</code> tool key.
+See <a href="../architecture/test-pipeline.html">Test Pipeline</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Fixtures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Startup</td>
+<td><code>CLIOptionsTests</code>, <code>DistributionPathResolverTests</code>, <code>SandboxCandidateTests</code>, <code>HeadlessUISuppressionTests</code></td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td><code>AppRuntimeTests</code>, <code>SandboxLogTests</code>, <code>WindowStaticRuntimeConfiguratorTests</code></td>
+</tr>
+<tr>
+<td>Catalog</td>
+<td><code>WindowCatalogEntryViewModelTests</code>, <code>WindowCatalogWindowViewModelTests</code></td>
+</tr>
+<tr>
+<td>Validation diagnostics</td>
+<td><code>BindingErrorListenerTests</code>, <code>XamlParseExceptionFormatterTests</code></td>
+</tr>
+</tbody>
+</table>
+<p>See the <a href="../architecture/sandbox-validator.html#tests">headless acceptance test</a>
+for coverage of packaged candidates.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../architecture/sandbox-validator.html">Sandbox Validator</a>,
+<a href="../developing/sandbox-integration.html">Sandbox Integration</a>,
+<a href="../architecture/assembly-loading.html">Assembly Loading Contract</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

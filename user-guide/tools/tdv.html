@@ -100,21 +100,27 @@ that holds standard drafting views. An import copies views from a library
 (the source) into the active model (the destination). An export copies views
 from the active model into a library.</p>
 <ol>
-<li><p>Run a command. In <strong>Select Library File</strong>, select a listed file or click
-<strong>Browse for file</strong>. TDV opens the selected file in the background.</p>
-<p>A browsed file must exist, end in <code>.rvt</code> and use the current Revit version.
-You cannot select the active document. TDV uses the file for this transfer
-only and does not add it to <strong>Library Files</strong>.</p>
-</li>
-</ol>
-<!-- screenshot: Select Library File, with Browse for file -->
-<ol start="2">
+<li>Run a command to open <strong>Select Library File</strong>. Select a listed file or
+click <strong>Browse for file</strong>.</li>
 <li>In the <strong>Transfer Drafting Views</strong> window, check the views to copy.</li>
 <li>Fix each name conflict, then click <strong>Transfer Selected</strong>. Each click is
 one transfer.</li>
 <li>Click <strong>Accept and Transfer More</strong> or <strong>Close Tool</strong> in the result.</li>
 </ol>
+<!-- screenshot: Select Library File, with Browse for file -->
 <!-- screenshot: Transfer Drafting Views window, two rows checked, preview shown -->
+<p>The picker opens even when no saved library is usable. It explains the empty
+list and offers <strong>Browse for file</strong>. When valid and invalid paths both exist,
+it lists the valid files and reports the unavailable count. Cancel the file
+picker to return to <strong>Select Library File</strong>.</p>
+<p>TDV opens the chosen library in the background. Choose an accessible <code>.rvt</code>
+file from the current Revit version. The active model and its workshared
+central file cannot serve as the library. A browsed file applies to one transfer
+window. Add the path in <strong>Library Files</strong> to use it from the list on later runs.</p>
+<p>The preview fits the selected view to the pane and matches the exported
+background. A transparent image corner uses the Revit canvas color. Use the
+mouse wheel to zoom and drag with the left button to pan. <strong>Zoom Extents</strong>
+fits the whole view again.</p>
 <h2 id="options">OPTIONS</h2>
 <table>
 <thead>
@@ -166,26 +172,27 @@ Revit version that runs. TDV opens no other file, so it never upgrades a
 library. A cross marks an invalid path.</p>
 <p>When Revit starts, when Settings opens and when you click <strong>Save Settings</strong>,
 TDV checks the saved paths. One entry with no valid path turns on the warning
-<code>Library Paths Invalid</code>, which turns off both commands for all libraries.
-Fix or remove the entry, then click <strong>Save Settings</strong>. <strong>Validate Libraries</strong>
-shows the result but does not change the commands.</p>
+<code>Library Paths Invalid</code>. The warning leaves both commands available. Fix or
+remove the entry, then click <strong>Save Settings</strong>. <strong>Validate Libraries</strong> shows
+the result.</p>
 <h2 id="results">RESULTS</h2>
-<p>For each checked view, TDV makes a drafting view. With <strong>Replace</strong>, it
-deletes all elements of the existing view and gives that view the selected
-type. It copies the scale, the <code>VIEW_DESCRIPTION</code> parameter, the elements and
-their graphic overrides. It skips the categories <code>Title Blocks</code>, <code>Viewports</code>,
-<code>Views</code>, <code>Schedules</code> and <code>Guide Grids</code>.</p>
+<p>For each checked view, TDV makes a drafting view or reuses a matching view
+when <strong>Replace</strong> is on. It assigns the selected view type and copies the
+scale, the writable <code>VIEW_DESCRIPTION</code> parameter, the elements and their
+graphic overrides. Both clearing an existing view and copying into it
+skip the categories <code>Title Blocks</code>, <code>Viewports</code>, <code>Views</code>, <code>Schedules</code> and
+<code>Guide Grids</code>.</p>
 <p>If a view fails, TDV undoes only that view and continues. <strong>Per-View Issues</strong>
-in the result shows its code. <strong>Cancel</strong> on the progress bar undoes the whole
-transfer.</p>
-<p>Each transfer of an import is one Undo step: <code>Transfer Drafting Views</code>. TDV
-then closes the library without saving.</p>
-<p>After an export, TDV saves the library if any transfer in the window added or
-replaced a view. A workshared library synchronizes with central and
-relinquishes all elements. The comment of the synchronization gives the totals
-of the window. Then TDV closes the library and activates your model again. If
-the library cannot be saved, synchronized or closed, the export fails, and the
-error report names each failure.</p>
+in the result shows its code. <strong>Cancel</strong> on the progress bar undoes the
+<strong>Transfer Selected</strong> run, up to the end of the last view.</p>
+<p>Each import transfer is one Undo step, <code>Transfer Drafting Views</code>. TDV closes
+the library without saving when the window closes.</p>
+<p>When the export window closes, TDV saves the library if any transfer added
+or replaced a view. It also saves if it cannot confirm a commit or rollback.
+For a workshared library, TDV synchronizes with central and relinquishes all
+elements. The synchronization comment gives the window's totals. TDV closes
+the library and tries to activate your model. It reports save, synchronization
+and close failures, and warns if it cannot reactivate your model.</p>
 <h2 id="messages">MESSAGES</h2>
 <table>
 <thead>
@@ -195,6 +202,14 @@ error report names each failure.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>The open document cannot be selected as its own library file.</code></td>
+<td>Choose another file. The active model's central file also counts as the open document.</td>
+</tr>
+<tr>
+<td><code>The selected library file cannot be used. &lt;reason&gt;.</code></td>
+<td>Read the reason and choose an available <code>.rvt</code> file from the current Revit version.</td>
+</tr>
 <tr>
 <td><code>DestinationTypeMissing</code></td>
 <td>The named type is not in the destination, or <code>Retain Original</code> could not make it.</td>
@@ -219,8 +234,6 @@ gives it that name. The type keeps the properties of the duplicated type.</li>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

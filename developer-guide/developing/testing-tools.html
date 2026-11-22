@@ -146,7 +146,7 @@ Year selection chooses references and output placement.</p>
 <tbody>
 <tr>
 <td><code>BuildAll</code></td>
-<td>Default wrapper target. Build, validate, and promote the Release distribution. Compile no test projects.</td>
+<td>Default wrapper target. Build, validate, and promote the Release distribution and its acceptance inputs. Compile no test project except the Dev Mode scenario.</td>
 </tr>
 <tr>
 <td><code>BuildApp</code></td>
@@ -158,7 +158,7 @@ Year selection chooses references and output placement.</p>
 </tr>
 <tr>
 <td><code>BuildTests</code></td>
-<td>Compile all test graphs. Execute no tests.</td>
+<td>Compile the Pure, Local and Design Automation test graphs. Execute no tests. <code>BuildDevModeScenario</code> compiles the Dev Mode scenario.</td>
 </tr>
 <tr>
 <td><code>BuildSelectedPureTests</code></td>
@@ -205,6 +205,10 @@ Year selection chooses references and output placement.</p>
 <td>Build the portable .NET 10 Dev Mode policy worker.</td>
 </tr>
 <tr>
+<td><code>BuildDevModeScenario</code></td>
+<td>Build the hosted Dev Mode scenario of a daemon fleet job for the selected years.</td>
+</tr>
+<tr>
 <td><code>PackageSandboxValidationInput</code></td>
 <td>Package candidate and Sandbox for native Windows validation.</td>
 </tr>
@@ -227,7 +231,9 @@ years. Leave the year filter unset for <code>BuildAll</code>, portable acceptanc
 Sandbox validation packaging. Focused product/test
 builds and candidate assembly support normal edited-source development.
 <code>BuildAll</code> validates metadata and static Dev Mode policy on Linux. It does not
-run native Sandbox, WPF interactions, Revit, or live Dev Mode injection.</p>
+run native Sandbox, WPF interactions, Revit, or live Dev Mode injection. It
+builds the <a href="../architecture/build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a>,
+which runs only in a dbtools-daemon Dev Mode fleet job.</p>
 <h3 id="build-parameters">Build parameters</h3>
 <table>
 <thead>
@@ -286,17 +292,18 @@ reference with <code>./build.sh --help</code> or <code>pwsh -NoProfile -File bui
 marker records the invocation's end. The test graph targets write
 <code>test-restore.binlog</code> and <code>test-build.binlog</code> in the same run folder.</p>
 <h3 id="source-checks">Source checks</h3>
-<p>Check source placement and generated maps separately from compilation:</p>
-<pre><code class="lang-bash">python3 .agents/work/canon_source_maps.py --check
-python3 .agents/work/canon_source_fidelity.py --gate --mechanical-root testing --mechanical-root build
+<p>Check source placement and the repository tooling separately from compilation:</p>
+<pre><code class="lang-bash">python3 .agents/work/canon_source_fidelity.py --gate --mechanical-root testing --mechanical-root build
+python3 -m unittest discover -s .agents/work/tests
 .githooks/pre-push
 </code></pre>
-<p>Regenerate maps with <code>python3 .agents/work/canon_source_maps.py</code> after source
-moves. See <a href="../architecture/build-pipeline.html">Build Pipeline</a> for distribution
-acceptance, Dev Mode preflight, and build-server configuration.</p>
+<p>The <code>unittest</code> suites in <code>.agents/work/tests/</code> test the CANON gate, the worktree
+guard, <code>.agents/checks/integrity.py</code> and <code>.githooks/pre-push</code>. They need Python
+3, Git, Bash and <code>flock</code>. See <a href="../architecture/build-pipeline.html">Build Pipeline</a>
+for distribution acceptance, Dev Mode preflight, and build-server configuration.</p>
 <p><code>.githooks/pre-push</code> always runs the wiki <code>src/</code> path check and the
-component resource URI check. It also runs the CANON gate, the MAP.md check and
-<code>./build.sh ValidatePrePush</code>, and prints why. It skips these three, prints the
+component resource URI check. It also runs the CANON gate and
+<code>./build.sh ValidatePrePush</code>, and prints why. It skips these two, prints the
 reason, and prints that they did not run, only for a push of one ref that
 fast-forwards an existing remote branch to the checked-out <code>HEAD</code> with new
 commits whose paths are all documentation or agent guidance: <code>wiki/</code>, <code>docs/</code>,
@@ -305,11 +312,13 @@ file in <code>.agents/work/</code> except its <code>tests/</code> and Markdown f
 these checks. A new branch, a deletion, a rewind or rewrite, several refs, a
 pushed commit other than <code>HEAD</code> and a commit that the remote already has run
 every check.</p>
+<p>The hook runs the tooling tests when it runs the CANON gate, and also when a
+changed path is in <code>.agents/work/tests/</code> or <code>.agents/checks/</code>. It prints why it
+runs or skips them.</p>
 <p>Run by hand without arguments, the hook compares the working tree, untracked
 files included, with the upstream branch of <code>HEAD</code>, and uploads nothing to Git
 LFS. Without an upstream branch, or when <code>HEAD</code> does not contain it, every check
-runs. Run the CANON and MAP.md commands above directly to check a tree that the
-hook would skip.</p>
+runs. Run the commands above directly to check a tree that the hook would skip.</p>
 <h2 id="test.sh-command-reference">test.sh command reference</h2>
 <pre><code class="lang-text">./test.sh &lt;verb&gt; [options]
 </code></pre>
@@ -763,7 +772,7 @@ product behavior:</p>
 </tr>
 <tr>
 <td><code>Revit/</code></td>
-<td>Ambient Revit host and document leases.</td>
+<td>Ambient Revit host, document leases, counted call gates, read counters and queued-turn journeys.</td>
 </tr>
 <tr>
 <td><code>Wpf/</code></td>
@@ -790,6 +799,35 @@ gate when its behavior is the subject of the test.</p>
 <p>Source-link Pure helpers into Pure projects and Revit helpers into Local
 projects. Shared neutral helpers can serve both. Keep NUnit setup scopes and
 fixture namespaces aligned with their owner.</p>
+<h3 id="revit-call-budgets-and-the-scale-model">Revit call budgets and the scale model</h3>
+<p><code>CountingRevitCallGate</code> counts each <code>IRevitCallGate.RunAsync</code> request.
+<code>RevitReadCounters</code> counts each wrapped collector, <code>EditFamily</code> call,
+temporary transaction and regeneration. Counters advance once per wrapped
+operation, independent of the number of returned elements. Tests must wrap the
+Revit API operation they measure; unwrapped calls do not affect the count.</p>
+<p><code>QueuedRevitTurnJourney.RunAsync</code> starts a supplied action from dispatcher work
+and runs its gate calls through a real <code>ExternalEvent</code> turn. The result includes
+the gate request count and the native turn summaries. Use it for hosted tests of
+modeless user actions that ordinary hosted callbacks would run inline. Mark its
+fixture with <code>[Category(&quot;RevitHostedTurns&quot;)]</code> so the daemon releases the current
+API callback at an incomplete await.</p>
+<p><code>ScaleRevitTestModelGeneratorTests</code> creates the year-specific model with 200
+loadable families, at least 800 types, 40 drafting views and sheets, 160
+girders and 40 foundations. Run the hosted fixture once for each supported Revit year:
+The fixture compares the GM seed with the scale model inside one queued gate
+call. It checks that both models use the same read budget.</p>
+<pre><code class="lang-bash">flock --close /run/lock/gwl-heavy.lock /home/gwl-agent/.local/bin/host-gate \
+  .agents/work/worktree_guard.sh \
+  ./test.sh test --tool CORE --scope local -y 2026 --fixture ScaleRevitTestModelGeneratorTests
+flock --close /run/lock/gwl-heavy.lock /home/gwl-agent/.local/bin/host-gate \
+  .agents/work/worktree_guard.sh \
+  ./test.sh test --tool CORE --scope local -y 2027 --fixture ScaleRevitTestModelGeneratorTests
+</code></pre>
+<p>The Core fixture writes
+<code>DBTOOLS_DAEMON_REVIT_MODELS_DIR/&lt;year&gt;/Scale/dbtools_scale_model.rvt</code> in the
+hosted session. A fixture calls <code>ScaleRevitTestModelGenerator.Generate</code>
+with its staged seed and output paths. The SGT fixture writes the scale
+model beside the staged SGT model so both copies resolve the same links.</p>
 <h3 id="model-paths">Model paths</h3>
 <p><code>TestPathResolver</code> reads <code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code> on every call. The
 daemon supplies the staged root. Relative paths retain their year, tool,
@@ -1212,7 +1250,7 @@ WPF or Revit UI static initializer that fails on Linux is left out; the test
 lists these singletons and fails when the list changes.</li>
 </ul>
 <p>A host context stands in for the Revit process. It holds
-<code>dbtools.Presentation</code>, <code>dbtools.HandyControl</code>, the Windows Desktop runtime
+<code>dbtools.Presentation</code>, the Windows Desktop runtime
 pack rewritten as IL-only images, and the year's Revit API reference packages
 rewritten as IL-only images whose methods throw. The test project restores the
 runtime pack that the pinned SDK bundles; <code>BuildAll</code> restores the Revit
@@ -1226,8 +1264,6 @@ journal for a crash only when those logs are inconclusive.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

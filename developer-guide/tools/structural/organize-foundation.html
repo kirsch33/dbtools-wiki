@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Organize Foundation Types | dbtools </title>
+      <title>dbtools.OrganizeFoundationTypes | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Organize Foundation Types | dbtools ">
+      <meta name="title" content="dbtools.OrganizeFoundationTypes | dbtools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,163 +87,147 @@
         </div>
 
         <article data-uid="">
-<h1 id="organize-foundation-types">Organize Foundation Types</h1>
+<h1 id="dbtools.organizefoundationtypes">dbtools.OrganizeFoundationTypes</h1>
 
-<h2 id="overview">Overview</h2>
-<p>Organize Foundation Types renames foundation family types, assigns type marks, and merges types with equal dimensions.
-It processes all matching types in the active document. It does not use the current selection or persistent settings.</p>
-<h2 id="architecture">Architecture</h2>
-<h3 id="registration-and-ownership">Registration and ownership</h3>
-<p>Source: <code>src/Tools/Structural/OrganizeFoundationTypes/</code>.</p>
+<h2 id="name">NAME</h2>
+<p>dbtools.OrganizeFoundationTypes - name, mark and merge foundation types</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Structural/OrganizeFoundationTypes/ (manifest.yml)
+assembly  dbtools.OrganizeFoundationTypes
+entry     OrganizeFoundationTypesCommand
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p>The organizer renames foundation types, sets their <code>Type Mark</code> and merges
+types with equal dimensions. The <a href="../../../user-guide/tools/organize-foundation.html">user page</a>
+lists the families and output formats.</p>
+<h2 id="structure">STRUCTURE</h2>
 <table>
 <thead>
 <tr>
+<th>Path</th>
 <th>Owner</th>
-<th>Responsibility</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>App/Composition/OrganizeFoundationTypesCommand</code></td>
-<td>Manifest command, active-document availability</td>
+<td><code>App/Composition/</code></td>
+<td><code>OrganizeFoundationTypesCommand</code> declares its workflow with <code>CommandService</code>. App registers the service when it loads the ribbon item.</td>
 </tr>
 <tr>
-<td><code>Features/FoundationType/OrganizeFoundationTypesWorkflow</code></td>
-<td>Confirmation, organizer invocation, completion alert, Debug logger window</td>
+<td><code>Features/FoundationType/</code></td>
+<td><code>OrganizeFoundationTypesWorkflow</code> chooses the policy. <code>FoundationTypePlanner</code> selects renames and merges. <code>FoundationTypeOrganizer</code> reads and edits Revit types.</td>
 </tr>
 <tr>
-<td><code>Features/FoundationType/FoundationTypeOrganizer</code></td>
-<td>Collection, dimension comparison, rename, merge, deletion</td>
-</tr>
-<tr>
-<td><code>Features/TypeMark/TypeMarkGenerator</code></td>
-<td>Mark generation and pure formatting helper</td>
-</tr>
-<tr>
-<td><code>Features/TypeMark/TypeMarkPolicy</code></td>
-<td>Preserve or overwrite mode</td>
+<td><code>Features/TypeMark/</code></td>
+<td><code>TypeMarkPolicy</code> selects overwrite or preserve. <code>TypeMarkGenerator</code> makes the marks.</td>
 </tr>
 </tbody>
 </table>
-<p><code>manifest.yml</code> registers <code>dbtools.OrganizeFoundationTypes</code> as an <code>InlineUi</code> split-button item
-in <code>foundation_tags</code>, order 2, icon key <code>organize_types</code>.
-Update Combined Foundation Tags and Move Combined Tags occupy orders 0 and 1.
-The <code>structural.foundation_tags</code> pack's <code>core.structural.combined_tags</code> warning disables all three commands.</p>
-<p>A typical documentation workflow runs this organizer, then
-<a href="foundation-tags.html">Update Combined Foundation Tags</a>, then Move Combined Tags.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<h3 id="families-and-parameters">Families and parameters</h3>
-<p>The family-name comparison uses <code>StringComparison.Ordinal</code>.</p>
+<h2 id="contracts">CONTRACTS</h2>
+<ol>
+<li><code>CollectTypes</code> matches <code>FamilySymbol</code> types in the document by category
+and exact family name using <code>StringComparison.Ordinal</code>.</li>
+<li>The workflow prompts only when a collected type has a nonblank
+<code>Type Mark</code>. <strong>Cancel</strong> or closing the alert returns before the workflow
+calls <code>FoundationTypeOrganizer.Run</code>. <code>OrganizeFoundationTypesTests</code>
+checks both cases and the mark choices.</li>
+<li>Inside <code>dbtools - Organize Foundation Types</code>, the organizer calls
+<code>ApplyAtomicTypeChange</code> once for a retained type's mark and rename.
+<code>MergeInstances</code> calls it once per duplicate source type for all its
+<code>ChangeTypeId</code> calls. <code>TransactionExecutor.RunSubTransaction</code> handles each
+nested call.
+<code>OrganizeFoundationTypesTests.Workflow_WhenTypeRenameFails_KeepsSourceAndReportsSkippedType</code>
+checks the skip reported for a rejected name.</li>
+<li>A merge requires all dimensions to have values. Overwrite groups by exact
+stored dimensions. Preserve also groups by exact mark. Blank types join a
+marked group when the size has one distinct mark. The merge target is the
+type with the lowest element ID. In Preserve groups with marked types, the
+target is the marked type with the lowest element ID. <code>MergeInstances</code>
+must succeed before the organizer deletes a source type. The organizer
+merges the group before attempting to rename the target.
+<code>FoundationTypePlannerTests</code> checks the mark and dimension rules.
+<code>OrganizeFoundationTypesTests</code> checks that Revit reassigns the instances
+before deleting a merged type and that the target can then use its name.</li>
+</ol>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><p><code>ResolveTypeMarkPolicy</code> maps <strong>Overwrite Existing Marks</strong> and
+<strong>Preserve Existing Marks</strong> to <code>TypeMarkPolicy</code>. With all marks blank,
+<code>Execute</code> selects <code>OverwriteExistingTypeMarks</code> directly.</p>
+</li>
+<li><p>Each family scheme supplies the dimension parameters, sort key, mark
+generator and name format. The organizer sorts the types in ascending
+order for each family and uses the element ID to break ties.</p>
 <table>
 <thead>
 <tr>
 <th>Family</th>
-<th>Category</th>
-<th>Dimensions</th>
-<th>Prefix</th>
-<th>Sort order</th>
+<th>Dimension key</th>
+<th>Sort</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>Foundation Pier</code></td>
-<td>Structural Columns</td>
 <td><code>b</code>, <code>h</code></td>
-<td><code>P</code></td>
-<td><code>b * h</code></td>
+<td><code>b</code> × <code>h</code>, then the dimensions in key order</td>
 </tr>
 <tr>
 <td><code>Foundation Pier - Round</code></td>
-<td>Structural Columns</td>
 <td><code>d</code></td>
-<td><code>RP</code></td>
-<td>Diameter</td>
+<td><code>d</code></td>
 </tr>
 <tr>
-<td><code>Footing-Rectangular</code></td>
-<td>Structural Foundation</td>
+<td><code>Footing-Rectangular</code>, <code>Pile Cap-Rectangular</code></td>
 <td><code>Width</code>, <code>Length</code>, <code>Foundation Thickness</code></td>
-<td><code>F</code></td>
-<td>Width, length, thickness</td>
-</tr>
-<tr>
-<td><code>Pile Cap-Rectangular</code></td>
-<td>Structural Foundation</td>
-<td><code>Width</code>, <code>Length</code>, <code>Foundation Thickness</code></td>
-<td><code>CAP</code></td>
-<td>Width, length, thickness</td>
+<td>The dimensions in key order</td>
 </tr>
 </tbody>
 </table>
-<p>All sorts are ascending. Dimensions use Double parameters. Type marks use the String parameter <code>Type Mark</code>.
-Dimension text uses Revit's feet-and-fractional-inches formatter.
-Missing dimension parameters display <code>?</code>. Duplicate keys use the nullable raw dimension values.</p>
-<h3 id="marks-and-names">Marks and names</h3>
-<table>
-<thead>
-<tr>
-<th>Family group</th>
-<th>Mark format</th>
-<th>Name format</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Rectangular pier</td>
-<td><code>P-{n}</code>, starting at 1</td>
-<td><code>{b}x{h} ({mark})</code></td>
-<td><code>2'-6&quot;x2'-6&quot; (P-1)</code></td>
-</tr>
-<tr>
-<td>Round pier</td>
-<td><code>RP-{n}</code>, starting at 1</td>
-<td><code>{d} DIA. ({mark})</code></td>
-<td><code>2'-0&quot; DIA. (RP-1)</code></td>
-</tr>
-<tr>
-<td>Footing or pile cap</td>
-<td><code>{prefix}-{widthFeet}.{n}</code>, starting at 0</td>
-<td><code>{width}x{length}x{thickness} ({mark})</code></td>
-<td><code>3'-0&quot;x3'-0&quot;x1'-0&quot; (F-3.0)</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>widthFeet</code> is the floor of the width in internal feet. Each family group maintains its own
-ordinal set of marks encountered during processing. Generation searches from the starting counter
-for an unused mark in that set. It does not reserve marks on types that have not yet been processed.</p>
-<p>The confirmation asks whether to overwrite existing marks. Yes selects
-<code>TypeMarkPolicy.OverwriteExistingTypeMarks</code>. No selects <code>PreserveExistingTypeMarks</code>.
-Preserve mode generates marks only for blank values, but still renames types and merges duplicates.
-<code>SetParam</code> leaves a missing, non-String, or read-only Type Mark unchanged, so a generated name does not guarantee a mark write.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="processing-and-transactions">Processing and transactions</h3>
-<ol>
-<li>Collect and sort the four family groups.</li>
-<li>Compare each type's dimension tuple with retained types in its group.</li>
-<li>For a duplicate, reassign its instances to the retained type.</li>
-<li>For a retained type, assign its mark when permitted and rename it.</li>
-<li>Delete successfully merged source types after processing the group.</li>
+</li>
+<li><p>Preserve reserves existing marks across all four families and processes
+marked types before blank types. Overwrite assigns marks in size order
+and reserves the old mark of a type when a rename or merge fails.
+Rename and merge callbacks apply each change once.</p>
+</li>
+<li><p>The workflow shows renamed, merged and skipped counts. If a skipped
+type keeps a mark already assigned in the run, the dialog and log report
+the mark and both type IDs.</p>
+</li>
 </ol>
-<p>The first successfully retained type for a dimension tuple becomes the merge target.
-Dimension comparison is exact. Each rename/mark operation and duplicate reassignment runs through a nested transaction-runner call.
-A failed reassignment rolls back that type's changes and records a skip.
-The organizer deletes a duplicate only after all its instances change type.</p>
-<p>All groups share the outer <code>dbtools - Organize Foundation Types</code> transaction.
-A deletion error logs at Error and propagates, rolling back the complete operation.
-Per-type failures log at Debug and increment the skip count. The final warning and completion alert
-include skipped totals and up to five <code>type id: reason</code> samples. The alert also reports renamed and merged counts.</p>
-<h2 id="testing">Testing</h2>
-<p>Pure <code>TypeMarkGeneratorTests</code> covers sequential numbering, gaps, width groups, prefixes, and invalid arguments.
-Revit-hosted <code>OrganizeFoundationTypesTests</code> covers confirmation, completion reporting, duplicate merges,
-and document changes inside a rolled-back fixture transaction group.</p>
-<h2 id="limitations">Limitations</h2>
-<p>Family names must match the four listed names exactly. Dimension equality is exact, including missing values; missing dimensions can therefore cause types to merge.</p>
+<h2 id="data">DATA</h2>
+<p><code>FoundationTypeOrganizer.SetParam</code> requires writable text storage for an
+assigned <code>Type Mark</code> and reports a rejected write.
+<code>FormatLength</code> requests <code>UnitTypeId.FeetFractionalInches</code> for the name.
+Grouping uses the stored dimensions to preserve instance geometry. If a
+dimension is missing or unreadable, the rename stops before the organizer
+writes the name or mark. The skip detail identifies the parameter.
+The organizer shares the warning defined by <a href="foundation-tags.html#data">dbtools.FoundationTags</a>.</p>
+<p>The <code>OrganizeFoundationTypes</code> entry in <code>build/Distribution/tool-contracts.json</code>
+records the family names in <code>column_families</code> and <code>foundation_families</code>,
+plus <code>type_mark_parameter</code> and <code>skipped_log</code>.
+<code>ToolContractsTests.EveryTextEqualsAStringValueOfItsToolSourceFiles</code> searches
+the entry's full <code>source_files</code> list for each contract string. The list
+includes <code>manifest.yml</code> and <code>FoundationTypeOrganizer.cs</code>.
+Each value must match a string in at least one listed file.</p>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p><code>[OrganizeFoundations]</code> reports the skipped count at Warning with up to
+five type IDs and reasons. A deletion error is logged and aborts the transaction.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool OrganizeFoundationTypes --scope pure
+./test.sh test --tool OrganizeFoundationTypes --scope local -y 2026
+</code></pre>
+<p><code>TypeMarkGeneratorTests</code> checks numbering. <code>OrganizeFoundationTypesWorkflowTests</code>
+checks how alert results map to policies. <code>OrganizeFoundationTypesCommandTests</code>
+checks the command attributes. <code>OrganizeFoundationTypesTests</code> uses
+<code>gm_test_model.rvt</code> and a rectangular pier made from a Structural Column
+family template.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../developing/feature-warnings.html">Feature Warnings</a>,
+<a href="../../developing/testing-tools.html">Testing Tools</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

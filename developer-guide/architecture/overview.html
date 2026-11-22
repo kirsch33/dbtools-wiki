@@ -93,8 +93,8 @@
 <p>architecture - the dbtools assemblies, how they start and how they run a command</p>
 <h2 id="synopsis">SYNOPSIS</h2>
 <pre><code class="lang-text">entry     dbtools.addin -&gt; dbtools.dll, dbtools.App.Addin.AddinEntry
-source    src/dbtools.{App,Core,Manifest,Presentation,Sandbox}, build/HandyControl
-tools     src/Tools/{Common,Structural,Experimental,Services}/&lt;Tool&gt;/  (manifest.yml, MAP.md source map)
+source    src/dbtools.{App,Core,Manifest,Presentation,Sandbox}
+tools     src/Tools/{Common,Structural,Experimental,Services}/&lt;Tool&gt;/  (manifest.yml)
 years     Revit 2026 (2026.5+), 2027: net10.0-windows  (build/Distribution/RevitYearContract.cs)
 placement .agents/canon/CANON.md  (where each kind of code belongs)
 </code></pre>
@@ -111,7 +111,6 @@ reloads each new build into a running Revit.</p>
     App --&gt; Core[dbtools.Core.dll]
     App --&gt; Presentation[dbtools.Presentation.dll]
     Core --&gt; Presentation
-    Presentation --&gt; Handy[dbtools.HandyControl.dll]
     App --&gt;|Tools/ path| Tools[Tools/dbtools.Tool.dll]
     Tools --&gt; Core
     Tools --&gt; Presentation
@@ -146,11 +145,6 @@ reloads each new build into a running Revit.</p>
 <td>Themes, controls and window shells, and compiled tool views in <code>Tools/&lt;Tool&gt;/</code>.</td>
 </tr>
 <tr>
-<td><code>build/HandyControl</code></td>
-<td><code>dbtools.HandyControl.dll</code></td>
-<td>A vendored, renamed copy of HandyControl.</td>
-</tr>
-<tr>
 <td><code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;</code></td>
 <td><code>Tools/dbtools.&lt;Tool&gt;.dll</code></td>
 <td>One assembly for each tool.</td>
@@ -166,20 +160,23 @@ reloads each new build into a running Revit.</p>
 and <code>$(RevitYear)</code> selects the Revit API references and
 output folder. Core and SGT also build for <code>net10.0</code>, without WPF or the
 Revit API, for portable pure tests. The Revit 2026 Design Automation
-appbundle targets <code>net8.0-windows</code>.</p>
+appbundle targets <code>net8.0-windows</code>.
+<code>Directory.Build.targets</code> defines the compilation symbol
+<code>REVIT2027_OR_GREATER</code> for every project built with <code>RevitYear</code> 2027 or later;
+code that uses API new in Revit 2027 compiles only under that symbol.</p>
 <h2 id="contracts">CONTRACTS</h2>
 <p>Each rule names its check, if any.</p>
 <ol>
 <li><strong>References.</strong> App references Core and Presentation. Core
 (<code>net10.0-windows</code>) references Presentation, <code>dbtools.Manifest</code> and the
 Revit API. Tools reference Core and Presentation.</li>
-<li><strong>Presentation.</strong> Presentation references WPF, HandyControl,
+<li><strong>Presentation.</strong> Presentation references WPF,
 HelixToolkit, Serilog, and the Microsoft.Extensions logging and DI
 abstractions. It never references App, Core, a tool or the Revit API.
 <code>BuildPolicyBehaviorTests</code> and <code>HelixMergeArtifactContractTests</code> check
 parts of rules 1 and 2.</li>
-<li><strong>Sandbox.</strong> The Sandbox compiles against Core, Presentation and
-HandyControl with <code>Private=&quot;false&quot;</code>, and loads them from the year folder
+<li><strong>Sandbox.</strong> The Sandbox compiles against Core and Presentation with
+<code>Private=&quot;false&quot;</code>, and loads them from the year folder
 that it validates.</li>
 <li><strong>No third-party DLLs.</strong> <code>build/Merging/AssemblyMerges.props</code> merges each
 third-party runtime library into the assembly that owns it. The build
@@ -209,7 +206,7 @@ the copy of <code>dbtools.dll</code> in the default context stays idle. It store
 its path in the AppContext data <code>dbtools-daemon.IdleAddin:dbtools</code> and
 returns <code>Succeeded</code>, so the daemon can test its own copy.</li>
 <li><strong>User data directory</strong> (<code>AddinUserData</code>). <code>OnStartup</code> reads
-<code>DBTOOLS_USER_DATA_DIR</code> once. An unset or empty value leaves
+<code>DBT_USER_DATA_DIR</code> once. An unset or empty value leaves
 <code>AppPaths.BaseDir</code> unchanged: <code>%APPDATA%\dbtools</code>, or the
 <code>dbtools.AppPaths.BaseDir</code> AppContext value when one is set. Any other
 value must be an absolute path to an existing directory that the process
@@ -289,7 +286,7 @@ failure, so Revit shows no error dialog. See
 <td><code>IRevitRunScope</code>, <code>IRevitCallGate</code>, <code>ITransactionRunner</code> and <code>ITransactionGroupService</code> (<code>RevitServiceCollectionExtensions</code>), opened through <code>IAppRunScopeFactory</code></td>
 </tr>
 <tr>
-<td><code>AppPaths.BaseDir</code>: <code>%APPDATA%\dbtools\</code>, or the <code>DBTOOLS_USER_DATA_DIR</code> directory</td>
+<td><code>AppPaths.BaseDir</code>: <code>%APPDATA%\dbtools\</code>, or the <code>DBT_USER_DATA_DIR</code> directory</td>
 <td><code>settings.&lt;year&gt;.json</code>, <code>Logs\</code> and <code>Cache\</code></td>
 </tr>
 <tr>
@@ -302,7 +299,7 @@ failure, so Revit shows no error dialog. See
 <p><code>Logs\dbtools.Fallback.log</code> below <code>AppPaths.BaseDir</code> holds failures from
 before logging starts, such as a bad Revit year, and failures that the logger
 cannot record. The log names a failed startup phase. After a refused
-<code>DBTOOLS_USER_DATA_DIR</code>, records go to <code>Trace</code> only.
+<code>DBT_USER_DATA_DIR</code>, records go to <code>Trace</code> only.
 <code>AppStartupFailurePresenter</code> shows a dialog unless <code>DBT_TEST_RUN_ID</code> is set.</p>
 <h2 id="tests">TESTS</h2>
 <pre><code class="lang-bash">./test.sh test --tool APP
@@ -343,8 +340,6 @@ cannot record. The log names a failed startup phase. After a refused
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

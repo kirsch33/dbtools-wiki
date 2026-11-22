@@ -102,7 +102,7 @@ do not save independently.</p>
 bootstrap receives and rejects a year outside 2015-2100 with
 <code>ArgumentOutOfRangeException</code>. The <code>dbtools.AppPaths.BaseDir</code> AppContext
 value relocates the base directory for the process; App startup sets it from
-<code>DBTOOLS_USER_DATA_DIR</code>.</p>
+<code>DBT_USER_DATA_DIR</code>.</p>
 <p><code>SettingsSectionReader</code> reads <code>appsettings.json</code> from its base directory,
 then overlays the user file. An absolute user path is used directly. A relative
 one resolves against the base directory. The reader validates files at
@@ -380,15 +380,17 @@ retains its prerequisite warning publication and repair actions. It does not
 implement <code>ISettingsWarningContext</code>. Its <code>MarkSaved</code> override copies committed
 options before setting the baseline.</p>
 <h3 id="regex-pattern-lists">Regex pattern lists</h3>
-<p><code>RegexPatternListContext</code> owns bindable <code>RegexPatternEntry</code> rows, add/remove
-commands, a configured maximum, empty-list default seeding, snapshots that omit
-blank rows, and state-change events. <code>Load</code> takes at most the configured maximum.
-Removal retains at least one row. Tool contexts retain their binding property
-names and validation rules.</p>
-<p>Elevation Tags and Combined Foundation Tags use the shared list mechanics with at most
-three rows per pattern list. Do not copy those mechanics into a new context.
-Joist Girder Weights uses individual <code>FamilyNamePattern</code>, <code>DeadLoadPattern</code>, <code>LiveLoadPattern</code>, and
-<code>TotalLoadPattern</code> strings rather than pattern lists.</p>
+<p><code>RegexPatternListContext</code> owns <code>RegexPatternEntry</code> rows, add and remove commands,
+the row limit, and state-change events. <code>Load</code> keeps the first nonblank patterns
+up to the limit. When all entries are blank or the list is empty, it shows the
+default. Removal retains at least one row.</p>
+<p>A snapshot omits blank rows and saves the remaining pattern text as entered.
+<code>IsDefaultPattern</code> trims the entered text only for comparison with the default.
+A list with a sole default saves as an empty list. Joist Girder Weights uses the
+same comparison to save a default in an individual field as an empty string.</p>
+<p>Elevation Tags, Combined Foundation Tags, and Dialog Suppression bind their
+views directly to the shared context and limit each list to three rows. Each
+pack owns its validation rules.</p>
 <h3 id="tool-settings-examples">Tool settings examples</h3>
 <p>Combined Foundation Tags persists <code>TagFamilyPatterns</code>, <code>PierFamilyPatterns</code>, and
 <code>FootingFamilyPatterns</code>. Empty lists select these tool defaults:</p>
@@ -555,32 +557,33 @@ serialization model and a text preview. The manifest names the public
 <code>AutoUpdateEnabled</code> and <code>ToggleEnabled</code>. Bind regex row editors to their explicit
 properties and commands. Pack views created by <code>ViewFactory</code> are embedded editors. See
 <a href="modularity.html">Modularity</a> for top-level tool-window resources.</p>
-<p>Action buttons in the Settings window and in pack views follow one layout:</p>
+<p>Use the theme's sizes and spacing for action buttons in the Settings window
+and pack views.</p>
 <ul>
-<li>Adjacent buttons are 8 px apart: each button after the first in a row sets
-<code>Margin=&quot;{DynamicResource ButtonGap}&quot;</code>. A field's inline button, such as a pattern row's
-remove button, sits one <code>ButtonGap</code> after the field.</li>
-<li>Buttons in one row share the height <code>MinHeight.Button</code> (36 px). The button styles set it;
-do not override <code>MinHeight</code> on a button. A control that shares a row with buttons, such as the
-footer's <strong>Reset All</strong> menu item, sets <code>MinHeight=&quot;{DynamicResource MinHeight.Button}&quot;</code>.</li>
-<li>The footer aligns its actions right, with the primary action (<strong>Save Settings</strong>) last. A pack
-aligns its action row left, under the content it acts on, with <code>BGap16</code> below the row.</li>
+<li><code>DialogFooter</code> and <code>ToolbarRow</code> space adjacent buttons 8 px apart by default.
+In a pack row with its own layout, set <code>Margin=&quot;{DynamicResource ButtonGap}&quot;</code>
+on each button after the first. Use the same margin for a button after a field.</li>
+<li>The theme sets footer buttons to <code>Size.Control</code> (28 px). Pack buttons use
+<code>MinHeight.Button</code> (28 px) as their minimum height.</li>
+<li>The window footer is a <code>DialogFooter</code>: <strong>Reset All…</strong> at the left, then <strong>Validate</strong> and
+<strong>Save Settings</strong>, the one primary action, at the right. A pack aligns its action row left,
+under the content it acts on, with <code>BGap16</code> below the row.</li>
 </ul>
 <p>A pack that lists entries shows every value in full at any window width, without horizontal
 scrolling and without a value that only a tooltip shows. Use one item per entry: the primary
 name first, with a status at the right when the entry has one; secondary facts on a muted line;
 a problem sentence only when there is one. Every text wraps. Do not use a multi-column grid for
 such a list: its columns cannot fit the pack at the window's 800 px default.</p>
-<p>Replace a list that has nothing to show with the theme's empty state: an <code>EmptyStatePanel</code>
-border with an <code>EmptyStateIcon</code> glyph, an <code>EmptyStateTitle</code> and an <code>EmptyStateDetail</code> that
-names the reason or the next step.</p>
+<p>Give a list, tree or grid that can be empty an empty-state line with <code>ListEmptyState.Text</code>,
+for example <code>controls:ListEmptyState.Text=&quot;No files. Add one with Add File.&quot;</code>.
+For a larger panel, use the theme's empty state: an <code>EmptyStatePanel</code> border with an
+<code>EmptyStateIcon</code> glyph, an <code>EmptyStateTitle</code> and an <code>EmptyStateDetail</code> that names the reason or
+the next step.</p>
 <p>See <a href="testing-tools.html">Testing Tools</a> for execution commands and
 <a href="feature-warnings.html">Feature Warnings</a> for warning publication and Fix actions.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

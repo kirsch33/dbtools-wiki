@@ -92,7 +92,7 @@
 <h2 id="name">NAME</h2>
 <p>dbtools.JoistGirderWeight - the assembly behind Update Joist Girder Weights</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Structural/JoistGirderWeight/   (MAP.md, manifest.yml)
+<pre><code class="lang-text">source    src/Tools/Structural/JoistGirderWeight/   (manifest.yml)
 assembly  dbtools.JoistGirderWeight
 entry     JoistGirderWeightToolModule
 command   UpdateJoistGirderWeightsCommand           (run profile InlineUi)
@@ -134,7 +134,7 @@ the Core types.</p>
 </tr>
 <tr>
 <td><code>Features/Load/</code></td>
-<td><code>Operations/ElementLoadReader</code> reads loads, <code>LoadParser</code> parses text, and <code>LoadResolutionEvaluator</code> picks the total or dead plus live.</td>
+<td><code>Operations/ElementLoadReader</code> reads Force and text parameters. <code>LoadParser</code> parses load text. <code>LoadResolutionEvaluator</code> picks the total or dead plus live.</td>
 </tr>
 <tr>
 <td><code>Settings/</code></td>
@@ -157,9 +157,25 @@ the rest of the document session, keyed by <code>DocumentSessionKey</code>. Core
 <code>ViewActivationHookTests</code> check the mechanism.</li>
 <li><strong>Load groups.</strong> The same patterns find and classify the loads.
 <code>ClassifyLoadGroup</code> tries Dead, then Live, then Total, and throws if none
-matches. <code>JoistGirderClassifierTests</code> checks the groups but not the order.</li>
+matches. <code>JoistGirderClassifierTests</code> checks the groups but not the order.
+<code>ElementLoadReader</code> reads Double parameters with the Force spec and
+String parameters. It converts Force values to kips and compares spec
+names independent of version. <code>LoadParser</code> reads load text as a nonnegative
+number with an optional unit. The <a href="../../../user-guide/tools/joist-girder-weight.html#loads">user guide</a>
+lists the units. Blank Force and text inputs are unpopulated.
+Only populated inputs count toward ambiguity. A populated total takes
+precedence over the dead and live sum. Otherwise, both groups need an
+input and at least one group needs a value. A group with only blank inputs
+contributes zero. An instance input takes precedence over a same-named
+type input, including when the instance input is blank.
+Unsupported storage and invalid load text stay out of resolution. If
+neither load source resolves, the tool reports missing or blank loads
+and lists excluded matches and their reasons in the same issue. The
+diagnostic includes unparseable text.</li>
 <li><strong>Empty and invalid patterns.</strong> An empty pattern means the default, in
 <code>JoistGirderClassifier</code> and <code>SettingsPackContext.LoadCore</code>.
+The context displays the defaults. It stores an empty string when the
+trimmed text matches the default and saves other pattern text as entered.
 <code>CollectValidationErrors</code> reports bad patterns, and the inherited
 <code>BlockSaveOnInvalid</code> makes Save refuse them. <code>SettingsPackContextTests</code>
 checks the errors, but no test checks the refusal for this pack.</li>
@@ -258,8 +274,6 @@ they are inconclusive.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

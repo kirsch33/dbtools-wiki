@@ -89,7 +89,7 @@
         <article data-uid="">
 <h1 id="assembly-loading-contract">Assembly Loading Contract</h1>
 
-<p>The product is a tree of ordinary files: one entry assembly, three top-level
+<p>The product is a tree of ordinary files: one entry assembly, two top-level
 libraries and one assembly per tool. The installed add-in loads in Revit's
 default <code>AssemblyLoadContext</code>. Revit-hosted tests and Dev Mode load the product
 into a context that the dbtools-daemon creates. In every host, App loads each
@@ -103,7 +103,6 @@ tree that the installer, Revit-hosted test staging, Sandbox and Dev Mode use:</p
 ├── dbtools.dll
 ├── dbtools.Core.dll
 ├── dbtools.Presentation.dll
-├── dbtools.HandyControl.dll
 └── Tools/
     ├── dbtools.AnalyticalSnapToLevel.dll
     ├── dbtools.DialogSuppression.dll
@@ -123,7 +122,7 @@ tree that the installer, Revit-hosted test staging, Sandbox and Dev Mode use:</p
 <p><code>dbtools.addin</code> names <code>dbtools.dll</code> and the class
 <code>dbtools.App.Addin.AddinEntry</code>. <code>dbtools.dll</code> contains the entry point and host
 infrastructure and no tool code. WPF needs the physical location of
-Presentation and HandyControl, so they stay at the top level.</p>
+Presentation, so it stays at the top level.</p>
 <h2 id="merged-libraries">Merged libraries</h2>
 <p>Every third-party runtime library is merged into one owner assembly; no
 third-party DLL is staged. <code>build/Merging/AssemblyMerges.props</code> declares the
@@ -173,10 +172,11 @@ to any nonempty value and the entry assembly is in exactly
 <code>dbtools-daemon.IdleAddin:dbtools</code> to the entry assembly's file location and
 returns <code>Succeeded</code> before any runtime, ribbon, logging or tool work.
 <code>OnShutdown</code> returns <code>Succeeded</code> immediately for that instance.</p>
-<p>Otherwise startup applies <code>DBTOOLS_USER_DATA_DIR</code> with <code>AddinUserData</code>, which
-uses BCL APIs and constants only, and then enters <code>AppStartupBoundary</code>, a
-non-inlined method, which starts the App lifecycle inside
-<code>ToolWindowCallbackScope</code>. Startup, shutdown and ribbon failures that cannot
+<p>Otherwise startup applies <code>DBT_USER_DATA_DIR</code> with <code>AddinUserData</code>, which
+uses BCL APIs and constants only. If the directory is refused, the entry formats
+and reports the reason before loading product dependencies, then returns <code>Failed</code>.
+A validated directory allows <code>AppStartupBoundary.Start</code>, a non-inlined method,
+to start the App lifecycle inside <code>ToolWindowCallbackScope</code>. Startup, shutdown and ribbon failures that cannot
 reach the normal log are written to <code>Logs\dbtools.Fallback.log</code> below
 <code>AppPaths.BaseDir</code> with BCL APIs only.</p>
 <h2 id="tool-resolution">Tool resolution</h2>
@@ -205,12 +205,51 @@ command's load context.</p>
 <h2 id="hosted-tests-and-dev-mode">Hosted tests and Dev Mode</h2>
 <p>The daemon creates <code>ProductLoadContext</code> for hosted tests and
 <code>DevModeLoadContext</code> for Dev Mode. App loads each declared tool from <code>Tools/</code>
-into that context; Dev Mode does not probe other subfolders. Presentation and
-HandyControl stay loaded for the life of the process. App, Core and the tool
+into that context; Dev Mode does not probe other subfolders. Presentation
+stays loaded for the life of the process. App, Core and the tool
 assemblies can be reloaded, as the host decides.
 <code>DevModeCollectibleUnloadTests</code> composes such a generation on Linux and
 requires it to unload; see
 <a href="../developing/testing-tools.html">Testing Tools</a>.</p>
+<p>A Dev Mode fleet job of the daemon also loads the
+<a href="build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a> into the same Revit
+process, in a test context of its own for each generation. The scenario
+references no dbtools assembly, so no scenario object holds a type or object of
+a generation.</p>
+<h3 id="linux-lifetime-checks">Linux lifetime checks</h3>
+<p>The BUILD lane checks reloadable product code for common Dev Mode lifetime
+failures against both supported Revit years.</p>
+<ul>
+<li>The resolver fixture inventories <code>AssemblyResolve</code> and
+<code>AssemblyLoadContext.Resolving</code> registrations, plus
+<code>AssemblyLoadContext.Load</code> overrides, across product source under <code>src</code>. Each
+inventoried resolver has a named safety exercise. The exercises use missing
+names, unusual versions (including <code>1.0.0</code> and <code>0.0.0.0</code>), culture and
+public-key differences, and dbtools-owned names. A resolver returns a matching
+assembly or <code>null</code>; it does not throw.</li>
+<li>The raw XAML audit scans product XAML under <code>src</code>, including Presentation.
+It checks each binding path segment against a dependency property or a
+property on a type that implements <code>INotifyPropertyChanged</code>. A <code>OneTime</code>
+binding does not require change notifications. The audit resolves sources
+from code-behind data contexts, <code>d:DataContext</code>, <code>DataTemplate.DataType</code>,
+<code>RelativeSource</code>, and <code>ElementName</code> when their types are known. It reports
+unresolved counts by source group and sample file locations. An unresolved
+binding remains unverified and does not count as a pass.</li>
+<li>Reloadable code cannot call <code>Window.Show</code> or <code>Window.ShowDialog</code> directly.
+Registered tool windows go through <code>ToolWindowRegistry</code>.</li>
+<li>Revit application event subscriptions go through Core's hook lifecycle.
+The contextual ribbon selection controller is part of that lifecycle.
+A suppression for <code>DBTDEV002</code>, <code>DBTDEV003</code>, or <code>RS0030</code> must name its rule,
+include a non-empty reason, and apply to one member. Assembly, module,
+namespace, and pragma suppressions fail the BUILD check. A diagnostic severity
+override or <code>NoWarn</code> entry that disables or downgrades these rules also fails.</li>
+<li>Reloadable code cannot call <code>Dispatcher.BeginInvoke</code>,
+<code>Dispatcher.InvokeAsync</code>, or <code>Dispatcher.Invoke</code> directly. It also cannot call
+the matching <code>DispatcherExtensions.BeginInvoke</code> or <code>DispatcherExtensions.Invoke</code>
+methods. It uses Core's <code>WpfDispatcher</code> registry. The rule does not cover
+<code>DispatcherTimer</code>.</li>
+<li>See the <a href="../projects/core.html#dispatcher-operation-retirement">dispatcher operation retirement contract</a>.</li>
+</ul>
 <h2 id="sandbox">Sandbox</h2>
 <p>Sandbox runs one new process in the default context for each candidate year. Its
 entry point uses only BCL types: it validates the candidate, loads the top-level
@@ -228,8 +267,6 @@ and <a href="../../user-guide/installation.html">Installation</a>.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

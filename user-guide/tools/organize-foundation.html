@@ -89,7 +89,9 @@
         <article data-uid="">
 <h1 id="organize-foundation-types">Organize Foundation Types</h1>
 
-<p>Organize Foundation Types renames pier, footing and pile cap types by their dimensions, assigns sequential type marks, and merges types that have identical dimensions. It changes types. It does not move placed instances.</p>
+<p>Organize Foundation Types renames pier, footing and pile cap types by their dimensions,
+assigns sequential type marks, and merges eligible types of the same size.
+It changes types and keeps placed instances in position.</p>
 <h2 id="synopsis">Synopsis</h2>
 <p>Ribbon: <strong>dbtools</strong> &gt; <strong>Structural</strong> &gt; the foundation tags split button (with Update Combined Foundation Tags and Move Combined Tags).</p>
 <p>The command processes the whole model. It is disabled while the <code>Combined Foundation Tags Disabled</code> warning is active (see <a href="foundation-tags.html">Combined Foundation Tags</a>).</p>
@@ -111,11 +113,11 @@
 <tbody>
 <tr>
 <td><strong>Overwrite Existing Marks</strong></td>
-<td>Regenerates the Type Mark of every processed type.</td>
+<td>Regenerates the <code>Type Mark</code> of each retained type.</td>
 </tr>
 <tr>
 <td><strong>Preserve Existing Marks</strong></td>
-<td>Keeps existing Type Marks. Types with an empty Type Mark receive a new one.</td>
+<td>Keeps every existing <code>Type Mark</code>. Assigns new marks only to types with blank marks and skips every existing mark when choosing a new one. Keeps equal-size types with different marks separate.</td>
 </tr>
 <tr>
 <td><strong>Cancel</strong> or close</td>
@@ -197,34 +199,58 @@
 </table>
 <p>Types are processed in ascending order of size, and marks are assigned in that order:</p>
 <ul>
-<li>piers: section area <code>b x h</code>;</li>
+<li>piers: section area <code>b x h</code>, then <code>b</code> and <code>h</code> when areas match;</li>
 <li>round piers: diameter;</li>
 <li>footings and pile caps: width, then length, then thickness.</li>
 </ul>
 <p>Pier and round pier marks are <code>P-1</code>, <code>P-2</code>, ... and <code>RP-1</code>, <code>RP-2</code>, .... Footing and pile cap marks are <code>&lt;prefix&gt;-&lt;w&gt;.&lt;n&gt;</code>, where <code>&lt;w&gt;</code> is the width in whole feet (rounded down) and <code>&lt;n&gt;</code> counts from 0 within that width: <code>F-3.0</code>, <code>F-3.1</code>, <code>CAP-4.0</code>.</p>
+<p><strong>Preserve Existing Marks</strong> reserves every existing mark before assigning new
+ones. <strong>Overwrite Existing Marks</strong> assigns new marks in size order and reserves
+old marks when a type is skipped. If a skipped type keeps a mark already
+assigned in this run, the result dialog names the duplicate.</p>
 <h2 id="merging">Merging</h2>
-<p>Types of one family with equal dimension values are duplicates. The tool keeps the first in the sort order, changes every instance of the other types to the kept type, and deletes the other types. Equality is exact on the stored values, so types that differ by a small amount are not merged. Instances stay where they are.</p>
+<p>The tool compares exact stored dimensions within each family. A merge requires
+every dimension to have a value. <strong>Overwrite Existing Marks</strong> groups all types
+of the same size. <strong>Preserve Existing Marks</strong> keeps different marks separate.
+In Preserve, a blank type joins a marked group if the size has one distinct
+mark. Otherwise, blank types of that size form their own group and receive a
+new mark.</p>
+<p>In <strong>Preserve Existing Marks</strong>, the marked type with the lowest element ID is
+the merge target when the group has marked types. In other groups, the type
+with the lowest element ID is the target. The tool reassigns instances and
+deletes duplicate types before renaming the target.</p>
 <h2 id="result">Result</h2>
 <p>The run is one undo entry. The result dialog shows the number of types renamed, duplicates merged and types skipped:</p>
-<pre><code>Successfully organized pier and footing types.
-- N types renamed
-- N duplicates merged
-- N types skipped
+<pre><code>Organized pier and footing types.
+• N types renamed
+• N duplicates merged
+• N types skipped
 </code></pre>
 <p>When types are skipped, the first line reads <code>Organized pier and footing types with skipped types.</code> and the dialog adds up to 5 lines <code>&lt;type id&gt;: &lt;reason&gt;</code>. A type is skipped when Revit rejects its change, for example when the new name already exists. The remaining types are still processed. If a merged type cannot be deleted, the command fails and changes nothing.</p>
+<p>If a skipped type retains a mark assigned to another type during the run, the
+dialog adds <strong>Duplicate Type Marks</strong>. It shows the count and lists up to five
+examples with the shared mark and both type IDs.</p>
 <p>Press <code>Ctrl+Z</code> to undo the whole run.</p>
 <h2 id="limitations">Limitations</h2>
 <ul>
-<li>With <strong>Preserve Existing Marks</strong>, the tool does not compare new marks with preserved marks that come later in the sort order, so two types can end with the same mark. Use <strong>Overwrite Existing Marks</strong> for a consistent set.</li>
-<li>The tool changes only the type name and the <code>Type Mark</code> parameter, and the type of merged instances. The type mark is written only when the <code>Type Mark</code> parameter is a writable text parameter.</li>
+<li>The tool changes the type name, the <code>Type Mark</code> parameter, and the type of
+merged instances. If the tool must assign a mark and <code>Type Mark</code> is missing,
+read-only, or uses storage other than text, it skips the whole type.</li>
+<li>The tool skips a type with a missing or unreadable dimension. The skip
+details identify the dimension parameter.</li>
 <li>Linked models are not processed.</li>
-<li>Types that Revit rejects are skipped, not retried.</li>
+<li>A stale name on another type in the same family can block a rename. This
+includes equal-size types with different marks in <strong>Preserve Existing Marks</strong>.
+The skipped type keeps its name and mark. Run the tool again once the name
+is free. If two types hold each other's proposed names, rename one manually
+to an unused name before rerunning the tool.</li>
+<li>Different stored dimensions can round to the same text in a type name. The
+tool keeps these types separate to preserve the exact size of placed
+foundations. If their marks also match, Revit can reject one of the renames.</li>
 </ul>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

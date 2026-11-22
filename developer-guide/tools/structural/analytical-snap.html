@@ -90,123 +90,85 @@
 <h1 id="dbtools.analyticalsnaptolevel">dbtools.AnalyticalSnapToLevel</h1>
 
 <h2 id="name">NAME</h2>
-<p>dbtools.AnalyticalSnapToLevel - the assembly behind Analytical Snap To Level</p>
+<p>dbtools.AnalyticalSnapToLevel - snap analytical members to a level</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Structural/AnalyticalSnapToLevel/   (MAP.md, manifest.yml)
+<pre><code class="lang-text">source    src/Tools/Structural/AnalyticalSnapToLevel/ (manifest.yml)
 assembly  dbtools.AnalyticalSnapToLevel
-entry     manifest.yml ribbon tool, no moduleType
-command   AnalyticalSnapToLevelCommand                  (run profile InlineUi)
+entry     AnalyticalSnapToLevelCommand
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p>The command resolves <code>AnalyticalSnapToLevelWorkflow</code>. The workflow asks for a
-level, calls <code>AnalyticalSnapper.Run</code> and shows a summary alert. The tool has
-no settings, hooks or warnings. The
-<a href="../../../user-guide/tools/analytical-snap.html">user page</a> describes the
-behavior.</p>
+<p><code>AnalyticalSnapToLevelWorkflow</code> reads the selection and prompts for a
+target <code>Level</code>. It passes both to <code>AnalyticalSnapper</code>.
+See <a href="../../../user-guide/tools/analytical-snap.html">Analytical Snap To Level</a>.</p>
 <h2 id="structure">STRUCTURE</h2>
-<p>Paths are under <code>src/Tools/Structural/AnalyticalSnapToLevel/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Path</th>
-<th>Contents</th>
+<th>File</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>App/Composition/</code></td>
-<td><code>AnalyticalSnapToLevelCommand</code>, available through <code>CommandAvailability.HasSelection</code></td>
+<td><code>App/Composition/AnalyticalSnapToLevelCommand.cs</code></td>
+<td><code>CommandAvailability.HasSelection</code> gates the command. <code>[CommandService]</code> declares the workflow for App to register.</td>
 </tr>
 <tr>
 <td><code>Features/AnalyticalSnapToLevelWorkflow.cs</code></td>
-<td>The level picker, the run and the summary alert</td>
+<td>The workflow owns the level choices and the completion alert.</td>
 </tr>
 <tr>
 <td><code>Features/AnalyticalSnapper.cs</code></td>
-<td><code>Run</code>, which checks and writes each element, and the four skip reasons</td>
+<td><code>Run</code> checks selected elements and writes Revit curves.</td>
 </tr>
 <tr>
 <td><code>Features/AnalyticalSegment.cs</code></td>
-<td><code>SnapTo</code>, the end-point rule, without Revit types</td>
+<td><code>SnapTo</code> computes endpoint coordinates on plain values.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="contracts">CONTRACTS</h2>
-<ol>
-<li><strong>No module.</strong> The manifest has no <code>moduleType</code>. <code>ToolModuleRibbonRegistrar</code>
-registers the button, and <code>AppToolModuleState.RegisterCommandServices</code>
-adds the workflow from <code>[CommandService]</code>. <code>AnalyticalSnapToLevelCommandTests</code>
-checks the attribute.</li>
-<li><strong>End-point rule.</strong> <code>SnapTo</code> sets both Z values of a <code>Beam</code>. For a
-<code>Column</code>, it sets the Z nearer the target, or the start on a tie. X and Y
-do not change. <code>AnalyticalSegmentTests</code> and
-<code>AnalyticalSegmentEdgeCaseTests</code> check this.</li>
-<li><strong>Skips.</strong> <code>Run</code> checks <code>OST_AnalyticalMember</code> and <code>AnalyticalMember</code>,
-then <code>TryResolveRole</code>, <code>GetCurve() is Line</code> and the snapped length. The
-first failure is the reason. <code>AnalyticalSnapperRevitTests</code> and
-<code>AnalyticalSnapToLevelWorkflowTests</code> check <code>NotStraight</code> and
-<code>WouldCollapse</code>.</li>
-<li><strong>One transaction.</strong> All writes run in one transaction,
-<code>dbtools - Snap Analytical Elements to Level</code>. <code>Run</code> catches nothing per
-element, so the transaction rolls back the whole run when <code>SetCurve</code>
-fails. No test checks the rollback.</li>
-<li><strong>Refusals.</strong> An empty selection, a cancelled picker and a model without
-levels throw <code>SafeExecutionRefusedException</code> before any write.
-<code>AnalyticalSnapToLevelWorkflowTests</code> checks the first two.</li>
-</ol>
+<ul>
+<li><code>SnapTo</code> sets both endpoint Z values for a <code>Beam</code>. For a <code>Column</code>, it
+changes the Z of the nearer endpoint, using the start on a tie.
+It preserves X and Y. <code>AnalyticalSegmentTests</code> and
+<code>AnalyticalSegmentEdgeCaseTests</code> check the endpoint rules.</li>
+<li>See <code>AnalyticalSnapper.Run</code> and <code>TryResolveRole</code> for member and role checks.
+<code>AnalyticalSnapperRevitTests.Run_SkipsTransientArcBeamAndKeepsItsArc</code>
+checks the arc skip.
+<code>AnalyticalSnapToLevelWorkflowTests.Execute_MixedSelection_ListsSkippedMembersByReason</code>
+checks the reported <code>not straight</code> and <code>would collapse</code> reasons.</li>
+<li><code>AnalyticalSnapToLevelWorkflowTests</code> checks that <code>Execute</code> refuses an
+empty selection or a cancelled level picker before calling the snapper.</li>
+</ul>
 <h2 id="flow">FLOW</h2>
 <ol>
-<li><code>Execute</code> refuses an empty selection.</li>
-<li><code>PickTargetLevel</code> sorts every <code>Level</code> by <code>Elevation</code> and calls
-<code>IAlertService.SelectSingle</code>. <code>FormatLevel</code> writes
-<code>&lt;name&gt; (Elev: &lt;elevation&gt;)</code> with <code>F2</code> in the current culture.</li>
-<li><code>BuildAdjustedCurve</code> returns null when the snapped line is shorter than
-<code>Application.ShortCurveTolerance</code>. Otherwise <code>SetCurve</code> writes it. The
-processed count includes members that do not move.</li>
-<li>The workflow groups the skips by reason, in first-seen order. It lists
-at most <code>AnalyticalSnapToLevelWorkflow.MaxListedIds</code> (10) IDs for each
-reason, and only the count for <code>NotAnalyticalMember</code>. Then it calls
-<code>EnsureWindowIfDebugMode</code>.</li>
+<li><code>PickTargetLevel</code> owns the <code>IAlertService.SelectSingle</code> request.</li>
+<li><code>AnalyticalSnapper.Run</code> owns the transaction and curve writes.
+See <code>BuildAdjustedCurve</code> for the short-curve check.</li>
+<li><code>Execute</code> builds the completion alert from the processed count and the
+skip reasons. The grouping and ID limits live in
+<code>AnalyticalSnapToLevelWorkflow.cs</code>.</li>
+<li>After the alert, <code>Execute</code> calls <code>EnsureWindowIfDebugMode</code>.
+<code>AnalyticalSnapToLevelWorkflowTests.Execute_HappyPath_SnapsSelectionShowsSummaryAndEnsuresLoggerWindow</code>
+checks the alert request and the logger call.</li>
 </ol>
-<h2 id="data">DATA</h2>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Reads</td>
-<td>The selection, <code>Level.Elevation</code>, <code>StructuralRole</code> and <code>GetCurve()</code>, in internal feet</td>
-</tr>
-<tr>
-<td>Writes</td>
-<td><code>AnalyticalMember.SetCurve</code> only</td>
-</tr>
-</tbody>
-</table>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p>Log lines start with <code>[AnalyticalSnap]</code>. They are all Debug level: the target
-level, each snap or skip, and the totals.</p>
+<p>Debug messages with the prefix <code>[AnalyticalSnap]</code> give the target level,
+the result for each element and the totals.</p>
 <h2 id="tests">TESTS</h2>
-<pre><code class="lang-bash">./test.sh test --tool AnalyticalSnapToLevel                         # pure scope, the default
-./test.sh test --tool AnalyticalSnapToLevel --scope local -y 2026   # -y 2027 for Revit 2027
+<pre><code class="lang-bash">./test.sh test --tool AnalyticalSnapToLevel --scope pure
+./test.sh test --tool AnalyticalSnapToLevel --scope local -y 2026
 </code></pre>
-<p>Pure tests cover <code>AnalyticalSegment</code>. Local tests cover the command
-attributes, the snapper and the workflow. They create temporary analytical
-members in <code>gm_test_model.rvt</code>
-(<a href="../../developing/testing-tools.html#model-paths">Model paths</a>) and roll them
-back. Without the model, they are inconclusive.</p>
+<p><code>AnalyticalSnapToLevelCommandTests</code> checks the command attributes.
+The snapper and workflow fixtures create temporary analytical members in
+<code>gm_test_model.rvt</code>. See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="framing-joins.html">dbtools.FramingJoins</a>,
-<a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a></p>
+<a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution and Progress Overlay</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

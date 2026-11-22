@@ -327,18 +327,11 @@ before returning. It disposes the startup cancellation source only when startup
 is complete or absent. It neither queues Revit work nor pumps the dispatcher.
 Unfinished startup or deferred observation yields <code>Result.Failed</code> after owned
 teardown attempts.</p>
-<p>Core tracks WPF <code>DispatcherOperation</code> handles. Posting records ownership before
-<code>BeginInvoke</code> and rechecks retirement after the handle arrives.
-<code>DispatcherOperationRegistry.Retire</code> closes posting, releases callbacks and
-cancellation registrations, and aborts pending operations without executing their payloads. Their completion Tasks remain
-pending. Posts refused before queueing return canceled Tasks.
-<code>WindowStaticRuntime.Reset</code> retires that queue before it resets the window
-surfaces, and <code>WindowStaticRuntime.Configure</code> opens it again. App shutdown calls
-<code>Reset</code> after runtime host teardown, so posting stays open while hosts dispose.</p>
-<p>Logger, ribbon, notification, and progress posts use <code>WpfDispatcher.Post</code>.
-Callback faults remain observable. A fault in an error reporter stays on the
-completion Task rather than escaping into <code>Dispatcher.UnhandledException</code>.
-Shutdown must not pump WPF or await retired dispatcher work.</p>
+<p>Core owns WPF dispatcher operation tracking and retirement. See the
+<a href="../projects/core.html#dispatcher-operation-retirement">dispatcher operation retirement contract</a>.</p>
+<p>Logger, ribbon, notification, and progress work uses <code>WpfDispatcher.Post</code> or
+<code>WpfDispatcher.Queue</code>. See Core's dispatcher operation retirement contract for
+their callback and shutdown behavior.</p>
 <h2 id="extending-and-debugging-hooks">Extending and debugging hooks</h2>
 <p>Use <code>IHookLifecycle</code> for another owned application subscription. Add an
 event-specific contract only when its dispatch shape requires one. Such a
@@ -386,8 +379,6 @@ execution commands.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>dbtools.DialogSuppression | dbtools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="dbtools.DialogSuppression | dbtools ">
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <link rel="stylesheet" href="../../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../../toc.html">
+      <meta name="docfx:tocrel" content="../../toc.html">
+      
+      <meta name="docfx:rel" content="../../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../../index.html">
+            <img id="logo" src="../../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="dbtools.dialogsuppression">dbtools.DialogSuppression</h1>
+
+<h2 id="name">NAME</h2>
+<p>dbtools.DialogSuppression - match Revit dialog text against configured rules</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Services/DialogSuppression/ (manifest.yml)
+assembly  dbtools.DialogSuppression
+entry     DialogSuppressionToolModule
+hook      DialogSuppressionHook
+</code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p><code>DialogSuppressionToolModule</code> registers a lifecycle hook and the
+<strong>Dialog Suppression</strong> settings pack. The pack is the user entry point for
+the service. <code>DialogSuppressionToolModuleTests</code> checks both registrations
+and the singleton adapter registration.</p>
+<h2 id="structure">STRUCTURE</h2>
+<table>
+<thead>
+<tr>
+<th>Path under the tool source</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Features/DialogSuppressionHook.cs</code></td>
+<td><code>InitializeAsync</code>, <code>RollbackAsync</code> and <code>Shutdown</code>.</td>
+</tr>
+<tr>
+<td><code>Features/DialogBoxShowing/</code></td>
+<td><code>DialogBoxShowingEventAdapter.Subscribe</code> and <code>Unsubscribe</code>.</td>
+</tr>
+<tr>
+<td><code>Features/DialogSuppressionPolicy.cs</code></td>
+<td><code>DialogSuppressionPolicy</code> reads settings, matches the dialog text and requests an override.</td>
+</tr>
+<tr>
+<td><code>Settings/</code></td>
+<td><code>DialogSuppressionSettingsContext</code> validates the edits from <code>DialogSuppressionSettingsView.xaml</code> and builds the options snapshot.</td>
+</tr>
+</tbody>
+</table>
+<p>The adapter looks up <code>DialogBoxShowing</code> and builds its delegate with
+reflection. Its handler takes the event arguments as <code>object</code>. See the
+comment on <code>DialogBoxShowingEventAdapter.OnDialogBoxShowing</code> for the
+Revit event-argument type rationale.</p>
+<h2 id="contracts">CONTRACTS</h2>
+<ol>
+<li><code>DialogSuppressionPolicy.Apply</code> reads the Services flag for each event.
+An override requires both <code>SettingsFlags.ServicesModeEnabled</code> and
+<code>DialogSuppressionSettings.Enabled</code>. <code>DialogSuppressionPolicyTests</code> checks
+the Services flag and changes to the patterns between events.</li>
+<li>The policy creates regular expressions with <code>RegexOptions.IgnoreCase</code>.
+It reuses them while the resolved pattern sequence stays the same.
+It divides 250 ms among those patterns, with a minimum of 1 ms per pattern.
+<code>DialogSuppressionPolicyTests</code> checks matching, cache invalidation and timeout handling.</li>
+<li><code>DialogSuppressionSettingsContext</code> blocks saves with an invalid regular
+expression or an empty list of nonblank patterns.
+<code>DialogSuppressionSettingsContextTests</code> checks save validation.</li>
+</ol>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>DialogSuppressionPolicy.GetDialogMessage</code> reads the first non-null string
+in <code>Message</code>, <code>MainInstruction</code> and <code>Title</code>, in that order.</li>
+<li>On the first match, the policy calls <code>OverrideResult(1)</code> if the event
+arguments expose that method. <code>DialogSuppressionPolicyTests</code> checks the
+value with test event arguments.</li>
+</ol>
+<h2 id="data">DATA</h2>
+<p>The <code>services.dialog_suppression</code> pack uses <code>Tools.DialogSuppression</code>.
+<code>Enabled</code> and <code>SuppressInternalExceptions</code> default to <code>true</code>.
+<code>SuppressInternalExceptions</code> persists with the pack and has no effect on
+suppression. The view exposes <strong>Enable Dialog Suppression</strong> and
+<strong>Dialog Regex Patterns</strong>.</p>
+<p>The policy uses <code>DefaultSuppressedDialogPatterns</code> when the saved list contains
+no nonblank patterns. Otherwise, it considers the full nonblank list.
+The editor binds to <code>DialogSuppressionSettingsContext.PatternList</code>. It loads the
+first three nonblank patterns and displays the default if there are none.
+Saving Settings writes the editor snapshot. It omits blank rows, saves a sole
+default as an empty list, and preserves other pattern text as entered.
+<code>AppPaths.GetSettingsFile</code> defines the path for each Revit year.</p>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p><code>DialogSuppressionPolicy</code> logs invalid patterns and match timeouts as
+warnings. It tries a timed-out pattern on later events and logs its timeout
+once per pattern text. <code>DialogSuppressionHook</code> logs handler failures under
+<code>DialogSuppression handler failed</code>.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool DialogSuppression --scope pure
+./test.sh test --tool DialogSuppression --scope local -y 2026
+</code></pre>
+<p><code>DialogSuppressionSettingsTests</code> checks the round trip of <code>Enabled</code>,
+<code>SuppressInternalExceptions</code> and <code>SuppressedDialogPatterns</code>.
+<code>DialogSuppressionSettingsViewTests</code> checks the view, its data context, and the
+pattern list bindings.
+<code>DialogSuppressionHookErrorBoundaryTests</code> invokes
+<code>DialogSuppressionHook.OnDialogBoxShowing</code> by reflection with test event
+arguments. It checks that the handler logs an override failure and returns.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../developing/hooks.html">Hooks</a>,
+<a href="../../developing/settings-packs.html">Settings Packs</a>,
+<a href="../../../user-guide/getting-started.html">Getting Started</a></p>
+
+</article>
+
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          dbtools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

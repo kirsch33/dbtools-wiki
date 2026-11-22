@@ -90,196 +90,140 @@
 <h1 id="dbtools.elevationtags">dbtools.ElevationTags</h1>
 
 <h2 id="name">NAME</h2>
-<p>dbtools.ElevationTags - the assembly behind Align Elevation Tags and Set Elevation Symbol Text</p>
+<p>dbtools.ElevationTags - align spot elevations and set symbol text</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Common/ElevationTags/           (MAP.md, manifest.yml)
+<pre><code class="lang-text">source    src/Tools/Common/ElevationTags/ (manifest.yml)
 assembly  dbtools.ElevationTags
 entry     ElevationTagsToolModule
-commands  ElevationTagsCommand            dbtools.AlignElevationTagsInView   (run profile InlineUi)
-          ElevationTagsSymbolTextCommand  dbtools.SetElevationSymbolText     (run profile InlineUi)
-view      src/dbtools.Presentation/Tools/ElevationTags/ElevationTagsSettingsPackView.xaml
+commands  ElevationTagsCommand, ElevationTagsSymbolTextCommand
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p>The Align command and the view-activation task both call
-<code>ElevationTagAlignmentService.Run</code>. It runs <code>SpotElevationTextAligner</code> on the
-active view in one transaction. The settings pack draws the same placement
-with <code>SpotElevationPreviewLayout</code>. <strong>Set Elevation Symbol Text</strong> runs
-<code>SymbolTextWorkflow</code>, which asks for the text, and <code>SymbolTextEditor</code>, which
-copies families and types. The
-<a href="../../../user-guide/tools/elevation-tags.html">user page</a> describes the
-behavior.</p>
+<p><code>ElevationTagsCommand</code> calls <code>AlignElevationTagsWorkflow.Execute</code>.
+Manual alignment and <code>AlignOnViewActivatedTask</code> share
+<code>ElevationTagAlignmentService</code>. <code>ElevationTagsSymbolTextCommand</code> calls
+<code>SymbolTextWorkflow</code>. See <a href="../../../user-guide/tools/elevation-tags.html">Elevation Tags</a>.</p>
 <h2 id="structure">STRUCTURE</h2>
-<p>Paths are under <code>src/Tools/Common/ElevationTags/</code>.</p>
 <table>
 <thead>
 <tr>
 <th>Path</th>
-<th>Contents</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>App/Composition/</code></td>
-<td>The module, the commands, and <code>ServiceCollectionExtensions</code>, which registers the service, the task and both workflows. <code>SettingsPackContextFactory</code> reads the types with <code>SpotElevationTypeProjector</code>.</td>
+<td><code>ElevationTagsToolModule</code> registers the settings pack.</td>
+</tr>
+<tr>
+<td><code>Domain/</code></td>
+<td><code>SpotElevationNameFilter</code> owns the default patterns and name matching.</td>
 </tr>
 <tr>
 <td><code>Features/</code></td>
-<td>The workflow, the task, <code>SpotElevationTextAligner</code>, <code>SpotElevationSymbolResolver</code>, <code>SpotElevationTextFont</code>, <code>SpotElevationTextComposer</code> and <code>SpotElevationTypeProjector</code>.</td>
+<td><code>SpotElevationTextAligner</code> owns alignment. <code>SpotElevationSymbolResolver</code> owns symbol lookup. <code>SpotElevationTypeProjector</code> builds type snapshots.</td>
 </tr>
 <tr>
 <td><code>Features/SymbolText/</code></td>
-<td><code>SymbolTextWorkflow</code>, <code>SymbolTextPolicy</code> (text and reuse rules), <code>SymbolTextTemporaryDirectory</code>, and <code>Revit/</code> with <code>SymbolTextEditor</code> and <code>SymbolTextVariantMarker</code>.</td>
+<td><code>SymbolTextPolicy</code> owns text validation, <code>InvalidTextMessage</code>, and <code>&lt;name&gt; - &lt;text&gt;</code> variant names. <code>SymbolTextEditor</code> owns assignment and cleanup.</td>
 </tr>
 <tr>
 <td><code>Settings/</code></td>
-<td><code>ElevationTagsSettings</code>, <code>SettingsPackContext</code> and its pattern, type and preview contexts, <code>SpotElevationPreviewLayout</code> and <code>SpotTextLocationParser</code>.</td>
+<td><code>SettingsPackContext</code> provides patterns, offsets, and preview state to <code>ElevationTagsSettingsPackView.xaml</code>.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="contracts">CONTRACTS</h2>
-<ol>
-<li><strong>Placement.</strong> <code>SpotElevationTextAligner.ComputeTextOffset</code> owns the
-rule. f = <code>view.Scale / 12</code> converts paper inches to model feet. The near
-edge of the text is <code>2f/128 + f/8</code> from the leader end along the shoulder
-(the margin), and <code>f/64</code> from the shoulder line (the gap). Above Leader
-and Below Leader take the side toward the spot origin. A rise within
-<code>LevelTolerance</code> (1e-9 of the leader length) counts as a leader that runs
-down. The Text Location only selects the edge that <code>TextPosition</code> marks,
-so the text box does not move: the bottom center for Above Leader, the
-top center for Below Leader, and the top corner nearest the leader end
-for In-line with Leader. The current text position plays no part, so a
-second run moves nothing. <code>ComputeTextOffset_places_the_text_by_text_location_and_leader_direction</code>
-and the Revit <code>AlignElevationTagsWorkflowTests</code> check this.</li>
-<li><strong>Preview follows Align.</strong> <code>SpotElevationPreviewLayout</code> holds the margin
-and the gap at f = 1 in its own constants, <code>LabelGapFromLeaderEnd</code> and
-<code>LabelGapFromShoulder</code>. Change them together with <code>ComputeTextOffset</code>.
-<code>Preview_and_align_place_text_on_the_same_side</code> checks only the side.</li>
-<li><strong>Font size.</strong> <code>SpotElevationTextFont.EmSizeInches</code> makes the capital
-height equal <code>TEXT_SIZE</code>, for Align and the preview. Align measures with
-GDI+. <code>Shared_font_em_size_gives_the_capitals_the_requested_height</code>
-checks the rule.</li>
-<li><strong>Matching.</strong> Align compiles the nonblank patterns with <code>IgnoreCase</code>. An
-empty list means <code>DefaultTagNamePatterns</code>. A bad pattern is logged and
-skipped. <code>TypeSelection</code> filters the preview by type name only, with
-case. <code>CollectValidationErrors</code> blocks Save without a nonblank pattern
-or with a bad one.
-<code>Run_FiltersByConfiguredPatterns_AndCountsOnlySuccessfulUpdates</code> checks
-Align.</li>
-<li><strong>Failures.</strong> A spot whose names cannot be read, and a spot whose update
-throws, add to <code>FailedCount</code>. The first of each kind is logged. Collection
-and transaction failures propagate. <code>Run_CountsSpotsThatCouldNotBeFilteredByNameAsFailed</code>
-and <code>Run_LogsTheFirstUpdateFailureOfEveryRun</code> check this.</li>
-<li><strong>Text Location.</strong> <code>SpotTextLocationParser.ParseTextLocation</code> maps 0, 1
-and 2 to <code>AboveLeader</code>, <code>BelowLeader</code> and <code>InLineWithLeader</code>, and throws
-for any other value. Align counts that spot as failed, and the preview
-leaves the type out. <code>ParseTextLocation_rejects_a_missing_or_unknown_value</code>
-checks this.</li>
-<li><strong>Elevation base.</strong> <code>TryUpdateSpot</code> compares the <code>SPOT_ELEV_BASE</code> display
-string with <code>Project Base Point</code> and <code>Relative</code>. For the first, it
-subtracts the base point Z when the base point and the survey point
-differ in any coordinate. No test covers another Revit language.</li>
-<li><strong>Auto-update admission.</strong> <code>ViewActivationTask.AdmitAsync</code> skips the task
-when <code>AutoUpdateEnabled</code> is false or the pack warning is active.
-<code>ShouldRunInternalAsync</code> admits only <code>FloorPlan</code>, <code>EngineeringPlan</code> and
-<code>CeilingPlan</code>. A failure in the run shows the Core error banner, and
-<code>ViewActivationHook</code> skips the task for that document session
-(<code>DocumentSessionKey</code>); it sets no warning. A failure in <code>AdmitAsync</code>
-also sets the pack warning. <code>AlignOnViewActivatedTaskTests</code> checks the
-run failure.</li>
-<li><strong>One Undo step for symbol text.</strong> <code>SymbolTextEditor.Apply</code> runs in the
-transaction group <code>dbtools - Set elevation symbol text</code>, and assimilates
-it or rolls it back. <code>EditFamily</code> runs with no project transaction open.
-A variant gets its text in the family document, is saved as
-<code>&lt;name&gt;.rfa</code> in a unique temporary folder, and is loaded by path.
-<code>SymbolTextTemporaryDirectory</code> deletes the folder and only logs a failure.
-<code>SymbolTextEditorTests</code> and <code>SymbolTextTemporaryDirectoryTests</code> check
-this.</li>
-<li><strong>Reuse.</strong> A family with the variant name is reused only when its one
-text element holds the text, and a spot type only when it uses that
-symbol. The source family must hold one text element even when the
-variant exists. <code>SymbolTextPolicyTests</code> and
-<code>Apply_validates_source_text_even_when_the_target_already_exists</code>
-check this.</li>
-<li><strong>Owned variants.</strong> <code>SymbolTextVariantMarker</code> stores <code>ElementId</code>,
-<code>SourceId</code> (both <code>UniqueId</code> values), <code>SourceName</code> and <code>Text</code>. The marker
-is valid only on the element whose <code>UniqueId</code> is in <code>ElementId</code>, with
-the name <code>&lt;SourceName&gt; - &lt;Text&gt;</code>. Cleanup looks only at the marked
-types that the selected spots leave, and at their marked families. It deletes one only when nothing else uses
-it, no other worksharing user owns it, and Revit deletes nothing else
-with it.
-<code>Apply_cleans_only_unused_owned_variants_and_keeps_copied_or_user_types</code>
-and <code>TryDeleteVariant_rolls_back_a_native_host_deletion_that_also_removes_spots</code>
-check this.</li>
-</ol>
+<ul>
+<li>Change the plan-view checks together. See <code>AlignElevationTagsWorkflow.IsSupportedPlanView</code>,
+<code>AlignOnViewActivatedTask.ShouldRunInternalAsync</code>, and
+<code>SpotElevationTextAligner.IsSupportedPlanViewName</code>.
+<code>ElevationTagsLogicTests</code> checks the aligner's view names.</li>
+<li><code>SpotElevationNameFilter</code> uses <code>DefaultTagNamePatterns</code> when no pattern
+is entered. Align and Live Preview use interpreted, case-insensitive regexes.
+<code>SpotElevationNameReader</code> supplies the aliases to Align and the projector.
+The preview empty state lists the entered patterns. The settings pack
+saves an empty list when the only entered pattern is the default.
+The view binds directly to <code>SettingsPackContext.PatternList</code>.
+Core's <code>RegexPatternListContextTests</code> checks the configured row limit.
+<code>SettingsPackContext.CollectValidationErrors</code> checks settings patterns.</li>
+<li>Change <code>ComputeTextOffset</code> and <code>SpotElevationPreviewLayout</code> together.
+<code>SpotElevationPreviewLayoutTests</code> checks that both place text on the
+same side of the leader.</li>
+<li><code>ElevationTagsSettingsPackView.xaml</code> binds the single caption below the
+preview to <code>PreviewContext.PreviewTextLocationName</code>. It shows the caption
+while a type matches the patterns.</li>
+<li>See <code>ViewActivationTask.AdmitAsync</code> for settings and warning checks.
+<code>ViewActivationTaskTests</code> checks the settings snapshot and the <strong>Common</strong>
+panel gate in <code>PanelScopedViewActivationTask.AdmitAsync</code>.</li>
+<li><code>ElevationTagsSymbolTextCommand.IsCommandAvailableCore</code> owns the project
+document gate.
+<code>SymbolTextEditorTests.Command_is_available_only_while_spot_elevations_are_selected</code>
+checks availability for spot, level, and empty selections in a project.</li>
+<li><code>SymbolTextVariantMarker.Read</code> owns marker validation.
+<code>SymbolTextEditorTests</code> checks source-family text validation, reuse,
+copied-marker rejection, and cleanup of departed variants.
+It checks rollback when deletion would remove dependent spots.</li>
+</ul>
 <h2 id="flow">FLOW</h2>
-<ol>
-<li><code>AlignElevationTagsWorkflow.Execute</code> refuses an unsupported view with a
-Warning banner.</li>
-<li><code>SpotElevationTextAligner.Run</code> collects the <code>OST_SpotElevations</code>
-instances in the view and matches their names. Without a match, it
-starts no transaction.</li>
-<li>One transaction, <code>dbtools - Align spot elevations</code>, calls
-<code>TryUpdateSpot</code> for each match. It skips a spot without a leader and a
-<code>Relative</code> base. <code>BuildTagText</code> builds the text to measure: the
-elevation in the type's units, with the indicator, or with <code>EL. </code> when
-the indicator is blank. <code>MeasureTag</code> measures it, and
-<code>ComputeTextOffset</code> places it along <code>RightDirection</code> and <code>UpDirection</code>.</li>
-<li>The spot gets the computed <code>TextPosition</code> when X or Y differs after
-rounding to two decimals of a foot. Z stays.</li>
-</ol>
+<p><code>AlignElevationTagsWorkflow.Execute</code> owns the unsupported-view toast.
+<code>BuildSummary</code> owns the result messages. <code>SpotElevationTextAligner.Run</code>
+owns the alignment transaction. <code>Runner.Run</code> includes name and update
+failures in <code>FailedCount</code>. <code>SpotElevationTextAlignerTests</code> checks those
+counts and the transaction call for matching candidates.</p>
+<p><code>SymbolTextEditor.Apply</code> puts family loading and spot type assignment in
+one transaction group. See <code>GetOrCreateSymbol</code> for the edit and load order.
+<code>SymbolTextEditorTests</code> checks rollback when a later type conflicts.</p>
 <h2 id="data">DATA</h2>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Settings section</td>
-<td><code>Tools.ElevationTags</code>, read into <code>ElevationTagsSettings</code>: <code>AutoUpdateEnabled</code> (true), <code>TagNamePatterns</code>, and <code>TypeOffsets</code> by type name, in paper inches</td>
-</tr>
-<tr>
-<td>Settings pack</td>
-<td><code>common.elevation_tags</code></td>
-</tr>
-<tr>
-<td>Pack warning</td>
-<td><code>core.common.elevation_tags</code>. It disables <code>dbtools.AlignElevationTagsInView</code> and auto-update. A failed admission sets it.</td>
-</tr>
-<tr>
-<td>Task ID</td>
-<td><code>structural.elevation_tags.updater</code></td>
-</tr>
-<tr>
-<td>Marker schema</td>
-<td><code>dbtoolsElevationSymbolTextV1</code>, GUID <code>69272ed8-14ab-4d1a-8af6-876be5d69184</code>, vendor input <code>dbtools</code>; Revit stores the vendor ID in uppercase. A marker under an earlier product schema identity is not recognized.</td>
-</tr>
-</tbody>
-</table>
+<p><code>ElevationTagsSettings.cs</code> defines the defaults for <code>Tools.ElevationTags</code>.
+<code>TypeOffsets</code> stores paper inches by type name. <code>SpotTextLocationParser</code>
+maps <code>SPOT_ELEV_TEXT_LOCATION</code> values.</p>
+<p><code>SymbolTextVariantMarker.cs</code> defines the Revit Extensible Storage schema.
+<code>SymbolTextEditor.Families.cs</code> defines the temporary <code>.rfa</code> path.</p>
+<p>The <code>common.elevation_tags</code> pack declares <code>core.common.elevation_tags</code>.
+<code>manifest.yml</code> names <code>dbtools.AlignElevationTagsInView</code> as the warning's only ribbon target.
+<code>ElevationTagsToolModuleTests</code> checks that the module passes its target and <code>WarningIdsToSetOnFailure</code> through.
+For activation on admission failure, see <code>ViewActivationTaskRegistry.RecordAdmissionFailure</code>
+and <a href="../../developing/hooks.html">Hooks</a>.
+<code>ViewActivationTaskRegistryTests.ActivateFailureWarnings_ActivatesTaskWarnings</code>
+checks activation of the registered warnings.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p>Log lines start with <code>[ElevationTags]</code>. Debug level adds the counts, and up
-to 5 sample spot names when nothing matches. The first update failure logs
-the Warning <code>Some elevation tags could not be updated; continuing.</code>.</p>
+<p>Search for <code>[ElevationTags]</code> in these files.</p>
+<ul>
+<li><code>SpotElevationTextAligner.Run.cs</code> has warnings for invalid patterns,
+lists with no valid patterns, and failed updates.
+<code>Run_LogsTheFirstUpdateFailureOfEveryRun</code> checks the update warning.</li>
+<li><code>SpotElevationTextAligner.cs</code> has warnings in <code>CollectWorkItems</code> and
+the units-format warning in <code>BuildTagText</code>.</li>
+<li><code>AlignOnViewActivatedTask.cs</code> has the partial-failure warning.</li>
+<li><code>SymbolTextTemporaryDirectory.cs</code> has the temporary-folder removal warning.</li>
+<li><code>SymbolTextEditor.Cleanup.cs</code> has <code>Kept</code> and <code>Removed</code> entries. See
+<code>TryDeleteSpotType</code> and <code>TryDeleteVariant</code> for the warning about
+workshared elements another user owns.</li>
+<li><code>SpotElevationTypeProjector.cs</code>, <code>SpotElevationSymbolResolver.cs</code>, and
+<code>SymbolTextEditor.cs</code> contain the remaining diagnostics.</li>
+</ul>
 <h2 id="tests">TESTS</h2>
-<pre><code class="lang-bash">./test.sh test --tool ElevationTags                         # pure scope, the default
-./test.sh test --tool ElevationTags --scope local -y 2026   # -y 2027 for Revit 2027
+<pre><code class="lang-bash">./test.sh test --tool ElevationTags --scope pure
+./test.sh test --tool ElevationTags --scope local -y 2026
 </code></pre>
-<p>Pure tests cover the rules above that need no Revit. Local tests open
-<code>gm_test_model.rvt</code> (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).
-The workflow tests build a spot symbol from the installed template and check
-each Text Location in plans turned 0, 30 and 90 degrees.
-<code>ElevationTagsSettingsPackViewTests</code> lives in <code>src/dbtools.Presentation/Tests/</code>.</p>
+<p>The Pure fixture in <code>Tests/Features/AlignElevationTagsWorkflowTests.cs</code>
+checks <code>BuildSummary</code>. <code>SymbolTextPolicyTests</code> checks text and naming rules.
+<code>ElevationTagsSettingsPackViewBindingTests</code> checks preview bindings, including
+caption changes on type selection and visibility when no type matches.
+These fixtures run in Pure.</p>
+<p>The Revit fixture in <code>Tests/Integration/Revit/Features/AlignElevationTagsWorkflowTests.cs</code>
+checks placement in rotated plans. It and <code>SymbolTextEditorTests</code> use
+<code>gm_test_model.rvt</code> and an installed spot elevation symbol template.
+See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
+<p>The Presentation Local fixture <code>ElevationTagsSettingsPackViewTests</code> checks
+the compiled view and its local resources in Revit.</p>
 <h2 id="see-also">SEE ALSO</h2>
-<p><a href="../../developing/hooks.html">Hooks</a>,
-<a href="../../developing/feature-warnings.html">Feature Warnings</a>,
+<p><a href="../../developing/feature-warnings.html">Feature Warnings</a>,
 <a href="../../developing/settings-packs.html">Settings Packs</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

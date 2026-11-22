@@ -90,54 +90,45 @@
 <h1 id="dbtools.tdv">dbtools.TDV</h1>
 
 <h2 id="name">NAME</h2>
-<p>dbtools.TDV - the assembly behind Import From Library and Export To Library</p>
+<p>dbtools.TDV - transfer drafting views between a project and a library</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Common/TDV/   (MAP.md, manifest.yml)
+<pre><code class="lang-text">source    src/Tools/Common/TDV/ (manifest.yml)
 assembly  dbtools.TDV
 entry     TdvToolModule
-commands  TdvImportCommand, TdvExportCommand   (run profile InlineUi)
-views     App/Views/TdvWindow.xaml, Features/Library/Settings/Views/LibrarySettingsView.xaml
-behavior  src/dbtools.Presentation/Tools/TDV/TdvPanZoomBehavior.cs
+commands  TdvImportCommand, TdvExportCommand
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p>The commands run <code>ImportTransferWorkflow</code> and <code>ExportTransferWorkflow</code>.
-Both use <code>LibraryTransferWorkflow</code> to select a library and
-<code>LibraryDocumentService</code> to open it without activating it. <code>WindowSession</code>
-shows the modal transfer window, and <code>TransferExecutor</code> copies the checked
-views into the destination document. The Select Library File alert lists valid
-configured paths and has a <strong>Browse for file</strong> action. <code>LibraryFilePicker</code>
-uses <code>FilePickerFileType.RevitProject</code>. A browsed path is used for one transfer
-and is not written to <code>LibraryOptions</code>. The
-<a href="../../../user-guide/tools/tdv.html">user page</a> describes the behavior.</p>
+<p><code>WindowSession</code> delegates library selection to <code>LibrarySelectionDialog</code>
+and opens the modal transfer window.
+<code>TransferSession</code> holds the source and destination for the window.</p>
 <h2 id="structure">STRUCTURE</h2>
-<p>Paths are under <code>src/Tools/Common/TDV/</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Path</th>
-<th>Contents</th>
+<th>Path under the tool source</th>
+<th>Owner</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>App/Composition/</code></td>
-<td><code>TdvToolModule</code> registers the settings section and the <code>core.library</code> pack. <code>ServiceCollectionExtensions.AddTdv</code> registers scoped services, because they need the scoped call gate and transaction runner.</td>
+<td><code>TdvToolModule</code> registers settings. <code>AddTdv</code> registers scoped services.</td>
 </tr>
 <tr>
 <td><code>App/Sessions/</code></td>
-<td><code>WindowSession</code> implements <code>ILibrarySelectionDialog</code> and <code>ITransferDialog</code>. It adds the one-transfer file picker action to the library selection alert. <code>WindowSessionDialogRunner</code> owns the modal loop and Dev Mode retirement.</td>
-</tr>
-<tr>
-<td><code>App/ViewModels/</code></td>
-<td><code>TdvWindowViewModel</code> partials: rows and filters, transfer and result dialog, preview.</td>
+<td><code>WindowSessionDialogRunner</code> handles close and retirement.</td>
 </tr>
 <tr>
 <td><code>Features/Library/</code></td>
-<td><code>LibraryCatalog</code>, <code>LibraryFilePicker</code>, <code>RevitYearProbe</code>, <code>LibraryDocumentService</code>, the settings context and view, and the library workflows.</td>
+<td><code>LibraryCatalog</code> resolves paths. <code>LibrarySelectionDialog</code> builds the picker. <code>LibraryDocumentService</code> manages documents.</td>
 </tr>
 <tr>
-<td><code>Features/Transfer/</code></td>
-<td><code>TransferExecutor</code> partials, <code>DestinationTransactionGroup</code>, the <code>DraftingView</code> reader, type resolver and writer, <code>TransferProjector</code>, and the import and export workflows.</td>
+<td><code>Features/Transfer/Execution/</code></td>
+<td>See <code>TransferExecutor.ApplySelectionAsync</code> and <code>DestinationTransactionGroup</code> (<code>RunItemAsync</code>, <code>FinalizeAsync</code>).</td>
+</tr>
+<tr>
+<td><code>Features/Transfer/Operations/DraftingView/</code></td>
+<td><code>DraftingViewTypeResolver</code> and <code>DraftingViewWriter</code>.</td>
 </tr>
 <tr>
 <td><code>Features/Preview/</code></td>
@@ -145,160 +136,106 @@ and is not written to <code>LibraryOptions</code>. The
 </tr>
 </tbody>
 </table>
+<p><code>DraftingViewWriter.CollectViewElementIds</code> compares <code>Category.Name</code> with the
+English keys in <code>s_skipCategoryNames</code>, so the check matches only those
+English names. See the same method for the <code>Viewport</code> type check and the
+<code>ExtentElem</code> substring check.</p>
 <h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li><strong>One callback.</strong> <code>TransferExecutor.ApplySelectionAsync</code> throws
-<code>InvalidOperationException</code> unless <code>RevitCallGateApiContext.IsActive</code> is
-true. It also rejects one document as both source and destination.
-<code>TransferExecutorTests</code> checks the callback and cancellation guards.</li>
-<li><strong>One group for each transfer.</strong> <code>DestinationTransactionGroup</code> binds to the
-document given to <code>BeginAsync</code>, rejects any other document, and never uses
-the active document. Each row runs in its own transaction,
-<code>Transfer: &lt;name&gt;</code>. <code>FinalizeAsync</code> assimilates the group
-<code>Transfer Drafting Views</code> on success. It rolls the group back on
-cancellation or an operation failure.
+<li><code>TransferExecutor.ApplySelectionAsync</code> requires one continuous Revit API
+callback. <code>TransferExecutorTests</code> checks callback entry.</li>
+<li><code>DestinationTransactionGroup</code> uses the requested document even when another
+document is active. <code>EnsureOwns</code> rejects any other document.
 <code>DestinationTransactionGroup_BindsBeginItemAndFinalizeToOneNonActiveDocument</code>
-checks this.</li>
-<li><strong>Deferred success.</strong> Row successes and counts wait until the group
-finalization reports <code>TransferFinalizationOutcome.Committed</code>. <code>RolledBack</code>
-marks attempted rows <code>TransactionRolledBack</code>. <code>Unknown</code> marks them
-<code>Unknown</code> and counts no success.
-<code>TransferProjectorTests</code> checks the projection.</li>
-<li><strong>Names.</strong> TDV adds no suffix. Blank names, duplicate names and, without
-<code>Replace</code>, existing names fail with <code>DestinationNameRequired</code>,
-<code>DuplicateTargetName</code> and <code>DestinationNameConflict</code> before the row
-transaction. The checks trim the
-names and ignore case. <code>TransferProjector.BuildConflictRefreshAsync</code> applies
-the same rules in the window. <code>TransferProjectorTests</code> checks them.</li>
-<li><strong>Types.</strong> <code>DraftingViewTypeResolver.EnsureDestType</code> creates a missing type
-only for <code>Retain Original</code>, by duplicating the first destination drafting
-type in name order. A named type that is missing fails. Revit tests in
-<code>TransferExecutorTests</code> check the creation and the refusal, but not the
-seed order.</li>
-<li><strong>Copy.</strong> <code>DraftingViewWriter</code> skips viewports, elements whose name
-contains <code>ExtentElem</code>, and the categories in <code>s_skipCategoryNames</code>. The
-check compares <code>Category.Name</code> with English names. It copies one element at
-a time with <code>UseDestinationTypes</code>, groups first. It pairs each source group
-member with its copy, so the overrides reach the members.
-<code>Transfer_DraftingViewGroup_PreservesPerElementOverridesOnGroupMembers</code>
-checks the overrides.</li>
-<li><strong>Revit year.</strong> <code>LibraryCatalog</code> and <code>LibraryDocumentService.OpenLibraryAsync</code>
-both use <code>RevitYearProbe</code>. Open throws on a mismatch, so Revit never
-upgrades a library and <code>CreateNewLocal</code> never sees another version.
-<code>OpenLibraryAsync_WhenFileYearMismatchesSession_FailsLoud</code> checks this.</li>
-<li><strong>Warning.</strong> <code>LibrarySettingsContext.ValidateAsync</code> fails when an entry has
-neither a valid main path nor a valid fallback.
-<code>Validation_marks_each_tree_path_and_returns_a_contextual_failure</code> checks
-this.</li>
-<li><strong>Close.</strong> Save and sync always close the library. A <code>Document.Close</code>
-that returns <code>false</code> throws. When the save or sync and the close both fail,
-the save or sync failure comes first in the <code>AggregateException</code>.
-<code>TryClose</code> returns <code>false</code> only for the active document.
-<code>LibraryDocumentServiceTests</code> checks the failure order and the
-active-document refusal.</li>
-<li><strong>Window totals.</strong> <code>TransferDestinationChanges</code> adds the committed
-changes of every transfer in a window. A transfer that ends without a
-verified commit or rollback sets <code>Unverified</code>. An export saves or syncs the
-library when <code>Any</code> is true, and discards it only when it is false.
-<code>TransferDestinationChangesTests</code> and <code>TransferWorkflowTests</code> check this.</li>
-<li><strong>Library selection.</strong> The selection alert returns a configured path or a
-browsed path. <code>LibrarySelectionWorkflow</code> validates the returned path with
-<code>LibraryCatalog</code> and refuses the open document. Canceling the native file
-picker keeps the alert open. <code>LibrarySelectionWorkflowTests</code> checks the
-path result, refusal and unchanged catalog.</li>
+checks the binding.</li>
+<li>Projection and execution trim names with <code>TransferNameNormalizer</code>.
+In <code>TransferExecutorTests</code>, <code>DraftingViewReader_and_TransferCatalog_project_only_current_drafting_views_and_conflicts</code>
+checks case-insensitive matching.
+<code>Transfer_WhenDuplicateDestinationNamesAreSelected_FailsWithoutCreatingRenamedCopies</code>
+and <code>Transfer_WhenDestinationNameExistsAndReplaceFalse_ReportsConflictWithoutCreatingView</code>
+check name rejection. See <code>TransferExecutor.TransferSelectionItemAsync</code>
+for validation and transaction order.</li>
+<li>For <code>Retain Original</code>, <code>TransferExecutor.ResolveDestinationType</code> lets
+<code>EnsureDestType</code> create a missing type. <code>TransferExecutorTests</code> checks that
+<code>EnsureDestType</code> creates a requested type and refuses a missing named type.</li>
+<li><code>TransferRunState</code> counts and reports row successes after <code>Committed</code>.
+<code>Transfer_DraftingView_From_GM_To_SGT</code> checks success reporting after finalization.
+<code>RunSelectionAsync</code> checks Cancel before each view and after the
+final transaction group health check. The executor rolls back the group
+when it observes Cancel or when starting the group fails after it opens.
+<code>Transfer_WhenReporterCancelsDuringFirstRow_RollsBackAndStops</code>
+checks rollback with one view and with another view pending.
+<code>TransferDestinationChangesTests</code> checks window totals and unverified changes.</li>
 </ol>
+<p><code>TransferProjectorTests</code> checks the conflict display and the display for
+rolled-back or unknown outcomes.</p>
 <h2 id="flow">FLOW</h2>
 <ol>
-<li><code>LibraryTransferWorkflow</code> calls <code>LibrarySelectionWorkflow</code>, which builds a
-<code>LibraryCatalog</code> from the settings. It throws <code>SafeExecutionRefusedException</code>
-when the settings hold no path or no valid path. The selection alert can
-return a configured path or a path from <strong>Browse for file</strong>. The workflow
-validates that path again and refuses the open document.</li>
-<li><code>OpenLibraryAsync</code> copies a workshared library with <code>CreateNewLocal</code> and
-opens all worksets. It opens other files in place. Both use
-<code>Application.OpenDocumentFile</code>, so the host stays active.</li>
-<li><code>ITransferDialog.ShowDialog</code> takes the destination, the source and the
-column header. An import passes the host, the library and <code>Import?</code>. An
-export passes the library, the host and <code>Export?</code>.</li>
-<li>After an import, <code>TryCloseAsync</code> discards the library. After an export
-with changes, <code>SyncAndCloseAsync</code> or <code>SaveAndCloseAsync</code> persists and
-closes it. Without changes, <code>TryCloseAsync</code> discards it. Then
-<code>ReactivateDocument</code> activates the host with <code>OpenAndActivateDocument</code>.</li>
-<li>A window failure travels in <code>TransferDialogResult.WindowFailure</code>. The
-workflow persists or closes the library first and then throws it. A Dev
-Mode retirement releases the library in its own Revit callback:
-<code>ExportTransferWorkflow.ReleaseLibraryOnRetirement</code> saves or syncs a
-changed library synchronously. When a transfer runs at that moment,
-<code>TdvWindowViewModel.ReleaseWhenNoTransferRuns</code> runs the release after the
-transfer commits or rolls back.</li>
+<li><code>LibrarySelectionWorkflow</code> opens the picker even when no configured path
+is valid. <code>LibrarySelectionDialog</code> offers <strong>Browse for file</strong> in every case.
+When valid and invalid paths both exist, it reports the unavailable count.
+<code>LibraryDialogOptions</code> sets the initial size to 660 by 460 device-independent
+units. The alert owns the file picker.
+Canceling the file picker leaves the alert open. Before validating the
+choice, the workflow rejects the active model and its central path.
+A browsed path applies to one workflow. <code>LibrarySelectionDialogTests</code>
+and <code>LibrarySelectionWorkflowTests</code> check the selection routes.</li>
+<li><code>LibraryDocumentService</code> checks the saved Revit year before opening.
+<code>LibraryDocumentServiceTests</code> checks year refusal and both open routes.</li>
+<li><code>ImportTransferWorkflow</code> requests discard. <code>ExportTransferWorkflow</code> saves or
+synchronizes when <code>TransferDestinationChanges.Any</code> is true, including
+<code>Unverified</code> changes. It otherwise requests discard. <code>TransferWorkflowTests</code>
+checks these routes.</li>
+<li>On retirement, <code>WindowSession</code> defers library release until any active
+transfer ends. <code>TdvWindowViewModelTransferTests</code> checks the timing.
+<code>TransferWorkflowTests</code> checks release without queuing a call-gate operation.</li>
 </ol>
+<p>See <code>LibraryTransferWorkflow.ReactivateHostDocument</code> for host reactivation.</p>
 <h2 id="data">DATA</h2>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Settings section</td>
-<td><code>Core.MasterLibrary</code>, read into <code>LibraryOptions.Files</code> (<code>MainPath</code>, <code>FallbackPath</code>, <code>Alias</code>)</td>
-</tr>
-<tr>
-<td>Settings pack</td>
-<td><code>core.library</code>, title <code>Library Files</code></td>
-</tr>
-<tr>
-<td>Pack warning</td>
-<td><code>core.library.invalid</code>. It disables <code>dbtools.ExportToLibrary</code> and <code>dbtools.ImportFromLibrary</code>.</td>
-</tr>
-<tr>
-<td>Cache</td>
-<td><code>AppPaths.GetToolCacheDir(&quot;TDV&quot;)</code>: <code>LibraryLocals\&lt;ms&gt;_&lt;guid&gt;\&lt;name&gt;_&lt;user&gt;.rvt</code> and <code>Preview\&lt;ms&gt;\</code></td>
-</tr>
-<tr>
-<td>Preview</td>
-<td>A 1024-pixel PNG, cropped to the content. The preview export sets the application background to RGB 43, 44, 61 and restores it. <code>PreviewCache</code> keeps 32 images, first in, first out.</td>
-</tr>
-<tr>
-<td>Writes</td>
-<td>Destination drafting views and missing drafting view types. On export, the library file.</td>
-</tr>
-<tr>
-<td>One-transfer file</td>
-<td><strong>Browse for file</strong> supplies a path to one transfer. TDV does not add the path to settings.</td>
-</tr>
-</tbody>
-</table>
+<p>The <code>core.library</code> pack binds <code>Core.MasterLibrary</code> to <code>LibraryOptions</code>.
+The <code>Files</code> list starts empty. Each <code>LibraryFile</code> entry has <code>MainPath</code>,
+<code>FallbackPath</code> and <code>Alias</code>. <code>LibraryCatalog</code> uses a valid fallback when
+the main path is missing or invalid. <code>LibrarySettingsContext.Load</code> skips
+fallback-only entries.</p>
+<p><code>LibrarySettingsContext</code> flags entries with a main path and no valid path.
+The <code>core.library.invalid</code> warning reports those entries in Settings and
+leaves both transfer commands available.</p>
+<p><code>CachePaths</code> defines the cache roots. <code>PreviewImageExporter</code> exports a PNG with
+a horizontal fit and a size setting of 1024 pixels. It takes the pane color
+from the PNG's upper-left pixel or from <code>ColorOptions.BackgroundColor</code> if the
+pixel is fully transparent. <code>PreviewCache</code> retains up to 32 paths and colors.
+It evicts the oldest inserted entry first. <code>WindowSession.CleanupViewModel</code>
+requests directory cleanup on close. <code>PreviewCacheTests</code> checks the limit and
+directory deletion.
+<code>Workshared_library_sync_and_reopen_persists_changes_and_removes_local_workspace</code>
+checks workspace removal after sync and discard closes. See
+<code>LibraryDocumentService.TryDeleteWorkspaceForLocalPath</code> for cleanup.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p>Most log lines start with <code>[TDV]</code>. Each transfer logs <code>Begin transfer run &lt;id&gt;</code>
-and <code>Completed run &lt;id&gt;</code> with the counts and <code>FinalizationOutcome</code>. A row
-failure logs a warning with its exception, and the row keeps only the code
-and message.</p>
+<p>Match transfer logs by <code>RunId</code> and read <code>FinalizationOutcome</code>.
+<code>SaveAndCloseAsync_WhenSaveAndCloseBothFail_PreservesPrimaryThenClose</code>
+checks the order of errors when library save and close both fail.</p>
 <h2 id="tests">TESTS</h2>
-<pre><code class="lang-bash">./test.sh test --tool TDV                         # pure scope, the default
-./test.sh test --tool TDV --scope local -y 2026   # -y 2027 for Revit 2027
+<pre><code class="lang-bash">./test.sh test --tool TDV --scope pure
+./test.sh test --tool TDV --scope local -y 2026
+./test.sh test --tool PRESENTATION --scope pure --fixture TdvPanZoomBehaviorTests
 </code></pre>
-<p>Pure tests cover the catalog, path formatting, settings, library selection,
-conflict projection, rows, the preview cache and the dialog runner. Local
-tests cover the executor, the document service, the workflows, the window
-session and the view model. <code>LibraryDocumentServiceTests</code> includes a
-workshared round trip on a temporary central model. The Revit tests open
-<code>gm_test_model.rvt</code> and <code>sgt_test_model.rvt</code>
-(<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).
-<code>TransferWorkflowTests.ImportWorkflow_TransfersADraftingViewFromABrowsedLibraryFile</code>
-checks a transfer from a browsed Revit file.
-<code>TdvPanZoomBehaviorTests</code> lives in <code>src/dbtools.Presentation/Tests/</code>.</p>
+<p><code>TdvModelContext</code> leases <code>gm_test_model.rvt</code> and <code>sgt_test_model.rvt</code> to
+hosted tests. Use <code>BeginCase</code> for isolation and
+<code>CreateTemporaryWorksharedCentral</code> for worksharing cases.</p>
+<p><code>TdvWindow.xaml</code> uses <code>TdvPanZoomBehavior</code> for preview input.
+<code>PreviewZoomBehavior</code> resets the fit on image change and <strong>Zoom Extents</strong>.
+<code>TdvPanZoomBehaviorTests</code> checks wheel zoom and panning.
+<code>PreviewExportOwnerTests</code> checks the PNG, pane color and preservation of
+Revit's background colors.</p>
 <h2 id="see-also">SEE ALSO</h2>
-<p><a href="../../developing/settings-packs.html">Settings Packs</a>,
+<p><a href="../../../user-guide/tools/tdv.html">Transfer Drafting Views</a>,
+<a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a>,
+<a href="../../developing/settings-packs.html">Settings Packs</a>,
 <a href="../../developing/feature-warnings.html">Feature Warnings</a>,
-<a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a></p>
+<a href="../../developing/testing-tools.html#model-paths">Model paths</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

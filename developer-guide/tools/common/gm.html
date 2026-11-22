@@ -135,7 +135,6 @@ The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping
 <p>Sandbox uses internal design-time view models with public binding properties:
 <code>dbtools.GM.App.DesignTime.GmWindowDesignTimeViewModel</code> and
 <code>dbtools.GM.Features.CommitReview.DesignTime.GmCommitReviewWindowDesignTimeViewModel</code>.</p>
-<p>Generated <code>src/Tools/Common/GM/MAP.md</code> indexes source files and manifest values.</p>
 <h3 id="ownership">Ownership</h3>
 <table>
 <thead>
@@ -226,10 +225,12 @@ The <a href="../../../user-guide/tools/gm.html">user guide</a> describes mapping
 <p>Feature packages own their local domain, planning, execution, Revit, views, and workflow where present.
 App composes cross-feature sequences through feature-owned ports. Features do not import App.</p>
 <p>GM identifiers spell out <code>SharedParameter</code>; none abbreviate it to <code>SP</code>.
-<code>ICuratedCategoryQuery</code> has <code>GetCuratedFamilyCategoriesAsync</code> for the workspace category list (Annotation Symbols,
-Detail Items, and Structural Framing) and <code>GetCuratedSharedParameterCategoriesAsync</code> for the Shared Parameters
-authoring categories (Doors, Mechanical Equipment, Walls, and Windows). Each returns the listed categories that the
-document has, sorted by label.</p>
+<code>ICuratedCategoryQuery.GetCuratedFamilyCategoriesAsync</code> returns the owner-selected Families categories, in this
+order: Detail Items, Generic Annotations, Generic Models, Structural Framing, Structural Columns, Structural
+Foundations, Structural Connections, Specialty Equipment, Mechanical Equipment, Doors, Windows, Furniture, Casework,
+and Title Blocks. It omits categories without a loadable family and in-place families do not make a category
+available. <code>GetCuratedSharedParameterCategoriesAsync</code> returns the Shared Parameters authoring categories (Doors,
+Mechanical Equipment, Walls, and Windows) that the document has, sorted by label.</p>
 <h3 id="wpf-presentation">WPF presentation</h3>
 <p><code>GmWindowPresenter</code> loads <code>App/Views/GmWindow.xaml</code> through <code>ToolWindowFactory</code>.
 Its binding source is App/ViewModels/GmWindowViewModel. Commit Review binds to
@@ -258,12 +259,15 @@ supplies lazy options when the user opens a target combo.</p>
 <p>Commit Review owns one Revit callback around planning, ShowDialog, finalization, and refresh.
 Core WindowOwnerModalityScope disables Revit and other top-level windows through that callback
 and restores only the windows it disabled. During planning, the GM owner remains available for its overlay and Cancel action.
-ShowDialog disables that owner while the review dialog is visible.
+ShowDialog disables that owner while the review dialog is visible. ShowDialogCommitReviewDialogHost dims the owner
+(opacity 0.5, no hit testing) only for the dialog's lifetime, so planning never dims it.
 User close returns the session finalization. Forced retirement returns none.
 IsRetired is true for both outcomes and cannot distinguish them.
 Keep triggered from WPF Closing queues the final Close because WPF rejects reentrant Close there.</p>
-<p>Duplicate Type Mapping uses a registered modeless shell owned by GM, with Manual startup and a taskbar entry.
-Commit Review also retains Manual startup, an explicit finalization decision, and a cleanup close gate.
+<p>The GM window, Duplicate Type Mapping and Commit Review use CenterOwner startup: WPF centers each window on its
+owner (Revit for GM, GM for the other two) and keeps it inside that monitor's work area.
+Duplicate Type Mapping uses a registered modeless shell owned by GM, with a taskbar entry.
+Commit Review has an explicit finalization decision and a cleanup close gate.
 Cleanup requests cancellation, waits for a safe rollback boundary, and propagates cancellation, timeout, or rollback failures.
 A failed cleanup leaves the review window open. Row refresh and owner closure follow successful cleanup.</p>
 <p>Design-time shared-parameter composition uses the production feature/projection graph with explicit host replacements,
@@ -273,13 +277,33 @@ including NoopFamilyParameterQuery. Authoring receives a registered parameter-si
 <h2 id="workflows">Workflows</h2>
 <h3 id="startup-performance">Startup performance</h3>
 <p>Startup logs Information-level elapsed time for five overlay steps.
+Before the overlay, it logs <code>GM startup: &quot;&lt;step&gt;&quot; ended in &lt;ms&gt; ms.</code> for the UI state load, the wait
+for first paint, and each of the three startup reads (family categories, shared parameter categories and
+shared parameter groups), also when a step fails.
 Usage indexing logs each catalog/index source duration and completion state.
 Failure or cancellation records the interrupted step and elapsed time, including queued Revit-call time.
 Overlay visibility is not the timing source.</p>
-<p>Family population counts use one symbol-count sweep. Type IDs retain collector order and cache per project state.
-View-owned collection discovers owner IDs through a quick filter, then visits eligible owners with instances,
-retaining Revit view-visibility filtering. Style/material indexing share one capped sample and 25-instance chunks
-with separate geometry options. Family-dependent styles are visited once per usage build.
+<p>A family expansion builds a missing usage index first, because that build makes its own Revit calls. It then
+runs every other Revit read through <code>IRevitCallBatch</code> in one Revit callback: the source and target parameter
+names, the one-instance usage walk, the nested names and inline previews, the type sample and the instance
+values of its first instance. Gate calls made inside the callback run inline. A read that continues after the
+callback queues its later calls, and <code>GmSessionDocumentCallBatch</code> logs that at Debug. The expansion reads no views list;
+the views panel reads it for the selected row. Auto-zoom starts after the expansion overlay ends, without the
+200 ms debounce that type navigation uses. A views-list double-click is one call,
+<code>IViewOps.ShowElementInViewAsync</code>.</p>
+<p><code>ViewOpsQuery</code> checks a view-owned element only in the view group of its owner view: the primary view and its
+dependent views. Both the cross-view search of a navigation and the views list of a family use this rule.
+<code>QueryElementsByParam</code> walks the views in name order, stops at its cap, and reads the parameters of an element
+once when several views show it. Duplicate detection calls <code>GetStylePreviewsAsync</code> once for each style kind and
+<code>GetMaterialPreviewsAsync</code> once for materials. Each catalog batch runs in one Revit callback.</p>
+<p>Shared Parameters authoring builds project state once for all authoring categories. It batches parameter-name reads,
+type samples, and coverage reads, then builds each category's rows in memory. Evidence and group changes rebuild the
+rows under the session operation gate and progress overlay.</p>
+<p>Project state and Commit Review count placed family instances in one document collector pass. Both include sheet-owned
+instances. Parameter discovery prefers model-owned and visible view-owned instances before the remaining placements.
+Geometry scans discover owner IDs through a quick filter, then visit eligible owners with instances and apply Revit view
+visibility. Type IDs retain collector order and cache per project state. Style and material indexing share one capped
+sample and 25-instance chunks with separate geometry options. Family-dependent styles are visited once per usage build.
 Each option-building pass owns immutable name profiles and retains numeric-suffix and multiset-bigram scoring.</p>
 <p><code>Features/Usage/FamilyFastIndex/UsageFamilyFastIndexCollector</code> records material and object-style
 evidence without Revit types. It keeps distinct paths, direct and nested usage flags,
@@ -322,6 +346,8 @@ in place of ShowDialog to satisfy hidden-desktop window ownership.
 Its dispatcher frame ends on retirement. IToolWindowSession.Closed does not complete after forced retirement,
 so awaiting that event would retain the Revit callback until timeout.
 A 60-second deadline retires a session left open and fails the test.</p>
+<p>Pure GM tests cover family duplicate Accept through type planning, Apply projection, signal-driven row refresh,
+pending-operation eligibility, and placement refusal. <code>FamilyMetadataServiceTests</code> covers the Revit placement types.</p>
 <p>GM Revit-hosted fixture models, named views, family symbols, line styles, materials, and
 expected production outcomes are required repository baselines. Missing baselines and
 false production results fail with the model path and running year. Fixture teardown and
@@ -342,8 +368,6 @@ Revit-hosted tests use the <code>local</code> scope through the daemon fleet.</p
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

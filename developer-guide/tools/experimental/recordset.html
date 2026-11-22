@@ -92,7 +92,7 @@
 <h2 id="name">NAME</h2>
 <p>dbtools.RecordSet - the assembly behind Record Set</p>
 <h2 id="synopsis">SYNOPSIS</h2>
-<pre><code class="lang-text">source    src/Tools/Experimental/RecordSet/        (MAP.md, manifest.yml)
+<pre><code class="lang-text">source    src/Tools/Experimental/RecordSet/        (manifest.yml)
 assembly  dbtools.RecordSet
 entry     RecordSetToolModule
 command   RecordSetCommand                         (run profile InlineUi)
@@ -163,7 +163,11 @@ that occurs twice or more is common, and
 <li><strong>Destinations.</strong> <code>PreviewDestinationAllocator</code> keeps one source for each
 destination. Another source gets <code>name (n).ext</code>, with the lowest free n
 from 2, and the plan gets a Warning.
-<code>PreviewDestinationAllocatorTests</code> checks this.</li>
+<code>PreviewDestinationAllocatorTests</code> checks this.
+The planners publish a destination when they schedule its copy.
+<code>PreviewDestination.FileCopy</code> supplies a source file to the tree.
+<code>PreviewDestination.FolderCopy</code> supplies the fallback Xref folder.
+<code>PreviewPlanBuilderTests</code> compares the tree with the plan.</li>
 <li><strong>Embedded policy.</strong> <code>PolicyReader</code> reads only the embedded resource.
 <code>ValidatePolicy</code> throws for a policy that breaks its schema, and for a
 root that is not a drive path or a complete UNC share. No code reads <code>delete_mode</code>,
@@ -177,7 +181,10 @@ is under the target. It requires free space minus
 A failure writes no lock and no manifest. <code>ExecutionPlanExecutorTests</code>
 checks this.</li>
 <li><strong>Contained writes.</strong> <code>SafeFileSystemOperations</code> resolves junctions and
-other redirects before each containment check. CAD and Revit items check
+other redirects before each containment check. A link resolution error
+refuses the path and identifies the link. A directory copy checks all
+selected destinations before creating folders or copying files.
+CAD and Revit items check
 their host path again directly before the adapter call. The check and
 the write are separate operations, so a path that changes between them
 is not caught. <code>SafeFileSystemOperationsTests</code> checks the redirects.</li>
@@ -206,9 +213,8 @@ checks all but the central folder.</li>
 <li><strong>CAD options.</strong> A null <code>PlanOptions</code> member follows Core Console
 availability in each preview, until the user changes an option.
 <code>PreviewPlanStateTests</code> and <code>RecordSetWindowViewModelTests</code> check this.</li>
-<li><strong>Execute failures.</strong> <code>ExecuteAsync</code> runs through
-<code>RunWithoutThrowingAsync</code> with a null notifier, so no banner appears. A
-failure is logged once and opens the logger window.
+<li><strong>Execute failures.</strong> <code>ExecuteAsync</code> records a failure through
+<code>RunWithoutThrowingAsync</code> with a null notifier.
 <code>ExecuteCommand_WhenCompletionAlertFails_ContainsFailureAndRestoresBusyState</code>
 checks this for one failure.</li>
 </ol>
@@ -350,8 +356,6 @@ linked model (<a href="../../developing/testing-tools.html#model-paths">Model pa
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

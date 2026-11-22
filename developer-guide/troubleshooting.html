@@ -101,8 +101,8 @@ dbtools logs. For a reported failure, read the logs in
 project's runtime inputs. It does not validate or publish a distribution.
 <code>./build.sh BuildAll</code> builds, validates and publishes the complete
 distribution for every supported year, including the Dev Mode preflight and
-manifest checks. <code>BuildAll</code> compiles no tests; use <code>./build.sh BuildTests</code> or a
-selected-test target. See <a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
+manifest checks. <code>BuildAll</code> compiles no test project except the Dev Mode
+scenario; use <code>./build.sh BuildTests</code> or a selected-test target. See <a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
 <h3 id="python-3.10-or-later-is-required">Python 3.10 or later is required</h3>
 <pre><code class="lang-text">Python 3.10 or later is required. Install it with: sudo apt-get install python3
 </code></pre>
@@ -132,15 +132,6 @@ and Revit-hosted tests use the daemon CLI.</p>
 <code>CollectibleAssemblyLoadContextType</code>) counts as a failure.
 A failed policy, boundary, graph, identity or candidate-byte check needs a
 source fix and a new build.</p>
-<h3 id="handycontrol-output-missing">HandyControl output missing</h3>
-<p>A missing vendor import, resource or <code>dbtools.HandyControl</code> output means the
-<code>vendor/HandyControl</code> submodule is not initialized. <code>build.sh</code> and <code>build.ps1</code>
-initialize it automatically, which requires a Git checkout and network access:</p>
-<pre><code class="lang-bash">git submodule update --init --recursive vendor/HandyControl
-./build.sh BuildAll
-</code></pre>
-<p>The output is
-<code>.artifacts/vendor/&lt;Configuration&gt;/handycontrol/net10.0-windows/dbtools.HandyControl.dll</code>.</p>
 <h3 id="unsupported-revit-year">Unsupported Revit year</h3>
 <p>The supported desktop years are Revit 2026 (2026.5 or later) and Revit 2027;
 the distribution and reference metadata use the year keys 2026 and 2027. A
@@ -187,25 +178,25 @@ each Dev Mode inspection.</p>
 stops startup. In a Revit-hosted test run, read the daemon job's startup
 failure output instead of waiting for a dialog.</p>
 <h4 id="theme-dictionary-merge-failed">Theme dictionary merge failed</h4>
-<pre><code class="lang-text">InvalidOperationException: Theme dictionary merge failed at '/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.xaml'.
+<pre><code class="lang-text">InvalidOperationException: Theme dictionary merge failed at '/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.Light.xaml'.
 </code></pre>
 <p>A resource dictionary did not load: a missing assembly reference, a broken
 <code>StaticResource</code> chain or invalid XAML. Rebuild with <code>./build.sh BuildAll</code> and
-check that the year directory contains <code>dbtools.Presentation.dll</code> and
-<code>dbtools.HandyControl.dll</code> from the same build.</p>
+check that the year directory contains <code>dbtools.Presentation.dll</code> from the
+same build.</p>
 <h4 id="theme-resource-freeze-failed">Theme resource freeze failed</h4>
 <pre><code class="lang-text">InvalidOperationException: Theme resource freeze failed for key '&lt;key&gt;' in '&lt;source&gt;'.
 </code></pre>
 <p>A <code>Freezable</code> resource (brush, geometry) cannot be frozen, usually because it
 has a binding or a dynamic reference. Make its values static.</p>
 <h4 id="theme-merged-dictionary-contract-mismatch">Theme merged dictionary contract mismatch</h4>
-<pre><code class="lang-text">InvalidOperationException: Theme merged dictionary contract mismatch: expected 9 dictionaries but found 8 in '&lt;root&gt;'.
+<pre><code class="lang-text">InvalidOperationException: Theme merged dictionary contract mismatch: expected 7 dictionaries but found 6 in '&lt;root&gt;'.
 InvalidOperationException: Theme merged dictionary contract mismatch at index &lt;i&gt;: expected '&lt;uri&gt;' but found '&lt;uri&gt;'.
 </code></pre>
 <p><code>Resources/Theme.xaml</code> must merge these dictionaries in this order:
-HandyControl <code>Themes/SkinDark.xaml</code>, HandyControl <code>Themes/Theme.xaml</code>, then
-<code>Tokens.xaml</code>, <code>Brushes.xaml</code>, <code>Converters.xaml</code>, <code>Controls.xaml</code>,
-<code>DataGrid.xaml</code>, <code>Menus.xaml</code> and <code>Components.xaml</code>. See
+<code>Tokens.xaml</code>, the brushes of the current color theme (<code>Brushes.Dark.xaml</code> or
+<code>Brushes.Light.xaml</code>), <code>Converters.xaml</code>, <code>Controls.xaml</code>, <code>DataGrid.xaml</code>,
+<code>Menus.xaml</code> and <code>Components.xaml</code>. See
 <a href="architecture/theme-system.html#theme-dictionaries">Theme System</a>.</p>
 <h3 id="revit-api-context-errors">Revit API context errors</h3>
 <pre><code class="lang-text">ContextUnavailableException: No UIApplication in current gate scope.
@@ -221,7 +212,10 @@ InvalidOperationException: WPF Dispatcher is shutting down.
 </code></pre>
 <p>UI work ran during early startup or late shutdown, when no dispatcher is
 available. Check for a dispatcher and for <code>Dispatcher.HasShutdownStarted</code>
-before UI work, and use <code>BeginInvoke</code> where the caller need not wait.</p>
+before UI work. Use <code>WpfDispatcher.Post</code> for queued work and observe its task.
+Use <code>WpfDispatcher.Invoke</code> only when the caller must wait for the UI action.
+See the <a href="projects/core.html#dispatcher-operation-retirement">dispatcher operation retirement contract</a>
+for generation shutdown behavior.</p>
 <h3 id="unhandled-ui-exception-from-a-window-command">Unhandled UI exception from a window command</h3>
 <p>A WPF command that calls <code>ISafeExecutor.RunAsync</code> and lets the exception
 propagate into an <code>AsyncRelayCommand</code> raises a Dispatcher unhandled exception,
@@ -324,7 +318,7 @@ days old, and at most 100 MB in total while more than one file remains (the
 newest file is kept even if it alone is larger).</p>
 <p>Failures that occur before logging starts are written to
 <code>%APPDATA%\dbtools\Logs\dbtools.Fallback.log</code>.</p>
-<p>When <code>DBTOOLS_USER_DATA_DIR</code> names a directory, the log files and
+<p>When <code>DBT_USER_DATA_DIR</code> names a directory, the log files and
 <code>dbtools.Fallback.log</code> are in <code>Logs\</code> below that directory. A refused value
 writes no file; the startup failure goes to <code>Trace</code> and to the startup failure
 dialog, which <code>DBT_TEST_RUN_ID</code> suppresses.</p>
@@ -435,8 +429,6 @@ duration.</p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Combined Foundation Tags | dbtools </title>
+      <title>dbtools.FoundationTags | dbtools </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Combined Foundation Tags | dbtools ">
+      <meta name="title" content="dbtools.FoundationTags | dbtools ">
       
       
       <link rel="icon" href="../../../images/favicon.ico">
@@ -87,371 +87,165 @@
         </div>
 
         <article data-uid="">
-<h1 id="combined-foundation-tags">Combined Foundation Tags</h1>
+<h1 id="dbtools.foundationtags">dbtools.FoundationTags</h1>
 
-<h2 id="overview">Overview</h2>
-<p>Combined Foundation Tags updates pier/footing association parameters and moves combined tags to footing corners.
-Source: <code>src/Tools/Structural/FoundationTags/</code>. The assembly and tool ID are <code>dbtools.FoundationTags</code>.</p>
-<h2 id="architecture">Architecture</h2>
-<h3 id="ownership">Ownership</h3>
-<p><code>App/Composition/FoundationTagsToolModule</code> binds settings, registers the pack, and delegates feature registration
-to <code>ServiceCollectionExtensions.AddFoundationTags</code>.
-<code>Features/UpdateCombinedFoundationTagsWorkflow</code> and <code>Features/Move/MoveCombinedFoundationTagsWorkflow</code>
-own manual execution and completion reporting. Queued result-selection gates receive the workflow logger.</p>
-<p>Pure geometry types are <code>Point2D</code>, <code>FoundationTagsPoint</code>, <code>FootingCornerPoints</code>, and <code>NearestPointResult</code>.
-<code>FoundationTagsGeometry</code> owns <code>SelectCornerByViewOrientation</code>, <code>FindNearestPoint2D</code>, and <code>IsValidCornerName</code>.</p>
-<h3 id="commands">Commands</h3>
-<table>
-<thead>
-<tr>
-<th>Ribbon command</th>
-<th>Identity</th>
-<th>Split-button order</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Update Combined Foundation Tags</td>
-<td><code>dbtools.UpdateCombinedFoundationTags</code></td>
-<td>0</td>
-</tr>
-<tr>
-<td>Move Combined Tags</td>
-<td><code>dbtools.MoveCombinedFoundationTags</code></td>
-<td>1</td>
-</tr>
-</tbody>
-</table>
-<p>Both use <code>InlineUi</code> on the Structural panel in group <code>foundation_tags</code>.
-Their command and availability classes are <code>UpdateCombinedFoundationTagsCommand</code> and
-<code>MoveCombinedFoundationTagsCommand</code> under <code>App/Composition</code>.
-Icon keys are <code>update_combined</code> and <code>move_combined</code>.
-<a href="organize-foundation.html">Organize Foundation Types</a> occupies order 2 in the same group.</p>
-<h2 id="data-and-contracts">Data and contracts</h2>
-<h3 id="settings">Settings</h3>
-<p>Configuration section: <code>Tools.FoundationTags</code>. Pack: <code>structural.foundation_tags</code>, titled <strong>Combined Foundation Tags</strong>.
-<code>AutoUpdateEnabled</code> defaults to <code>true</code>. Pattern lists default empty and resolve to:</p>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Default pattern</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TagFamilyPatterns</code></td>
-<td><code>^DB Pier and Foundation Combined Tag(?: No Elevations)?$</code></td>
-</tr>
-<tr>
-<td><code>PierFamilyPatterns</code></td>
-<td><code>^Foundation Pier(?: - Round)?$</code></td>
-</tr>
-<tr>
-<td><code>FootingFamilyPatterns</code></td>
-<td><code>^(?:Footing\|Pile Cap)-Rectangular$</code></td>
-</tr>
-</tbody>
-</table>
-<p>The UI allows three patterns per group through Core <code>RegexPatternListContext</code>.
-It validates syntax and tracks pending changes. <code>FamilyNameClassifier</code> compiles the configured patterns for both workflows.</p>
-<h2 id="workflows">Workflows</h2>
-<h3 id="update">Update</h3>
-<p><code>Features/CombinedFoundationTagsUpdater</code> collects visible <code>FamilyInstance</code> elements from the active view.
-Configured family patterns classify piers and footings. Updates affect host-document instances.</p>
-<ol>
-<li>Compute each pier's top as <code>Top Level</code> elevation plus <code>Top Offset</code>.</li>
-<li>Write <code>Foundation Pier Top</code> by GUID.</li>
-<li>Find the nearest pier to each footing using XY location points, within two feet inclusive.</li>
-<li>Write that pier's type mark to <code>Associated Pier</code> and its top to <code>Associated Pier Elevation</code>.</li>
-<li>Publish current-run result IDs and timestamped selection sets.</li>
-</ol>
-<p>The updater creates one Core <code>GroupPlacementQuery.CreateRunQuery(document)</code> per run.
-It caches group membership, ancestor placement checks and each group type's instance count.
-<code>UpdateParameterWriter</code> compares the current and target values before checking group restrictions.
-For repeated groups, it skips only changed parameters whose <code>InternalDefinition.VariesAcrossGroups</code> is false.
-Equal values succeed without writing. Varying parameters still write, so a footing can be Modified and Failed in one run.
-This includes nested members when any enclosing group type has multiple placed instances.
-A single placement remains writable. Group failures enter Failed once per element and share the ten-line detailed log limit.
-The final diagnostic reports the total failed/skipped count.</p>
-<p>When a pier-top write is skipped for a repeated group, its computed top remains available to footings.
-If computation or a write fails, footings do not use a stored pier top. The updater reports the failure and leaves the associated elevation unchanged.
-Length parameters cannot vary between group instances, and the Revit API cannot enter group edit mode.
-Text parameters such as <code>Associated Pier</code> can vary when the project definition permits it.</p>
-<p>A missing or invalid Top Level records a pier failure. Missing Top Offset uses zero.
-Piers without <code>LocationPoint</code> cannot participate in nearest-point matching.
-Equal-distance ties retain the first candidate.</p>
-<p>Without a pier, the updater clears the association text to an empty string.
-It keeps a stored elevation and reports failure because these length parameters cannot be cleared.
-Parameter.ClearValue requires HideWhenNoValue, which the shipped definitions do not set.
-An elevation without a stored value needs no clearing.
-Double writes compare values rounded to two decimal places in internal feet.
-String comparison is ordinal.</p>
-<p><code>UpdateParameterWriter</code> returns failures for missing, read-only, wrong-storage, or rejected parameter writes.
-The updater records these failures and continues. A footing can appear in both Modified and Failed sets
-when one parameter changes and another fails. Unexpected exceptions escape the parameter transaction and roll back the run.</p>
-<p>Parameter writes and selection-set publication use separate transactions inside one transaction group.
-The group assimilates to one Undo entry. A selection-set failure preserves committed parameter writes,
-then propagates after assimilation. Other failures attempt group rollback and preserve concurrent cleanup faults.</p>
-<p><code>UpdateRunState</code> counts distinct element IDs and records grouped skips as a subset of Failed.
-<code>UpdateRunResult</code> contains <code>UpdatedCount</code>, <code>FailedCount</code>, <code>GroupSkippedCount</code>, and read-only snapshots of Modified and Failed IDs.
-<code>UpdateRunMessage</code> appends the grouped skip count and the group edit reason to the existing banner counts.
-Automatic runs use the same updater without a result banner. Grouped skips return successfully and do not suppress later activations.
-The manual workflow offers <strong>Select Modified</strong> and <strong>Select Skipped</strong> when updates exist.
-Those banner actions check that the source document is still active before selecting IDs.
-With no updates, it shows an Info or Warning toast without selection actions.</p>
-<p>If neither Modified nor Failed contains an ID, selection-set publication returns without creating or pruning sets.</p>
-<p>Selection sets use <code>dbtools - FoundationTags - Modified Elements (...)</code> and
-<code>dbtools - FoundationTags - Skipped Elements (...)</code> names with Eastern-time timestamps.
-Repeated names receive suffixes starting at <code>(2)</code>.
-Pruning retains five sets across both kinds, ordered by descending element ID.</p>
-<h3 id="move">Move</h3>
-<p><code>Features/Move/MoveCombinedFoundationTagsRunner</code> collects visible <code>IndependentTag</code> instances,
-resolves a tagged host or linked structural foundation, and filters tag family/type names by the configured patterns.
-Only the host tag moves. Linked footing geometry transforms into host coordinates.</p>
-<p>The desired name is the trimmed tag name, or its type name when the tag name is blank.
-Supported values are case-insensitive <code>Top Right</code>, <code>Top Left</code>, <code>Bottom Right</code>, and <code>Bottom Left</code>.</p>
-<p>The runner tessellates fine-detail footing geometry, including nonvisible objects, in the instance's local frame.
-Local XY extents define four rectangular corners. <code>FoundationTagsGeometry.SelectCornerByViewOrientation</code>
-labels them against the view's RightDirection and UpDirection.
-The edge most aligned with view-right becomes horizontal. A tie uses the second declared edge.
-The tag retains its current Z.</p>
-<p>Unsupported names, missing point locations, and geometry without usable corners are skips.
-All candidate moves share <code>dbtools - Move Combined Foundation Tags</code>.
-Unexpected transform, geometry, tessellation, or tag-write errors log the tag ID and propagate, rolling back every move.
-<code>MoveRunResult</code> separates moved, skipped, candidate, total-view-tag, structural-foundation, and pattern-rejection counts,
-with rejected-name samples for diagnostics.</p>
-<h3 id="prerequisites-and-repair">Prerequisites and repair</h3>
-<p>Manual commands and automatic updates validate shared parameters without modifying them.
-The required definitions are owned by <code>Features/Prerequisite/PrerequisiteRequiredParameters</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Parameter</th>
-<th>GUID</th>
-<th>Type</th>
-<th>Instance category</th>
-<th>Initial group</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Associated Pier</td>
-<td><code>a268a56a-e6c8-45ef-97a9-89a8608bc48f</code></td>
-<td>Text</td>
-<td>Structural Foundation</td>
-<td>Identity Data</td>
-</tr>
-<tr>
-<td>Associated Pier Elevation</td>
-<td><code>56651179-1f6f-4f3b-b269-adb0532dc124</code></td>
-<td>Length</td>
-<td>Structural Foundation</td>
-<td>Identity Data</td>
-</tr>
-<tr>
-<td>Foundation Pier Top</td>
-<td><code>1927a728-1a38-4907-a71d-aae1c8eb5f8c</code></td>
-<td>Length</td>
-<td>Structural Columns</td>
-<td>Constraints</td>
-</tr>
-</tbody>
-</table>
-<p>The GUIDs match the company's DB shared parameter file (group <code>DB Structural</code>), so projects that
-use that file already satisfy the prerequisites. A project with a parameter that has a required name and
-another GUID, such as one set up with the dbtools GUIDs used before November 2026, reports <code>GUID_MISMATCH</code>.
-When the company parameter is bound and a parameter with the name and another GUID has no binding, and loaded families
-show it on their types or placed elements (<code>SharedParameterFamilyMigration.FindFamilyNames</code>), the row reports
-<code>FAMILY_GUID_MISMATCH</code>. The description of <code>GUID_MISMATCH</code>, <code>FAMILY_GUID_MISMATCH</code> and <code>DUPLICATE_NAME</code> ends with up to
-five such family names (<code>PrerequisiteRequiredParameterStatus.FamilyUse</code>). The status opens no family, so a label that
-uses the other GUID directly does not show in it; Install/Repair finds it.
-The data type check uses <code>ForgeTypeId.NameEquals</code>, which ignores the schema version, so a parameter
-created in an earlier Revit (<code>autodesk.spec.aec:length-2.0.0</code>) matches <code>SpecTypeId.Length</code> of a later one.</p>
-<p>Background checks (the monitor, its retry and the automatic update) only record invalid prerequisites: they
-activate <code>core.structural.combined_tags</code>, which disables the commands, and show no banner. The commands report the
-problem when the user runs them. <code>UpdateCombinedFoundationTagsCommand</code> and <code>MoveCombinedFoundationTagsCommand</code> call
-<code>Features/Prerequisite/PrerequisiteRepairOffer.EnsureReady</code> before their workflow. A family document has no project
-parameters, so it refuses one with <code>SafeExecutionRefusedException</code> and leaves the warning unchanged. It returns true
-when every row is OK. Otherwise it activates the warning and shows one Warning alert, <strong>Required shared parameters need repair</strong>,
-that names the command and lists each failing parameter with its status and description, with the buttons
-<strong>Cancel</strong> and <strong>Repair</strong>. Repair runs <code>EnsureInstalledAndValid</code> with <code>PrerequisiteRepairPrompt</code>, owned by the
-command's window owner. Cancel, in the alert or in the schedule prompt, changes nothing and throws
-<code>OperationCanceledException</code>: safe execution logs one Warning, <code>[Cancel] &lt;command&gt; canceled after &lt;n&gt;ms</code>, shows no
-banner, and Revit sees <code>Result.Cancelled</code>. A successful repair clears the warning and shows a Success banner,
-<code>Install/Repair succeeded. Run &lt;command&gt; again.</code> with the repair <code>Summary</code>; <code>EnsureReady</code> then returns false, so the
-command returns normally without its workflow and Revit keeps the repair (<code>Result.Succeeded</code>). A failure of the
-success banner is logged and does not fail the command. A refused repair (<code>InvalidOperationException</code>) logs a Warning
-and becomes <code>SafeExecutionRefusedException</code>, so safe execution shows its Warning banner.
-The commands are the only callers of the workflows, so the workflows do not check the parameters again.
-Unexpected validation faults remain errors and do not assert invalid prerequisites.</p>
-<p><code>PrerequisiteSharedParameterInstaller</code> reads every binding through Core's <code>SharedParameterBindingLookup</code>. When Revit's
-binding map holds a dead key (see <a href="../../projects/core.html#shared-parameter-migration">shared parameter migration</a>),
-the status rows, <code>PlanRepair</code> and <code>EnsureInstalledAndValid</code> throw <code>SafeExecutionRefusedException</code> with
-<code>Revit's parameter bindings for this model are in an invalid state; save, close and reopen the model, then try again.</code>
-and change nothing. <code>EnsureReady</code> lets it propagate before it activates the warning or shows the alert, so safe
-execution shows it as a Warning banner. Settings shows it under <strong>Status not available</strong> in place of the list, and as
-the status message and banner of a failed Install/Repair. <code>PrerequisiteEvaluator</code> classifies it as <code>Invalid</code>, so the
-monitor and the automatic update activate the warning and do not retry.</p>
-<p>Settings → <strong>Combined Foundation Tags</strong> shows the status of the active document and offers <strong>Install/Repair</strong>;
-the warning card's Fix action (<code>FixLabel</code> <strong>Install/Repair</strong>) runs the same repair. A successful repair clears the warning and re-enables the commands.
-Construction of the settings context is passive and leaves the list unchecked. <code>FoundationTagsSettingsPackView</code>
-binds its <code>ShownCommand</code> to <code>LoadRequiredParametersCommand</code> and runs it from its <code>Loaded</code> event, so the pack reads
-the active document each time it is shown. The view compiles into <code>dbtools.Presentation</code>, so it binds the command
-by name and does not reference the context type. The Settings window is modal, so the active document cannot
-change while it is open; each opening creates a new context. <code>SettingsRuntime</code> receives the settings host's <code>UIApplication</code> explicitly and
-classifies the active document (<code>ActiveDocumentKind</code>: <code>None</code>, <code>Family</code> or <code>Project</code>). Without a project the list
-stays empty, <code>HasRequiredParameters</code> is false, and the view shows the theme's empty state with
-<code>RequiredParametersEmptyTitle</code> and <code>RequiredParametersEmptyDetail</code> (<code>No project open</code>, <code>A family is active</code>, or
-<code>Status not available</code> with the failure message). <code>CanInstallOrRepair</code> is true only after the status of a project loaded, and gates
-<strong>Install/Repair</strong>; <code>FixWarningAsync</code> throws <code>{action} requires an active Revit document.</code> or
-<code>{action} requires a project. The active document is a family.</code>
-<code>LoadRequiredParameters</code> replaces immutable <code>RequiredParameters</code> status rows. <code>RequiredParametersList</code> shows one
-item per parameter: the name with a status chip at the right (green for <code>OK</code>, amber otherwise); a muted line with
-the data type, category and group (<code>Length · Structural Foundations · Identity Data</code>); for a status other than <code>OK</code>,
-the <code>Description</code>; and the schedule use. Data type, category and group are the required values by the names Revit
-shows (<code>PrerequisiteParameterLabels</code>): <code>LabelUtils.GetLabelForSpec</code>, the project's <code>Category.Name</code> or else
-<code>LabelUtils.GetLabelFor</code>, and <code>LabelUtils.GetLabelForGroup</code>. A value that Revit cannot name reads
-<code>Unknown data type (&lt;id&gt;)</code>, <code>Unknown category (&lt;value&gt;)</code> or <code>Unknown group (&lt;id&gt;)</code>, never the bare identifier. Every line wraps, so each
-value reads in full at any window width without horizontal scrolling or a tooltip. The list is a <code>ListBox</code> whose
-template has no scroll viewer, because the Settings page scrolls; it keeps keyboard focus, and each item exposes
-<code>AutomationProperties.Name</code> (the parameter), <code>ItemStatus</code> (the status) and <code>HelpText</code> (the description). Nothing
-uses its selection. The item bindings use <code>OneTime</code>.
-<code>HasWarning</code> belongs to the session context and is not persisted in <code>FoundationTagsSettings</code>.</p>
-<p>Install/Repair uses embedded definitions in group <code>dbtools.Structural.FoundationTags</code>.
-Their columns and values match the company file: <code>VISIBLE</code> 1, an empty <code>DESCRIPTION</code>,
-<code>USERMODIFIABLE</code> 1 and <code>HIDEWHENNOVALUE</code> 1. Only the group name differs; a project does not store it.
-It creates a temporary shared-parameter file, restores Revit's original shared-parameter path,
-and attempts temporary-file deletion. The embedded definitions supply the required parameters.</p>
-<p><code>EnsureInstalledAndValid(IPrerequisiteRepairConfirmation)</code> runs a read-only preflight. <code>PlanRepair</code> returns the project plan without family details. It uses Core's <code>CheckMigrate</code>, <code>CheckRebind</code> and <code>CheckBind</code> to find value refusals. It also lists each schedule field and every rule from a view filter that Revit removes with a replaced parameter or an empty duplicate. <code>FindScheduleFields</code> scans main and embedded schedules. <code>FindFilterRules</code> lists all rules from affected filters, but it does not show their AND/OR logic or inverted rules. The confirmation tells the user to record that logic before Continue. A rebind keeps schedule fields and view filter rules.</p>
-<p>The method also plans loaded families through Core's <a href="../../projects/core.html#shared-parameters-in-loaded-families">family migration</a> (<code>SharedParameterFamilyMigration.Plan</code>). It creates one <code>SharedParameterFamilyTarget</code> per required parameter, with the embedded definition and the required category plus every category that a matching parameter already binds. A known refusal, such as a <code>WRONG_DATA_TYPE</code>, a Length value on a member of a group placed more than once, or a family use that Core cannot change, stops before any change.</p>
-<p>The preflight cannot predict target-only project values that family migration creates. A later project migration can refuse after Continue when it finds a value that it cannot keep. That migration runs inside the repair transaction group, which rolls the family and project changes back.</p>
-<p>When the project plan lists schedule fields or view filter rules, the confirmation decides before any deletion. A declined repair returns a result with <code>Canceled</code> set and changes nothing. After Continue the repair plans again, including families, before it opens the transaction group. A refusal of either new plan stops it. If the refusals, schedule fields or filter rules differ (<code>PrerequisiteRepairPlan.IsSameAs</code>), it changes nothing and asks again with the new plan. A family loaded while the question was open is therefore changed or refused like any other. Repair cannot keep or recreate the listed schedule fields or view filter rules. The user adds the company parameter and restores every listed rule by hand.
-The repair runs in one transaction group and assimilates it only after every
-prerequisite is OK. A failure or refusal at any step rolls the group back and leaves the project unchanged,
-so the warning stays active.
-It first changes the loaded families (<code>SharedParameterFamilyMigration.Migrate</code>): each family parameter with a required
-name and another GUID becomes the company parameter, with its group, kind, formula, references and values, and the
-family is reloaded. Only then does it delete a parameter with another GUID: Revit removes a deleted shared parameter
-from the labels of the loaded families that use it, which is how labels lost their parameter before this order.
-A parameter with the required name and another GUID is a <code>GUID_MISMATCH</code> that moves its values to the company parameter,
-and an element whose two values differ refuses. An unbound company parameter can already exist because a loaded family
-defines its GUID. Preflight checks its first binding with <code>CheckBind</code>; the repair binds it after migrations and rebinds.
-Only a missing company parameter is created by the final install step.
-The repair then replaces each <code>GUID_MISMATCH</code> parameter through Core's
-<a href="../../projects/core.html#shared-parameter-migration">shared parameter migration</a>. A replacement keeps the
-old categories (a type binding becomes an instance binding of the same categories), the parameter group,
-the variance between group instances, and every value: element values on the same elements, and type
-values copied to every instance of the type. The company definition replaces the old visibility,
-description, user-modifiable and hide-when-no-value settings; each difference is reported.
-Next it rebinds an installed required parameter that is bound as a type parameter or lacks the required
-category (<code>WRONG_BINDING_TYPE</code>, <code>WRONG_CATEGORY</code>) through <code>SharedParameterMigration.Rebind</code>, which keeps its
-GUID, categories, group, the variance between group instances and every value, and copies each type value
-to every instance of that type. It then binds an existing unbound company parameter through
-<code>SharedParameterMigration.Bind</code>. The final install step creates and binds definitions that do not exist yet.
-Repair refuses, and changes nothing, when the old parameter or the parameter with the company GUID has
-another spec, when a value cannot be written or read back, when a project type-bound value has no instance, when a rebar
-container overrides the parameter, when a Length parameter holds values on members of a group placed more than once
-(Revit lets such a value change only in group edit mode and does not let a Length parameter vary between group
-instances), when several parameters have the required name and none has the required GUID, or when a same-name
-duplicate of an installed required parameter holds values (<code>SharedParameterMigration.HoldsAnyValue</code>);
-the message names each such duplicate. Repair also refuses before binding when a placed family defines the target GUID
-only as a type parameter in a category bound as an instance parameter. A family type parameter with no placed instance
-stays on its type because an instance binding does not change it. The family plan refuses, naming the family: a label or nested family
-that uses a required name with another GUID directly (in Revit 2027 one line per label with its detail group, position
-and formatting), a type parameter in a family of a category that the parameter binds as an instance parameter, a
-nested shared family, an in-place or non-editable family that defines the name or may define it, another data type,
-and an element whose family value and project value differ. Revit 2026 cannot read annotation labels, so it refuses every
-direct shared-parameter element. An annotation-family refusal says the labels could not be read. A model-family refusal
-names the direct use without calling it an annotation label. Every refusal tells the user to reload the edited family
-into the project.
-A check transaction that Revit does not roll back throws
-<code>SharedParameterRollbackException</code>; it is not an <code>InvalidOperationException</code>, so <code>EnsureReady</code> lets it propagate as a
-failure instead of a refusal. A write that Revit blocks for another reason takes the same path.
-<code>SharedParameterMigrationException</code> lists every value that could not be carried over.
-A global parameter with a required name is not a project parameter; repair ignores it.
-The returned <code>PrerequisiteRepairResult</code> holds one <code>SharedParameterFamilyReport</code> per replaced family parameter,
-one <code>SharedParameterMigrationReport</code> per replaced parameter,
-one <code>SharedParameterRebindReport</code> per rebound parameter, each deleted duplicate, each removed schedule field and every rule that Revit removes from an affected view filter.
-Settings appends its <code>Summary</code> to the status message and the banner: each changed family with its kept type and
-element values and <code>PrerequisiteRepairResult.FamilyFileNote</code> (the family files on disk keep the other GUID), the kept
-and copied value counts, the definition differences, the deleted duplicates, the removed schedule fields with
-<code>PrerequisiteRepairResult.ScheduleAction</code> (add the company parameter to each schedule again by hand), and every rule removed from an affected view filter with <code>PrerequisiteRepairResult.FilterAction</code>.
-Repair deletes a same-name duplicate of an installed required parameter (<code>DUPLICATE_NAME</code>) only when it holds no
-values, after the family step.
-Deleting a replaced parameter or a duplicate also removes the schedule fields that use it; Revit removes a
-combined parameter field whole. From each view filter that uses the deleted parameter, it removes every rule set that
-has a rule on the parameter, with all of that set's rules. The filter keeps its categories and other rule sets; a filter
-with no rules left applies to every element of its categories. <code>SharedParameterMigration.FindFilterRules</code> lists the
-rules of each removed rule set, including rules on other parameters and category rules. It does not show
-AND/OR logic or inverted rules, so the confirmation tells the user to record that logic before Continue.
-<code>FoundationTagsScheduleFieldTests</code> and <code>FoundationTagsViewFilterTests</code> check these results.
-Settings uses <code>PrerequisiteRepairPrompt</code>, the production <code>IPrerequisiteRepairConfirmation</code>. It shows a Warning
-alert through Core's <code>IAlertService</code>, owned by the settings window (<code>IOwnerAwareContext</code>), with a table of each
-schedule, field and parameter, a table of each view filter, rule parameter, rule and deleted parameter, the reminder
-to record each filter's logic, the manual steps, and the buttons
-<strong>Cancel</strong> and <strong>Continue</strong> (<code>IPrerequisiteRepairConfirmation.ConfirmRemovals</code>, asked when
-<code>PrerequisiteRepairPlan.RemovesUses</code>). Cancel leaves the status
-message <code>Install/Repair canceled. Nothing changed.</code>, shows no banner and keeps the warning; this applies to
-the pack button, to <code>FixWarningAsync</code> and to <strong>Repair</strong> in <code>PrerequisiteRepairOffer</code>. Loading calls <code>PlanRepair</code>
-and marks each row with <code>ScheduleUse</code> (&quot;Used in N schedules&quot;) and <code>ScheduleUseDetails</code> (one <code>Schedule: Field</code> line
-each), and with <code>FilterUse</code> (&quot;Used in N view filters&quot;) and <code>FilterUseDetails</code> (one <code>Filter: rule parameter, rule</code> line per removed rule), shown
-at the end of that parameter's item with the <code>WarningBar</code> surface. Tests answer the confirmation or
-the alert service with fakes.
-The Revit API does not expose the formula of a calculated field, so <code>FindScheduleFields</code> cannot list a
-calculated field that uses the parameter.
-An instance binding already containing the required category remains unchanged.
-Hosted tests cover these paths with text and length values, extra categories, type bindings, two group
-instances with distinct values, a failure after values are written, an incompatible spec, and schedule fields
-in main, combined and embedded definitions with Cancel and Continue. Elements in
-design options and elements owned by another user in a workshared model are not tested.
-The updater accesses these parameters by GUID.</p>
-<p>The warning disables Update, Move, and Organize Foundation Types.
-Its title is <strong>Combined Foundation Tags Disabled</strong>. Clear it after resolving the prerequisite issue.</p>
-<h3 id="automatic-updates-and-monitoring">Automatic updates and monitoring</h3>
-<p><code>CombinedFoundationTagsAutoUpdateTask</code> runs Update in FloorPlan and CeilingPlan views when enabled and no warning blocks it.
-Invalid prerequisites set the warning without a banner.
-NotApplicable and TransientNotReady evaluations skip execution.
-An unexpected runtime fault sets no prerequisite warning. Core's <code>ViewActivationHook</code> suppresses the failed task for that document session.</p>
-<p><code>PrerequisiteMonitorTask</code> checks prerequisite state, sets or clears the warning without a banner, logs an invalid
-state at Information, and schedules an Idling retry for transient initialization states.
-<code>PrerequisiteRetryCoordinator</code> retains each original event source and detach callback.
-If the retry window expires, it cancels the retry and leaves warning state unchanged until a later view activation checks the document again. Evaluation faults log and can be checked again on the next view activation.
-The monitor disposes its own retry coordinator at synchronous App shutdown. An injected coordinator remains caller-owned.
-Disposed lifetimes reject scheduling. Failed-detach entries retain cleanup state without retry work.
-A late Idling event can retry detachment.</p>
-<h2 id="testing">Testing</h2>
-<p>Pure tests cover geometry, rotated views, corner names, regex classification, prerequisite lifecycle, and write results.
-Revit-hosted tests under <code>Tests/Integration/Revit/</code> cover commands, modules, updates, moves, monitoring, repair, and settings.
-The GM test model has the three parameters from the company file. A test that needs invalid prerequisites
-deletes, unbinds, rebinds or replaces a parameter with <code>Tests/Support/FoundationTagsPrerequisiteStates</code>
-inside a transaction group that it rolls back. <code>FoundationTagsFamilyRepairTests</code> builds families through the API with
-<code>Tests/Support/FoundationTagsFamilyFixtures</code> (a footing, a generic model with a formula and a labeled dimension, a
-multi-category tag that carries the parameter only in Revit 2027, because Revit 2026 refuses an annotation family that
-carries it, and a host with a nested family) that define the required names with other GUIDs, and checks the repair,
-its refusals and a second repair. The API cannot put a dimension into a group in a family, so a grouped labeled
-dimension is not tested. The API cannot create a label, so <code>FoundationTagsRealtestLabelTests</code> needs a staged <code>realtest_model.rvt</code> with an
-annotation family that uses a required name with another GUID directly in its labels: one test records what deleting
-that parameter does to the family, the other checks that Install/Repair refuses and changes nothing. Each test reports
-Ignored (skipped) when the model has no such family. The staged 2026 and 2027 models have one: the Top Right label of
-&quot;DB Pier and Foundation Combined Tag&quot; shows an Associated Pier with another GUID, and the family Footing-Rectangular
-carries that parameter. <code>testing/RevitTestModels/README.txt</code> describes the case. Both tests write what they find to
-the test output. <code>LeaveDeadBindingKey</code> looks up the binding of a parameter, then
-changes its group variance and rolls the change back; no rollback restores the binding map, so a test calls it only in
-a project that it creates and closes.</p>
-<pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope local -y 2026
+<h2 id="name">NAME</h2>
+<p>dbtools.FoundationTags - update foundation tag data and move tag heads</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">source    src/Tools/Structural/FoundationTags/ (manifest.yml)
+assembly  dbtools.FoundationTags
+entry     FoundationTagsToolModule
+commands  UpdateCombinedFoundationTagsCommand, MoveCombinedFoundationTagsCommand
+view      src/dbtools.Presentation/Tools/FoundationTags/FoundationTagsSettingsPackView.xaml
 </code></pre>
-<h2 id="limitations">Limitations</h2>
-<p>Association updates use host-document pier and footing instances. Move supports host tags referencing host or linked foundations and only the four listed corner names. Length values cannot be cleared with the shipped shared-parameter definitions.</p>
-<p>Install/Repair does not change a label that uses a required name with another GUID directly: Revit 2026 has no label
-API, and the Revit 2027 reference assembly exposes only reads. It refuses and names the family instead. It cannot open
-an in-place or non-editable family; it refuses one that defines the parameter, and one for which a rolled-back rebind
-of the project parameter cannot tell. Family files on disk keep the other GUID.</p>
+<h2 id="description">DESCRIPTION</h2>
+<p>See <a href="../../../user-guide/tools/foundation-tags.html">Combined Foundation Tags</a> for command usage.</p>
+<h2 id="structure">STRUCTURE</h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>App/Composition/</code></td>
+<td><code>AddFoundationTags</code> registers workflows, <code>PrerequisiteRepairOffer</code>, and view-activation tasks.</td>
+</tr>
+<tr>
+<td><code>Features/</code></td>
+<td><code>CombinedFoundationTagsUpdater</code> writes parameters. <code>FamilyNameClassifier</code> uses <code>FoundationTagPatterns</code> to compile patterns.</td>
+</tr>
+<tr>
+<td><code>Features/AutoUpdate/</code></td>
+<td><code>CombinedFoundationTagsAutoUpdateTask</code> owns automatic updates.</td>
+</tr>
+<tr>
+<td><code>Features/Move/</code></td>
+<td><code>MoveCombinedFoundationTagsRunner</code> moves tag heads.</td>
+</tr>
+<tr>
+<td><code>Features/Prerequisite/</code></td>
+<td><code>PrerequisiteSharedParameterInstaller</code> checks and repairs bindings.</td>
+</tr>
+<tr>
+<td><code>Settings/</code></td>
+<td><code>SettingsPackContext.WarningFix.cs</code> owns both <strong>Install/Repair</strong> routes. The pack view calls <code>LoadRequiredParametersCommand</code> on <code>Loaded</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="contracts">CONTRACTS</h2>
+<ol>
+<li>Both commands call <code>PrerequisiteRepairOffer.EnsureReady</code> before their workflows.
+It refuses a family document with <code>SafeExecutionRefusedException</code> and the message
+<code>&lt;command&gt; works in a project. The active document is a family.</code>
+It propagates that exception from a dead binding key.
+It converts a repair <code>InvalidOperationException</code> to
+<code>SafeExecutionRefusedException</code> and keeps the warning active. Successful
+<strong>Repair</strong> clears the warning and asks for a rerun.
+<code>FoundationTagsFeatureOwnerTests</code> checks these paths.</li>
+<li>The manifest warning points to <strong>Settings</strong> &gt; <strong>Combined Foundation Tags</strong> &gt; <strong>Install/Repair</strong>.
+The pack button calls <code>InstallOrRepairRequiredParametersCommand</code>.
+The warning card calls <code>FixWarningAsync</code>. <code>FixLabel</code> supplies <strong>Install/Repair</strong>.
+Both paths use <code>RunInstallOrRepairRequiredParameters</code>.
+<code>SettingsPackContextWarningFixTests</code> checks pack-button repair and refusal
+from the warning card without an active document.
+<code>SettingsPackContextScheduleUseTests</code> checks <strong>Cancel</strong> on both routes.</li>
+<li><code>UpdateParameterWriter</code> skips changes to non-varying parameters in repeated
+groups. <code>CombinedTagsTests.Run_GroupPlacements_SkipRestrictedMembersAndWriteOthers</code>
+checks that footings can use the computed pier top after that skip.
+<code>Run_InvalidPierTop_DoesNotReuseStoredTopForFooting</code> checks the mark and
+stored footing elevation when <code>Top Level</code> is unconnected.
+<code>Run_WithNoPierWithinThreshold_ClearsElevationOrReportsRefusal</code> checks
+both bindings of <code>Associated Pier Elevation</code>. When no pier is in range,
+<code>TryClearDouble</code> calls <code>SharedParameterValue.Clear</code> and checks <code>HasValue</code>.
+<code>RecordParameterWrite</code> logs clear refusals with the element ID and
+parameter name. The updater shares one ten-entry warning limit across
+pier, footing and repeated-group details.</li>
+<li><code>RequireSourceUIDocument</code> limits result selection to the source document
+(<code>FoundationTagsFeatureOwnerTests</code>).</li>
+</ol>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>PublishSelectionSets</code> calls <code>PruneSelectionSets</code> to keep up to five
+<code>dbtools - FoundationTags - </code> sets by descending element ID.
+<code>CombinedTagsTests.Run_SixRunsAtDistinctHours_PrunesTheOldestSelectionSet</code>
+checks pruning. See <code>CombinedFoundationTagsUpdater.Run</code> for transaction order.</li>
+<li><code>SelectCornerByViewOrientation</code> matches <code>Top Right</code>, <code>Top Left</code>,
+<code>Bottom Right</code>, and <code>Bottom Left</code> case-insensitively.
+<code>TryGetTaggedFooting</code> checks both host and loaded link references.
+<code>TryGetFootingCornersInHost</code> applies the link transform to linked corners.
+See <code>GetDesiredCornerName</code> and <code>MoveTag</code> for name and position handling.
+<code>CombinedTagsTests.MoveCombinedTags_WithTransientTaggedFooting_ChangesTagHeadPosition</code>
+checks the tag position in the active model.</li>
+<li>Both view-activation tasks use <code>PanelScopedViewActivationTask</code> for <strong>Structural</strong>.
+<code>PrerequisiteMonitorTask</code> checks on document changes and retries transient
+results on <code>Idling</code>. Auto-update admits floor and ceiling plans with
+<code>AutoUpdateEnabled</code> on and the warning inactive.
+See <code>CombinedFoundationTagsAutoUpdateTask.ExecuteInternalAsync</code> for execution.</li>
+</ol>
+<h3 id="prerequisites-and-repair">Prerequisites and repair</h3>
+<p><code>EnsureInstalledAndValid</code> asks before removing schedule fields or view filter
+rules. It replans project and family changes after confirmation.
+<code>Repair</code> migrates families first. It calls <code>SharedParameterMigration</code> with
+<code>RemoveWithParameter</code> when it replaces a project parameter. The migration
+formats project value failures with <code>ElementDisplayName</code>. <code>Repair</code> calls
+<code>Assimilate</code> after every status is <code>OK</code>. <code>FoundationTagsScheduleFieldTests</code>,
+<code>FoundationTagsViewFilterTests</code>, and <code>FoundationTagsFamilyRepairTests</code> check
+these paths.</p>
+<h2 id="data">DATA</h2>
+<p><code>Tools.FoundationTags</code> stores <code>AutoUpdateEnabled</code> (default <code>true</code>),
+<code>TagFamilyPatterns</code>, <code>PierFamilyPatterns</code>, and <code>FootingFamilyPatterns</code>.
+Empty lists use <code>FoundationTagsSettings</code> defaults.
+<code>FoundationTagPatterns</code> skips invalid regexes and logs a Warning.</p>
+<p><code>core.structural.combined_tags</code> in <code>structural.foundation_tags</code> blocks both
+commands and <a href="organize-foundation.html">Organize Foundation Types</a>.
+<code>PrerequisiteRequiredParameters</code> and <code>PrerequisiteSharedParameters.txt</code>
+define the shared parameters.</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Transaction or group name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Update group</td>
+<td><code>dbtools - Update Combined Foundation Tags</code></td>
+</tr>
+<tr>
+<td>Move transaction</td>
+<td><code>dbtools - Move Combined Foundation Tags</code></td>
+</tr>
+<tr>
+<td>Install/Repair group</td>
+<td><code>dbtools - Install/Repair Combined Foundation Tags Shared Parameters</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>build/Distribution/tool-contracts.json</code> holds repair alert strings
+checked by <code>ToolContractsTests</code>.</p>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p><code>[CombinedTags]</code> logs update skips. <code>[MoveCombinedTags]</code> logs move failures.
+<code>[FoundationTags/Prereqs]</code> logs prerequisite checks. <code>[FoundationTags/SP]</code>
+logs installer activity. <code>SettingsPackContext.LoadRequiredParameters</code> logs
+failures under <code>[FoundationTags/Settings]</code>.</p>
+<h2 id="tests">TESTS</h2>
+<pre><code class="lang-bash">./test.sh test --tool FoundationTags --scope pure
+./test.sh test --tool FoundationTags --scope local -y 2026
+</code></pre>
+<p><code>CombinedTagsTests</code> uses <code>gm_test_model.rvt</code>.
+<code>FoundationGeometryTests</code> checks distance and corner matching.
+<code>CombinedFoundationTagsAutoUpdateTaskTests</code> checks admission.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../../projects/core.html#shared-parameter-migration">Shared parameter migration</a>,
+<a href="../../developing/feature-warnings.html">Feature Warnings</a>,
+<a href="../../developing/settings-packs.html">Settings Packs</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

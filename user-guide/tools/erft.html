@@ -96,46 +96,62 @@
 <p>To edit an adjustment, select its members, then click <strong>Edit ERFT</strong> on the
 contextual <strong>Modify</strong> tab.</p>
 <h2 id="description">DESCRIPTION</h2>
-<p>ERFT raises or lowers column tops and the ends of beam location lines. It
-moves them to the bottom surface of a target floor or roof. It changes
-the <code>Top Offset</code> of each column and the <code>Start Level Offset</code> and
-<code>End Level Offset</code> of each beam. It changes no levels. ERFT saves each
-adjustment in the model for <strong>Edit ERFT</strong>.</p>
+<p>ERFT raises or lowers column tops and beam ends to fit a floor or roof.
+It writes <code>Top Offset</code> on columns and <code>Start Level Offset</code> and
+<code>End Level Offset</code> on beams. ERFT saves the adjustment for <strong>Edit ERFT</strong>.</p>
 <ol>
 <li>Click <strong>Extreme Roof Framing</strong>.</li>
-<li>Select a floor or roof target.</li>
+<li>Select a linked floor or roof. To pick one in the host model, press <strong>Esc</strong>.</li>
 <li>Select the columns and beams, then click <strong>Finish</strong>.</li>
 <li>Check the <strong>Columns</strong> and <strong>Beams</strong> tables, then click <strong>Apply</strong>.</li>
 </ol>
-<p>The bottom surface uses faces whose normals point mostly down.</p>
+<p>The target label shows the type and level. A linked target also shows the
+link name. ERFT projects vertically to downward-facing surfaces generated
+by the floor, roof or its modeled openings and uses the one nearest the
+member end. At equal distances, it uses the lower one. An end just beyond
+an edge can use the edge elevation within Revit's vertex tolerance.</p>
 <table>
 <thead>
 <tr>
 <th>Member end</th>
-<th>Moves to the height of</th>
+<th>Target elevation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Column top</td>
-<td>The nearest point of the bottom surface.</td>
+<td>The nearest underside elevation at the column's plan position.</td>
 </tr>
 <tr>
-<td>Beam end within 1/2 in. of a selected column top</td>
-<td>The adjusted top of that column.</td>
+<td>Beam end near a selected column top</td>
+<td>The adjusted top of the nearest column.</td>
 </tr>
 <tr>
-<td>Beam end within 1/2 in. of another selected beam</td>
-<td>That beam's adjusted location line, at the same plan position.</td>
+<td>Beam end near another selected beam's interior</td>
+<td>The adjusted location line of the supporting beam at that plan position.</td>
+</tr>
+<tr>
+<td>Beam end near a directly supported beam end</td>
+<td>The support elevation at the followed end.</td>
 </tr>
 <tr>
 <td>Other beam end</td>
-<td>The nearest point of the bottom surface.</td>
+<td>The nearest underside elevation for that end.</td>
 </tr>
 </tbody>
 </table>
-<p>ERFT rounds each change to a multiple of the <strong>Tolerance:</strong> value and adds
-it to the current offset.</p>
+<p>For beam ends, ERFT checks supports in the order shown. It uses a fixed
+1/2 in. distance in three dimensions. A beam interior support point must
+also be more than 1/2 in. from either end of the supporting beam.</p>
+<p>Free ends from different beams can share a splice target when every pair
+is within 1/2 in. ERFT chooses among their rounded projected elevations.
+<strong>Up</strong> picks the highest, <strong>Down</strong> the lowest, and <strong>Nearest</strong> the first
+projecting end in beam ID order.</p>
+<p>ERFT rounds each end's change in steps of <strong>Tolerance:</strong> and adds it to the
+current offset. <strong>Up</strong> and <strong>Down</strong> apply where an end projects to the
+underside, including when choosing a shared splice target. An end that
+uses a support or a shared target rounds its own change with <strong>Nearest</strong>.
+A change of 0.000001 ft or less in either direction counts as zero.</p>
 <!-- screenshot: Extreme Roof Framing Tool window, columns pending, preview shown -->
 <h2 id="options">OPTIONS</h2>
 <table>
@@ -156,11 +172,11 @@ it to the current offset.</p>
 </tr>
 <tr>
 <td><strong>Nearest</strong>, <strong>Up</strong>, <strong>Down</strong></td>
-<td>The rounding direction. At <code>1/4&quot;</code>, a change of -0.1 in. becomes 0 with <strong>Up</strong> and -0.25 in. with <strong>Down</strong>.</td>
+<td>Round a projected change. At <code>1/4&quot;</code>, -0.1 in. becomes 0 with <strong>Up</strong> and -0.25 in. with <strong>Down</strong>.</td>
 </tr>
 <tr>
-<td>Status</td>
-<td><code>Pending</code> (will change), <code>No Change</code> (the rounded change is 0) or <code>Error</code>.</td>
+<td><strong>Status</strong></td>
+<td><code>Pending</code> (will change), <code>No Change</code> (the rounded change is 0) or <code>Error</code>. Point to an <code>Error</code> cell to see the reason.</td>
 </tr>
 <tr>
 <td><strong>Apply</strong></td>
@@ -191,7 +207,7 @@ it to the current offset.</p>
 </tr>
 <tr>
 <td>Selection</td>
-<td>At least one column, or a beam with an end within 1/2 in. of a column top in the model.</td>
+<td>At least one column, or a beam with an end within 1/2 in. of a model column top in three dimensions.</td>
 </tr>
 <tr>
 <td>Target</td>
@@ -200,9 +216,13 @@ it to the current offset.</p>
 </tbody>
 </table>
 <h2 id="results">RESULTS</h2>
-<p><strong>Apply</strong> is one Undo step: <code>ERFT Apply Adjustments</code>. It writes the offsets
-and marks each changed member. If one write fails, it changes nothing and
-shows <code>Apply failed:</code> with the reason. After a success, the window closes.</p>
+<p>A beam that follows another beam end shows the followed end below its offset.
+Error rows show the current offsets. If a follower's support has no adjusted
+elevation, the tooltip names the followed end and its support.</p>
+<p><strong>Apply</strong> writes the offsets and marks each changed member. On success the
+window closes and Revit records one Undo step, <code>Extreme Roof Framing Tool</code>.
+An expected failure rolls back the writes and shows <code>Apply failed:</code> with the
+reason. The window stays open. Canceling the tool rolls back the session.</p>
 <p><strong>Edit ERFT</strong> restores the target, tolerance and rounding of the adjustment.
 It reads the current offsets and calculates again. If the selection holds
 more than one adjustment, select one in <strong>Select ERFT System</strong>.</p>
@@ -216,17 +236,16 @@ more than one adjustment, select one in <strong>Select ERFT System</strong>.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>3D Preview is unavailable: …</code></td>
-<td>The preview is off for this window. <strong>Apply</strong> still works. Update the graphics driver and open ERFT again.</td>
+<td><code>3D Preview is unavailable: &lt;reason&gt;</code></td>
+<td>The message gives the preview failure. <strong>Apply</strong> depends on the adjustment plan and tolerance.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="limits">LIMITS</h2>
 <ul>
-<li>Only selected members are supports. A beam end at a column that is not
-selected goes to the target surface. With only beams selected, ERFT checks
-for a column in the model, but no beam end follows it.</li>
-<li>ERFT rounds the change, not the resulting offset.</li>
+<li>A beam can use only selected members as supports. A column in the model
+can qualify a beams-only selection. Select that column to use its adjusted
+elevation as a support.</li>
 </ul>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../getting-started.html">Getting started</a>,
@@ -234,8 +253,6 @@ for a column in the model, but no beam end follows it.</li>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 

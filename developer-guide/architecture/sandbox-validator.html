@@ -89,250 +89,135 @@
         <article data-uid="">
 <h1 id="sandbox-validator">Sandbox Validator</h1>
 
-<p><code>dbtools.Sandbox</code> validates one staged product year outside a running Revit
-session. It checks the candidate files, metadata and manifests, then builds the
-real tool windows and checks themes, layout, bindings and Dispatcher cleanup.
-It is also a host for developing tool UI with design-time view models.</p>
-<p>Sandbox is a Windows WPF executable (<code>dbtools.Sandbox.exe</code>, <code>win-x64</code>). Both
-modes need the matching Revit year installed: Sandbox resolves <code>AdWindows.dll</code>,
-<code>RevitAPI.dll</code>, <code>RevitAPIUI.dll</code> and <code>UIFramework.dll</code> from the Revit
-installation directory.</p>
-<h2 id="synopsis">Synopsis</h2>
-<pre><code class="lang-text">dbtools.Sandbox [--headless] [--dist-dir DIR] [--revit-reference-dir DIR]
+<h2 id="name">NAME</h2>
+<p>sandbox validator - check a product year and construct its WPF windows</p>
+<h2 id="synopsis">SYNOPSIS</h2>
+<pre><code class="lang-text">Source    src/dbtools.Sandbox/
+Program   dbtools.Sandbox.exe
+Entry     dbtools.Sandbox.App.Startup.SandboxEntry
+
+dbtools.Sandbox.exe [--dist-dir DIR] [--headless --revit-reference-dir DIR]
 </code></pre>
+<h2 id="description">DESCRIPTION</h2>
+<p>Sandbox validates one product year in a standalone x64 Windows process.
+See <a href="../projects/sandbox.html">dbtools.Sandbox</a> for interactive previews.</p>
 <table>
 <thead>
 <tr>
 <th>Option</th>
-<th>Description</th>
+<th>Effect</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>--headless</code></td>
-<td>Run the full validation sequence, close every window and exit with the result. Without it, Sandbox opens the window catalog for interactive use. Requires <code>--revit-reference-dir</code>.</td>
+<td><code>--dist-dir DIR</code></td>
+<td>Selects a directory named for its Revit year or a root that contains year directories. For a root, Sandbox chooses the highest supported year that contains <code>dbtools.dll</code>.</td>
 </tr>
 <tr>
-<td><code>--dist-dir DIR</code></td>
-<td>A year directory (for example <code>.artifacts/dist/Release/2026</code>) or a distribution root that contains year directories. Default: <code>.artifacts/dist/Release</code> of the repository that contains the executable, else of the current directory.</td>
+<td><code>--headless</code></td>
+<td>Runs validation and exits. The default mode opens the window catalog.</td>
 </tr>
 <tr>
 <td><code>--revit-reference-dir DIR</code></td>
-<td>A directory with the four Revit reference files for the year. Their metadata must be compatible with the installed runtime. Valid only with <code>--headless</code>.</td>
+<td>Supplies the Revit metadata references. This option is required in headless mode and reserved for that mode.</td>
 </tr>
 </tbody>
 </table>
-<p>Both <code>--option VALUE</code> and <code>--option=VALUE</code> are accepted. An empty value, an
-unknown argument or a missing value is an error. Without <code>--headless</code>,
-Sandbox uses the installed Revit runtime as the reference. A <code>--dist-dir</code> of
-the form <code>/mnt/&lt;drive&gt;/...</code> is converted to a Windows path.</p>
-<p>Examples, in PowerShell on Windows after <code>./build.sh BuildAll</code>. Validate the
-2026 candidate against the installed Revit 2026 files:</p>
-<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe --headless `
+<p>The path options accept <code>--option DIR</code> and <code>--option=DIR</code>.
+The default distribution root is <code>.artifacts/dist/Release/</code> in the checkout
+that contains the executable under <code>.artifacts/sandbox/</code>. Outside that layout,
+Sandbox resolves the default relative to the working directory.</p>
+<h2 id="contracts">CONTRACTS</h2>
+<ul>
+<li>A candidate contains <code>dbtools.addin</code>, <code>dbtools.dll</code>, <code>dbtools.Core.dll</code>,
+<code>dbtools.Presentation.dll</code> and a flat <code>Tools/</code> directory.
+<code>SandboxCandidate</code> rejects unexpected root DLLs and mismatched assembly
+names. See <a href="assembly-loading.html#installed-layout">Assembly Loading Contract</a>.</li>
+<li>Both modes require the matching Revit installation. <code>RevitRuntimeResolver</code>
+checks <code>AdWindows.dll</code>, <code>RevitAPI.dll</code>, <code>RevitAPIUI.dll</code> and
+<code>UIFramework.dll</code> against the selected references. Interactive mode uses
+the installed files as its references.</li>
+</ul>
+<h2 id="flow">FLOW</h2>
+<ol>
+<li><code>SandboxEntry</code> resolves and checks the candidate before WPF starts.
+It loads Presentation, Core and App from the candidate into the default
+assembly load context. <code>SandboxDistributionContext</code> resolves each tool
+assembly from the candidate when needed.</li>
+<li><code>HeadlessValidationWorkflow</code> checks add-in metadata, theme resources
+and the catalog. <code>ManifestValidator</code> checks tool modules, command and
+availability types, and icon resources.</li>
+<li><code>ToolWindowValidator</code> constructs each declared window with its
+design-time view model. It checks layout, tab changes and row details.
+After closing a window, it waits for the Dispatcher to reach
+<code>ApplicationIdle</code>. <code>BindingErrorListener</code> collects binding errors.</li>
+<li>After the window checks, the workflow rejects any loaded Revit host
+assembly from the reference set. It closes remaining windows and
+disposes the candidate's window runtime.</li>
+</ol>
+<p>Build the matching Sandbox executable before validating a staged year.
+These commands validate a promoted Revit 2026 distribution from the
+checkout root on Windows.</p>
+<pre><code class="lang-powershell">pwsh -NoProfile -File build.ps1 BuildSandbox -y 2026
+.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe --headless `
   --dist-dir .artifacts\dist\Release\2026 `
   --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
 </code></pre>
-<p>Open the window catalog for the 2026 candidate:</p>
-<pre><code class="lang-powershell">.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe `
-  --dist-dir .artifacts\dist\Release\2026
-</code></pre>
-<p>The exit status is 0 when headless validation passes and 1 when it fails. A
-failure before WPF starts is written to standard error.</p>
-<h2 id="process-model">Process model</h2>
-<p>Each year runs in a new process in the default load context:</p>
-<ol>
-<li><code>SandboxEntry</code> uses only BCL types. It parses the options, resolves the
-year directory and runs <code>SandboxCandidate.Validate</code>.</li>
-<li>A non-inlined method prepares the Revit runtime resolver and loads
-HandyControl, Presentation, Core, App and the manifest-declared tools from
-their candidate paths.</li>
-<li>A second non-inlined method starts the WPF application. The JIT compiles
-this call only after the candidate assemblies are loaded, so Core and WPF
-cannot resolve from anywhere else first.</li>
-</ol>
-<p>The process exits after validation, so no assembly of one candidate stays
-loaded for another year. Sandbox creates no load context, does not run App's
-Revit startup, does not load Revit reference files as product assemblies and
-does not probe subfolders other than <code>Tools/</code>.</p>
-<h2 id="candidate-contract">Candidate contract</h2>
-<p>A candidate is one year directory of the
-<a href="assembly-loading.html#installed-layout">product tree</a>. <code>SandboxCandidate</code> checks the add-in file, the top-level files, the flat
-<code>Tools/</code> directory, the PE simple names, and conflicts with assemblies already
-loaded in the process. No third-party DLL may be present.</p>
-<h2 id="validation-sequence">Validation sequence</h2>
-<ol>
-<li>Resolve the year directory and the optional Revit reference directory.</li>
-<li>Check <code>dbtools.addin</code>, the exact top-level files, the recursive <code>Tools/</code>
-files, the supported year and framework, and the PE simple names.</li>
-<li>Read the App, Core, Presentation, HandyControl and tool references and
-their source-derived versions from PE metadata, without loading Revit API
-assemblies.</li>
-<li>Discover the embedded manifests and validate module, command,
-availability, icon, raw XAML and design-time view model ownership.</li>
-<li>Load the resources and themes, build the window catalog and each tool
-window, run layout and interaction checks, capture binding errors, close
-every window and verify Dispatcher cleanup.</li>
-<li>Fail if any Revit API assembly is loaded at the end.</li>
-</ol>
-<p>Portable validation of a distribution archive checks the same file set and
-also file lengths and SHA-256 hashes.</p>
-<h2 id="components">Components</h2>
+<h2 id="data">DATA</h2>
+<p>From a clean checkout, <code>PackageSandboxValidationInput</code> builds a Release
+candidate and Sandbox for both supported years. It writes
+<code>validate-dist-&lt;sha256&gt;.zip</code> under
+<code>.artifacts/.staging/&lt;build-id&gt;/native-validation-input/</code>.
+The archive carries the candidate, Sandbox and Revit reference files
+under <code>candidate/&lt;year&gt;/</code>, <code>sandbox/&lt;year&gt;/net10-0-windows/</code> and
+<code>revit-refs/&lt;year&gt;/</code>. Its root <code>manifest.json</code> records the payload paths
+and SHA-256 hashes.</p>
+<p>Run <code>DIST</code> before staging another candidate. <code>StageDistributionCandidate</code>
+tries to delete earlier staging directories and their archives.</p>
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<p>Headless mode returns <code>0</code> on success and <code>1</code> on failure. Startup errors
+and the validation result go to standard error. In a <code>DIST</code> run,
+<code>SandboxLauncher</code> includes that output in the failing test message.</p>
 <table>
 <thead>
 <tr>
-<th>Component</th>
-<th>Responsibility</th>
+<th>Message</th>
+<th>Meaning and action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>SandboxEntry</code></td>
-<td>BCL-only option parsing, year selection, candidate check and the non-inlined WPF start</td>
+<td><code>Unable to infer Revit year from dist dir: '&lt;path&gt;'.</code></td>
+<td><code>RevitRuntimeResolver.ResolveRuntimeDirOrThrow</code> raises this when the final directory name fails to parse as a year. Use a year directory such as <code>2026</code>.</td>
 </tr>
 <tr>
-<td><code>SandboxCandidate</code></td>
-<td>Candidate files, direct image loading, PE identity and loaded-image path checks</td>
+<td><code>Revit &lt;year&gt; install was not found. Install Revit &lt;year&gt;.</code></td>
+<td>Match the installed Revit year to the candidate year.</td>
 </tr>
 <tr>
-<td><code>SandboxDistributionContext</code></td>
-<td>References to the candidate's App, Core, Presentation, HandyControl and tool assemblies and manifests</td>
+<td><code>Headless Sandbox validation requires --revit-reference-dir.</code></td>
+<td>Pass a directory with the four Revit metadata references for the candidate year.</td>
 </tr>
 <tr>
-<td><code>ManifestValidator</code></td>
-<td>Manifest owners, commands, availability types, raw resources and design-time view models</td>
-</tr>
-<tr>
-<td><code>AssemblyMetadataInspector</code></td>
-<td>PE metadata and reference identities, read from bytes without running Revit code</td>
-</tr>
-<tr>
-<td><code>HeadlessValidationWorkflow</code></td>
-<td>The headless sequence and its structured result</td>
-</tr>
-<tr>
-<td><code>ToolWindowValidator</code></td>
-<td>Window construction, layout, interaction, binding errors and cleanup</td>
+<td><code>Tool UI validation failed:</code></td>
+<td>Find the window ID, XAML resource and view model in the Sandbox standard error output.</td>
 </tr>
 </tbody>
 </table>
-<p>The portable manifest rules are in
-<code>build/Distribution/Manifest/PortableToolManifestValidator.cs</code>.</p>
-<h2 id="tool-window-registration">Tool window registration</h2>
-<p>A tool lists its Sandbox windows in <code>manifest.yml</code>:</p>
-<pre><code class="lang-yaml">sandboxWindows:
-  - id: dbtools.MyTool.Main
-    displayName: &quot;My Tool&quot;
-    group: &quot;Common&quot;
-    xamlResource: &quot;dbtools.ToolViews.MyTool.MyToolView.xaml&quot;
-    windowKind: Modal
-    designTimeViewModelType: &quot;dbtools.MyTool.App.DesignTime.MyToolDesignTimeViewModel&quot;
-    designTimeViewModelAssembly: &quot;dbtools.MyTool&quot;
-    designTimeViewModelVisibility: Public
-</code></pre>
-<p><code>windowKind</code> is <code>Modal</code> or <code>Modeless</code>. <code>SandboxCatalog</code> (Core) reads these
-entries into window specifications, and Sandbox hosts each raw view in the
-stable Presentation <code>ToolWindowHost</code>. No candidate <code>Window</code> type crosses
-between assemblies.</p>
-<p>Validation requires, for each entry:</p>
-<ul>
-<li>a nonempty <code>id</code>, <code>displayName</code>, <code>group</code>, <code>xamlResource</code>,
-<code>designTimeViewModelType</code> and <code>designTimeViewModelAssembly</code>;</li>
-<li>an <code>EmbeddedResource</code> in the owning project with exactly that
-<code>LogicalName</code>;</li>
-<li>a root element that derives from <code>FrameworkElement</code> and is not a <code>Window</code>;
-the host supplies the window shell;</li>
-<li>no <code>x:Class</code>, <code>x:ClassModifier</code> or <code>x:FieldModifier</code>, no code-behind event
-attributes, no CLR namespaces of the tool assembly, no implicit templates for
-tool types, no inferred <code>DataGrid</code> columns and no pack URIs into the tool
-assembly;</li>
-<li>a concrete design-time view model whose visibility matches
-<code>designTimeViewModelVisibility</code> (<code>Public</code> or <code>Internal</code>) and that has a
-parameterless constructor (public for <code>Public</code>); Sandbox invokes it. Give it
-fixed display data and no Revit, network or settings services. Design-time view
-models supply their own unavailable-feature state.</li>
-</ul>
-<p>Every manifest command type must implement <code>IExternalCommand</code> and every
-availability type <code>IExternalCommandAvailability</code>, in the declared owner
-assembly under <code>Tools/</code>.</p>
-<h2 id="window-checks">Window checks</h2>
-<p><code>ToolWindowValidator</code> opens each raw view through <code>ToolWindowHost</code> with its
-design-time view model and then:</p>
-<ul>
-<li>measures and arranges the window at a fixed size and at infinite size;</li>
-<li>selects every tab of each <code>TabControl</code> and restores the original tab;</li>
-<li>shows the row details of the first three rows of each nonempty <code>DataGrid</code>,
-except grids whose details are <code>VisibleWhenSelected</code>;</li>
-<li>records WPF binding errors;</li>
-<li>closes the window and waits for a bounded <code>ApplicationIdle</code> Dispatcher
-barrier.</li>
-</ul>
-<p>It fails when the Dispatcher is missing, shutting down or aborted, or when a
-cleanup operation is still pending after the barrier.</p>
-<h2 id="build-output-and-archives">Build output and archives</h2>
-<p>Sandbox is built once per year, although both years use the same framework:</p>
-<pre><code class="lang-text">.artifacts/sandbox/&lt;Configuration&gt;/&lt;year&gt;/&lt;TFM&gt;/   build output
-sandbox/&lt;year&gt;/&lt;sanitized-tfm&gt;/                    path inside the validation archive
-</code></pre>
-<p><code>./build.sh PackageSandboxValidationInput</code> writes a content-addressed
-<code>validate-dist-&lt;sha256&gt;.zip</code> with the candidate and Sandbox. The DIST suite
-consumes that archive and writes a structured result JSON (see
-<a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>).
-The archive and the result keep normalized relative paths. The portable
-validation of the archive runs on any host and checks files and metadata only.
-The Windows acceptance suite runs <code>dbtools.Sandbox.exe --headless</code> for each
-year, with the reference files the archive carries under <code>revit-refs/&lt;year&gt;/</code>,
-so the window checks run there.</p>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<table>
-<thead>
-<tr>
-<th>Failure</th>
-<th>Where to look</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Candidate file missing or extra</td>
-<td><code>ProductOutput</code> staging and <code>DistributionContract</code></td>
-</tr>
-<tr>
-<td><code>.addin</code> entry mismatch</td>
-<td><code>build/Installer/dbtools.addin</code> and the App output</td>
-</tr>
-<tr>
-<td>Tool assembly missing</td>
-<td>The manifest <code>assembly</code> name and <code>Tools/</code> staging</td>
-</tr>
-<tr>
-<td>Raw XAML resource missing</td>
-<td><code>EmbeddedResource LogicalName</code> in the owning project</td>
-</tr>
-<tr>
-<td>Design-time view model cannot be created</td>
-<td>Its visibility, <code>designTimeViewModelVisibility</code> and parameterless constructor</td>
-</tr>
-<tr>
-<td>Binding errors</td>
-<td>Explicit bindings and the stable Presentation templates</td>
-</tr>
-<tr>
-<td>Layout failure</td>
-<td><code>ToolWindowValidator</code> measure and arrange messages</td>
-</tr>
-<tr>
-<td>Cleanup timeout</td>
-<td>Dispatcher and window owner lifetime</td>
-</tr>
-</tbody>
-</table>
-<p>A window failure reports both the primary exception and any cleanup exception.</p>
-<p>See <a href="../developing/sandbox-integration.html">Sandbox Integration</a>,
-<a href="assembly-loading.html">Assembly Loading Contract</a> and <a href="test-pipeline.html">Test Pipeline</a>.</p>
+<h2 id="tests">TESTS</h2>
+<p><code>WindowsAcceptanceTests.ValidatesTheStagedCandidate</code> verifies the archive
+and runs Sandbox with <code>--headless</code> against each extracted
+<code>candidate/&lt;year&gt;/</code> directory. See
+<a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>
+for the <code>DIST</code> command and its input archive.</p>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="../projects/sandbox.html">dbtools.Sandbox</a>,
+<a href="build-pipeline.html">Build Pipeline</a>,
+<a href="../developing/sandbox-integration.html">Sandbox Integration</a>,
+<a href="test-pipeline.html">Test Pipeline</a></p>
 
 </article>
 
-        <div class="contribution d-print-none">
-        </div>
 
         <div class="next-article d-print-none border-top" id="nextArticle"></div>
 
