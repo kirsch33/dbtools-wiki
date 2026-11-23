@@ -284,7 +284,11 @@ queue and ends when its accepted native <code>Raise</code> starts. The summary i
 when a turn leaves the queue empty, at most once per second, or after 10 s of
 a queue that stays busy. Turns inside the one-second interval are reported with
 the next activity.</p>
-<p>Each call also records when it was queued, started and finished into the <code>RevitCallGateActionTiming</code> that was current where it was made. <code>SafeExecutor</code> begins one per run and writes the totals into the run's Information completion line (see <a href="../projects/core.html">Core</a>). Every <code>RevitCallGateTask</code> uses one process clock, so the calls of one run share a time base.</p>
+<p>Each call records its queue, start and finish times in the caller's
+<code>RevitCallGateActionTiming</code>. Presentation owns the timing state so a captured
+execution context holds only stable types. <code>SafeExecutor</code> begins a timing for
+each run and logs its totals at Information level (see <a href="../projects/core.html">Core</a>).
+Every <code>RevitCallGateTask</code> uses the same process clock.</p>
 <p>Retirement cancels the posted raise, stops and detaches the retry timer, releases queued delegates and disposes the native event. Dropped tasks never complete, so a worker that waits synchronously on one hangs. Cleanup after a failed startup cancels the tasks instead, because Revit and its callers are still running.</p>
 <h2 id="transactions">Transactions</h2>
 <p>Resolve transaction services from the command scope: <code>context.Resolve&lt;ITransactionRunner&gt;()</code> and <code>context.Resolve&lt;ITransactionGroupService&gt;()</code>. <code>RevitServiceCollectionExtensions</code> registers both as scoped services on the scope's <code>IRevitCallGate</code>.</p>

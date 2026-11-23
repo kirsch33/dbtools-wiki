@@ -116,16 +116,12 @@
 <td><code>dbtools.Core</code>, <code>dbtools.Presentation</code></td>
 </tr>
 <tr>
-<td>Merged package</td>
-<td><code>ricaun.Revit.UI</code>, folded into <code>dbtools.dll</code> by the declared assembly merge</td>
-</tr>
-<tr>
 <td>Manifests</td>
 <td>Embedded in App for every tool</td>
 </tr>
 </tbody>
 </table>
-<p>Revit API references are compile-only and are never staged as product runtime files. <code>DBT_RemoveForbiddenHostAssemblies</code> removes RevitAPI, RevitAPIUI, AdWindows, UIFramework, System.Runtime and System.ObjectModel DLLs after copying. Deletion errors fail the build. The App project must not add a loose-copy target for the merged <code>ricaun.Revit.UI</code> files. Product output stages App at the year root and the tool assemblies below <code>Tools/</code>.</p>
+<p>Revit API references are compile-only and are never staged as product runtime files. <code>DBT_RemoveForbiddenHostAssemblies</code> removes RevitAPI, RevitAPIUI, AdWindows, UIFramework, System.Runtime and System.ObjectModel DLLs after copying. Deletion errors fail the build. <code>RibbonNativeAccess</code> reads Revit's internal ribbon panel and item wrappers. Product output stages App at the year root and the tool assemblies below <code>Tools/</code>.</p>
 <h2 id="responsibilities">Responsibilities</h2>
 <p>App owns:</p>
 <ul>
@@ -173,7 +169,14 @@
 <p>The <code>App runtime host lifecycle</code> (<code>ShutdownHost</code>) step runs before the <code>Window static runtime contract</code> step (<code>WindowStaticRuntime.Reset</code>, which also retires dispatcher operations). These steps and the cleanup summary are written to the fallback log after logging is disposed. The <code>Revit task host</code> step logs failures through the live logger.</p>
 <h2 id="composition">Composition</h2>
 <p><code>AppRuntimeFactory</code> builds the service root once from the ribbon target and the Revit year. <code>AppServiceProviderFactory</code> registers the Revit year once as an <code>int</code> singleton, then logging, settings (<code>AppPaths.GetSettingsFile(revitYear)</code>), UI ownership, Revit call gates, safe execution, command preflight, hooks, alerts and ribbon composition. It returns the concrete <code>ServiceProvider</code>. <code>AppServiceRoot</code> owns the provider: disposal stops the logger window host, disposes the provider and its singletons, then disposes logging.</p>
-<p><code>AppHostedComposition.EnsureRuntime(uiApplication)</code> starts the App lifecycle with a headless failure presenter and an isolated ribbon target. Startup configures the static window runtime, publishes the App service root's call-gate task, attaches the application hooks and completes deferred UI startup. A change to <code>AppPaths.BaseDir</code> replaces the hosted lifecycle. <code>ShutdownRuntime()</code> releases the lifecycle that hosted composition started.</p>
+<p><code>AppHostedComposition.EnsureRuntime(uiApplication, createControlledApplication)</code>
+starts the App lifecycle with a headless failure presenter and an isolated ribbon
+target. When startup is needed, it asks the fixture for a <code>UIControlledApplication</code>
+wrapper of the daemon-provided <code>UIApplication</code>. Startup configures the static
+window runtime, publishes the App service root's call-gate task, attaches the
+application hooks and completes deferred UI startup. A change to <code>AppPaths.BaseDir</code>
+replaces the hosted lifecycle. <code>ShutdownRuntime()</code> releases the lifecycle that
+hosted composition started.</p>
 <p><code>CreateLoggingRuntime()</code> uses the initialized year. <code>BuildServiceProvider(logging, isolationName, configure)</code> requires Core's concrete logging runtime and the published App call-gate task. It gives each provider a distinct ribbon prefix and applies <code>configure</code> after App registrations. The fixture provider borrows the task. The caller disposes the provider and logging runtime.</p>
 <p><code>AppToolModuleRegistrar</code> asks Core's <code>ToolModuleCatalog</code> to discover the embedded manifest resources once. It instantiates the module owners, collects their settings, services and hooks in temporary registration state, validates module responsibilities and merges the state into the App container.</p>
 <p>Core's <code>ToolAssemblyResolver</code> loads the module, command, availability and icon owner of each manifest by explicit path from the product year's <code>Tools/</code> directory, in the active owning load context. It checks the declared PE identity, rejects a loaded image with the same name from another path or identity, and probes no other directory.</p>

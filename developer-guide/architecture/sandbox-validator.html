@@ -134,9 +134,9 @@ Sandbox resolves the default relative to the working directory.</p>
 <code>SandboxCandidate</code> rejects unexpected root DLLs and mismatched assembly
 names. See <a href="assembly-loading.html#installed-layout">Assembly Loading Contract</a>.</li>
 <li>Both modes require the matching Revit installation. <code>RevitRuntimeResolver</code>
-checks <code>AdWindows.dll</code>, <code>RevitAPI.dll</code>, <code>RevitAPIUI.dll</code> and
-<code>UIFramework.dll</code> against the selected references. Interactive mode uses
-the installed files as its references.</li>
+uses <code>ricaun.Revit.Installation</code> to locate it. It checks <code>AdWindows.dll</code>,
+<code>RevitAPI.dll</code>, <code>RevitAPIUI.dll</code> and <code>UIFramework.dll</code> against the selected
+references. Interactive mode uses the installed files as its references.</li>
 </ul>
 <h2 id="flow">FLOW</h2>
 <ol>
@@ -205,11 +205,14 @@ and the validation result go to standard error. In a <code>DIST</code> run,
 </tbody>
 </table>
 <h2 id="tests">TESTS</h2>
-<p><code>WindowsAcceptanceTests.ValidatesTheStagedCandidate</code> verifies the archive
-and runs Sandbox with <code>--headless</code> against each extracted
-<code>candidate/&lt;year&gt;/</code> directory. See
-<a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>
-for the <code>DIST</code> command and its input archive.</p>
+<p><code>WindowsAcceptanceTests</code> provides <code>ValidatesTheStagedCandidateFor2026</code> and
+<code>ValidatesTheStagedCandidateFor2027</code>. Each <code>DIST</code> request runs one year in its
+own process and verifies the complete archive.
+<code>DevModeGenerationProbe</code> from <code>dbtools-daemon.DevMode.Testing</code> loads that
+year's candidate. The test opens and closes each <code>SandboxCatalog</code> window and
+requires the generation to retire. It then runs the staged Sandbox with
+<code>--headless</code> against the candidate and its archived Revit references.
+See <a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../projects/sandbox.html">dbtools.Sandbox</a>,
 <a href="build-pipeline.html">Build Pipeline</a>,

@@ -128,21 +128,28 @@ Presentation, so it stays at the top level.</p>
 third-party DLL is staged. <code>build/Merging/AssemblyMerges.props</code> declares the
 merges:</p>
 <ul>
-<li>App owns <code>ricaun.Revit.UI.0.9.0</code>.</li>
-<li>Core owns the manifest and YAML parser, MVVM, functional,
-dependency injection, logging, options and primitives libraries, and
-<code>Serilog.Extensions.Logging</code>.</li>
+<li>Core owns the manifest parser, YamlDotNet, CommunityToolkit.Mvvm and
+CSharpFunctionalExtensions.</li>
 <li>SGT owns LibTessDotNet privately. The double-precision assembly is not merged.</li>
-<li>Presentation owns the Helix and SharpDX closure, Serilog, and the public
-dependency injection and logging abstractions.</li>
+<li>Presentation owns the Helix and SharpDX closure, Serilog, its logging provider
+and the Microsoft.Extensions logging, dependency injection, options and
+primitives libraries.</li>
 </ul>
 <p>SGT and ERFT declare CSharpFunctionalExtensions directly. Desktop builds share
 its public types through Core. Portable dependencies retain their NuGet identities.</p>
-<p>Serilog is in Presentation, which is never reloaded, because its thread-static
-state must not enter a collectible load context (dotnet/runtime#134928).</p>
-<p>A declaration's <code>Include</code> is the assembly name. The optional <code>PackageId</code> names
-a NuGet package whose name differs; ricaun uses <code>PackageId=&quot;ricaun.Revit.UI&quot;</code>
-because its assembly name contains a version.</p>
+<p>Installed Revit loads Presentation in the default <code>AssemblyLoadContext</code>.
+In Dev Mode, the daemon loads it in a non-collectible stable context and
+shares it across generations.</p>
+<p><code>LoggerFactoryScopeProvider</code> and <code>SerilogLoggerProvider</code> keep their scopes in
+<code>AsyncLocal</code> fields in Presentation. Serilog's thread-static state also lives
+there. <code>SerilogStack</code> coordinates the process-wide logger across Core generations.
+App and Core bind to the merged logging types through <code>dbtools.Presentation</code>.
+Standalone package copies used by other add-ins have different assembly identities.</p>
+<p>Presentation owns the ambient Revit application slot (<code>RevitApplicationContextSlot</code>)
+and the asynchronous call timing state (<code>RevitCallGateActionTiming</code>). Their slots
+hold stable types across Core generations.</p>
+<p>A declaration's <code>Include</code> is the assembly name. A NuGet package that supplies
+that assembly uses the same name as its package ID.</p>
 <p>MSBuild passes each merge its inputs as items: the resolved runtime asset of a
 package, or the output of a project. The merge copies its evaluated reference
 files into a temporary reference directory. ILRepack searches only that
@@ -151,19 +158,13 @@ package or compiler-output files and the runtimes installed on the build host
 cannot change the result. MSBuild <code>Inputs</code> and <code>Outputs</code>, including the owner's
 <code>project.assets.json</code>, decide when a merge reruns. The task deletes its
 temporary files afterwards.</p>
+<p><code>MergeReferenceGuard</code> checks merged images against the evaluated references.
+It rejects unresolved types or members, newer reference versions and references
+to assemblies that the merge removed.</p>
 <h3 id="app-host-references">App host references</h3>
-<p>The pinned <code>ricaun.Revit.UI.0.9.0</code> assembly references Revit <code>27.0.4</code>, also
-when App is compiled for Revit 2026. The App merge therefore binds these host
-references to the exact identities of the selected year during the final Cecil
-normalization:</p>
-<pre><code class="lang-text">RevitAPI;RevitAPIUI;AdWindows;UIFramework
-</code></pre>
-<p>Only App does this. <code>MergeReferenceGuard</code> then resolves every <code>TypeRef</code>,
-<code>MemberRef</code> and attribute type name with Cecil against the selected year's
-evaluated references. It rejects a missing type or member, a referenced version
-higher than the evaluated one, and any reference to an assembly that a merge
-removed. The Nice3point <code>UIFramework</code> reference is part of the Revit reference
-metadata used for this check; it is not shipped.</p>
+<p>App compiles against the selected Revit year's API references.
+<code>RibbonNativeAccess</code> reads the native <code>Autodesk.Windows</code> ribbon panel and
+item from their Revit API wrappers.</p>
 <h2 id="entry-and-idle-acknowledgement">Entry and idle acknowledgement</h2>
 <p><code>AddinEntry</code> has a public parameterless constructor for Revit. <code>OnStartup</code>
 first calls <code>AddinIdle.TryAcknowledge</code>. If <code>DBTOOLS_DAEMON_REVIT_ROLE</code> is set
@@ -211,11 +212,12 @@ assemblies can be reloaded, as the host decides.
 <code>DevModeCollectibleUnloadTests</code> composes such a generation on Linux and
 requires it to unload; see
 <a href="../developing/testing-tools.html">Testing Tools</a>.</p>
-<p>A Dev Mode fleet job of the daemon also loads the
-<a href="build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a> into the same Revit
-process, in a test context of its own for each generation. The scenario
-references no dbtools assembly, so no scenario object holds a type or object of
-a generation.</p>
+<p>A Dev Mode fleet job loads the <a href="build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a>
+into a separate test context in the Revit process for each generation. The
+scenario references the testing bridge and exercises the product through Revit,
+verified ribbon proxies, windows and the log in the private data directory.
+The scenario references no dbtools product assembly and holds no type or object
+from a product generation.</p>
 <h3 id="linux-lifetime-checks">Linux lifetime checks</h3>
 <p>The BUILD lane checks reloadable product code for common Dev Mode lifetime
 failures against both supported Revit years.</p>
@@ -252,10 +254,9 @@ methods. It uses Core's <code>WpfDispatcher</code> registry. The rule does not c
 </ul>
 <h2 id="sandbox">Sandbox</h2>
 <p>Sandbox runs one new process in the default context for each candidate year. Its
-entry point uses only BCL types: it validates the candidate, loads the top-level
-product files and the <code>Tools/</code> assemblies from their paths, and then starts WPF
-through a non-inlined method. The process exits after validation, so no
-candidate assembly remains loaded for the next year. See
+entry point uses only BCL types. It validates the candidate and loads its root
+assemblies before starting WPF through a non-inlined method. Sandbox loads tool
+assemblies from <code>Tools/</code> on demand and exits after headless validation. See
 <a href="sandbox-validator.html">Sandbox Validator</a>.</p>
 <h2 id="distribution-hashes">Distribution hashes</h2>
 <p>Distribution validation checks the exact relative file set, PE identities,

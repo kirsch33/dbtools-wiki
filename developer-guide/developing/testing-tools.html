@@ -146,7 +146,7 @@ Year selection chooses references and output placement.</p>
 <tbody>
 <tr>
 <td><code>BuildAll</code></td>
-<td>Default wrapper target. Build, validate, and promote the Release distribution and its acceptance inputs. Compile no test project except the Dev Mode scenario.</td>
+<td>Default wrapper target. Build, validate, and promote the Release distribution with the Dev Mode scenario and other acceptance inputs.</td>
 </tr>
 <tr>
 <td><code>BuildApp</code></td>
@@ -158,7 +158,7 @@ Year selection chooses references and output placement.</p>
 </tr>
 <tr>
 <td><code>BuildTests</code></td>
-<td>Compile the Pure, Local and Design Automation test graphs. Execute no tests. <code>BuildDevModeScenario</code> compiles the Dev Mode scenario.</td>
+<td>Compile the Pure, Local and Design Automation test graphs. Execute no tests.</td>
 </tr>
 <tr>
 <td><code>BuildSelectedPureTests</code></td>
@@ -206,7 +206,7 @@ Year selection chooses references and output placement.</p>
 </tr>
 <tr>
 <td><code>BuildDevModeScenario</code></td>
-<td>Build the hosted Dev Mode scenario of a daemon fleet job for the selected years.</td>
+<td>Build the hosted Dev Mode scenario for the selected years.</td>
 </tr>
 <tr>
 <td><code>PackageSandboxValidationInput</code></td>
@@ -231,9 +231,10 @@ years. Leave the year filter unset for <code>BuildAll</code>, portable acceptanc
 Sandbox validation packaging. Focused product/test
 builds and candidate assembly support normal edited-source development.
 <code>BuildAll</code> validates metadata and static Dev Mode policy on Linux. It does not
-run native Sandbox, WPF interactions, Revit, or live Dev Mode injection. It
-builds the <a href="../architecture/build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a>,
-which runs only in a dbtools-daemon Dev Mode fleet job.</p>
+run native Sandbox, WPF interactions, Revit, or live Dev Mode injection.
+It builds and publishes the
+<a href="../architecture/build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a>
+for the daemon's Dev Mode fleet job.</p>
 <h3 id="build-parameters">Build parameters</h3>
 <table>
 <thead>
@@ -371,7 +372,7 @@ year or <code>DBTOOLS_DAEMON_REVIT_YEARS</code>. Pure-only requests are year-fre
 <tbody>
 <tr>
 <td><code>--tool TOOL[,TOOL]</code></td>
-<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>PRESENTATION</code>, <code>DA-SENTINEL</code>, <code>DIST</code>, <code>GALLERY</code>.</td>
+<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>PRESENTATION</code>, <code>SANDBOX</code>, <code>DA-SENTINEL</code>, <code>DIST</code>, <code>GALLERY</code>. <code>SANDBOX</code> selects the Sandbox Pure project.</td>
 </tr>
 <tr>
 <td><code>--scope SCOPE[,SCOPE]</code></td>
@@ -574,17 +575,28 @@ only 2026. A combined request must include 2026.</p>
 <p>The wrapper does not persist authentication tokens. Relay authentication
 belongs to daemon configuration.</p>
 <h3 id="distribution-acceptance">Distribution acceptance</h3>
-<p>DIST is a closed acceptance command, not an ordinary tool suite. It requires
-<code>test --tool DIST --scope pure</code>, automatic machine selection, and the exact
-filter <code>FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidate</code>.
-Supply <code>--result-json</code> and exactly one <code>--include</code> file named
-<code>validate-dist-&lt;64 lowercase hex digits&gt;.zip</code>. The archive contains the complete
-candidate, references, and Sandbox payload. Other tools, fixture selectors,
-explicit machine pins, and arbitrary include files are rejected.</p>
-<p>Build the archive with <code>PackageSandboxValidationInput</code>. The acceptance test
-validates it before launching a fresh Sandbox for every supported year. Its
-compile-only selection builds the test graph without requiring an archive or
-executing acceptance.</p>
+<p>DIST runs the staged Windows distribution acceptance tests through the daemon.</p>
+<p>Run one staged acceptance test per Revit year. Each test process loads one
+stable assembly graph, opens and closes every manifest window from that year's
+candidate, and requires the generation to retire. It also validates the complete
+archive and runs the staged Sandbox checks for that year.</p>
+<p>Build the archive with <code>PackageSandboxValidationInput</code>. Pass the printed archive
+path to both commands:</p>
+<pre><code class="lang-bash">archive=.artifacts/.staging/&lt;build-id&gt;/native-validation-input/validate-dist-&lt;sha256&gt;.zip
+./test.sh test --tool DIST --scope pure \
+  --filter FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidateFor2026 \
+  --result-json .artifacts/test-results/sandbox-acceptance-2026.json \
+  --execution-timeout 00:30:00 --include &quot;$archive&quot;
+./test.sh test --tool DIST --scope pure \
+  --filter FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidateFor2027 \
+  --result-json .artifacts/test-results/sandbox-acceptance-2027.json \
+  --execution-timeout 00:30:00 --include &quot;$archive&quot;
+</code></pre>
+<p>DIST selects one year-specific filter per request, uses automatic machine
+selection, and requires <code>--result-json</code> plus exactly one
+<code>validate-dist-&lt;64 lowercase hex digits&gt;.zip</code> include. It rejects other filters,
+explicit machine pins, and arbitrary include files. Its compile-only selection
+builds the test graph without an archive or acceptance run.</p>
 <h3 id="render-gallery">Render gallery</h3>
 <p>GALLERY selects <code>dbtools.Presentation.Gallery.Pure.Tests</code>; default Pure
 selections exclude it, and it always runs through the daemon. Each fixture
@@ -852,8 +864,9 @@ must fail the test.</p>
 <p>Set <code>DBT_StartHostedAppRuntime</code> in a Local test project that uses App
 composition or needs App's Revit hooks. Elevation Tags and Joist Girder
 Weight enable the flag for their view-activation hooks. Profile setup calls
-<code>AppHostedComposition.EnsureRuntime(app)</code>
-with the daemon-provided <code>UIApplication</code>. It shuts down the App lifecycle
+<code>RevitHost.EnsureRuntime(app)</code> with the daemon-provided <code>UIApplication</code>.
+<code>RevitLocalApplication</code> creates the <code>UIControlledApplication</code> wrapper when
+App starts. Profile teardown shuts down the App lifecycle
 before releasing the assembly's test profile. The next assembly in the same
 Revit process starts its own App lifecycle with a fresh profile. If a job
 leaves a hosted lifecycle active, App replaces it when the profile path changes.

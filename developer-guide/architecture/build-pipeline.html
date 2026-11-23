@@ -137,12 +137,23 @@ for Revit 2026 and 2027.</li>
 <li><code>DistributionContract.ProductFiles</code> defines the exact file set for each
 year. When adding a tool, include its <code>Tools/&lt;name&gt;.dll</code> path in this list.
 <code>StageProductOutputTask</code> rejects a mismatch.</li>
+<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.22.10</code>.
+The scenario and Windows acceptance builds check the vendored and restored
+DevMode.Testing packages against the SHA-256 in that file.
+<code>testing/Daemon/Directory.Build.props</code> pins the Revit test adapter to the
+same release and records its SHA-256.</li>
 <li>Update the <code>dbtools-daemon.Protocol</code> version in <code>Directory.Packages.props</code>,
 the lock in <code>build/Distribution/protocol-package-lock.json</code> and the
 matching <code>vendor/DaemonProtocol/dbtools-daemon.Protocol.&lt;version&gt;.nupkg</code>
 together. The build checks the package version and SHA-256 against the pin.</li>
 <li>Promotion requires a portable acceptance receipt for the same source,
 candidate bytes and validator.</li>
+<li>In the runtime inputs, <code>dbtools.dll</code> retains its mapped CodeView path,
+GUID and stamp to pair with <code>dbtools.pdb</code>. The Core merge writes
+<code>dbtools.Core.pdb</code> and records that file name in its CodeView entry.
+Both PDBs retain mapped source documents.</li>
+<li>Public merged types remain available to dependent product assemblies
+through their owning assembly.</li>
 </ul>
 <h3 id="content-versions">Content versions</h3>
 <p><code>ContentVersion.targets</code> derives product assembly versions from the
@@ -172,10 +183,11 @@ scenario for each year.</li>
 into place last. Read the published files after the command succeeds.</li>
 </ol>
 <h3 id="dev-mode-preflight">Dev Mode preflight</h3>
-<p><code>DevModePreflightWorker</code> calls <code>DevModeStableGraphPreflight.Run</code> from the
-pinned <code>dbtools-daemon.Protocol</code> package for each year's App assembly.
-Each year has a three-minute runner limit. A collectible-boundary warning
-fails validation.</p>
+<p><code>DevModePreflightWorker</code> calls <code>DevModeStableGraphPreflight.Run</code> for each
+year's App assembly. The pinned <code>dbtools-daemon.Protocol</code> package supplies
+policy <code>devmode-stable-graph/v4</code> under schema 2 and contract
+<code>devmode-preflight/v2</code>. Each year has a three-minute runner limit.
+A collectible-boundary warning fails validation.</p>
 <h2 id="data">DATA</h2>
 <table>
 <thead>
@@ -227,6 +239,9 @@ checks and tests in Revit, see <a href="sandbox-validator.html">Sandbox Validato
 and <a href="test-pipeline.html">Test Pipeline</a>.</p>
 <h3 id="dev-mode-scenario">Dev Mode scenario</h3>
 <p><code>testing/dbtools.DevMode.Scenario/</code> owns the hosted scenario.
+It compiles against <code>dbtools-daemon.DevMode.Testing.Scenario</code> from the
+<code>dbtools-daemon.DevMode.Testing</code> package. The daemon supplies bridge
+assembly version <code>1.0.0.0</code> at runtime.
 <code>DevModeScenarioManifestWriter</code> publishes its payload under
 <code>.artifacts/acceptance/dev-mode-scenario/&lt;year&gt;/</code>. The adjacent
 <code>dev-mode-scenario.json</code> binds it to the product, the model and the
@@ -295,6 +310,10 @@ their interactive picks, which wait for Revit user input.
 <tr>
 <td><code>DevModeScenarioManifestWriterTests</code></td>
 <td>The manifest binds the scenario and each year's inputs by hash.</td>
+</tr>
+<tr>
+<td><code>ResourceAssemblyVersionContractTests.AppAndCorePdbCodeViewPathsMatchDistributionAndKeepSourceDocuments</code></td>
+<td>Checks App and Core CodeView records and mapped PDB source documents for both years.</td>
 </tr>
 <tr>
 <td><code>ToolContractsTests</code></td>

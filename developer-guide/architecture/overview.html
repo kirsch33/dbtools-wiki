@@ -127,7 +127,7 @@ reloads each new build into a running Revit.</p>
 <tr>
 <td><code>src/dbtools.App</code></td>
 <td><code>dbtools.dll</code></td>
-<td>Startup, shutdown, services and ribbon. It embeds every <code>manifest.yml</code> and holds no tool source.</td>
+<td>Startup, shutdown, services and ribbon. App embeds the tool manifests. <code>RibbonNativeAccess</code> reads the native ribbon objects.</td>
 </tr>
 <tr>
 <td><code>src/dbtools.Core</code></td>
@@ -142,7 +142,7 @@ reloads each new build into a running Revit.</p>
 <tr>
 <td><code>src/dbtools.Presentation</code></td>
 <td><code>dbtools.Presentation.dll</code></td>
-<td>Themes, controls and window shells, and compiled tool views in <code>Tools/&lt;Tool&gt;/</code>.</td>
+<td>Stable WPF themes, controls, window shells and compiled tool resources.</td>
 </tr>
 <tr>
 <td><code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;</code></td>
@@ -151,8 +151,8 @@ reloads each new build into a running Revit.</p>
 </tr>
 <tr>
 <td><code>src/dbtools.Sandbox</code></td>
-<td>Sandbox executable</td>
-<td>Validates a staged product year and shows the UI without Revit. See <a href="sandbox-validator.html">Sandbox Validator</a>.</td>
+<td><code>dbtools.Sandbox.exe</code></td>
+<td>Validates a staged product year and opens its tool windows outside the Revit process. See <a href="sandbox-validator.html">Sandbox Validator</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -170,9 +170,9 @@ code that uses API new in Revit 2027 compiles only under that symbol.</p>
 <li><strong>References.</strong> App references Core and Presentation. Core
 (<code>net10.0-windows</code>) references Presentation, <code>dbtools.Manifest</code> and the
 Revit API. Tools reference Core and Presentation.</li>
-<li><strong>Presentation.</strong> Presentation references WPF,
-HelixToolkit, Serilog, and the Microsoft.Extensions logging and DI
-abstractions. It never references App, Core, a tool or the Revit API.
+<li><strong>Presentation.</strong> Presentation uses WPF. It owns the merged HelixToolkit,
+Serilog and Microsoft.Extensions libraries in <code>AssemblyMerges.props</code>.
+It never references App, Core, a tool or the Revit API.
 <code>BuildPolicyBehaviorTests</code> and <code>HelixMergeArtifactContractTests</code> check
 parts of rules 1 and 2.</li>
 <li><strong>Sandbox.</strong> The Sandbox compiles against Core and Presentation with

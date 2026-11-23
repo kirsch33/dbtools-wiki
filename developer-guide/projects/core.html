@@ -134,6 +134,10 @@
 <li><strong><code>_wpftmp</code> builds</strong> (temporary projects during BAML compilation) exclude Revit and Tools sources except <code>src/dbtools.Core/Revit/Execution/RunScope/AppRunScopeProfile.cs</code>.</li>
 </ul>
 <p>A default desktop build writes its assembly to the artifact locations that the shared build props select. Revit-hosted test projects reference the evaluated Core <code>TargetPath</code>, not the product staging tree.</p>
+<p>Core composes the logging runtime. Its logger factory, logger abstractions and
+Serilog provider types bind through <code>dbtools.Presentation</code>, which stays in the
+stable load tier across Dev Mode generations. Presentation's <code>SerilogStack</code>
+coordinates the process-wide logger when generations overlap.</p>
 <h3 id="dependencies">Dependencies</h3>
 <table>
 <thead>
@@ -149,15 +153,15 @@
 </tr>
 <tr>
 <td><code>dbtools.Presentation</code> (project, desktop only)</td>
-<td>Stable WPF resources and controls</td>
+<td>Stable WPF resources, controls, logger factory and provider types</td>
 </tr>
 <tr>
-<td><code>Serilog.Extensions.Logging</code></td>
-<td>Structured logging; Core supplies the <code>ThreadId</code> enricher</td>
+<td><code>Microsoft.Extensions.DependencyInjection</code> (through Presentation)</td>
+<td>Dependency injection with a stable type identity</td>
 </tr>
 <tr>
-<td><code>Microsoft.Extensions.DependencyInjection</code></td>
-<td>Dependency injection</td>
+<td><code>Microsoft.Extensions.Logging.Abstractions</code> (portable target only)</td>
+<td>Logger abstractions for portable Core contracts without Presentation</td>
 </tr>
 <tr>
 <td><code>CommunityToolkit.Mvvm</code></td>
@@ -365,7 +369,12 @@ Foundation Tags creates one query per run, then restricts only changed parameter
 <p><code>SafeExecutor</code>:</p>
 <ul>
 <li>gives each execution a GUID correlation ID and logs the elapsed milliseconds. A start or completion log write that fails goes through <code>ContainedDiagnostic</code> and does not change the outcome;</li>
-<li>adds the Revit calls of a run to its completion line: <code>Revit calls N, queue wait Xms, Revit execute Yms, rest Zms</code>. <code>RevitCallGateActionTiming</code> (an <code>AsyncLocal</code>) collects every call that <code>RevitCallGateTask</code> takes in the run's asynchronous flow, nested runs included. Queue wait is the time when a call waited and no call of the run ran; Revit execute is the time when one ran; rest is the remaining elapsed time. A run without Revit calls logs the elapsed time only;</li>
+<li>adds <code>Revit calls N, queue wait Xms, Revit execute Yms, rest Zms</code> to the
+completion line. <code>RevitCallGateActionTiming</code> collects calls in the run's
+asynchronous flow, including nested runs. Queue wait counts time when a
+call waited and no call ran. Revit execute counts time when a call ran.
+Rest is the remaining elapsed time. A run without Revit calls logs only
+elapsed time.</li>
 <li>checks the token immediately before it invokes the action inside the protected boundary, so pre-canceled work returns a canceled result without running;</li>
 <li>logs full exception details, including inner exceptions and XAML parse context. <code>ExceptionDiagnosticsLogger</code> owns the formatting of exception, cancellation, XAML and notifier-failure logs;</li>
 <li>shows success and error banners through the supplied <code>IBannerNotifier</code>. When a failed run has no notifier, it uses the App's default. It logs notifier failures. <code>FailureDetails.Format</code> supplies the exception message followed by the base exception message when that differs. A blank result shows <code>The operation failed.</code>. The Error banner offers <strong>Details</strong>;</li>
