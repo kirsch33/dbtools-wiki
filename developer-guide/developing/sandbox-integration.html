@@ -209,11 +209,22 @@ public sealed class MyToolWindowDesignTimeViewModel
 </code></pre>
 <p>Populate the ViewModel with sample state and commands. A display-only action
 can use <code>NoOpCommand</code> from <code>dbtools.Core.UI.Commanding.DesignTime.NoOp</code>.
-The <a href="testing-tools.html#render-gallery">render gallery</a> renders every catalog
-window with its design-time ViewModel; a binding error that WPF reports while
-the window is open fails its test and is attached to it.</p>
+The <a href="../architecture/sandbox-validator.html">Sandbox validator</a> opens catalog
+windows with their design-time ViewModels and reports WPF binding errors.</p>
 <p>Use Global Mapper (GM) and Super Girt Tool (SGT) manifests under <code>src/Tools/</code>
 as examples of raw-view and design-time ViewModel registration.</p>
+<h2 id="register-additional-validation-cases">Register additional validation cases</h2>
+<p>Implement <code>ISandboxWindowContributor</code> on the tool module to validate additional
+window sessions or states in headless Sandbox. <code>CreateWindowCases</code> returns at
+least one <code>SandboxWindowCase</code> with a unique ID. Its <code>Open</code> callback creates a
+production session with sample inputs and an attached window error boundary.
+The optional <code>Prepare</code> callback runs after the session opens and checks any
+state specific to the case. Sandbox owns opening, closing and retiring the
+session. Register other owned resources with <code>IToolWindowSession.AddCleanup</code>.</p>
+<p>Implement <code>ISandboxSettingsPackContributor</code> when a settings pack's normal
+registration needs Revit data. <code>RegisterSandboxSettingsPack</code> registers the
+production pack with sample inputs in the Settings validation service provider.
+Sandbox uses the normal <code>RegisterSettingsPacks</code> for packs that can load off Revit.</p>
 <h2 id="build-and-run">Build and run</h2>
 <p>Build a product candidate and Sandbox:</p>
 <pre><code class="lang-bash">./build.sh AssembleDistributionCandidate -y 2026

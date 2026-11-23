@@ -147,10 +147,27 @@ assembly from the candidate when needed.</li>
 <li><code>HeadlessValidationWorkflow</code> checks add-in metadata, theme resources
 and the catalog. <code>ManifestValidator</code> checks tool modules, command and
 availability types, and icon resources.</li>
-<li><code>ToolWindowValidator</code> constructs each declared window with its
-design-time view model. It checks layout, tab changes and row details.
-After closing a window, it waits for the Dispatcher to reach
-<code>ApplicationIdle</code>. <code>BindingErrorListener</code> collects binding errors.</li>
+<li><code>ToolWindowValidator</code> opens each manifest window with its design-time view
+model and checks layout, tab changes and row details.
+<code>SandboxCatalog</code> also supplies alert requests, VTC alert bodies and color
+picker, Settings packs, notification banners, progress overlays, and the
+Change Review, Manage Items, Revit Link Settings, and Duplicate Type Mapping
+dialogs. Manifest and contributed cases use production sessions with sample
+inputs. Modeless sessions open with <code>Show</code>. Modal sessions open with
+<code>ShowDialog</code> and run a posted validation callback inside the dialog loop
+before closing with a dialog result. Settings uses sample library file years and spot elevation
+types. The FoundationTags pack requires the active Revit project and is
+excluded from this check.
+The validator subscribes to each window's production error path. Manifest
+windows and contributed cases with an error boundary report handled errors.
+Notification banners report errors through <code>Dispatcher.UnhandledException</code>.
+The validator checks WPF binding errors while the window and each selected
+tab are loaded and the dispatcher has reached <code>ApplicationIdle</code>. Error 2
+clears when the same binding expression reaches <code>Active</code> with a value.
+During retirement, the validator uses that expression's recorded loaded
+state. Every other binding error fails validation. The validator waits for
+<code>ApplicationIdle</code> after close. A missing required boundary, a window error,
+or a close or retirement failure also fails validation.</li>
 <li>After the window checks, the workflow rejects any loaded Revit host
 assembly from the reference set. It closes remaining windows and
 disposes the candidate's window runtime.</li>
