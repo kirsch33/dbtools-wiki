@@ -137,7 +137,7 @@ for Revit 2026 and 2027.</li>
 <li><code>DistributionContract.ProductFiles</code> defines the exact file set for each
 year. When adding a tool, include its <code>Tools/&lt;name&gt;.dll</code> path in this list.
 <code>StageProductOutputTask</code> rejects a mismatch.</li>
-<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.22.10</code>.
+<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.22.12</code>.
 The scenario and Windows acceptance builds check the vendored and restored
 DevMode.Testing packages against the SHA-256 in that file.
 <code>testing/Daemon/Directory.Build.props</code> pins the Revit test adapter to the
@@ -241,22 +241,22 @@ and <a href="test-pipeline.html">Test Pipeline</a>.</p>
 <p><code>testing/dbtools.DevMode.Scenario/</code> owns the hosted scenario.
 It compiles against <code>dbtools-daemon.DevMode.Testing.Scenario</code> from the
 <code>dbtools-daemon.DevMode.Testing</code> package. The daemon supplies bridge
-assembly version <code>1.0.0.0</code> at runtime.
+assembly version <code>2.0.0.0</code> at runtime.
 <code>DevModeScenarioManifestWriter</code> publishes its payload under
 <code>.artifacts/acceptance/dev-mode-scenario/&lt;year&gt;/</code>. The adjacent
 <code>dev-mode-scenario.json</code> binds it to the product, the model and the
-preflight result for each year. See <a href="test-pipeline.html">Test Pipeline</a>
-for test execution.</p>
-<p>The scenario declares an expected dialog before it prepares a modal
-command. The declaration covers the interaction and window cleanup.
-The close wait searches the invocation's visible windows until the
-original window token is absent.
-For a single title, the UI Automation selector and native watchdog
-use the same title. The bridge accepts one selector per invocation.
-Invocations with several titles declare the WPF window class and check
-the titles of remaining dialogs during cleanup. Settings with Save
-declares Settings, the reset confirmation, and the feedback banner.
-TDV declares the library selection and transfer windows.</p>
+preflight result for each year. The writer reads <code>bridge_contract_version</code>
+from the scenario's bridge assembly reference and writes <code>2</code>. See
+<a href="test-pipeline.html">Test Pipeline</a> for test execution.</p>
+<p>The scenario calls <code>ExpectDialogs</code> before it prepares a modal command.
+Each declaration matches the exact UI Automation name and native caption.
+The scope covers the interaction and window cleanup. Settings with Save
+declares <code>dbtools - Settings</code>, <code>dbtools</code> for its alerts, and
+<code>dbtools Notification</code> for its feedback banner. TDV declares the library
+selection and transfer windows.</p>
+<p>Window searches omit closed windows. The close wait searches until the
+original window token is absent. Cleanup handles <code>DevModeWindowClosedException</code>
+when a window closes before the close request reaches it.</p>
 <h3 id="tool-contract">Tool contract</h3>
 <p><code>build/Distribution/tool-contracts.json</code> lists the ribbon command types
 and the UI text the Dev Mode scenario checks. The <code>Sgt</code> and <code>ErftNew</code>
