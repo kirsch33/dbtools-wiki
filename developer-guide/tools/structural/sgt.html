@@ -163,25 +163,28 @@ in preview tooltips. It rounds to one decimal place in inches and carries 12.0
 inches to the next foot. Wall layer labels show inches alone below one foot.</p>
 <h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li><strong>One session group.</strong> <code>SgtWindowSession.Start</code> refuses an
+<li><p><strong>One session group.</strong> <code>SgtWindowSession.Start</code> refuses an
 <code>IRevitCallGate</code> whose <code>RunsInline</code> is false, and a document whose
 <code>IsModifiable</code> is true, because a transaction is already open. It
 begins the group <code>Super Girt Tool</code>, then runs <code>PurgeUnsupportedAsync</code>
 inside it. A command uses ordinary transactions inside the group, and
 never starts or ends a group of its own. <code>SgtWindowSessionTests</code> checks
-the refusals.</li>
-<li><strong>Commit only on success.</strong> <code>WindowSessionLifecycle.FinalizeSession</code>
+the refusals.</p>
+</li>
+<li><p><strong>Commit only on success.</strong> <code>WindowSessionLifecycle.FinalizeSession</code>
 assimilates the group only when all of these hold: the close requests a
 commit, startup succeeded, no failure is recorded, and
 <code>IsGroupHealthyAsync</code> is true. Every other end rolls back: Cancel, the
 window's close box, a failed command, a handled UI error, and retirement
-of the window by its shell. <code>WindowSessionLifecycleTests</code> checks this.</li>
-<li><strong>Plan admission.</strong> <code>PlanStore.Initialize</code> and <code>Update</code> change a
+of the window by its shell. <code>WindowSessionLifecycleTests</code> checks this.</p>
+</li>
+<li><p><strong>Plan admission.</strong> <code>PlanStore.Initialize</code> and <code>Update</code> change a
 detached copy and validate it with <code>PlanAdmissionValidator</code> before they
 replace the plan. A rejected or unchanged candidate keeps the plan and
 its <code>Version</code>. <code>PlanStoreUpdatePolicyTests</code> and
-<code>PlanAdmissionValidatorTests</code> check this.</li>
-<li><strong>One segmentation.</strong> <code>GirtSegmentBoundarySet.Split</code> is the only girt
+<code>PlanAdmissionValidatorTests</code> check this.</p>
+</li>
+<li><p><strong>One segmentation.</strong> <code>GirtSegmentBoundarySet.Split</code> is the only girt
 segment computation. Plan-row segmentation, the preview, placement and
 the usable-span check all call it. Jamb extent resolution uses these
 spans to find girts that reach each jamb. A failed span lookup identifies
@@ -191,8 +194,9 @@ ends an extension 1/2&quot; from the girt face when the next piece cannot fit.
 The requested mode and target remain the inputs to each recompute. The
 effective end supplies the preview status and the placed geometry.
 <code>GirtSegmentBoundarySetTests</code> checks
-the rules, and <code>PreviewPlacementParityTests</code> the shared use.</li>
-<li><strong>One resolved member.</strong> <code>ResolvedMemberContractResolver</code> builds one
+the rules, and <code>PreviewPlacementParityTests</code> the shared use.</p>
+</li>
+<li><p><strong>One resolved member.</strong> <code>ResolvedMemberContractResolver</code> builds one
 <code>ResolvedMemberContract</code> per member, and <code>OpeningMemberContractCatalog</code>
 lists the opening segments once. <code>WallFrameBuilder</code> locates the wall center
 from the Revit side faces. It transforms linked faces into host coordinates
@@ -211,8 +215,9 @@ placed location lines against the selected layer plane. It checks section
 seating, channel toe direction and Z flange heights, and it measures two
 sizes of the same channel family on a compound wall. It measures placed
 header and sill clearances at jambs in every representative state and girt
-clearances in the seeded states.</li>
-<li><strong>Framing analysis and write order.</strong> <code>WallAnalysisFramingTypeAnalyzer</code>
+clearances in the seeded states.</p>
+</li>
+<li><p><strong>Framing analysis and write order.</strong> <code>WallAnalysisFramingTypeAnalyzer</code>
 groups types by family and cross-section shape. Square and rectangular HSS
 form separate groups. The analyzer calibrates one sample and solves each
 eligible role. Probe inputs are the type parameter values and the initial
@@ -246,35 +251,128 @@ then zero the offsets. Jambs add the <code>WallRotationCompensationEvaluator</co
 angle to the rotation. The grid shows 0, 90, 180 or 270.
 The writer regenerates the batch before it records the placed endpoints.
 <code>FramingTypeProbeBudgetTests</code> checks the analysis cost, and
-<code>FamilyInstanceMutatorTests</code> checks the written parameters.</li>
-<li><strong>Storage format.</strong> <code>SystemStorageMapper</code> reads and writes format
+<code>FamilyInstanceMutatorTests</code> checks the written parameters.</p>
+</li>
+<li><p><strong>Storage format.</strong> <code>SystemStorageMapper</code> reads and writes format
 version 3 only. Every transport field is <code>JsonRequired</code>. It rejects
 unknown fields, numeric enum tokens and payloads over 4,000,000
 characters. It migrates nothing: <code>PurgeUnsupportedAsync</code> removes the
 storage and member tags of other formats, and the tags of systems with
 no current storage. It keeps the members. <code>SystemStorageMapperTests</code> and
-<code>SystemRepositoryTests</code> check this.</li>
-<li><strong>Ownership.</strong> <code>SgtSchemaContract.TryGetOwnedSystemId</code> owns an element
+<code>SystemRepositoryTests</code> check this.</p>
+</li>
+<li><p><strong>Ownership.</strong> <code>SgtSchemaContract.TryGetOwnedSystemId</code> owns an element
 only if it is Structural Framing and its tag has the marker <code>SGT</code> and a
 system ID. Selection, update, deletion and deconstruction use it.
-<code>ContextualEditTargetEvaluatorTests</code> checks this.</li>
-<li><strong>Update by identity.</strong> <code>WallSystemWriter</code> indexes the owned members by
+<code>ContextualEditTargetEvaluatorTests</code> checks this.</p>
+</li>
+<li><p><strong>Update by identity.</strong> <code>WallSystemWriter</code> indexes the owned members by
 role and tag identity. It compares each match's live curve, type,
 orientation, offsets, joins and girt extensions with the requested
-placement. It writes and reports a match as <code>Moved</code> when a value differs.
-It creates a member for a target without a match and deletes owned
-members that no target uses. Two owned members with one identity fail with
-<code>Update/DuplicateIdentity</code>. <code>WallSystemWriter.UpdatesTests</code> checks this.</li>
-<li><strong>Layers.</strong> Domain uses no App, Features, Persistence, WPF or Revit API
+placement. It writes and reports a straight match as <code>Moved</code> when a value
+differs. It creates a member for a target without a match and deletes
+owned members that no target uses. Two owned members with one identity
+fail with <code>Update/DuplicateIdentity</code>.</p>
+<p><code>WallSystemWriter.Recreation.cs</code> reads the live member and admits a
+matched bound arc only for the same family type. A matched spline,
+ellipse, unbound line, or other unsupported location fails with
+<code>Update/LocationMissing</code>. Recreation refuses each of these conditions.</p>
+<ul>
+<li>The source element or location is read-only. The source is pinned,
+grouped, assembled, owned by another user, or out of date with the
+central model.</li>
+<li>The source has a host other than its level, a host face, a parent or
+child component, or a dependent other than a verified stored
+duplicate Mark warning. The dependent-element refusal includes each
+dependent's ID, category, and class.</li>
+<li>Either end of the source allows a join, a framing member or a
+slanted structural column joins into it, or a column is attached
+to it at the base or top. SGT inspects framing and slanted-column
+ends within 0.01 ft of the source curve or inside the source model
+bounding box expanded by 0.01 ft. An unreadable framing end join
+identifies the framing element and end in the refusal. A missing
+join list is safe only when Revit reports that joining is
+disallowed at that framing end.
+For a nearby slanted-column end, SGT checks joins on both sides
+and looks up the attachment target when
+<code>ColumnAttachment.IsValidColumn</code> permits it. If the target remains
+unknown, a set attachment flag refuses recreation even when the
+join lookup fails, returns an empty list, or lists only other
+elements. SGT also refuses when reading the flag throws or the
+join lookup fails and Revit supplies no flag.
+Revit's <code>ColumnAttachment</code> API rejects beams as attachment targets
+for slanted columns. Revit models slanted-column beam relationships
+as joins.</li>
+<li>The source participates in a geometry join, coping, solid or void
+cut, structural connection handler, beam system, analytical
+association, or local or linked Copy/Monitor relationship. A tag,
+dimension, saved selection, displacement set, or per-element view
+setting refers to it.</li>
+<li>The source has extensible storage outside SGT or a parameter
+associated with a global parameter.</li>
+</ul>
+<p>Relationship checks cover the current model. References from other
+models through a link and external consumers of <code>ElementId</code> or
+<code>UniqueId</code> are outside these checks.</p>
+<p>The writer places a straight replacement through the normal placement
+writer and verifies the requested SGT placement. It refuses a change to
+the reference level, workset, phases, design option, structural type,
+hand flip, mirror state, level and Y/Z offsets, or opening member
+extensions. The remaining instance parameter comparison checks values
+that Revit exposes as writable. SGT looks up each shared parameter by
+its GUID and compares existing values, including hidden or read-only
+shared values. Other read-only fields stay outside the comparison
+except for the explicit placement constraints. Revit recalculates
+measurements such as Exact Weight. SGT writes the requested rotation,
+justification, facing, girt extensions, and tag identity.</p>
+<p>Revit's arc-only location values have no counterpart in the straight
+replacement. SGT skips <code>ARC_ELEM_FIX_KEEP_CONCENTRIC</code> (Keep Concentric),
+which holds the arc center during radius edits. It also skips
+<code>CURVE_ELEM_ARC_RADIUS</code>, <code>CURVE_ELEM_ARC_RANGE</code>,
+<code>CURVE_ELEM_ARC_START_ANGLE</code>, and <code>CURVE_ELEM_ARC_END_ANGLE</code>.
+These define the radius, sweep, and angular endpoints of an arc.</p>
+<p>SGT verifies stored duplicate Mark warning dependents in a subtransaction
+before placement. Each candidate must be a plain unnamed element with no
+category, type, or owner view. Deleting it must remove only that ID and
+exactly one stored duplicate Mark warning that names the source. SGT
+compares the warning records from <code>Document.GetWarnings</code> and the source's
+dependent IDs, then rolls back the probe.</p>
+<p>Deletion must remove the source member and may remove its verified
+warning dependents. Revit can keep a verified warning for the remaining
+members that share the Mark. The writer copies and verifies Mark,
+Comments, and IfcGUID after deletion. IfcGUID preserves
+the element's identity for IFC export. The writer registers the new
+<code>UniqueId</code> as the owner and reports <code>Recreated</code> with both element IDs and
+the reason. When Update recreates a matched member, its transaction
+deletes only the <code>GeneralFailures.DuplicateValue</code> warning for a
+replacement whose Mark other framing members also carry. SGT checks
+that the warning names Mark, identifies the replacement, and lists
+only marked framing members. Revit determines which Marks it treats
+as duplicates.
+The filter matches the localized Mark label in the native
+<code>DuplicateValue</code> message. Every other warning anywhere in the transaction
+rolls back Update.
+The failure reports Revit's warning text, the identified members or
+element IDs, and the members being recreated. Update without matched
+recreation keeps the default warning handling. A failed check or
+Revit write or commit failure rolls back Update. A warning rollback
+retains Core's <code>TransactionFailureException</code> as the cause. A failed
+stored-warning probe rollback reports <code>Transaction/NotCommitted</code> with
+the member ID and the probe failure. The session transaction group
+owns Undo.</p>
+</li>
+<li><p><strong>Layers.</strong> Domain uses no App, Features, Persistence, WPF or Revit API
 code. Features use no App code, and Placement uses no WallAnalysis code.
 The portable <code>net10.0</code> build has no Revit API, WPF or Presentation
 reference, and <code>build/MSBuild/Portable.targets</code> excludes <code>.cs</code> files
 under <code>App/</code>, <code>Revit/</code>, <code>Views/</code> and <code>DesignTime/</code>. Other code that
 uses them does not build. Nothing checks the Domain-to-Features,
-Domain-to-Persistence or Placement-to-WallAnalysis rules.</li>
-<li><strong>Raw XAML.</strong> The XAML is embedded as <code>dbtools.ToolViews.SGT.&lt;file&gt;</code>,
+Domain-to-Persistence or Placement-to-WallAnalysis rules.</p>
+</li>
+<li><p><strong>Raw XAML.</strong> The XAML is embedded as <code>dbtools.ToolViews.SGT.&lt;file&gt;</code>,
 with no <code>x:Class</code> and no WPF-derived type in the payload.
-<code>RawXamlTierContractTests</code> checks every payload view.</li>
+<code>RawXamlTierContractTests</code> checks every payload view.</p>
+</li>
 </ol>
 <h2 id="flow">FLOW</h2>
 <ol>

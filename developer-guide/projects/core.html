@@ -296,6 +296,13 @@ coordinates the process-wide logger when generations overlap.</p>
 </tbody>
 </table>
 <p><code>ElementIdConverter.ToLong</code> returns the full 64-bit element ID; use it for element identities, including the IDs in diagnostics. <code>ToInt</code> is a checked conversion for contracts that Revit defines as <code>int</code>, such as built-in category IDs.</p>
+<p><code>RevitTransactionContext.DeleteOnlyWarnings</code> restricts warning deletion
+to the specified failure definitions. A caller can also filter by the
+warning record, including its description and failing element IDs. An
+unmatched warning rolls back the transaction.
+<code>TransactionFailureException.BlockingFailureDescriptions</code> includes the
+blocked warning's text. <code>BlockingFailureRecords</code> exposes the recorded
+severity, description, definition, and element IDs.</p>
 <h3 id="document-change-stamps">Document change stamps</h3>
 <p><code>DocumentChangeStamp.Get(document)</code> returns the model-change count for one open document, or zero while tracking is detached. Each <code>DocumentChanged</code> event advances the count once. Reload Latest and Synchronize with Central also advance it because their changes may not appear in the event's element IDs. View activation and selection do not advance it. The stamp compares live <code>Document</code> wrappers by their value equality and removes a document's counter when Revit closes it.</p>
 <p>The application uses one shared <code>DocumentChangeStamp</code>. <code>HookHost</code> attaches its four document handlers during synchronous App startup and removes them during shutdown. <code>AppRuntimeHostLifecycle</code> also detaches those handlers when it cleans up the current runtime. Each registration starts a generation with fresh counters and invalidates cached document versions. The stamp retains documents and issues versions only while the handlers are attached.</p>

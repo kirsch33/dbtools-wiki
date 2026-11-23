@@ -252,8 +252,28 @@ before writing any members.
 before continuing. A refused edit leaves the grid open for correction.</p>
 <p>For an edited system, <strong>Update</strong> writes existing members with a changed
 curve or instance settings. It creates missing members and deletes extra
-members. <strong>Update Summary</strong> lists those changes as <code>Moved</code>, <code>Recreated</code>
-or <code>Deleted</code>. <strong>Delete System</strong> deletes the members and the configuration.</p>
+members. It can also replace a matched member whose location is a bound
+arc with the straight member from the plan. The member must be editable,
+have the same family type, and have no tags, hosted elements, joins, or
+other model relationships. A matched spline, ellipse, unbound line, or
+other unsupported location stops Update with <code>Update/LocationMissing</code>.</p>
+<p>SGT copies Mark, Comments, and IfcGUID, which preserves the member's IFC
+export identity. It checks that the reference level, offsets, opening
+member extensions, shared parameter values, and other
+editable instance values outside SGT's placement settings already match
+on the replacement. Revit recalculates values such as Exact Weight.</p>
+<p>Update rolls back if a required value would change or Revit refuses a
+write. SGT can remove a stored duplicate Mark warning when it verifies
+that the warning belongs to the source member. When Update recreates a
+matched member, any Revit warning in the transaction also rolls it back.
+The only exception is a duplicate Mark
+warning that names the replacement and the other framing members that
+share its Mark. The failure reports Revit's warning text and identifies the
+affected members.
+Update without matched recreation uses the normal warning handling.</p>
+<p><strong>Update Summary</strong> lists <code>Moved</code>, <code>Recreated</code>, or <code>Deleted</code> for each
+change. A replaced member has both element IDs and the reason on its
+<code>Recreated</code> row. <strong>Delete System</strong> deletes the members and the configuration.</p>
 <p><strong>Cancel</strong> or closing the window rolls back the session.</p>
 <h3 id="change-review">Change Review</h3>
 <p><strong>Change Review</strong> opens when you edit a system whose wall or openings
