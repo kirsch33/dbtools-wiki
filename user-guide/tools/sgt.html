@@ -102,7 +102,8 @@ configuration with the members for later edits.</p>
 <p>The framing band is the height range for girts. It runs from the bottom
 to the top of a linked wall. On a host foundation wall, it runs from
 the foundation top to 20'-0&quot; above it. SGT ignores openings in a host
-foundation wall. Elevations are heights above the base of the band.</p>
+foundation wall. SGT shows member elevations from the system's
+<strong>Reference Level</strong>.</p>
 <ol>
 <li>Click <strong>Super Girt Tool</strong> and pick a straight wall in a linked model.
 Press Esc at that prompt to pick a straight foundation wall in the host.</li>
@@ -134,12 +135,28 @@ orientation seats the section at this plane and keeps the steel on the
 interior side. The back of an angle girt's long leg sits flat on this
 plane and faces the exterior. Its short leg is at the bottom and points
 toward the interior. The toes of a channel jamb point away from the opening.</dd>
+<dt><strong>Reference Level</strong></dt>
+<dd>Choose the Revit level for a new system. <strong>Place</strong> and <strong>Update</strong> use
+that level for every new girt, header, sill, and jamb in the system.
+After placement, the picker shows the system's level and is disabled.
+To change it, delete the system and place it again.
+The list shows host levels from highest to lowest. Dropdown
+heights measure from the project base point. A level whose type uses
+the <strong>Survey Point</strong> elevation base can show a different height in
+its level head. The list marks the initial selection and wall base level.
+When you change the selection and click <strong>Place</strong>, SGT remembers the
+pick for new systems in that project. Walls on another datum or more
+than 8'-0&quot; from the project datum use their own level by default.
+Changing the picker refreshes the elevation numbers in both grids.
+The framing geometry stays in place.</dd>
 <dt><strong>Girts</strong></dt>
 <dd>Each row is one girt at one <strong>Elevation</strong>, with a <strong>Girt Type</strong>. When
 you choose a type of another family, SGT replaces <strong>Rotation</strong>,
 <strong>Y Justification</strong>, <strong>Z Justification</strong> and <strong>Flip</strong> with the defaults
 of that family. To add a row, type an elevation next to <strong>Add Girt</strong>
-and click it.</dd>
+and click it. The editable <strong>Elevation</strong> column and the <strong>Add Girt</strong>
+input measure from the system's <strong>Reference Level</strong>. The column names
+that level, for example <strong>Elevation from FFE</strong>.</dd>
 <dt><strong>Openings</strong></dt>
 <dd>On a linked wall, SGT detects doors, windows and wall openings.
 A linked wall without openings is valid and starts with an empty
@@ -149,8 +166,10 @@ the wall's left end in the exterior view to the opening center. The grid
 lists openings from left to right in that view. An opening keeps its
 default name when it moves to a different position in the grid. The
 <strong>Left Jamb</strong>, <strong>Right Jamb</strong>, <strong>Header</strong> and <strong>Sill</strong> boxes turn each
-member on or off. <strong>Add Opening</strong> places the new opening's left edge at
-the wall's left end.</dd>
+member on or off. <strong>Bottom Elevation</strong> measures from the system's
+<strong>Reference Level</strong> and sets the sill and lower jamb ends. <strong>Height</strong>
+sets the distance to the header and upper jamb ends. <strong>Add Opening</strong>
+places the new opening's left edge at the wall's left end.</dd>
 </dl>
 <p>A girt is split at each opening that it crosses. Click the chevron of a
 split row to edit each segment. Double-click a row to open <strong>Bulk Edit</strong>
@@ -257,11 +276,11 @@ arc with the straight member from the plan. The member must be editable,
 have the same family type, and have no tags, hosted elements, joins, or
 other model relationships. A matched spline, ellipse, unbound line, or
 other unsupported location stops Update with <code>Update/LocationMissing</code>.</p>
-<p>SGT copies Mark, Comments, and IfcGUID, which preserves the member's IFC
-export identity. It checks that the reference level, offsets, opening
-member extensions, shared parameter values, and other
-editable instance values outside SGT's placement settings already match
-on the replacement. Revit recalculates values such as Exact Weight.</p>
+<p>SGT places the replacement on the system's <strong>Reference Level</strong>. It copies
+Mark, Comments, and IfcGUID, which preserves the member's IFC export
+identity. It checks that Y/Z offsets, opening member extensions, shared
+parameter values, and other editable instance values outside SGT's
+placement settings match. Revit recalculates values such as Exact Weight.</p>
 <p>Update rolls back if a required value would change or Revit refuses a
 write. SGT can remove a stored duplicate Mark warning when it verifies
 that the warning belongs to the source member. When Update recreates a
@@ -346,6 +365,34 @@ removes the SGT data and keeps the members as plain framing.</p>
 <tr>
 <td><code>[SpecFail/Writer/ExtensionParamReadOnly]</code></td>
 <td>The extension parameter has a fixed value that differs from the required value. Use another girt type or change the gap.</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Writer/NoLevels]</code></td>
+<td>Place and Update require a level in the host project.</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Writer/ReferenceLevelMissing]</code></td>
+<td>The host level is unavailable. For Place, reopen SGT and select an available level. For Update, delete the system and place it again.</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Writer/ReferenceLevelSetFailed]</code></td>
+<td>Revit could not create the framing on the required Reference Level with the requested level offsets. SGT rolls back the write.</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Writer/LocationMismatch]</code></td>
+<td>Revit placed a member with endpoints or direction that differ from the plan. SGT rolls back the write.</td>
+</tr>
+<tr>
+<td><code>[SpecFail/Update/ReferenceLevelChanged]</code></td>
+<td>The system's Reference Level was set at placement. Delete the system and place it again to change its level.</td>
+</tr>
+<tr>
+<td><code>The project Reference Level pick could not be updated.</code></td>
+<td>SGT saved the framing and its Reference Level. The warning gives the reason the project pick could not be saved.</td>
+</tr>
+<tr>
+<td><code>Removed SGT data for &lt;n&gt; systems.</code></td>
+<td>The old systems' members stay in the model as plain framing. Placing again on those walls can overlap the existing framing.</td>
 </tr>
 <tr>
 <td><code>&lt;action&gt;: [&lt;code&gt;] &lt;detail&gt;</code></td>

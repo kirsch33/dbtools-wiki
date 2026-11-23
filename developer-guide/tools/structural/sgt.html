@@ -315,10 +315,11 @@ associated with a global parameter.</li>
 models through a link and external consumers of <code>ElementId</code> or
 <code>UniqueId</code> are outside these checks.</p>
 <p>The writer places a straight replacement through the normal placement
-writer and verifies the requested SGT placement. It refuses a change to
-the reference level, workset, phases, design option, structural type,
-hand flip, mirror state, level and Y/Z offsets, or opening member
-extensions. The remaining instance parameter comparison checks values
+writer. The system's Reference Level and the planned endpoints determine
+the replacement's level and end level offsets. The writer verifies the
+requested placement and refuses changes to the workset, phases, design
+option, structural type, hand flip, mirror state, Y/Z offsets, or opening
+member extensions. The remaining instance parameter comparison checks values
 that Revit exposes as writable. SGT looks up each shared parameter by
 its GUID and compares existing values, including hidden or read-only
 shared values. Other read-only fields stay outside the comparison
@@ -402,7 +403,7 @@ read the committed opening while its row has a draft. <code>OpeningAlong</code>
 converts between wall start in the plan and the exterior left end in the
 grid and elevation. Opening row refresh keeps default names by opening
 key as it sorts rows.
-<code>PlanSynchronizationCoordinator</code> records Wall Offset and wall layer changes, grid edits,
+<code>PlanSynchronizationCoordinator</code> records Wall Offset, wall layer and Reference Level changes, grid edits,
 <strong>Bulk Apply</strong>, segment flyout edits, opening segment commands, and edits
 from <code>PreviewEditingWorkflow</code>. Each commit normalizes segments and stores
 the editable state before and after the write in <code>UndoRedoHistory</code>.
@@ -483,6 +484,38 @@ has not been canceled.</li>
 <li><code>FinalizeSession</code> releases the preview and window, then assimilates or
 rolls back the group. The UI state saves in the background.</li>
 </ol>
+<h3 id="reference-level">Reference Level</h3>
+<p><code>ReferenceLevelReader</code> reads the host levels and the wall's base constraint.
+It uses <code>Level.ProjectElevation</code> for the wall, link transforms and framing
+curves. A level's datum elevation is its internal Z minus the host project
+base point Z. For a linked wall, <code>ReferenceLevelRule.FindWallLevel</code> matches the
+transformed constraint within 0.01 ft, preferring the same normalized name.
+Without a match, it uses the nearest host level at or below the wall base
+within the SGT length tolerance, or the nearest one above it.</p>
+<p>The edit flow uses <code>IsEditMode</code> to disable the picker and retains the
+stored system level. A missing system level blocks Update. For a new
+system, <code>ReferenceLevelRule.Choose</code> uses a live project pick or ranks
+datum-named levels. Names
+match adjacent normalized tokens. Decimal level numbers stay together.
+Names with a mezzanine marker do not rank as datums. The rank order is
+finish floor, level one, ground, then level zero. Heights within 0.01 ft of
+0 or 100 ft come first, followed by name rank, lower datum elevation and
+ordinal UniqueId.
+Without a named datum, the rule tries 0 ft, then 100 ft, then the wall
+level. A wall uses its own level if that level names another datum or
+lies more than 8 ft above or below the datum.</p>
+<p><code>ReferenceLevelElevation</code> converts between the system level and the plan
+band base for the grids, Change Review, and preview tooltips. Changing
+the selection in a new system refreshes the displayed elevations without
+changing plan coordinates. A missing system level leaves the elevation
+cells read-only with a missing-level header.</p>
+<p>Place and Update use the system's Reference Level for every new member.
+<code>FamilyInstanceMutator</code> seeds horizontal curves on the level plane, then
+sets the end offsets to the planned internal Z coordinates. It creates
+vertical jambs on their final world curves and sets
+<code>INSTANCE_REFERENCE_LEVEL_PARAM</code> after regeneration. <code>PlacedSystemRecorder</code>
+checks the level and both curve endpoints of every new member. Update
+leaves the Reference Level of existing members in place.</p>
 <h2 id="data">DATA</h2>
 <table>
 <thead>
@@ -494,7 +527,11 @@ rolls back the group. The UI state saves in the background.</li>
 <tbody>
 <tr>
 <td>System storage</td>
-<td>One <code>DataStorage</code> per system, named <code>dbtools_SGT_System_&lt;SystemId&gt;</code> (GUID without hyphens), schema <code>dbtools_SGT_SystemV2</code> (a schema name, not the format version), GUID <code>87a71e39-0771-4e55-8575-084c51b2facc</code>. Its <code>DataJson</code> holds a <code>SystemData</code> envelope: Placed, the decision ledger and the settings.</td>
+<td>One <code>DataStorage</code> per system, named <code>dbtools_SGT_System_&lt;SystemId&gt;</code> (GUID without hyphens), schema <code>dbtools_SGT_SystemV2</code>, GUID <code>87a71e39-0771-4e55-8575-084c51b2facc</code>. <code>DataJson</code> holds the format v4 <code>SystemData</code> envelope with Placed, the decision ledger and settings. <code>SettingsData.ReferenceLevelUniqueId</code> is required.</td>
+</tr>
+<tr>
+<td>Project pick</td>
+<td><code>dbtools_SGT_Project</code> is the project <code>DataStorage</code> and schema name. For multiple rows, <code>ProjectReferenceLevelStorage</code> uses the live pick from the lowest ordinal storage UniqueId. A separate transaction after framing merges duplicate rows and clears stale picks. Place also saves a changed selection. A failure adds a warning to the placement outcome.</td>
 </tr>
 <tr>
 <td>Member tag</td>
@@ -515,10 +552,12 @@ rolls back the group. The UI state saves in the background.</li>
 </tbody>
 </table>
 <p>Revit element IDs are <code>long</code> in the plan, storage and placement records.</p>
-<p>Both schemas use vendor input <code>dbtools</code>. Revit stores the vendor ID in
-uppercase. Data under earlier product schema identities is not migrated.
-Schema names compare without case, so <code>PurgeUnsupportedAsync</code> also removes
-the storage and tags that the earlier product spelling wrote.</p>
+<p>The schemas use vendor input <code>dbtools</code>. Revit stores the vendor ID in
+uppercase. <code>PurgeUnsupportedAsync</code> removes earlier system formats,
+including v3, and strips their SGT tags from framing. It keeps the
+framing elements and the project pick. Its result counts retired system
+IDs for the startup warning. Schema names compare without case
+when identifying storage owned by SGT.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
 <p>SGT log messages use prefixes such as <code>[SGT]</code>, <code>[SGT.Preflight]</code> and
 <code>[SGT.Place.Cutback]</code>. A plan rejection is a <code>SpecFailure</code> with the text
