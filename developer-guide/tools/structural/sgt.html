@@ -341,12 +341,18 @@ refresh and paint inside the analysis progress overlay. With <strong>Live Previe
 off, startup keeps the current preview mode and finishes without waiting for
 paint. SGT logs one warning when the elevation takes longer than 10 seconds. Click <strong>Cancel</strong>
 to close SGT without changes. A preview failure opens the session with
-a blocked preview.</li>
+a blocked preview. A failed plan refresh stops and logs its error.
+Explicit refreshes propagate the failure to the calling workflow.
+Scheduled refreshes and standalone type-source warning updates queue error
+delivery to the SGT window's boundary at <code>ContextIdle</code>, below the progress
+paint frame's exit priorities. The session records the delivered failure
+and rolls back.</li>
 <li>After an edit startup, <code>ChangeReviewWorkflow</code> opens <strong>Change Review</strong> when
 <code>ChangeReviewEvaluator</code> reports <code>NeedsAttention</code>. Confirm analyzes the
 reviewed plan and saves only the decision ledger (<code>SaveLedgerAsync</code>).
 It publishes the draft, clears the window's Undo history and shows an
-information banner. Opening measures and manual edits use <code>OpeningAlong</code>
+information banner. Commands become available after the session processes
+the review or system retirement outcome. Opening measures and manual edits use <code>OpeningAlong</code>
 to convert between each wall's exterior left end and its plan start.
 <code>ChangeReviewRowSuggestionBuilder</code> infers spacing from the most frequent
 gaps of 6 inches or more at the start of the review. For a taller wall it
@@ -370,7 +376,12 @@ accepted plan, then call <code>PlacementWorkflow</code>, <code>PlacementExecutor
 <code>WallSystemWriter</code>. The writer places members, tags them and calls
 <code>ISystemRepository.Save</code> in one transaction. A successful write closes
 the window with a commit; a failed or canceled write closes it with a
-rollback. A refused preflight keeps the window open.</li>
+rollback. A refused preflight keeps the window open.
+For all SGT committed writes requested during progress painting,
+<code>CommittedWrite</code> queues the transaction at <code>ContextIdle</code> so it runs
+after the paint frame. Dispatcher refusal or abort reports
+<code>TransactionNotCommitted</code> with the transaction name when the caller's token
+has not been canceled.</li>
 <li><code>FinalizeSession</code> releases the preview and window, then assimilates or
 rolls back the group. The UI state saves in the background.</li>
 </ol>

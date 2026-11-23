@@ -208,11 +208,6 @@ await executor.RunAsync(InspectAsync, logger, notifier, options, ct);
 <td>Show success/error banners, errors only, or neither.</td>
 </tr>
 <tr>
-<td><code>FailureSurface</code></td>
-<td><code>Surface</code></td>
-<td>Surface fatal errors through the configured failure surface.</td>
-</tr>
-<tr>
 <td><code>CorrelationId</code></td>
 <td>Unspecified</td>
 <td>Supply an existing execution correlation ID.</td>
@@ -220,14 +215,14 @@ await executor.RunAsync(InspectAsync, logger, notifier, options, ct);
 </tbody>
 </table>
 <p><code>ErrorBanner(name, logStart, logCompletion)</code> selects error-only banners.
-<code>SuppressFailurePresentation(name)</code> suppresses banners, fatal presentation,
-and routine start/completion logs while retaining failure logging.
+<code>SuppressFailurePresentation(name)</code> suppresses banners and routine
+start/completion logs while retaining failure logging.
 Disable <code>LogFailure</code> only when an already-published lifecycle owner observes and
 logs that same fault. Preserve the failed Task.</p>
-<p>App composition adapts the UI-owned log surface to <code>ISafeExecutionFailureSurface</code>.
-Window error boundaries use <code>IWindowErrorLogSurface</code> and
-<code>WindowErrorPresenter</code>. Consumers depend on these contracts rather than
-constructing concrete logger or notification windows.</p>
+<p>App composition supplies the default banner notifier to <code>SafeExecutor</code> for
+failure paths without a call-site notifier. Window error boundaries use
+<code>IWindowErrorLogSurface</code> and <code>WindowErrorPresenter</code>. Consumers depend on these
+contracts rather than constructing concrete logger or notification windows.</p>
 <p>Use structured log fields:</p>
 <pre><code class="lang-csharp">logger.LogInformation(&quot;Processing {Count} elements in {Document}&quot;, count, document.Title);
 logger.LogError(exception, &quot;Inspection failed for {Document}&quot;, document.Title);

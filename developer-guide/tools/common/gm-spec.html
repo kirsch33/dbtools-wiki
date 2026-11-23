@@ -114,7 +114,11 @@ GM Revit readers, writers, family batches, transaction runners, and Commit Revie
 <p>Commit Review uses the bound parent gate to create an InlineUi child scope through the same helper,
 bound to the expected document. It resolves apply services only after the helper returns.
 One outer Revit callback contains planning, modal review, apply, finalization, and refresh.
-During that modal session, forced-queue, off-thread, or second-callback work is refused.</p>
+During that modal session, forced-queue, off-thread, or second-callback work is refused.
+Apply-group finalization requested while painting runs at dispatcher <code>ContextIdle</code>
+after the paint frame exits. The owning Revit callback disposes the review and
+rolls back any unkept apply after the review dispatcher loop returns. Refresh
+follows that cleanup.</p>
 <p><code>AppSessionProjectionBuilder.CreateProjection</code> receives the host-neutral <code>SessionExecutionContext</code>, the dialog context,
 the mapping session, the workspace (including a required <code>IViewOps</code> implementation), and feature services.
 It returns <code>AppSessionProjection</code>: the panes, the session's one <code>MappingConflictViewModel</code>, type creation,
@@ -790,8 +794,9 @@ Pane and scope collaborators remain alive until running work drains.</p>
 Commit Review reports Busy, so reload waits for Keep, Roll back, X, or cancellation followed by close.
 Revit shutdown can force <code>ToolWindowRegistry.RetireAll</code>.
 Retirement diagnoses pending work, aborts owned dispatcher operations, cancels without draining,
-rolls back an open apply group through the inline commit gate, disposes child/session scopes,
 and skips close persistence with a log entry. It opens no dispatcher frame.
+The owning Revit callback rolls back any open apply group through the inline commit gate and
+disposes the review scope before returning, including when dispatcher shutdown interrupts the review.
 An existing normal-close task stops before its next stage when retirement takes over.</p>
 <p><code>DevModeStatus</code> exposes <code>Idle</code> or <code>Busy: &lt;operations&gt;</code> in the root UI Automation ItemStatus.
 It includes name lookup, navigation, the Shared Parameters auto-zoom debounce, duplicate rebuilds, Type Mapping,
@@ -1002,7 +1007,9 @@ X asks Keep or Roll back only while a successful attempt waits for Keep. After a
 X rolls the empty session group back without a prompt.
 An unknown rollback outcome propagates to the error banner rather than asserting that nothing was kept.
 Active-view refresh follows successful verification. A refresh warning does not disable Keep.
-After review closes, RefreshAfterReviewAsync refreshes GM after any admitted attempt, including failed or rolled-back attempts.</p>
+After the review closes and its apply group is settled, <code>RefreshAfterReviewAsync</code> refreshes GM after
+any admitted attempt, including failed or rolled-back attempts. A kept apply still refreshes if disposing
+the review scope fails. The error report includes any cleanup and refresh failures. Forced retirement skips the refresh.</p>
 <p>GmCommitReviewWindowViewModel reports a plan or an attempt in three parts:</p>
 <ul>
 <li><code>Outcome</code>, one card from CommitReviewOutcomeProjector: a title that states the result, for example

@@ -92,7 +92,7 @@
 <p>dbtools runs all Revit API work through a call gate, inside a run scope that each command, modeless session or test owns. Tool windows report long operations through the progress overlay. This page owns the design of run scopes, call gates, transaction services and the progress overlay. <a href="../projects/core.html">dbtools.Core</a> describes the rest of the Core library and its source folders.</p>
 <h2 id="command-entry">Command entry</h2>
 <p><code>ToolCommand</code> (<code>src/dbtools.Core/Tools/Commands/ToolCommand.cs</code>) is the base class of every Revit command. Its public <code>Execute</code> runs the command body inside <code>ISafeExecutor</code> and gives the protected <code>RunAsync</code> hook one owning <code>CommandContext</code>; see <a href="../projects/core.html#toolcommand"><code>ToolCommand</code></a> for the API. Command subclasses resolve services from <code>ICommandContext</code>. Its base interface <code>IAppRunScope</code> exposes the scope's <code>RevitRunScope</code> and <code>Resolve&lt;T&gt;()</code>. A feature that owns a window composes <code>ToolWindowFactory</code> and calls <code>CreateModal</code> for an <code>IModalToolWindowSession</code> with <code>ShowDialog</code>/<code>HideForPick</code>, or <code>CreateModeless</code> for an <code>IModelessToolWindowSession</code> with <code>Show</code>. The session owns the reflection scope and the window's retirement.</p>
-<p>An expected refusal throws <code>SafeExecutionRefusedException</code> with a reason for the user. <code>SafeExecutor</code> then returns <code>SafeExecutionStatus.Refused</code>, with no failure surface and no exception diagnostics. <code>SafeExecutionRefusalReporter</code> shows a Warning banner, which writes the one Warning log entry; an execution without a banner logs <code>[Refused] {Name}: {Message}</code>. <code>ToolCommand</code> returns Revit <code>Result.Cancelled</code> for a refusal and for a failure. An unexpected exception writes Error diagnostics and shows an Error banner.</p>
+<p>An expected refusal throws <code>SafeExecutionRefusedException</code> with a reason for the user. <code>SafeExecutor</code> then returns <code>SafeExecutionStatus.Refused</code>, with no exception diagnostics. <code>SafeExecutionRefusalReporter</code> shows a Warning banner, which writes the one Warning log entry; an execution without a banner logs <code>[Refused] {Name}: {Message}</code>. <code>ToolCommand</code> returns Revit <code>Result.Cancelled</code> for a refusal and for a failure. An unexpected exception writes Error diagnostics and shows an Error banner with <strong>Details</strong>.</p>
 <h2 id="run-scopes">Run scopes</h2>
 <p>App composition (<code>AppServiceProviderFactory</code>) registers <code>IAppRunScopeFactory</code> with the Core implementation <code>AppRunScopeFactory</code>. <code>CommandContextFactory</code> calls <code>Create(UIApplication, AppRunScopeProfile)</code>. The factory selects the call gate for the profile, constructs <code>RevitRunScope</code>, and returns the concrete <code>AppRunScope</code>, which owns scoped service resolution, its <code>IRevitRunScope</code> and disposal. Construction and disposal keep the primary failure, attempt every owned cleanup step and report further cleanup failures in order.</p>
 <table>
@@ -244,6 +244,10 @@ If neither supplies one, queued work gets it in the next <code>ExternalEvent</co
 An application reference alone grants no authority. Revit still enforces the
 restrictions of the active callback. Document change handlers update the document
 stamp directly.</p>
+<p>A progress-overlay paint frame suspends API access for work dispatched by that
+frame. <code>IsActive</code> is false, <code>Current</code> is null, and the inline gate refuses calls
+in the paint frame itself. A nested WPF dispatcher loop uses the enclosing callback's
+scope. The paint frame suspends API access again when the nested loop exits.</p>
 <p>A callback owned by another add-in runs without dbtools API authority until
 it enters a dbtools callback. Use a queued gate and return control to Revit
 before waiting for the result. A synchronous wait on the Revit thread can
@@ -265,7 +269,12 @@ scope after it verifies thread and API access.</p>
 </ul>
 <p>A caller that needs several reads for one user action makes them in one <code>RunAsync</code> body, or starts independent calls together so that one turn runs them all.</p>
 <p>A transaction group without an open transaction is not visible to the open-transaction check. Production code therefore creates every <code>TransactionGroup</code> through <code>RevitTransactionGroups.Begin(document, name, validateStart)</code>. The factory calls <code>RevitCallGateTurnBoundary.EndAfterCurrentCall()</code>, so the current turn ends when the running call returns, then constructs and starts the group and disposes it if the start fails. The build contract suite (<code>TransactionGroupTurnBoundaryContractTests</code>) inspects the compiled production assemblies and rejects <code>TransactionGroup</code> construction outside that factory.</p>
-<p>A caller on the Revit thread outside <code>Execute</code> raises at once; native <code>Raise</code> takes under a millisecond. A worker posts its raise to the Revit dispatcher at <code>Normal</code> priority, because native <code>Raise</code> runs only on that thread. The raise for work left after a turn is also posted, so it runs after <code>Execute</code> returns. A call queued by a running callback raises nothing. Calls queued before the accepted raise runs share it.</p>
+<p>A caller on the Revit thread, outside <code>Execute</code> and outside a progress-overlay paint frame, raises at once.
+A worker posts its raise to the Revit dispatcher at <code>Normal</code> priority. Work left after a turn
+raises after <code>Execute</code> returns. A raise received during a paint frame is posted after the frame
+and the outermost API scope have exited. A nested dispatcher loop keeps the usual raise behavior for work that has no pending raise. Pending calls share a raise. A failed or aborted post faults the waiting calls and logs
+the failure. Autodesk says Revit invokes the handler “when there is an available Idling time cycle”.
+<a href="https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API/files/Revit_API_Revit_API_Developers_Guide_Advanced_Topics_External_Events_html.html">Autodesk External Events guide</a></p>
 <p><code>Denied</code> and <code>TimedOut</code> raise results keep the queue and retry with a backoff from 50 ms, doubling to at most 500 ms, for at most 5 seconds (<code>RevitCallGateRaiseRetry</code>). When that time expires, the waiting batch faults; the scheduler still accepts new work.</p>
 <p>Each turn feeds a Debug summary with the prefix <code>[CallGate/Turns]</code>. It reports
 turns and calls, maximum queue depth, queue-to-raise time, the Raise-to-Execute
@@ -357,6 +366,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 <li><code>WindowProgressOverlayCapability</code> (<code>WindowProgressOverlayCapability.Hosts.cs</code>) is the only registry from <code>Window</code> to overlay state and visual host. There is no ambient or process-global host.</li>
 <li><code>ProgressOverlay.Operations.cs</code> holds the public lifecycle API. <code>ProgressOverlayRunWorkflow.cs</code> owns <code>RunAsync(...)</code>: the show policy, the linked cancellation source, cancel observation and hide sequencing.</li>
 <li><code>ProgressOverlayDelayedHideScheduler</code> keeps the dispatcher operation it posts and observes every outcome. It clears the pending hide only when the completing operation owns the current cancellation source, so an aborted or faulted stale operation cannot clear a replacement hide.</li>
+<li>Before a tool modal or file picker opens, Core finishes the owner overlay's pending minimum-duration hide.</li>
 </ul>
 <h3 id="iprogressoverlay"><code>IProgressOverlay</code></h3>
 <table>
@@ -376,12 +386,16 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 <td>Sets status text and progress in <code>[0,1]</code>. A <code>null</code> argument leaves that value unchanged. A non-finite progress value throws <code>ArgumentOutOfRangeException</code> before status or progress changes. Finite values are clamped to <code>[0,1]</code>.</td>
 </tr>
 <tr>
+<td><code>AsProgress()</code></td>
+<td>Returns a synchronous <code>IProgress&lt;(string message, double? progress01)&gt;</code> sink that calls <code>Update</code>. Use it for progress reports made during inline UI-thread work.</td>
+</tr>
+<tr>
 <td><code>UpdateStep(current, total, description, progress01)</code></td>
 <td>Sets the status to <code>Step X/Y: {description}</code>.</td>
 </tr>
 <tr>
 <td><code>Scope(title, cancelable)</code></td>
-<td>Returns a disposable scope. Nested scopes restore the parent state in LIFO order.</td>
+<td>Shows the overlay and attempts a paint before returning. Nested scopes restore the parent title and cancelability.</td>
 </tr>
 <tr>
 <td><code>CancelRequested</code></td>
@@ -397,17 +411,24 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </tr>
 <tr>
 <td><code>RunAsync(title, work, cancelable, options, ct)</code></td>
-<td>Runs <code>work</code> with an overlay lifecycle and cancellation bridge. A second run on the same window while one is active throws <code>InvalidOperationException</code>.</td>
+<td>Shows the overlay and attempts a paint before non-cancelable work starts, then runs <code>work</code> with an overlay lifecycle and cancellation bridge. A second run on the same window while one is active throws <code>InvalidOperationException</code>.</td>
 </tr>
 </tbody>
 </table>
 <p><code>ProgressOverlay</code> marshals public calls to its owner's WPF dispatcher. Do not change overlay state directly from a background thread. Pure and view-model tests can use a simple <code>IProgressOverlay</code> double.</p>
 <h3 id="rendering">Rendering</h3>
 <ul>
-<li>A status change forces a render (<code>RequestRender(force: true)</code>); a progress-only update is throttled. Phase changes stay visible when Revit starves the dispatcher.</li>
-<li><code>ProgressOverlayRenderScheduler</code> throttles render requests to one per 30 ms and pumps one dispatcher frame (<code>DispatcherFramePump.TryPumpSingleFrame</code>) with a 20 ms budget and a depth guard.</li>
-<li>A forced render bypasses the pending-render guard. A pending render older than 250 ms is treated as stuck and replaced.</li>
-<li>Do not add other dispatcher pump loops or dispatcher-frame code outside that helper while Revit work is active.</li>
+<li>The overlay belongs to the owner's visual tree and disables the underlying content while visible.</li>
+<li>A status change requests an immediate paint. Progress-only requests are limited to one frame per 85 ms.</li>
+<li>A paint runs one frame on the owner's dispatcher. The filters pass client-area mouse moves and left-button messages inside the visible Cancel button, plus <code>WM_MOUSELEAVE</code> and <code>WM_NCMOUSELEAVE</code>. They drop other mouse, pointer, touch, keyboard, system-key, and system-command window messages addressed to windows on the thread. A nested WPF dispatcher loop receives input normally. After a dropped button or key release, the paint frame sends <code>WM_CANCELMODE</code> to the window that has mouse capture as it exits.</li>
+<li>Posted messages such as <code>WM_TIMER</code>, <code>WM_COMMAND</code>, <code>WM_PAINT</code>, and application messages to Revit's windows pass through during a frame. Dispatcher work at the frame's exit priority or higher can also run. The exit priority is Background for cancelable overlays and Render for non-cancelable overlays. This work can execute inside the current Revit callback without API access (<code>IsActive</code> is false).</li>
+<li>WPF's WISP touch and pen stack queues Input-priority dispatcher operations. Those operations can run in a cancelable frame because the filter examines window messages.</li>
+<li>A non-cancelable overlay exits at WPF Render priority. A cancelable overlay runs through Input priority so a Cancel click can set <code>CancelRequested</code> during inline work. A separate Render marker records whether the paint priority ran.</li>
+<li>A 20 ms deadline stops the frame between messages. A callback already running can finish. A missed Render marker logs at most one warning per overlay showing. An update made in the paint frame changes the overlay without opening another paint frame. An overlay in a nested WPF dispatcher loop can paint.</li>
+<li>The pump identifies nested WPF loops by dispatcher frame depth. A paint frame that starts on a nonmodal thread also detects a transition to modal state. On an already-modal thread, only a depth change identifies a nested loop. Native dialogs such as <code>MessageBox</code> can leave both values unchanged. The paint restrictions on API access, queued raises, and nested painting remain in effect during such a loop.</li>
+<li>App startup checks that WPF provides <code>Dispatcher._frameDepth</code>. If the field is unavailable, startup fails with the field name and the installed WPF WindowsBase version in the diagnostic.</li>
+<li>The dispatcher tracks the active paint frame until it exits, including when Dev Mode retires its dispatcher operations. The pump releases the frame before resuming work deferred by it.</li>
+<li>WPF dispatchers keep their usual route for foreign exceptions and exceptions an earlier subscriber handled. For an unhandled dbtools exception in the paint frame, the pump marks it handled and requests frame exit. This lets the callback return through its window procedure. Errors in nested WPF loops use the usual WPF route. A separate dispatcher operation reports captured dbtools errors and dbtools errors that escape the paint frame. Multiple failures are reported together, once per exception instance. Other <code>UnhandledException</code> subscribers can see the original notification during painting and the <code>DispatcherCallbackException</code> during delivery. The window error boundary presents the deferred report after inline work yields. If the dispatcher aborts delivery, the scheduler logs the report.</li>
 </ul>
 <h3 id="cancellation">Cancellation</h3>
 <p>Use <code>RunAsync(...)</code> for long operations. <code>ProgressOverlayRunWorkflow</code> observes <code>CancelRequested</code>, cancels a linked token source and passes the work delegate a token that fires on cancel. After <code>Show(...)</code> resets the cancellation state, the cancel watcher starts before the work begins. SGT analysis (<code>AnalysisSessionWorkflow</code>), SGT placement (<code>PlacementWorkflow</code>) and GM commit review (<code>CommitReviewApplyOverlayWorkflow</code>) use <code>RunAsync</code>.</p>

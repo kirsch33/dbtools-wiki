@@ -849,26 +849,44 @@ No matching installed template yields Inconclusive with observed formats/errors.
 Repository-controlled models and assets are different: missing staged files
 must fail the test.</p>
 <h3 id="hosted-context-and-cleanup">Hosted context and cleanup</h3>
-<p>Use <code>RevitHost.RunAsync(...)</code> to run a hosted body with the daemon-provided
-<code>UIApplication</code>. It initializes runtime assembly resolution and calls
-<code>AppHostedComposition.EnsureRuntime(app.Application?.VersionNumber)</code>.
-<code>EnsureRuntime</code> parses an unset Revit year and initializes the App runtime once
-with an isolated ribbon target.
+<p>Set <code>DBT_StartHostedAppRuntime</code> in a Local test project that uses App
+composition or needs App's Revit hooks. Elevation Tags and Joist Girder
+Weight enable the flag for their view-activation hooks. Profile setup calls
+<code>AppHostedComposition.EnsureRuntime(app)</code>
+with the daemon-provided <code>UIApplication</code>. It shuts down the App lifecycle
+before releasing the assembly's test profile. The next assembly in the same
+Revit process starts its own App lifecycle with a fresh profile. If a job
+leaves a hosted lifecycle active, App replaces it when the profile path changes.
+Startup validates the theme, configures window capabilities, composes an
+isolated ribbon, attaches ViewActivated and contextual ribbon hooks, and
+completes deferred UI startup. The test profile sets <code>AutoUpdateEnabled</code>
+to <code>false</code> for Elevation Tags, Combined Foundation Tags and Joist Girder
+Weights. Tests of those updates enable the relevant setting with the
+production settings provider and restore it during cleanup.
+Use <code>RevitHost.RunAsync(...)</code> with the daemon-provided <code>UIApplication</code> to
+enter an explicit Revit API scope. A fixture can resolve <code>RevitCallGateTask</code>
+from the App service root to construct a <code>QueuedRevitCallGate</code>. App owns
+that task through shutdown.
 A fixture that builds its own App container uses
 <code>AppHostedComposition.CreateLoggingRuntime()</code> and
 <code>AppHostedComposition.BuildServiceProvider(logging, isolationName, configure)</code>.
 The optional <code>configure</code> callback runs after App registrations. The fixture
 disposes its provider and logging runtime. WPF name-only product loads resolve
 with the active App assembly.
-<code>RevitAmbientScope</code> supplies ambient <code>UIApplication</code> data. The API scope ends
-when the synchronous test body returns its task. A fixture without the App
+The API scope ends when the synchronous test body returns its task. A fixture without the App
 runtime opens the same scope around its synchronous product call. After an
 incomplete await, enter a scope again only if the driver still owns the native
 callback on the Revit dispatcher. Use a queued gate after the callback returns.</p>
-<p><code>DBT_TEST_RUN_ID</code> identifies automation so startup errors remain headless.
-Fixtures release only runtime/task hosts, owners, static state, documents, and
-overlays they own. The daemon terminal owns final release of its active
-Autodesk document. Use document leases rather than closing unrelated documents.</p>
+<p><code>DBT_TEST_RUN_ID</code> keeps App startup failures headless. Hosted App composition
+captures startup failure messages. Fixtures release their windows, static
+state, documents and overlays. A hosted fixture that owns a window runtime uses
+<code>WindowStaticRuntimeTestScope</code> with <code>restoreSandboxOnDispose: false</code> to release
+the configuration and retire dispatcher work. An assembly that sets
+<code>DBT_StartHostedAppRuntime</code> starts and shuts down its own App runtime.
+Its fixtures can verify <code>WindowStaticRuntime.IsConfigured</code> inside
+<code>RevitHost.RunAsync(...)</code>. The shared after-test action checks the App
+registry for retained tool windows. The daemon terminal owns final release
+of its active Autodesk document. Use document leases for fixture documents.</p>
 <p>When work and cleanup fail, preserve both. Attempt every owned document close,
 UIDocument disposal, logging shutdown, transaction-group finalization, and
 window/session disposal. A production launch smoke must use the production

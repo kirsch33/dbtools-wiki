@@ -362,12 +362,21 @@ externals. Tool-specific doubles are under <code>testing/TestSupport/&lt;Tool&gt
 linked as source by the matching test projects; they are not a separate
 assembly.</p>
 <ul>
-<li><code>Revit/RevitHost.cs</code> initializes the year and App runtime. It opens an API
+<li><code>Revit/RevitHost.cs</code> starts the App lifecycle and opens an explicit API
 scope with the <code>UIApplication</code> for the synchronous prefix of the test body.
-The scope closes when the body returns its task. A fixture that constructs a
-Revit task owns its disposal. An App <code>QueuedModeless</code> run scope uses the
-service root's task. A forced-queue test calls the real event handler
-synchronously to model a later turn.</li>
+The scope closes when the body returns its task. Hosted tool fixtures borrow
+the App service root's task, which also serves App <code>QueuedModeless</code> run
+scopes. A fixture that constructs its own Revit task owns its disposal.
+Hosted startup advances queued hook attachment through the real event
+handler and completes deferred UI startup. While no Revit calls are pending,
+<code>AppHostedComposition</code> advances the dispatcher with a bounded Background
+operation. The startup wait preserves the caller's API scope and leaves input
+to WPF.</li>
+<li>One daemon callback has no second native Revit turn. A forced-queue test
+can call the real event handler synchronously to exercise queue dispatch.
+Use a <code>RevitHostedTurns</code> fixture to test work across native turns.
+<code>RevitCallGateModelessHostedTurnCertificationTests</code> uses it to verify that
+Revit delivers work queued during a progress frame in a later native turn.</li>
 <li><code>Wpf/WpfTestRuntimeBootstrap.cs</code> registers pack URI support, installs the
 shared window owner, validates themes in the runtime assembly's contextual
 reflection scope, and releases only its own provider at teardown. It adds no
@@ -376,9 +385,16 @@ context.</li>
 <li><code>Logging/TestLoggingBridge.cs</code> uses production logging when Revit provides it
 and a console and file host otherwise.</li>
 </ul>
-<p>Revit-hosted fixtures release only their own runtime, Revit task, owner handle
-and window resources. Cleanup reports both the primary failure and any cleanup
-failure.</p>
+<p>Each opted-in test assembly uses one App lifecycle, one Revit task and one
+main-window owner. Assembly teardown shuts them down before the next assembly
+starts in the same Revit process. A hosted <code>WindowStaticRuntimeTestScope</code>
+releases its window configuration and retires dispatcher work at teardown.
+Profile setup disables view-activated model updates for Elevation Tags,
+Combined Foundation Tags and Joist Girder Weights. The production hooks attach.
+A fixture that tests automatic updates enables its tool through the settings provider.
+Fixtures release their windows, document leases and other owned resources.
+The shared after-test action checks the App registry for retained tool windows.
+Cleanup reports both the primary failure and any cleanup failure.</p>
 <p>See <a href="build-pipeline.html">Build Pipeline</a>, <a href="assembly-loading.html">Assembly Loading Contract</a>
 and <a href="sandbox-validator.html">Sandbox Validator</a>.</p>
 

@@ -173,27 +173,27 @@ the instance that the action threw, with its original stack trace, unless a repo
 outcome became an <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.aggregateexception">AggregateException</a>.
 </p>
 <p>
-Reporting follows <code class="paramref">opts</code> and needs a <code class="paramref">notifier</code> for banners. An exception
+Reporting follows <code class="paramref">opts</code>. Failure banners use <code class="paramref">notifier</code>, or the App default
+notifier when the call site has none. An exception
 that an inner run already showed (<code>FailureReport</code>) is logged again, without a second banner or failure
-surface.
+presentation.
 </p>
 <ul><li>
 A <a class="xref" href="dbtools.Core.SafeExecution.Domain.SafeExecutionRefusedException.html">SafeExecutionRefusedException</a> is Refused. It shows a warning banner, or writes a warning log
-entry when there is no notifier or banners are suppressed. It writes no exception diagnostics and uses no
-failure surface.
+entry when there is no notifier or banners are suppressed. It writes no exception diagnostics.
 </li><li>
 Every <span class="xref">OperationCanceledException</span> is Canceled, also one that does not come from
-<code class="paramref">ct</code>. It writes a warning log entry and shows no failure banner and no failure surface. A
+<code class="paramref">ct</code>. It writes a warning log entry and shows no failure banner. A
 canceled <code class="paramref">ct</code> stops the action before it starts.
 </li><li>
-Any other exception is Failed. It is logged, shown in an error banner, and passed to the failure surface, as
-<code class="paramref">opts</code> allows. The banner text is the exception message, or <code>The operation failed.</code> for
-a blank message. A success banner that throws makes the outcome Failed with that exception.
+Any other exception is Failed. It is logged and shown in an error banner, as <code class="paramref">opts</code> allows.
+The banner text is the exception message, or <code>The operation failed.</code> for a blank message. A success banner
+that throws makes the outcome Failed with that exception.
 </li></ul>
 <p>
 A reporting failure makes an <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.aggregateexception">AggregateException</a> with the operation's exception first and the
 reporting failure second. The stages run in this order: refusal reporting (the outcome is then Failed and takes
-the failure path), failure notification, failure surface. When more than one stage fails, each later
+the failure path), failure notification. When more than one stage fails, each later
 aggregate holds the earlier one as its first inner exception.
 </p>
 <p>
