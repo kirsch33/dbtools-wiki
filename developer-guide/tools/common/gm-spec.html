@@ -356,6 +356,12 @@ Persistence adapters derive the GM root with <code>AppPaths.GetToolCacheDir(&quo
 UI-state and saved-mapping stores create their directories when writing.
 <code>App/Persistence</code> owns document UI-state storage.
 <code>App/Sessions/UIStateLifecycle</code> sequences the session's startup restore and close persistence.
+It restores search text, sort mode, the similarity threshold, and the <strong>Applied Only</strong>, <strong>Hide Unscanned</strong> and
+<strong>Hide Unused</strong> checkboxes. It also loads the saved mappings.
+PaneStateProjector restores the Shared Parameters type, duplicate selections and duplicate exclusions.
+SharedParameterLoader restores the Shared Parameters category when it is available.
+The UI-state file retains expanded family IDs. At startup, family rows start collapsed. Scan refresh restores
+expansion within the open session. GM ignores legacy tab and Families category fields.
 StatePersistence requires both IUIStateCache and ISavedMappingStore in production.
 Design-time projection does not construct unused persistence.</p>
 <p>JSON writes flush a unique sibling temporary file and publish it atomically.
@@ -402,6 +408,8 @@ For a raw length below two, equal raw lengths score 1.0 only with equal nonempty
 Other short-name pairs score zero. Each scoring pass owns its immutable name-profile cache.</p>
 <h4 id="deep-scan">Deep Scan</h4>
 <p>Deep Scan owns family scans, projection, usage resolution, feature cache, and refresh workflow.
+<code>DeepScanAllProjectFamiliesAsync</code> scans the loaded project family inventory. <strong>Deep Scan Unscanned</strong> scans the
+eligible zero-instance families across that inventory.
 DeepScanCacheCoordinator requires DeepScanCache, IFamilyParameterQuery, and IDeepScanUsageResolver.
 Successful usage resolution carries Resolution, which requires its style, material, and nested-family ID collections.
 Failed resolution carries FailureReason.
@@ -483,9 +491,6 @@ The family target scopes the child target lists. The family Apply box changes th
 Type creation planning resolves every existing owner-family type name and rejects names already used by that family or another planned type.</p>
 <p>FamilyMappingViewModel owns binding state and interactions.
 FamilyMappingScanWorkflow owns asynchronous scan/cache/post-commit sequencing and its private scan-state applier.
-The Families pane requests one all-category family inventory. Its curated checkbox list filters those rows in memory;
-changing a checkbox makes no family query. Only curated categories with loadable families appear. The selected family
-category IDs are persisted in UI state, and the first Families session checks every available category.
 FamilyMappingRowRefresh owns row build/refresh, saved-mapping reapply, and usage reconciliation.
 PaneViewModelBuilder creates one FamilyApplyIntent and one UsageIntentReconciler on the session MappingIntentStore.
 The Usage pane, family presentation, and family selection receive FamilyApplyIntent.
@@ -499,10 +504,13 @@ The refreshed rows show newly created types, omit purged families, and restore p
 target types are still available.
 App's CrossPaneRowRefresh sequences cross-pane work.</p>
 <ul>
-<li>Owner decision — Families uses the &quot;Curated list + multi-select&quot; category drawer, hides categories without loadable
-families, saves the checked IDs, and filters one all-category inventory; <code>FamilyCategoryFilterPolicyTests</code> and
-<code>FamilyMappingViewModelInteractionTests.SetCuratedFamilyCategories_ToggleFiltersRowsWithoutAnotherFamilyScan</code> pin
-these rules.</li>
+<li>Owner decision — Families uses the &quot;Curated list + multi-select&quot; category drawer. The checkboxes filter one all-category
+inventory in memory. Generic Annotations (<code>OST_GenericAnnotation</code>) stays available in every project. Other curated
+categories appear when the project has loadable families in them. <code>FamilyCategoryFilterPolicyTests</code> covers availability,
+and <code>FamilyMappingViewModelInteractionTests.SetCuratedFamilyCategories_ToggleFiltersRowsWithoutAnotherFamilyScan</code>
+covers filtering without a rescan.</li>
+<li>Owner decision (GM-1 B, 2026-11-23) — GM always opens on Families with only Generic Annotations checked. It restores
+sort mode, threshold, and the <strong>Applied Only</strong>, <strong>Hide Unscanned</strong> and <strong>Hide Unused</strong> checkboxes.</li>
 <li>Owner decision — a family target must have the same category as its source row; Lane B owns this option-pool test.</li>
 <li>Owner decision — zero-instance families stay mappable and use &quot;Mappable + Purge&quot;; <code>FamilyPurgePlanBuilderTests</code>
 pins planning and refusal, and <code>FamilyPurgeWriterTests</code> pins purge, used-family refusal, and cascade rollback.</li>
@@ -809,8 +817,10 @@ Core alerts use observed nested modal loops and diagnose reload during a dialog.
 <h3 id="refresh-cache">Refresh Cache</h3>
 <p>RefreshCacheWorkflow drains background prewarm and reads the new inventory, duplicate detection and Usage snapshot.
 It publishes the inventory and duplicates before the Usage publication reaches its subscribers.
-Families restores the selected row and expanded details from the new rows. Shared Parameters rebuilds its definition
-groups, authoring tree and parameter use rows. A failed read keeps the previous inventory and rebuilds affected rows
+Families restores the selected row and expanded details from the new rows. If the previous selection is unavailable,
+Families selects the first visible row. An empty view clears the selection.
+Shared Parameters rebuilds its definition groups, authoring tree and parameter use rows.
+A failed read keeps the previous inventory and rebuilds affected rows
 with Usage pending. Prewarm restarts after the action unless GM is closing.</p>
 <p>FamilyChangeMonitor records family, type and placement changes reported by Revit during the GM session. Deep Scan
 retention compares the fresh family inventory and discards evidence for changed families and scans that include changed
