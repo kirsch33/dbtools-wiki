@@ -807,9 +807,11 @@ incomplete await, enter a scope again only if the driver still owns the native
 callback on the Revit dispatcher. Use a queued gate after the callback returns.</p>
 <p><code>DBT_TEST_RUN_ID</code> keeps App startup failures headless. Hosted App composition
 captures startup failure messages. Fixtures release their windows, static
-state, documents and overlays. A hosted fixture that owns a window runtime uses
-<code>WindowStaticRuntimeTestScope</code> with <code>restoreSandboxOnDispose: false</code> to release
-the configuration and retire dispatcher work. An assembly that sets
+state, documents and overlays. A hosted fixture that needs a sandbox window
+runtime passes <code>DispatcherOperationRegistry.IsRetired</code> and
+<code>DispatcherOperationRegistry.Start</code> to <code>WindowStaticRuntimeTestScope</code>. The
+scope releases the configuration, retires dispatcher work, and restores the
+incoming dispatcher registry state. An assembly that sets
 <code>DBT_StartHostedAppRuntime</code> starts and shuts down its own App runtime.
 Its fixtures can verify <code>WindowStaticRuntime.IsConfigured</code> inside
 <code>RevitHost.RunAsync(...)</code>. The shared after-test action checks the App
