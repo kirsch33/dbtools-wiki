@@ -257,6 +257,27 @@ selection and transfer windows.</p>
 <p>Window searches omit closed windows. The close wait searches until the
 original window token is absent. Cleanup handles <code>DevModeWindowClosedException</code>
 when a window closes before the close request reaches it.</p>
+<h4 id="download-window-captures">Download window captures</h4>
+<ol>
+<li><p>Submit a published distribution with the two models that match its
+scenario manifest.</p>
+<pre><code class="lang-bash">dbtools-daemon-cli devmode-submit \
+  --archive path/to/published-distribution.tar.gz \
+  --model 2026=testing/RevitTestModels/2026/GM/gm_test_model.rvt \
+  --model 2027=testing/RevitTestModels/2027/GM/gm_test_model.rvt
+</code></pre>
+</li>
+<li><p>Save the test attachments for each year using the child job ID from the
+submission report.</p>
+<pre><code class="lang-bash">dbtools-daemon-cli report --job '&lt;2026-child-job-id&gt;' --attachments --out ./devmode-captures/2026
+dbtools-daemon-cli report --job '&lt;2027-child-job-id&gt;' --attachments --out ./devmode-captures/2027
+</code></pre>
+</li>
+</ol>
+<p>The CLI creates one folder per test. Each window capture name ends in
+<code>&lt;route&gt;--&lt;state&gt;.png</code>. If the daemon refuses a capture for size, the
+attachment ends in <code>&lt;route&gt;--&lt;state&gt;.txt</code> and contains the reason.
+The model and command outcome determine which conditional scenes appear.</p>
 <h3 id="tool-contract">Tool contract</h3>
 <p><code>build/Distribution/tool-contracts.json</code> lists the ribbon command types
 and the UI text the Dev Mode scenario checks. The <code>Sgt</code> and <code>ErftNew</code>
