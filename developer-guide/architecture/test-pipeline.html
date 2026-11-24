@@ -96,7 +96,7 @@
 <ul>
 <li><code>./test.sh</code> resolves the selected projects, builds them, freezes their inputs
 and runs them locally or submits them to the dbtools-daemon fleet. It writes
-the receipts that <code>--no-build</code> and CI consume. See the
+the receipts that <code>--no-build</code> consumes. See the
 <a href="../developing/testing-tools.html#test.sh-command-reference">test.sh command reference</a>.</li>
 <li>Plain <code>dotnet test</code> on an entry project in <code>testing/Daemon/</code> uses the pinned
 daemon VSTest adapter (<code>dbtools-daemon.RevitTest.TestAdapter</code>). MSBuild builds
@@ -207,11 +207,8 @@ used for 7 days.</p>
 projects, the graph inputs and the output hashes. The source identity hashes
 <code>HEAD</code>, the output of <code>git diff HEAD</code>, and untracked files that Git does not
 ignore. It hashes the same inputs for each untracked Git checkout.
-<code>--no-build</code> verifies the receipt and refuses stale or missing files. CI resolves the selectors once with
-<code>./test.sh list --projects</code>, compiles each selected scope with
-<code>--compile-only</code>, transfers the receipt and the recorded input closure, and
-runs them with <code>--no-build</code>. The consumer never rebuilds. Linux BUILD and DIST
-jobs do not depend on the Windows transfer.</p>
+<code>--no-build</code> verifies the receipt and refuses stale or missing files. Use the
+same project selection, scope and year for both commands.</p>
 <p>The portable BUILD project selection requires no prebuilt product or candidate output:</p>
 <pre><code class="lang-bash">./test.sh test --tool BUILD --project testing/dbtools.Build.Tests/dbtools.Build.Tests.csproj --scope pure --filter 'TestCategory!=ProductArtifacts'
 </code></pre>
@@ -321,8 +318,8 @@ Tests that need a real WPF window run where Windows is available.</li>
 </ul>
 <h3 id="portable-pure-projects">Portable Pure projects</h3>
 <p>Core and the Super Girt Tool (SGT) define an optional <code>$(DBT_PortableTargetFramework)</code>. Their
-<code>*.Portable.Pure.Tests</code> projects build against that framework and run on Linux;
-CI and Windows <code>test.sh</code> route them to Linux. To make a project portable:</p>
+<code>*.Portable.Pure.Tests</code> projects build against that framework and run on Linux.
+Use Linux <code>test.sh</code> to select them. To make a project portable:</p>
 <ol>
 <li>declare desktop and portable <code>TargetFrameworks</code>;</li>
 <li>condition <code>DBT_RevitHostIdentity</code>, <code>UseWPF</code> and the Presentation
