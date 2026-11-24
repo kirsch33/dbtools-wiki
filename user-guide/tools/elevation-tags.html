@@ -98,13 +98,16 @@
 <p><strong>Align Elevation Tags</strong> moves the text of each matching spot elevation in
 the active view beside its leader end, at the same gap for short and long
 text. It works in floor, structural and ceiling plans.</p>
-<p>A spot elevation is aligned when all of these are true:</p>
+<p>Align checks spot elevations that meet these conditions:</p>
 <ul>
 <li>A pattern in <strong>Tag name patterns</strong> matches one of these names:
 the spot type, its family, the symbol type or the symbol family.</li>
 <li>It has a leader.</li>
-<li>The elevation base of its type is not <code>Relative</code>.</li>
+<li>Its <strong>Elevation Base</strong> displays a value other than <code>Relative</code>.</li>
 </ul>
+<p>Align checks the displayed <strong>Elevation Base</strong> against the exact English
+values <code>Relative</code> and <code>Project Base Point</code>. Localized labels can change
+which tags Align skips or how it measures their text.</p>
 <table>
 <thead>
 <tr>
@@ -126,12 +129,15 @@ the spot type, its family, the symbol type or the symbol family.</li>
 <p>Align gives Above Leader and Below Leader the same position. This keeps the
 text off the symbol text of the DB Elevation Tag symbols.</p>
 <p><strong>Set Elevation Symbol Text</strong> gives the selected spot elevations a symbol
-with other text. Enter the text, such as <code>T.O. FTG.</code>, at <strong>Symbol text:</strong>
-and click <strong>Apply</strong>. The command copies the symbol family and the spot
-type, names each copy <code>&lt;original name&gt; - &lt;text&gt;</code>, and moves only the
-selected spots to the copy. The symbol type keeps its name. The same text
-again uses the same copies. The text must be on one line, without
+with other text. Select the spots before running the command. Enter
+the text, such as <code>T.O. FTG.</code>, at <strong>Symbol text:</strong> and click <strong>Apply</strong>.
+The command copies the symbol family and the spot type and names each
+copy <code>&lt;original name&gt; - &lt;text&gt;</code>. It moves only the selected spots. The
+symbol type keeps its name. The text must be on one line, without
 <code>\ / : * ? &quot; &lt; &gt; | { } [ ] ; ` ~</code>.</p>
+<p>A family copy with matching text and a type copy with the matching symbol
+can be reused. If a copy name is taken by a family with different text or
+a type with a different symbol, rename it before applying again.</p>
 <h2 id="requirements">REQUIREMENTS</h2>
 <table>
 <thead>
@@ -144,6 +150,10 @@ again uses the same copies. The text must be on one line, without
 <tr>
 <td>Symbol family</td>
 <td>For Set Elevation Symbol Text: an editable spot elevation symbol family with exactly one text element.</td>
+</tr>
+<tr>
+<td>Symbol assignment</td>
+<td>Use <strong>Above Leader</strong> or <strong>Below Leader</strong> if an <strong>In-line with Leader</strong> type has no symbol or a read-only <strong>Symbol</strong>.</td>
 </tr>
 </tbody>
 </table>
@@ -162,14 +172,16 @@ symbol type and family names. Both ignore case. The default is:</p>
 inches. The arrow buttons choose the type. A positive <strong>Along leader</strong>
 moves the text along the shoulder, away from the leader end. A positive
 <strong>Perpendicular</strong> moves it away from the leader line, or up for In-line
-with Leader. The next Align run uses the saved values.</p>
+with Leader. The next Align run uses the saved values. Align ignores the
+Revit type parameters <strong>Text Offset from Leader</strong> and <strong>Text Offset from Symbol</strong>.</p>
 <p>The preview draws the type with a downward and an upward leader. When
 you set an offset, a dashed outline shows the original text position. The
 only caption below the drawing is the type's <strong>Text Location</strong> in Revit.</p>
 <h2 id="results">RESULTS</h2>
-<p>Align ends with a banner, such as <code>Aligned 12 elevation tag(s).</code> A tag that
-is already in place does not count. Each run that moves tags, also an
-automatic run, is one Undo step: <code>dbtools - Align spot elevations</code>.</p>
+<p>Manual runs report successful updates and warn if any tags fail.
+Align keeps successful updates when individual tags fail. The dbtools log
+gives failure details for manual and automatic runs.
+Each run that moves tags is one Undo step, <code>dbtools - Align spot elevations</code>.</p>
 <p>Set Elevation Symbol Text is one Undo step:
 <code>dbtools - Set elevation symbol text</code>. It deletes a copy that it made
 when the change leaves the copy unused. A failure changes nothing.</p>

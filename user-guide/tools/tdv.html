@@ -117,52 +117,25 @@ picker to return to <strong>Select Library File</strong>.</p>
 file from the current Revit version. The active model and its workshared
 central file cannot serve as the library. A browsed file applies to one transfer
 window. Add the path in <strong>Library Files</strong> to use it from the list on later runs.</p>
+<p>For a workshared library, TDV opens all worksets in a temporary local copy
+under <code>%APPDATA%\dbtools\Cache\TDV\LibraryLocals\</code>. A library without
+worksharing opens in place.</p>
 <p>The preview fits the selected view to the pane and matches the exported
 background. A transparent image corner uses the Revit canvas color. Use the
 mouse wheel to zoom and drag with the left button to pan. <strong>Zoom Extents</strong>
 fits the whole view again.</p>
 <h2 id="options">OPTIONS</h2>
-<table>
-<thead>
-<tr>
-<th>Control</th>
-<th>Effect</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>View Type:</strong></td>
-<td>Shows only the source views of one type.</td>
-</tr>
-<tr>
-<td><strong>Search views</strong></td>
-<td>Shows the views whose name contains the text, or its letters in the same order.</td>
-</tr>
-<tr>
-<td><strong>Import?</strong> or <strong>Export?</strong></td>
-<td>Includes the row in the transfer.</td>
-</tr>
-<tr>
-<td><strong>View Name</strong></td>
-<td>The destination name. Click it to change it.</td>
-</tr>
-<tr>
-<td><strong>Replace</strong></td>
-<td>Replaces the destination drafting view with the same name.</td>
-</tr>
-<tr>
-<td><strong>View Type</strong></td>
-<td>The destination view type. <code>Retain Original</code> uses the type name of the source view.</td>
-</tr>
-</tbody>
-</table>
-<p>A checked row has a conflict in these cases:</p>
-<ul>
-<li>Its name is blank.</li>
-<li>Another checked row has the same name.</li>
-<li>The destination has a drafting view with that name, and <strong>Replace</strong> is off.</li>
-</ul>
-<p>The check ignores case and leading or trailing spaces.</p>
+<p>Filter the source list by <strong>View Type:</strong> or <strong>Search views</strong>. Search matches
+names containing the text or its letters in the same order. A checked row
+stays in the transfer when a filter hides it. Check the <strong>Selected</strong> count
+before transferring. <strong>Clear Selection</strong> unchecks every row.</p>
+<p>Edit <strong>View Name</strong> to set the destination name. A checked row has a conflict
+if its name is blank, another checked row has the same name, or a drafting
+view with that name already exists in the destination and <strong>Replace</strong> is off.
+The check ignores case and leading or trailing spaces. Turn on <strong>Replace</strong>
+only if you intend to replace the existing view's contents.</p>
+<p>In the grid's <strong>View Type</strong> column, select a destination type or use
+<code>Retain Original</code> to use the source type's name.</p>
 <h2 id="settings">SETTINGS</h2>
 <p>Open <strong>dbtools</strong> &gt; <strong>Settings</strong> and select <strong>Common</strong> on the left. In
 <strong>Library Files</strong>, click <strong>Add Library File…</strong> to choose a file. Select a
@@ -183,9 +156,11 @@ scale, the writable <code>VIEW_DESCRIPTION</code> parameter, the elements and th
 graphic overrides. Both clearing an existing view and copying into it
 skip the categories <code>Title Blocks</code>, <code>Viewports</code>, <code>Views</code>, <code>Schedules</code> and
 <code>Guide Grids</code>.</p>
-<p>If a view fails, TDV undoes only that view and continues. <strong>Per-View Issues</strong>
-in the result shows its code. <strong>Cancel</strong> on the progress bar undoes the
-<strong>Transfer Selected</strong> run, up to the end of the last view.</p>
+<p>If a view fails, TDV undoes that view and continues with the others. Check
+<strong>Per-View Issues</strong> for the view and the reason. <strong>Cancel</strong> on the progress
+bar undoes the <strong>Transfer Selected</strong> run, up to the end of the last view.</p>
+<p>If the transfer report says finalization could not be verified, inspect
+the destination before retrying. It may contain changes from that run.</p>
 <p>Each import transfer is one Undo step, <code>Transfer Drafting Views</code>. Before
 closing the library, TDV reactivates your saved project if Revit switched
 documents. Import closes the library without saving.</p>
@@ -213,12 +188,20 @@ project, switch back to it in Revit.</p>
 <td>Read the reason and choose an available <code>.rvt</code> file from the current Revit version.</td>
 </tr>
 <tr>
+<td><code>SourceTypeNameUnavailable</code></td>
+<td>TDV could not read the source type name for <code>Retain Original</code>. Choose a named <strong>View Type</strong>.</td>
+</tr>
+<tr>
 <td><code>DestinationTypeMissing</code></td>
 <td>The named type is not in the destination, or <code>Retain Original</code> could not make it.</td>
 </tr>
 <tr>
 <td><code>CopyElementsFailed</code></td>
-<td>Revit could not copy an element. TDV copies nothing from that view.</td>
+<td>Inspect the source view and the reported Revit error before retrying.</td>
+</tr>
+<tr>
+<td><code>TransactionRolledBack</code></td>
+<td>Revit discarded the whole transfer. Check the report before retrying the selection.</td>
 </tr>
 </tbody>
 </table>

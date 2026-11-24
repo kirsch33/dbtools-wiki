@@ -103,12 +103,14 @@ copies. It copies the files as saved on disk, and changes no source file.</p>
 list, the button is <strong>Add host</strong>.</li>
 <li>In <strong>Host Models</strong>, set <strong>Discipline</strong> and <strong>Building</strong> for each host.
 Choose <code>&lt; Add new… &gt;</code> to type a name.</li>
-<li>Read the <strong>Preview</strong> tree and the <strong>Preview Messages</strong>.</li>
-<li>Right-click a DWG in the tree to set its CAD handling.</li>
+<li>Right-click a DWG in <strong>Preview</strong> to set its CAD handling.</li>
+<li>Check the output tree and resolve blocking <strong>Preview Messages</strong>.</li>
 <li>Click <strong>Execute</strong>.</li>
 </ol>
 <p><strong>Preview</strong> shows the files and folders in the copy plan, including any Xref
-folders the plan copies. <strong>Preview Messages</strong> lists files excluded by policy.</p>
+folders the plan copies.</p>
+<p>To remove a host from the package, right-click its row and choose
+<strong>Remove Host</strong>.</p>
 <!-- screenshot: Record Set window, two hosts and a current preview -->
 <p><strong>Execute</strong> is available when the preview is up to date, the footer shows
 <strong>Root</strong> <code>Allowed</code>, and no message has the severity Block.</p>
@@ -155,7 +157,7 @@ the DWG copy. Names and options last until the window closes.</p>
 </tr>
 <tr>
 <td><strong>CAD: Bind All</strong></td>
-<td>Bind every Xref into the DWG copy, with Core Console. It drops the Xrefs added with <strong>Add Xref...</strong> from the plan.</td>
+<td>Scan and bind every Xref into the DWG copy with Core Console, even with discovery off. Drops the Xrefs added with <strong>Add Xref...</strong> from the plan.</td>
 </tr>
 <tr>
 <td><strong>Bind Type</strong> &gt; <strong>Bind</strong> or <strong>Insert</strong></td>
@@ -202,6 +204,10 @@ different source files would get one target path, the second gets
 <p><strong>Execute</strong> copies the files, does the CAD work, and then changes the links
 in the host copies. A copy replaces an existing file in the target and
 keeps the source timestamps.</p>
+<p>Record Set marks a host copy as transmitted when it rewrites at least one
+link. Revit opens a transmitted workshared copy detached from central.
+Save the copy as a central model in its final location to create local
+files from it.</p>
 <p>After a successful run, an alert shows <code>Status: ok</code> and the manifest path. A failed
 run logs the error and shows an Error banner with <strong>Details</strong>. Click <strong>Details</strong>
 to open the logger window and enable Debug Mode. Record Set adds no Undo step.</p>
@@ -219,12 +225,20 @@ to open the logger window and enable Debug Mode. Record Set adds no Undo step.</
 <td>The file is not copied. The tool excludes <code>.dwl</code>, <code>.dwl2</code>, <code>.tmp</code>, <code>.bak</code>, <code>.lnk</code> and <code>.exe</code> files, and names that match <code>*backup*.rvt</code>, <code>*.old</code> or <code>~$*</code>.</td>
 </tr>
 <tr>
+<td><code>Missing source path: &lt;path&gt;</code></td>
+<td>A Block. Restore the missing file or folder, or remove the affected hosts from the plan.</td>
+</tr>
+<tr>
 <td><code>Xref &lt;name&gt; in &lt;dwg&gt; not found: &lt;stored path&gt;</code></td>
 <td>The file is not at its stored path or in the DWG folder. The DWG copy keeps the stored path.</td>
 </tr>
 <tr>
 <td><code>CAD Xref discovery failed for &lt;name&gt;: &lt;error&gt;. Using fallback.</code></td>
 <td>Record Set copies the Xref folders as without discovery, and changes no Xref path.</td>
+</tr>
+<tr>
+<td><code>Bind All selected for &lt;name&gt;, but AutoCAD Core Console is unavailable.</code>, <code>CAD repath is enabled for &lt;name&gt;, but AutoCAD Core Console is unavailable.</code></td>
+<td>A Block. Make Core Console available, or choose <strong>CAD: Keep Xrefs</strong> and turn off <strong>Allow CAD repath</strong>.</td>
 </tr>
 <tr>
 <td><code>Bind All blocked for &lt;dwg&gt;: …</code></td>

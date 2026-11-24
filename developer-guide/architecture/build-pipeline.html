@@ -137,7 +137,7 @@ for Revit 2026 and 2027.</li>
 <li><code>DistributionContract.ProductFiles</code> defines the exact file set for each
 year. When adding a tool, include its <code>Tools/&lt;name&gt;.dll</code> path in this list.
 <code>StageProductOutputTask</code> rejects a mismatch.</li>
-<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.22.12</code>.
+<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.22.14</code>.
 The scenario and Windows acceptance builds check the vendored and restored
 DevMode.Testing packages against the SHA-256 in that file.
 <code>testing/Daemon/Directory.Build.props</code> pins the Revit test adapter to the
@@ -241,7 +241,8 @@ and <a href="test-pipeline.html">Test Pipeline</a>.</p>
 <p><code>testing/dbtools.DevMode.Scenario/</code> owns the hosted scenario.
 It compiles against <code>dbtools-daemon.DevMode.Testing.Scenario</code> from the
 <code>dbtools-daemon.DevMode.Testing</code> package. The daemon supplies bridge
-assembly version <code>2.0.0.0</code> at runtime.
+assembly version <code>2.0.0.0</code> at runtime. The scenario requires daemon
+<code>0.22.14</code> or later for <code>DevModeControlNotFoundException</code>.
 <code>DevModeScenarioManifestWriter</code> publishes its payload under
 <code>.artifacts/acceptance/dev-mode-scenario/&lt;year&gt;/</code>. The adjacent
 <code>dev-mode-scenario.json</code> binds it to the product, the model and the
@@ -258,8 +259,9 @@ selection and transfer windows.</p>
 original window token is absent. Cleanup handles <code>DevModeWindowClosedException</code>
 when a window closes before the close request reaches it.</p>
 <p>When an action rebuilds controls, the scenario polls <code>InspectControlAsync</code>
-with the selector of the next control it uses. A control wait has a deadline.
-Its timeout names the scenario step and the selector.</p>
+with the selector of the next control it uses. <code>DevModeControlNotFoundException</code>
+means the control is absent. A control wait has a deadline. Its timeout names
+the scenario step and the selector.</p>
 <h4 id="download-window-captures">Download window captures</h4>
 <ol>
 <li><p>Submit a published distribution with the two models that match its
@@ -277,6 +279,9 @@ dbtools-daemon-cli report --job '&lt;2027-child-job-id&gt;' --attachments --out 
 </code></pre>
 </li>
 </ol>
+<p>The daemon also accepts <code>--model YEAR=&lt;directory&gt;</code>. The directory contains
+one top-level <code>.rvt</code> that matches the manifest's model hash. The daemon stages
+relative links and sidecars from the directory as <code>executor.model_companions</code>.</p>
 <p>The CLI creates one folder per test. Each window capture name ends in
 <code>&lt;route&gt;--&lt;state&gt;.png</code>. If the daemon refuses a capture for size, the
 attachment ends in <code>&lt;route&gt;--&lt;state&gt;.txt</code> and contains the reason.
