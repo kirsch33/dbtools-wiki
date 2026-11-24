@@ -265,12 +265,20 @@ failure, but <code>test.sh</code> returns the first nonzero status.</p>
 <code>Hosted2027.proj</code>). <code>&lt;Tool&gt;</code> is a tool key or <code>App</code>, <code>Core</code> or <code>Presentation</code>.
 The App, Core and GM entries also build
 <code>dbtools.&lt;Tool&gt;.HostedTurns.Local.Tests</code>.
-<code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code> selects every
-<code>dbtools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner. After the build, the
-entry writes <code>dbtools-daemon.runsettings</code> from <code>Hosted.runsettings</code> or
-<code>Pure.runsettings</code> with the literal sources, models and includes. The hosted
-settings default to years <code>2026,2027</code>, isolated execution and a 30-minute
-timeout, and treat a run with no tests as an error.</p>
+<code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code> selects
+<code>dbtools.&lt;Tool&gt;.*Pure.Tests.csproj</code> beside its owner. Projects marked
+<code>DBT_OptInTests</code> require <code>-p:DBT_IncludeOptInTests=true</code>.</p>
+<p>MSBuild restores and builds each lane with the Entry configuration and artifact
+paths. Each Hosted graph validates its runtime closure before returning its
+inputs. The Entry writes <code>dbtools-daemon.runsettings</code> with the literal sources,
+models and includes. Hosted settings default to years <code>2026,2027</code>, isolated
+execution and a 30-minute timeout. Both templates set <code>TreatNoTestsAsError</code>.
+Portable test projects use <code>testing/Portable.runsettings</code> for the same VSTest
+setting.</p>
+<p>Before VSTest runs, <code>Entry.targets</code> checks that the restored and vendored adapter
+packages match the SHA-256 pin in <code>testing/Daemon/Directory.Build.props</code>. IDE
+runners and <code>vstest.console</code> do not run that check. The adapter waits for the terminal result of each accepted job and reports retrieval
+errors and failed jobs to VSTest. The command's verdict comes from that invocation.</p>
 <h2 id="product-staging">Product staging</h2>
 <p>Each Revit-hosted test for a year receives the
 <a href="assembly-loading.html#installed-layout">product tree</a> that the installer uses,

@@ -89,9 +89,11 @@
         <article data-uid="">
 <h1 id="testing-tools">Testing Tools</h1>
 
-<p>Use <code>test.sh</code> to select, build, and execute repository tests. Use <code>build.sh</code> on
-Linux/WSL or <code>build.ps1</code> on Windows to compile product and test graphs. Static
-discovery and request validation do not execute tests.</p>
+<p>Use <code>dotnet build</code> and <code>dotnet test</code> on the <a href="#daemon-adapter-entry-projects">daemon Entry projects</a>
+for Windows Pure and Revit-hosted tests. Run Linux-portable projects with
+VSTest on the invoking host. <code>test.sh</code> also selects, builds, and runs repository
+tests. <code>build.sh</code> on Linux/WSL and <code>build.ps1</code> on Windows compile product and
+test graphs.</p>
 <p>Run commands from the repository root. Pure tests run without Revit.
 Revit-hosted tests use the <code>local</code> scope. Design Automation tests use the <code>da</code>
 scope and execute real APS WorkItems.</p>
@@ -639,29 +641,49 @@ Use <code>rerun</code> to reproduce a submitted failure. Use normal <code>test</
 source. See <a href="../architecture/test-pipeline.html#inputs-and-receipts">Test Pipeline</a>
 for prepared records and frozen inputs.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
-<p>Developer adapter entries under <code>testing/Daemon/Pure/</code> and
-<code>testing/Daemon/Hosted/</code> also expose VSTest discovery and execution. The vendored
-adapter version is pinned in <code>testing/Daemon/Directory.Build.props</code>.
-<code>Entry.targets</code> checks both vendored and restored package SHA-256 values before
-<code>dotnet test</code>. IDE runners and <code>vstest.console</code> do not execute that pin check.</p>
-<p>Hosted entries generate per-year Sources, Models, and Includes. Hosted source
-assemblies are NUnit libraries loaded in Revit. Pure sources retain the test
-SDK for separate VSTest testhosts.</p>
-<p>Select a Hosted entry and a year, or a Pure entry and filter, through
-<code>dotnet test</code>:</p>
-<pre><code class="lang-bash"># Discover hosted tests without submission.
-dotnet test testing/Daemon/Hosted/VTC.Hosted.Entry.csproj --list-tests
-
-# Execute one hosted fixture against Revit 2026.
-DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/VTC.Hosted.Entry.csproj \
-  --filter &quot;FullyQualifiedName~CategoryTabClassifierTests&quot;
-
-# Execute a Windows Pure fixture through the adapter.
-dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj \
-  --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
+<p>Use the SDK pinned in <code>global.json</code> on Linux or native Windows. For daemon
+runs, set <code>DBTOOLS_DAEMON_RELAY_URL</code> to your relay URL. In Bash use
+<code>export DBTOOLS_DAEMON_RELAY_URL=https://relay.example.com</code>. In PowerShell use
+<code>$env:DBTOOLS_DAEMON_RELAY_URL = 'https://relay.example.com'</code>. The adapter reads
+relay credentials from the installed daemon.</p>
+<h3 id="windows-pure">Windows Pure</h3>
+<pre><code class="lang-bash">dotnet build testing/Daemon/Pure/GM.Pure.Entry.csproj
+dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --no-build --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
 </code></pre>
-<p>Use one execution route for a run. <a href="../architecture/test-pipeline.html#daemon-adapter-entry-projects">Test Pipeline</a>
-describes how the entries are built.</p>
+<p>Pure Entry projects submit one Windows VSTest job with no Revit year. To include
+projects marked <code>DBT_OptInTests</code>, such as the RecordSet AutoCAD tests, pass
+<code>-p:DBT_IncludeOptInTests=true</code> to both the build and the test commands. Run the
+AutoCAD tests on a worker with AutoCAD Core Console installed.</p>
+<h3 id="revit-hosted">Revit-hosted</h3>
+<pre><code class="lang-bash">dotnet build testing/Daemon/Hosted/VTC.Hosted.Entry.csproj
+dotnet test testing/Daemon/Hosted/VTC.Hosted.Entry.csproj --no-build --filter &quot;FullyQualifiedName~CategoryTabClassifierTests&quot;
+</code></pre>
+<p>Hosted Entry projects build both years and submit one job per selected year.
+The default is <code>2026,2027</code>. To run one year, use <code>export DBTOOLS_DAEMON_REVIT_YEARS=2026</code>
+in Bash or <code>$env:DBTOOLS_DAEMON_REVIT_YEARS = '2026'</code> in PowerShell before
+<code>dotnet test</code>. Use <code>2027</code> for Revit 2027.</p>
+<h3 id="linux-portable-pure">Linux-portable Pure</h3>
+<pre><code class="lang-bash">dotnet build src/dbtools.Core/Tests/dbtools.Core.Portable.Pure.Tests.csproj
+dotnet test src/dbtools.Core/Tests/dbtools.Core.Portable.Pure.Tests.csproj --no-build
+</code></pre>
+<p>Run the SGT portable project, <code>testing/dbtools.Build.Tests</code> and
+<code>testing/dbtools.Distribution.Tests</code> directly in the same way.
+The host runs these tests locally without a relay or Revit.</p>
+<h3 id="selection-and-results">Selection and results</h3>
+<p>Use <code>--list-tests</code> to discover tests without submitting a job. Use <code>--filter</code>
+with <code>FullyQualifiedName</code>, <code>DisplayName</code>, or <code>TestCategory</code>. For example,
+<code>FullyQualifiedName~FixtureName</code> selects names containing <code>FixtureName</code>.
+Omit the filter to run the full selection. A filter that matches zero tests
+fails the command. Use <code>--no-build</code> after building the current source with the
+same configuration and build properties. Run <code>dotnet test</code> without that option
+to build and test in one command.</p>
+<p>The adapter prints <code>dbtools-daemon:</code> followed by the refusal reason and
+returns a failing VSTest result. Address the reported cause, then rerun the
+same <code>dotnet test</code> command to submit a new request. Terminal
+job failures appear in VSTest with <code>DaemonStatus</code> and <code>DaemonFailureCode</code> traits
+when available.</p>
+<p><a href="../architecture/test-pipeline.html#daemon-adapter-entry-projects">Test Pipeline</a>
+describes source selection, the package pin, and output validation.</p>
 <h2 id="test-project-setup">Test project setup</h2>
 <p>Create test projects beneath the production owner's <code>Tests/</code> directory. Follow
 <a href="../architecture/test-pipeline.html#test-projects">Test Pipeline</a> for project
