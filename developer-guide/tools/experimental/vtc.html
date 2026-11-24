@@ -213,12 +213,16 @@
 <li><code>AlertBodyTemplateProviderTests</code>: the provider and its raw <code>dbtools.ToolViews.VTC.AlertBodyTemplates.xaml</code> resource (WPF only).</li>
 <li><code>VtcRawXamlParseTests</code>: the linked-file view's accessible name and its view model passed to the composed diff view. Raw comparison view tests use the registered <code>ToolWindowFactory</code> session and the stable behavior bindings.</li>
 </ul>
-<p>Revit-hosted tests (the <code>local</code> scope) in <code>dbtools.VTC.Local.Tests</code> use the Global Mapper (GM) and Super Girt Tool (SGT) test models. <code>RevitTestBase</code> enters through <code>RevitHost</code>, uses the inline call gate and rolls back test changes through <code>TransactionGroupService</code> in the same callback.</p>
+<p>Revit-hosted tests in <code>dbtools.VTC.Local.Tests</code> (the <code>local</code> scope) use the
+shared <code>dbtools_test_model.rvt</code> for the running Revit year and its relative
+Revit link. <code>RevitTestBase</code> enters through <code>RevitHost</code>, uses the inline call
+gate, and rolls back test changes through <code>TransactionGroupService</code> in the
+same callback.</p>
 <ul>
 <li><code>VtcWindowViewModelHostedTests</code>: Process, Create Merged, Library, Revit-link actions and window lifecycle.</li>
 <li><code>VtcCompositionContractsTests</code>: VTC service registration, composition and launch, including failure precedence during retirement.</li>
-<li><code>RevitLinkBaselineTests</code>: extract and apply round trips of <code>LinkVisibilityType</code> and <code>LinkedViewId</code> on <code>RevitLinkType</code> and <code>RevitLinkInstance</code> targets in <code>sgt_test_model.rvt</code>.</li>
-<li><code>RevitLinkExtendedTests</code>: the other <code>RevitLinkGraphicsSettings</code> members on the SGT linked model.</li>
+<li><code>RevitLinkBaselineTests</code>: extract and apply round trips of <code>LinkVisibilityType</code> and <code>LinkedViewId</code> on <code>RevitLinkType</code> and <code>RevitLinkInstance</code> targets in <code>dbtools_test_model.rvt</code>.</li>
+<li><code>RevitLinkExtendedTests</code>: the other <code>RevitLinkGraphicsSettings</code> members on the staged Revit link.</li>
 <li><code>RevitLinkSnapshotRemapTests</code>: snapshot compare and apply with colliding link IDs, <code>LinkName</code> pairing, and linked-element name and view-type remapping.</li>
 <li><code>ImportedCategoryRoundTripTests</code>: imports a shared CAD file inside the rollback scope and checks that imported categories use the normal category compare and apply path.</li>
 <li><code>TemplateApplierSettingsTests</code>: view display settings, per-row unsupported-view conflicts, view range, filter-order set validation and state restoration, template-parameter values and identity, ForgeTypeId equality, and color-fill schemes.</li>
@@ -227,9 +231,9 @@
 <li><code>TemplateApplierOperationsTests</code>: snapshot Load, legacy-shaped library JSON with uncaptured values, duplicate-key conflicts, and Create Merged on a 3D template.</li>
 <li><code>RevitLinkSettingsAdapterValuesTests</code>: link setting read-back, including 2027 Line Weights and the 2026 unavailable label.</li>
 <li><code>LinkedFileVisibilityTabProbeTests</code>: checks that <code>ApplyViewTemplateParameters</code> copies basic link visibility type and linked-view settings to a template without changing other template parameters. It does not probe linked per-category tables or implement whole-tab copying in VTC.</li>
-<li><code>TemplateExtractorExtractionTests</code>: extraction from the GM model and from created schedule and drafting templates.</li>
+<li><code>TemplateExtractorExtractionTests</code> covers the staged project and created schedule and drafting templates.</li>
 <li><code>TemplateExtractorResolutionTests</code>, <code>TemplateExtractorGraphicsTests</code>: project-local category, parameter, element, pattern and silhouette line-style mapping, including Solid.</li>
-<li><code>SgtModelExtractionTests</code>, <code>GmModelExtractionTests</code>: extraction from existing views and presence of link targets in the open models.</li>
+<li><code>TestModelExtractionTests</code> extracts templates from existing views and checks that the staged project exposes link types and instances.</li>
 </ul>
 <h2 id="limitations">Limitations</h2>
 <p>Comparison requires two view templates in the same document. VTC applies supported Revit-link settings individually and does not copy the complete <code>V/G Overrides RVT Links</code> template-parameter group. The public API has no setter for a <code>None</code> view background and does not enumerate coordination-model reference-level overrides. Link Custom-tab tables, link Visible/Halftone/Underlay values, design-option visibility, shadow on/off, ambient shadows, lighting scheme and exposure are not handled. Other Revit-link settings are limited to public API members; linked-element remapping follows the rules in the <a href="vtc-spec.html#limitations">specification</a>.</p>

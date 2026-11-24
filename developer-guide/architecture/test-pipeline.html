@@ -289,7 +289,7 @@ src/Tools/&lt;Category&gt;/&lt;Tool&gt;/Tests/dbtools.&lt;Tool&gt;.{Pure,Local}.
 testing/dbtools.Build.Tests/                  build and distribution contracts (Linux)
 testing/dbtools.Distribution.Tests/           portable archive contracts, Dev Mode unload (Linux)
 testing/dbtools.Distribution.Windows.Tests/   DIST suite
-testing/RevitTestModels/                      test models by year and tool
+testing/RevitTestModels/                      test models by Revit year
 </code></pre>
 <p>An owner has both a <code>.Pure.Tests</code> and a <code>.Local.Tests</code> project only when both
 kinds of test exist.</p>
@@ -335,17 +335,21 @@ files for its portable build.</p>
 <p>Revit-hosted projects declare <code>RevitTestModel</code> items relative to
 <code>testing/RevitTestModels</code>:</p>
 <pre><code class="lang-text">testing/RevitTestModels/
-├── 2026/GM/gm_test_model.rvt
-├── 2026/SGT/sgt_test_model.rvt
-├── 2026/SGT/_LinkedModels/sgt_test_linked_model.rvt
-├── 2026/Regression/realtest_model.rvt
+├── 2026/dbtools_test_model.rvt
+├── 2026/_LinkedModels/sgt_test_linked_model.rvt
+├── 2026/families/
+├── 2026/test-model-build.json
+├── 2026/GM/gm_test_model.rvt                 (Dev Mode scenario)
 ├── 2027/...                                  (same layout)
 ├── GM/SharedParameters/shared_parameters.txt
 └── VTC/vtc_import_layers.dxf
 </code></pre>
-<p>Model files and explicit non-RVT inputs keep their relative paths in the daemon
-stage. Revit-hosted fixtures find them under <code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code>;
-Pure fixtures use the repository root in <code>DBT_TEST_REPO_ROOT</code>.
+<p>Revit-hosted projects share <code>dbtools_test_model.rvt</code> for each year. They stage
+the host and its relative link together. A fixture that needs a family file
+declares it as an additional input. Revit-hosted fixtures find the inputs under
+<code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code> with their relative paths intact. Pure
+fixtures use the repository root in <code>DBT_TEST_REPO_ROOT</code>.
+The Dev Mode scenario uses <code>&lt;year&gt;/GM/gm_test_model.rvt</code> as a self-contained input.
 <code>TestPathResolver</code> reads the root on every call, so a job never sees the model
 root of a previous job. A fixture may open a temporary copy of a model, but the
 daemon owns the active document and the worker lifecycle. Models resolve only

@@ -722,7 +722,7 @@ gate when its behavior is the subject of the test.</p>
 <p>Source-link Pure helpers into Pure projects and Revit helpers into Local
 projects. Shared neutral helpers can serve both. Keep NUnit setup scopes and
 fixture namespaces aligned with their owner.</p>
-<h3 id="revit-call-budgets-and-the-scale-model">Revit call budgets and the scale model</h3>
+<h3 id="revit-call-budgets">Revit call budgets</h3>
 <p><code>CountingRevitCallGate</code> counts each <code>IRevitCallGate.RunAsync</code> request.
 <code>RevitReadCounters</code> counts each wrapped collector, <code>EditFamily</code> call,
 temporary transaction and regeneration. Counters advance once per wrapped
@@ -736,33 +736,21 @@ fixture with <code>[Category(&quot;RevitHostedTurns&quot;)]</code> so the daemon
 API callback at an incomplete await. Compile these fixtures in a
 <code>*.HostedTurns.Local.Tests</code> project so shared assembly setup owns fixtures with
 one turn mode.</p>
-<p><code>ScaleRevitTestModelGeneratorTests</code> creates the year-specific model with 200
-loadable families, at least 800 types, 40 drafting views and sheets, 160
-girders and 40 foundations. Run the hosted fixture once for each supported Revit year:
-The fixture compares the GM seed with the scale model inside one queued gate
-call. It checks that both models use the same read budget.</p>
-<pre><code class="lang-bash">flock --close /run/lock/gwl-heavy.lock /home/gwl-agent/.local/bin/host-gate \
-  .agents/work/worktree_guard.sh \
-  ./test.sh test --tool CORE --scope local -y 2026 --fixture ScaleRevitTestModelGeneratorTests
-flock --close /run/lock/gwl-heavy.lock /home/gwl-agent/.local/bin/host-gate \
-  .agents/work/worktree_guard.sh \
-  ./test.sh test --tool CORE --scope local -y 2027 --fixture ScaleRevitTestModelGeneratorTests
-</code></pre>
-<p>The Core fixture writes
-<code>DBTOOLS_DAEMON_REVIT_MODELS_DIR/&lt;year&gt;/Scale/dbtools_scale_model.rvt</code> in the
-hosted session. A fixture calls <code>ScaleRevitTestModelGenerator.Generate</code>
-with its staged seed and output paths. The SGT fixture writes the scale
-model beside the staged SGT model so both copies resolve the same links.</p>
+<p><code>RevitCallGateModelInspectionTests</code> inspects the staged project and a small
+project created for the test in one native queued turn. Each inspection uses
+five collectors, one family edit, one temporary transaction and one regeneration.</p>
+<p><code>FramingTypeProbeBudgetTests</code> loads 160 editable framing families with four
+types each into the staged project. The test measures analysis through the
+real Revit gate and rolls back the families and target wall.</p>
 <h3 id="model-paths">Model paths</h3>
-<p><code>TestPathResolver</code> reads <code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code> on every call. The
-daemon supplies the staged root. Relative paths retain their year, tool,
-shared-directory, and filename segments. Rooted paths and <code>.</code>/<code>..</code> traversal
-segments fail. There is no fallback to a user model cache.</p>
-<pre><code class="lang-csharp">var model = TestPathResolver.ResolveTestModelPath(&quot;2026&quot;, &quot;GM&quot;, &quot;gm_test_model.rvt&quot;);
+<p><code>TestPathResolver</code> reads <code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code> on every call.
+The daemon supplies the staged root. Relative paths retain their directory
+segments. Rooted paths and <code>.</code> or <code>..</code> traversal segments fail.</p>
+<pre><code class="lang-csharp">var project = TestPathResolver.ResolveTestProjectPath(&quot;2026&quot;);
 </code></pre>
-<p>A model under <code>&lt;year&gt;/Regression/</code> is a staged working copy whose external
-links are not included. <code>DocumentLease</code> disables link loading before opening
-that copy and refuses regression paths outside the staged root.</p>
+<p>The host project resides at <code>&lt;year&gt;/dbtools_test_model.rvt</code>. Its relative
+link resides beside it at <code>_LinkedModels/sgt_test_linked_model.rvt</code>. Use
+<code>CopyTestProject</code> when a fixture needs both files in a temporary directory.</p>
 <p><code>RevitFamilyTemplateResolver</code> searches only requested template names beneath
 <code>CommonApplicationData/Autodesk/RVT &lt;running-year&gt;/Family Templates</code>.
 It orders English-Imperial candidates first, then paths deterministically.
@@ -937,7 +925,7 @@ public async Task DetectAsync_HigherScore_WithParameterOverlap()
 }
 </code></pre>
 <p>View Template Comparer (VTC) supplies <code>CategoryTabClassifierTests</code>, which opens
-the staged SGT model and classifies real Revit categories. That fixture uses
+the staged project and classifies real Revit categories. That fixture uses
 <code>[RevitLocal]</code> to exercise the category adapter.</p>
 <h3 id="hosted-ui-restrictions">Hosted UI restrictions</h3>
 <p>Revit-hosted tests cannot display blocking modals. The daemon rejects modal
