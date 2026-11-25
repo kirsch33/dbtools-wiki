@@ -125,7 +125,7 @@ See <a href="../projects/sandbox.html">dbtools.Sandbox</a> for interactive previ
 </table>
 <p>The path options accept <code>--option DIR</code> and <code>--option=DIR</code>.
 The default distribution root is <code>.artifacts/dist/Release/</code> in the checkout
-that contains the executable under <code>.artifacts/sandbox/</code>. Outside that layout,
+that contains the executable under <code>.artifacts/bin/dbtools.Sandbox/</code>. Outside that layout,
 Sandbox resolves the default relative to the working directory.</p>
 <h2 id="contracts">CONTRACTS</h2>
 <ul>
@@ -177,24 +177,21 @@ assembly from the reference set. It closes remaining windows and
 disposes the candidate's window runtime.</li>
 </ol>
 <p>Build the matching Sandbox executable before validating a staged year.
-These commands validate a promoted Revit 2026 distribution from the
+These commands validate the staged Revit 2026 product from the
 checkout root on Windows.</p>
-<pre><code class="lang-powershell">dotnet build build/Build.proj -t:BuildSandbox -p:RevitYear=2026
-.\.artifacts\sandbox\Release\2026\net10.0-windows\dbtools.Sandbox.exe --headless `
+<pre><code class="lang-powershell">dotnet build build/Build.proj -t:BuildApp -p:RevitYear=2026
+dotnet build build/Build.proj -t:BuildSandbox -p:RevitYear=2026
+.\.artifacts\bin\dbtools.Sandbox\release_2026_win-x64\dbtools.Sandbox.exe --headless `
   --dist-dir .artifacts\dist\Release\2026 `
   --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
 </code></pre>
 <h2 id="data">DATA</h2>
-<p>From a clean checkout, <code>PackageSandboxValidationInput</code> builds a Release
-candidate and Sandbox for both supported years. It writes
-<code>validate-dist-&lt;sha256&gt;.zip</code> under
-<code>.artifacts/.staging/&lt;build-id&gt;/native-validation-input/</code>.
-The archive carries the candidate, Sandbox and Revit reference files
-under <code>candidate/&lt;year&gt;/</code>, <code>sandbox/&lt;year&gt;/net10-0-windows/</code> and
-<code>revit-refs/&lt;year&gt;/</code>. Its root <code>manifest.json</code> records the payload paths
-and SHA-256 hashes.</p>
-<p>Run <code>DIST</code> before staging another candidate. <code>StageDistributionCandidate</code>
-tries to delete earlier staging directories and their archives.</p>
+<p><code>PackageSandboxValidationInput</code> reads both Release years from
+<code>.artifacts/dist/Release/</code> and builds the matching Sandbox executables.
+It writes <code>validate-dist-&lt;sha256&gt;.zip</code> under <code>.artifacts/sandbox/Release/</code>.
+The archive carries entries under <code>candidate/&lt;year&gt;/</code>,
+<code>sandbox/&lt;year&gt;/net10-0-windows/</code> and <code>revit-refs/&lt;year&gt;/</code>. Its root manifest
+records the payload paths and SHA-256 hashes.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
 <p>Headless mode returns <code>0</code> on success and <code>1</code> on failure. Startup errors
 and the validation result go to standard error. In a <code>DIST</code> run,

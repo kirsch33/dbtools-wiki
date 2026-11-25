@@ -121,29 +121,28 @@ if ($LASTEXITCODE -ne 0) { throw 'BuildInstaller failed.' }
 Confirm the version in the installer filename, installed-apps entry,
 bundle payload directory and Revit <strong>Settings</strong>.</p>
 </li>
-<li><p>Archive the bundle and copy it, the installer and the promotion receipt to
-the release asset directory on Linux. The receipt records the commit and
+<li><p>Archive the bundle and copy it, the installer and the build record to
+the release asset directory on Linux. The build record gives the commit and
 version that the build used. Set <code>$destination</code> to the Linux account, host
 and absolute directory.</p>
 <pre><code class="lang-powershell">$installer = &quot;.artifacts/release-assets/dbtools-Setup-$version.exe&quot;
 $bundle = &quot;.artifacts/release-assets/dbtools-$version.bundle.zip&quot;
-$receipt = '.artifacts/dist/Release/promotion-receipt.json'
+$record = '.artifacts/build.json'
 $destination = '&lt;account&gt;@&lt;linux-host&gt;:/absolute/path/to/release-assets/'
 tar.exe -a -cf $bundle -C .artifacts/bundle dbtools.bundle
 if ($LASTEXITCODE -ne 0) { throw 'Could not archive dbtools.bundle.' }
-scp.exe $installer $bundle $receipt $destination
+scp.exe $installer $bundle $record $destination
 if ($LASTEXITCODE -ne 0) { throw 'Could not copy release assets to Linux.' }
 </code></pre>
 </li>
 <li><p>On Linux, add <code>release-notes.md</code> to the release asset directory. From the
 repository root, set <code>release_dir</code> to that absolute directory and <code>repo</code> to
 the GitHub repository for <code>origin</code> in <code>OWNER/REPO</code> form. The commit and
-version come from the promotion receipt of the WIN-DEV build; the receipt
-records the version with four components, and the tag uses the first three.
+version come from the build record.
 Compute the checksums, tag that commit and publish.</p>
-<pre><code class="lang-bash">receipt=&quot;$release_dir/promotion-receipt.json&quot;
-commit=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[&quot;sourceVersion&quot;][&quot;commit&quot;])' &quot;$receipt&quot;)
-version=$(python3 -c 'import json, sys; print(&quot;.&quot;.join(json.load(open(sys.argv[1]))[&quot;sourceVersion&quot;][&quot;productVersion&quot;].split(&quot;.&quot;)[:3]))' &quot;$receipt&quot;)
+<pre><code class="lang-bash">record=&quot;$release_dir/build.json&quot;
+commit=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[&quot;sourceCommit&quot;])' &quot;$record&quot;)
+version=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[&quot;productVersion&quot;])' &quot;$record&quot;)
 tag=&quot;v$version&quot;
 installer=&quot;dbtools-Setup-$version.exe&quot;
 bundle=&quot;dbtools-$version.bundle.zip&quot;

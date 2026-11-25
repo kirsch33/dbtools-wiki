@@ -97,11 +97,11 @@
 <h2 id="description">DESCRIPTION</h2>
 <p>Install the .NET SDK 10.0.401 or a newer 10.0 patch in the 10.0.4xx feature
 band. Run the build from the repository root on Linux, native Windows or
-WSL 2. The default <code>BuildAll</code> target builds, validates and publishes the
+WSL 2. The default <code>BuildAll</code> target builds and validates the
 complete Release distribution from a clean Git checkout.</p>
 <p>Set <code>-p:RevitYear=2026</code> or <code>-p:RevitYear=2027</code> to stage the product for one
 year. In this mode <code>BuildAll</code> runs <code>BuildApp</code> after <code>Preflight</code>. Leave
-<code>RevitYear</code> unset for distribution validation and publication.</p>
+<code>RevitYear</code> unset for the two-year validation and release build record.</p>
 <p>Content versions include the .NET SDK version. Builds of the same commit with
 different SDK patches have different content versions.</p>
 <h2 id="preflight">PREFLIGHT</h2>
@@ -127,7 +127,7 @@ pointer in <code>testing/RevitTestModels/</code> gets the commands <code>git lfs
 <tbody>
 <tr>
 <td><code>BuildAll</code></td>
-<td>Build, validate and publish the complete Release distribution.</td>
+<td>Stage and validate both Revit years and write the release build record.</td>
 </tr>
 <tr>
 <td><code>BuildApp</code></td>
@@ -154,20 +154,20 @@ pointer in <code>testing/RevitTestModels/</code> gets the commands <code>git lfs
 <td>Compile and stage the standalone Sandbox.</td>
 </tr>
 <tr>
-<td><code>AssembleDistributionCandidate</code></td>
-<td>Assemble a Release candidate and its metadata.</td>
+<td><code>ValidateStagedProduct</code></td>
+<td>Stage both Release years and run metadata, resource and Dev Mode checks.</td>
 </tr>
 <tr>
 <td><code>PackageSandboxValidationInput</code></td>
-<td>Package the candidate and Sandbox for Windows acceptance.</td>
+<td>Package the two staged Release years, Sandbox and Revit metadata references for Windows acceptance.</td>
 </tr>
 <tr>
 <td><code>BuildBundle</code></td>
-<td>Package an Autodesk bundle from a promoted distribution.</td>
+<td>Package an Autodesk bundle from the two staged Release years. Requires a matching release build record.</td>
 </tr>
 <tr>
 <td><code>BuildInstaller</code></td>
-<td>Build the bundle and compile the installer on native Windows. Requires <code>-p:Version</code>.</td>
+<td>Run the release build, build its bundle and compile the installer on native Windows. Requires <code>-p:Version</code>.</td>
 </tr>
 <tr>
 <td><code>ValidateComponentResourceUris</code></td>
@@ -216,10 +216,6 @@ pointer in <code>testing/RevitTestModels/</code> gets the commands <code>git lfs
 <td>Exact project filename stems. Use <code>%2C</code> between stems in a command-line value.</td>
 </tr>
 <tr>
-<td><code>CandidateDistributionPath</code></td>
-<td>Path to the promoted distribution that <code>BuildBundle</code> packages.</td>
-</tr>
-<tr>
 <td><code>Revit2026Dir</code>, <code>Revit2027Dir</code></td>
 <td>Reference metadata directories. Revit API packages supply the defaults.</td>
 </tr>
@@ -227,11 +223,15 @@ pointer in <code>testing/RevitTestModels/</code> gets the commands <code>git lfs
 </table>
 <p>The test graph targets require <code>SkipClean=true</code> and <code>DryRun=false</code>. Use
 <code>dotnet build build/Build.proj -t:Clean</code> to clear build output. The target keeps
-<code>build/</code>, <code>build-tasks/</code>, <code>dist/</code>, <code>acceptance/</code>, <code>test-results/</code> and
-<code>build.json</code> under <code>.artifacts/</code>. It also deletes build <code>bin/</code> and <code>obj/</code>
+the build task assembly and Design Automation evidence. It also deletes build <code>bin/</code> and <code>obj/</code>
 directories and <code>*_wpftmp.csproj</code> files left in the source tree. The scan
 skips <code>build/</code>, <code>docs/</code>, <code>vendor/</code>, <code>.git/</code>, nested Git checkouts and
 symbolic links.</p>
+<p><code>BuildBundle</code> checks the staged product hash and version against
+<code>.artifacts/build.json</code>, including with <code>DryRun=true</code>.
+<code>PackageSandboxValidationInput</code> checks the staged product hash when that
+record exists. In a development checkout without the record, it packages
+the current staged product.</p>
 <h2 id="exit-status">EXIT STATUS</h2>
 <p><code>dotnet build</code> returns zero when the requested targets succeed. A failed build
 or validation target returns a nonzero exit status and a diagnostic.</p>
@@ -253,8 +253,16 @@ or validation target returns a nonzero exit status and a diagnostic.</p>
 <td>Default product version.</td>
 </tr>
 <tr>
-<td><code>.artifacts/build/&lt;build-id&gt;/</code></td>
-<td>Child build binlogs. A later build removes run folders idle for more than one day.</td>
+<td><code>.artifacts/dist/&lt;Configuration&gt;/&lt;year&gt;/</code></td>
+<td>Product files staged by <code>ProductOutput.proj</code>.</td>
+</tr>
+<tr>
+<td><code>.artifacts/build.json</code></td>
+<td>Release commit, product version, Revit years and product SHA-256.</td>
+</tr>
+<tr>
+<td><code>.artifacts/sandbox/Release/validate-dist-&lt;sha256&gt;.zip</code></td>
+<td>Windows Sandbox input for both staged Release years.</td>
 </tr>
 <tr>
 <td><code>.artifacts/bundle/dbtools.bundle</code></td>
@@ -274,8 +282,9 @@ or validation target returns a nonzero exit status and a diagnostic.</p>
 <p>Stage a Debug build for Revit 2026.</p>
 <pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildApp -p:RevitYear=2026 -p:Configuration=Debug
 </code></pre>
-<p>Check a promoted distribution for packaging.</p>
-<pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildBundle -p:CandidateDistributionPath=.artifacts/dist/Release -p:DryRun=true
+<p>Validate both Release years, then check the bundle inputs.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj
+dotnet build build/Build.proj -t:BuildBundle -p:DryRun=true
 </code></pre>
 <p>Build the bundle and installer on native Windows.</p>
 <pre><code class="lang-powershell">dotnet build build/Build.proj -t:BuildInstaller -p:Version=0.1.0

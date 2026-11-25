@@ -90,7 +90,7 @@
 <h1 id="build-pipeline">Build Pipeline</h1>
 
 <h2 id="name">NAME</h2>
-<p>build pipeline - stage, validate and publish a dbtools distribution</p>
+<p>build pipeline - build and validate a staged dbtools product</p>
 <h2 id="synopsis">SYNOPSIS</h2>
 <pre><code class="lang-text">Graph     build/Build.proj
 Task      dbtools.Build.Tasks.BuildPipelineStep
@@ -98,7 +98,7 @@ Source    build/Tasks/Pipeline/
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
 <p><code>BuildApp</code> stages the product for each selected Revit year. <code>BuildAll</code>
-validates and publishes the complete Release distribution. See
+validates both Release years and writes the release build record. See
 <a href="../reference/build.html">Build commands</a> for targets and options.</p>
 <p>Desktop builds use the Nice3point Revit API packages pinned in
 <code>Directory.Packages.props</code>. These packages supply the metadata for
@@ -126,14 +126,14 @@ compilation. The product tree excludes their runtime assets.</p>
 </tr>
 <tr>
 <td><code>build/Distribution/</code></td>
-<td>Defines and checks the distribution file set, assembly metadata and validation receipts.</td>
+<td>Defines and checks the distribution file set, assembly metadata and Sandbox archive.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="contracts">CONTRACTS</h2>
 <ul>
-<li>A publication build requires a clean Git checkout and a Release build
-for Revit 2026 and 2027.</li>
+<li>A release build requires a clean Git checkout and both supported Revit years.
+The checkout stays at the same commit until validation completes.</li>
 <li><code>DistributionContract.ProductFiles</code> defines the exact file set for each
 year. When adding a tool, include its <code>Tools/&lt;name&gt;.dll</code> path in this list.
 <code>StageProductOutputTask</code> rejects a mismatch.</li>
@@ -146,8 +146,6 @@ same release and records its SHA-256.</li>
 the lock in <code>build/Distribution/protocol-package-lock.json</code> and the
 matching <code>vendor/DaemonProtocol/dbtools-daemon.Protocol.&lt;version&gt;.nupkg</code>
 together. The build checks the package version and SHA-256 against the pin.</li>
-<li>Promotion requires a portable acceptance receipt for the same source,
-candidate bytes and validator.</li>
 <li>In the runtime inputs, <code>dbtools.dll</code> retains its mapped CodeView path,
 GUID and stamp to pair with <code>dbtools.pdb</code>. The Core merge writes
 <code>dbtools.Core.pdb</code> and records that file name in its CodeView entry.
@@ -174,77 +172,133 @@ for the setup file name and the Windows installed-apps display version.</p>
 content-version calculation uses the inputs that reach each image.</p>
 <h2 id="flow">FLOW</h2>
 <ol>
-<li>In the publication graph, <code>Restore</code> captures the clean Git commit and tree.
-<code>BuildValidationRunner</code> builds the Validation Runner and authenticates its
-Protocol package.</li>
-<li><code>BuildAppPerYear</code> stages each year tree. <code>AssembleDistributionCandidate</code>
-copies the declared files into the candidate and writes its hashes
-and source identity to its <code>build.json</code>.</li>
-<li><code>StagePortableAcceptanceInput</code> stages the Revit metadata references.
-<code>ValidateDistributionCandidate</code> checks assembly and manifest metadata
-and runs the Dev Mode preflight for each year.</li>
-<li><code>ValidateManifestTypes</code> resolves the types named by tool manifests in
-the built assemblies. <code>BuildDevModeScenario</code> compiles the hosted
-scenario for each year.</li>
-<li><code>PromoteToDist</code> replaces the distribution and acceptance trees.
-<code>DistributionPublisher</code> moves <code>.artifacts/build.json</code>
-into place last. Read the published files after the command succeeds.</li>
+<li>The release graph records HEAD from a clean checkout. <code>RestoreProduct</code>
+restores the production graph for each year.</li>
+<li><code>ProductOutput.proj</code> compiles each year and checks the product file set.
+It copies files with changed contents to the stage in one step, then
+validates versioned resource URIs.</li>
+<li><code>ValidateStagedProduct</code> checks assembly metadata and tool manifests in
+each staged year. It authenticates the Protocol package and runs Dev Mode
+preflight against the staged App assembly.</li>
+<li>The release build binds the compiled scenarios to the staged product in
+<code>acceptance/dev-mode-scenario.json</code>. It writes <code>build.json</code> after the
+checks complete.</li>
+<li><code>BuildBundle</code> and <code>PackageSandboxValidationInput</code> read the same stage.
+The bundle requires the stage hash and requested version to match
+<code>build.json</code>. Sandbox packaging checks the stage hash when the record exists.</li>
 </ol>
 <h3 id="dev-mode-preflight">Dev Mode preflight</h3>
 <p><code>DevModePreflightWorker</code> calls <code>DevModeStableGraphPreflight.Run</code> for each
 year's App assembly. The pinned <code>dbtools-daemon.Protocol</code> package supplies
 policy <code>devmode-stable-graph/v4</code> under schema 2 and contract
 <code>devmode-preflight/v2</code>. Each year has a three-minute runner limit.
-A collectible-boundary warning fails validation.</p>
+Validation requires zero failures and zero warnings for both years.</p>
 <h2 id="data">DATA</h2>
 <table>
 <thead>
 <tr>
-<th>Path</th>
-<th>Contents</th>
+<th>Path under <code>.artifacts/</code></th>
+<th>Writer</th>
+<th>Readers</th>
+<th>Lifetime</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>.artifacts/bin/&lt;Configuration&gt;/&lt;year&gt;/net10.0-windows/</code></td>
-<td>Staged product from <code>BuildApp</code>.</td>
+<td><code>bin/&lt;project&gt;/&lt;pivot&gt;/</code></td>
+<td>SDK build</td>
+<td>Project references, tests, packaging</td>
+<td>Incremental output until <code>Clean</code>.</td>
 </tr>
 <tr>
-<td><code>.artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/&lt;year&gt;/</code></td>
-<td>Unpublished candidate.</td>
+<td><code>obj/&lt;project&gt;/&lt;pivot&gt;/</code></td>
+<td>SDK build</td>
+<td>Compiler, WPF and assembly merger</td>
+<td>Incremental output until <code>Clean</code>.</td>
 </tr>
 <tr>
-<td><code>.artifacts/.staging/&lt;build-id&gt;/build.json</code></td>
-<td>Build metadata for the unpublished candidate.</td>
+<td><code>obj/designer-bin/</code>, <code>obj/&lt;project&gt;/&lt;pivot&gt;/wpf/</code></td>
+<td>WPF build</td>
+<td>Temporary markup compilation</td>
+<td>Build scratch until <code>Clean</code>.</td>
 </tr>
 <tr>
-<td><code>.artifacts/.staging/&lt;build-id&gt;/portable-validation-result.json</code></td>
-<td>Staged portable acceptance receipt.</td>
+<td><code>restore/&lt;project&gt;/&lt;year&gt;-&lt;host&gt;/</code></td>
+<td>NuGet</td>
+<td>Project builds and Revit reference staging</td>
+<td>Current restore graph until <code>Clean</code>.</td>
 </tr>
 <tr>
-<td><code>.artifacts/dist/Release/&lt;year&gt;/</code></td>
-<td>Promoted product. The parent directory contains <code>promotion-receipt.json</code>.</td>
+<td><code>assembly-merge/</code></td>
+<td><code>MergeAssembly</code></td>
+<td>Assembly merger and merge tests</td>
+<td>Incremental scratch until <code>Clean</code>.</td>
 </tr>
 <tr>
-<td><code>.artifacts/build.json</code></td>
-<td>Build metadata for the promoted distribution.</td>
+<td><code>obj/content-version/</code>, <code>obj/reference-inventory/</code></td>
+<td>Compiler graph</td>
+<td>Content version inspection and portable validation</td>
+<td>Current compiler inputs until <code>Clean</code>.</td>
 </tr>
 <tr>
-<td><code>.artifacts/acceptance/</code></td>
-<td>Tool contract and Dev Mode scenario for the promoted distribution.</td>
+<td><code>obj/revit-stubs/</code></td>
+<td><code>RevitStubImages.proj</code></td>
+<td>Windows Pure test builds</td>
+<td>Package-versioned images until <code>Clean</code>.</td>
+</tr>
+<tr>
+<td><code>dist/&lt;Configuration&gt;/&lt;year&gt;/</code></td>
+<td><code>ProductOutput.proj</code></td>
+<td>Validation, bundle, Sandbox, hosted tests and Dev Mode</td>
+<td>Current stage per configuration and year.</td>
+</tr>
+<tr>
+<td><code>sandbox/Release/revit-refs/&lt;year&gt;/</code></td>
+<td>Revit reference staging</td>
+<td>Portable validator and Sandbox archiver</td>
+<td>Current Revit metadata images.</td>
+</tr>
+<tr>
+<td><code>sandbox/Release/validate-dist-&lt;sha256&gt;.zip</code></td>
+<td><code>PackageSandboxValidationInput</code></td>
+<td>Windows Sandbox acceptance</td>
+<td>Replaced at the next successful package.</td>
+</tr>
+<tr>
+<td><code>acceptance/</code>, <code>build.json</code></td>
+<td><code>BuildAll</code></td>
+<td>Dev Mode job, coordinator and release procedure</td>
+<td>Read after the release build succeeds.</td>
+</tr>
+<tr>
+<td><code>bundle/</code>, <code>release-assets/</code></td>
+<td><code>BuildBundle</code> and <code>BuildInstaller</code></td>
+<td>Installer compiler and release procedure</td>
+<td>Built bundle and installer.</td>
+</tr>
+<tr>
+<td><code>daemon/</code></td>
+<td>Daemon Entry projects</td>
+<td>Test adapter</td>
+<td>Current runsettings and models for each Entry.</td>
+</tr>
+<tr>
+<td><code>design-automation/</code></td>
+<td>Design Automation runner</td>
+<td>Budget ledger and daemon publication</td>
+<td>DA result evidence.</td>
 </tr>
 </tbody>
 </table>
-<p>Inspect staged files after a failed or unpromoted run. After publication,
-<code>PromoteToDist</code> removes <code>.artifacts/.staging/&lt;build-id&gt;/</code>. A cleanup warning
-means the staging directory may remain.</p>
-<h3 id="portable-acceptance-receipt">Portable acceptance receipt</h3>
-<p><code>PromoteToDist</code> embeds the staged receipt in the <code>validation</code> field of
-<code>promotion-receipt.json</code>. <code>BuildBundle -p:CandidateDistributionPath=&lt;path&gt;</code> rechecks it against
-the distribution bytes, source and Protocol pin.</p>
-<p>The receipt covers metadata and static policy only. For Windows UI
-checks and tests in Revit, see <a href="sandbox-validator.html">Sandbox Validator</a>
-and <a href="test-pipeline.html">Test Pipeline</a>.</p>
+<p>The SDK pivot starts with the lowercase configuration and adds the Revit
+year or <code>pure</code>, build flavor, framework or runtime identifier where the
+project needs them. Daemon test libraries add <code>_daemon-adapter</code> to their
+pivots and <code>-daemon-adapter</code> to their restore buckets. Interactive designer
+builds use <code>&lt;project&gt;.Designer</code> in <code>obj/</code>. They read the same <code>restore/</code> and
+<code>bin/</code> paths as command-line builds. Sandbox builds to
+<code>.artifacts/bin/dbtools.Sandbox/release_2026_win-x64/</code> for Revit 2026.</p>
+<p>Use <code>Clean</code> once when switching from a checkout with an older artifact
+layout.</p>
 <h3 id="dev-mode-scenario">Dev Mode scenario</h3>
 <p><code>testing/dbtools.DevMode.Scenario/</code> owns the on-demand Revit load, reload
 and window-open checks. Use the <a href="../projects/sandbox.html#window-captures">Sandbox capture fixture</a>
@@ -259,8 +313,9 @@ assembly version <code>2.0.0.0</code> at runtime. The scenario requires daemon
 preflight result for each year. The writer reads <code>bridge_contract_version</code>
 from the scenario's bridge assembly reference and writes <code>2</code>. See
 <a href="test-pipeline.html">Test Pipeline</a> for test execution.</p>
-<p>Submit a published distribution with the two models that match its scenario
-manifest.</p>
+<p>Archive <code>build.json</code>, <code>dist/Release</code> and <code>acceptance</code> from <code>.artifacts/</code> after
+<code>BuildAll</code> succeeds. Submit the archive with the two models that match the
+scenario manifest.</p>
 <pre><code class="lang-bash">dbtools-daemon-cli devmode-submit \
   --archive path/to/published-distribution.tar.gz \
   --model 2026=testing/RevitTestModels/2026/GM/gm_test_model.rvt \
@@ -287,13 +342,11 @@ the scenario step and the selector.</p>
 and the UI text the Dev Mode scenario checks. The <code>Sgt</code> and <code>ErftNew</code>
 entries identify command proxies. <code>DevModeScenarioTests.Routes</code> excludes
 their interactive picks, which wait for Revit user input.
-<code>PromoteToDist</code> copies the contract to <code>.artifacts/acceptance/</code>.</p>
+A release build includes the contract in <code>.artifacts/acceptance/</code>.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p><code>ValidateDistributionCandidate</code> reports the preflight summary for each year.</p>
+<p><code>ValidateStagedProduct</code> reports the preflight summary for each year.</p>
 <pre><code class="lang-text">Revit &lt;year&gt; Dev Mode preflight: &lt;n&gt; failures, &lt;m&gt; warnings; outcome=&lt;outcome&gt;
 </code></pre>
-<p>The runner writes its response to
-<code>.artifacts/.staging/&lt;build-id&gt;/devmode-preflight-&lt;year&gt;.json</code>.</p>
 <table>
 <thead>
 <tr>
@@ -303,7 +356,7 @@ their interactive picks, which wait for Revit user input.
 </thead>
 <tbody>
 <tr>
-<td><code>&lt;target&gt;: authoritative distribution requires a clean tracked and untracked source tree.</code></td>
+<td><code>A release build requires a clean tracked and untracked source tree.</code></td>
 <td>Run from a clean Git checkout.</td>
 </tr>
 <tr>
@@ -320,7 +373,9 @@ their interactive picks, which wait for Revit user input.
 </tr>
 </tbody>
 </table>
-<p>See <a href="../reference/build.html#files">Build commands</a> for build log paths.</p>
+<p>On <code>build/Build.proj</code>, <code>-bl:&lt;path&gt;</code> records the outer MSBuild graph and the
+console output it captures from child commands. Each child <code>dotnet</code> process
+has its own MSBuild events.</p>
 <h2 id="tests">TESTS</h2>
 <table>
 <thead>
@@ -333,14 +388,6 @@ their interactive picks, which wait for Revit user input.
 <tr>
 <td><code>ContentVersionTests</code></td>
 <td>An image input change changes the version.</td>
-</tr>
-<tr>
-<td><code>PortableAcceptanceReceiptTests</code></td>
-<td>Checks receipt completeness, stale source identity and changed validator identity.</td>
-</tr>
-<tr>
-<td><code>DistributionPublisherTests</code></td>
-<td>The published build metadata appears after both trees move.</td>
 </tr>
 <tr>
 <td><code>DevModeScenarioManifestWriterTests</code></td>

@@ -98,8 +98,8 @@ dbtools logs. For a reported failure, read the logs in
 <pre><code class="lang-bash">dotnet build path/to/project.csproj -c Release
 </code></pre>
 <p>This computes content versions, restores only the selected year and stages the
-project's runtime inputs. It does not validate or publish a distribution.
-<code>dotnet build build/Build.proj</code> builds, validates and publishes the complete
+project's runtime inputs and stages each requested year.
+<code>dotnet build build/Build.proj</code> stages and validates the complete
 distribution for every supported year, including the Dev Mode preflight and
 manifest checks. Use <code>dotnet build build/Build.proj -t:BuildTests</code> or a selected-test target to
 compile the test projects. See <a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
@@ -120,7 +120,7 @@ release, or <code>local-candidate</code> for an approved local candidate with it
 <p><code>BuildAll</code> does not need the daemon CLI or an installed Revit. The DIST suite
 and Revit-hosted Entry projects use the daemon VSTest adapter.</p>
 <h3 id="dev-mode-preflight-fails">Dev Mode preflight fails</h3>
-<p><code>ValidateDistributionCandidate</code> runs the Dev Mode policy on each year and prints:</p>
+<p><code>ValidateStagedProduct</code> runs the Dev Mode policy on each year and prints:</p>
 <pre><code class="lang-text">Revit &lt;year&gt; Dev Mode preflight: &lt;n&gt; failures, &lt;m&gt; warnings; outcome=&lt;x&gt;
 </code></pre>
 <p>Both years must pass. Every collectible-boundary warning (<code>CollectibleThreadStatic</code>,
@@ -157,17 +157,17 @@ Causes:</p>
 <ul>
 <li>The driver watches the multi-year root <code>.artifacts/dist/Release</code> instead of
 one year directory.</li>
-<li>A reload starts while promotion replaces the files.</li>
+<li>A reload starts while the build replaces staged files.</li>
 <li>dbtools code loaded or resolved a <code>dbtools.*</code> assembly or type outside the
 driver's collectible <code>AssemblyLoadContext</code> (for example through an
 <code>AppDomain</code>-wide scan or <code>Assembly.Load</code>), so the context cannot unload.</li>
 </ul>
 <p>Point the driver directly at one year directory, <code>.artifacts/dist/Release/2026</code>
-or <code>.artifacts/dist/Release/2027</code>, never at a copy, and publish with
-<code>dotnet build build/Build.proj</code>. Promotion keeps each unchanged file as the same file
-(a hard link), so Windows Defender does not scan it again. A copied directory is
-a set of new files that Defender scans again, which can add tens of seconds to
-each Dev Mode inspection.</p>
+or <code>.artifacts/dist/Release/2027</code>. The driver watches that directory as
+builds stage files. <code>BuildApp</code>, <code>BuildAll</code>, and test builds that reference
+<code>ProductOutput.proj</code> write the year directory after compilation.
+<code>BuildApp</code> and test builds stage files without running Dev Mode preflight.
+Run <code>dotnet build build/Build.proj</code> to stage and validate both Release years.</p>
 <h3 id="theme-validation">Theme validation</h3>
 <p>Startup validates the theme with <code>ThemeValidator.ValidateOrThrow</code>; a failure
 stops startup. In a Revit-hosted test run, read the daemon job's startup

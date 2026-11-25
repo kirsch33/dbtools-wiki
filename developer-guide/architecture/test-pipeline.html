@@ -154,17 +154,10 @@ listed in <code>testing/BannedSymbols.txt</code> (error RS0030) or when its sour
 OS input or foreground function such as <code>SendInput</code> or <code>SetForegroundWindow</code>
 (error DBT0003, <code>DBT_RejectOsInputInterop</code> in <code>Directory.Build.targets</code>).</p>
 <h2 id="artifact-tests">Artifact tests</h2>
-<p>The complete <code>--filter 'TestCategory=ProductArtifacts'</code> selection requires a
-source-current <code>dotnet build build/Build.proj</code> and compiled hosted test outputs. It checks
-promoted distributions, compiler PDBs, merge inputs and hosted test outputs.
-<code>AssembleDistributionCandidate</code> alone does not supply all of these inputs.</p>
-<p>Artifact admission inspects every staged <code>build.json</code> and the final record.
-It selects the newest parsed <code>builtAtUtc</code> whose <code>sourceCommit</code> and <code>sourceTree</code>
-match HEAD and its tree. Admission requires clean tracked and untracked source,
-including root build configuration and documentation. Distributed bytes must
-match the declared <code>distributionFingerprint</code> before tests read them. Compiler
-PDBs, merge inputs and dependency files require current BuildAll outputs as setup;
-the distribution fingerprint does not authenticate those intermediate files.</p>
+<p>The <code>--filter 'TestCategory=ProductArtifacts'</code> selection reads both staged
+Release years, compiler PDBs, merge inputs, hosted test assemblies and the
+Dev Mode scenario manifest. Run <code>dotnet build build/Build.proj</code> and
+<code>dotnet build build/Build.proj -t:BuildTests</code> before running the selection.</p>
 <p>The Presentation <code>ToolWindowXamlTests</code> fixture, compiled by Presentation Pure,
 parses raw XAML from every tool in <code>DistributionContract.ToolAssemblyFiles</code> and
 Core. Its project references supply the complete tool set to the test consumer.</p>

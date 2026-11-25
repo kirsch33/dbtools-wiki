@@ -226,25 +226,22 @@ registration needs Revit data. <code>RegisterSandboxSettingsPack</code> register
 production pack with sample inputs in the Settings validation service provider.
 Sandbox uses the normal <code>RegisterSettingsPacks</code> for packs that can load off Revit.</p>
 <h2 id="build-and-run">Build and run</h2>
-<p>Build a product candidate and Sandbox:</p>
-<pre><code class="lang-bash">dotnet build build/Build.proj -t:AssembleDistributionCandidate -p:RevitYear=2026
+<p>Build the product and Sandbox.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildApp -p:RevitYear=2026
 dotnet build build/Build.proj -t:BuildSandbox -p:RevitYear=2026
 </code></pre>
-<p>Candidate assembly can compile edited source. Acceptance targets require a clean
-committed tree. Read the build output for its build ID and use that invocation's
-candidate directory:</p>
-<pre><code class="lang-text">.artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026/
-.artifacts/sandbox/Release/2026/net10.0-windows/
+<p>The build writes the product and Sandbox executable to these directories.</p>
+<pre><code class="lang-text">.artifacts/dist/Release/2026/
+.artifacts/bin/dbtools.Sandbox/release_2026_win-x64/
 </code></pre>
 <p>Run Sandbox on Windows with the matching Revit year installed. Both modes
 resolve that installation, require its runtime files, and check metadata/runtime
 compatibility. Run these commands from the repository root:</p>
-<pre><code class="lang-powershell">dotnet run --project src/dbtools.Sandbox/dbtools.Sandbox.csproj -p:RevitYear=2026 -- --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026
+<pre><code class="lang-powershell">dotnet run --project src/dbtools.Sandbox/dbtools.Sandbox.csproj -c Release -p:RevitYear=2026 -- --dist-dir .artifacts/dist/Release/2026
 </code></pre>
-<p>Replace <code>&lt;build-id&gt;</code> with the ID printed by the candidate build. To validate
-without the interactive catalog, add headless mode and the matching installed
-Revit reference directory:</p>
-<pre><code class="lang-powershell">dotnet run --project src/dbtools.Sandbox/dbtools.Sandbox.csproj -p:RevitYear=2026 -- --headless --dist-dir .artifacts/.staging/&lt;build-id&gt;/distribution-candidate/Release/2026 --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
+<p>For headless validation, pass the matching installed Revit reference
+directory.</p>
+<pre><code class="lang-powershell">dotnet run --project src/dbtools.Sandbox/dbtools.Sandbox.csproj -c Release -p:RevitYear=2026 -- --headless --dist-dir .artifacts/dist/Release/2026 --revit-reference-dir 'C:\Program Files\Autodesk\Revit 2026'
 </code></pre>
 <p>These are native Windows commands. Daemon-routed acceptance uses its hidden
 desktop. See <a href="testing-tools.html#daemon-adapter-entry-projects">Daemon adapter entry projects</a>.</p>
@@ -282,15 +279,15 @@ A missing candidate fails before WPF startup.</p>
 checks layout and bindings, exercises supported interactions, and closes owned
 windows. It requires Windows Desktop. It is not a Linux metadata-only mode.</p>
 <h2 id="package-native-validation-inputs">Package native validation inputs</h2>
-<p>Run <code>PackageSandboxValidationInput</code> to package the current candidate and
-Sandbox for Windows distribution acceptance:</p>
-<pre><code class="lang-bash">dotnet build build/Build.proj -t:PackageSandboxValidationInput
+<p>For release acceptance, validate both Release years and package their
+Windows validation inputs.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj
+dotnet build build/Build.proj -t:PackageSandboxValidationInput
 </code></pre>
-<p>This target requires a clean committed source tree and every supported year.
-Sandbox output and archive paths include the year:</p>
-<pre><code class="lang-text">.artifacts/sandbox/&lt;configuration&gt;/&lt;year&gt;/&lt;tfm&gt;/
-sandbox/&lt;year&gt;/&lt;sanitized-tfm&gt;/
-</code></pre>
+<p>The archive is <code>.artifacts/sandbox/Release/validate-dist-&lt;sha256&gt;.zip</code>.
+In a development checkout without <code>.artifacts/build.json</code>, stage both
+years with <code>BuildApp</code> before packaging.
+If the stage differs from an earlier release record, run <code>dotnet build build/Build.proj -t:Clean</code> before <code>BuildApp</code>.</p>
 <p>Use the archive with the <a href="testing-tools.html#distribution-acceptance">distribution acceptance command</a>.
 For validation checks, failure handling, and the distinction between portable,
 native, and live Dev Mode validation, see
