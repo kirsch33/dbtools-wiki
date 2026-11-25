@@ -132,8 +132,9 @@ routing, staged inputs, and daemon adapter design.</p>
 <pre><code class="lang-text">./build.sh [Target] [parameters]
 pwsh -NoProfile -File build.ps1 [Target] [parameters]
 </code></pre>
-<p>Both wrappers map options to <code>build/Build.proj</code> and acquire the SDK pinned in
-<code>global.json</code>. Native Windows uses PowerShell. <code>build.sh</code> refuses that host.
+<p>Both wrappers map options to <code>build/Build.proj</code>. When no compatible SDK is
+installed, they acquire the minimum SDK version in <code>global.json</code>. Native
+Windows uses PowerShell. <code>build.sh</code> refuses that host.
 Revit 2026 (2026.5 or later) and Revit 2027 use <code>net10.0-windows</code>.
 Year selection chooses references and output placement.</p>
 <h3 id="build-targets">Build targets</h3>
@@ -641,9 +642,10 @@ Use <code>rerun</code> to reproduce a submitted failure. Use normal <code>test</
 source. See <a href="../architecture/test-pipeline.html#inputs-and-receipts">Test Pipeline</a>
 for prepared records and frozen inputs.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
-<p>Use the SDK pinned in <code>global.json</code> on Linux or native Windows. For daemon
-runs, set <code>DBTOOLS_DAEMON_RELAY_URL</code> to your relay URL. In Bash use
-<code>export DBTOOLS_DAEMON_RELAY_URL=https://relay.example.com</code>. In PowerShell use
+<p>Use .NET SDK 10.0.401 or a newer patch in the 10.0.4xx feature band on Linux
+or native Windows. For daemon runs, set <code>DBTOOLS_DAEMON_RELAY_URL</code> to your relay
+URL. In Bash use <code>export DBTOOLS_DAEMON_RELAY_URL=https://relay.example.com</code>.
+In PowerShell use
 <code>$env:DBTOOLS_DAEMON_RELAY_URL = 'https://relay.example.com'</code>. The adapter reads
 relay credentials from the installed daemon.</p>
 <h3 id="windows-pure">Windows Pure</h3>
@@ -1218,8 +1220,8 @@ lists these singletons and fails when the list changes.</li>
 <code>dbtools.Presentation</code>, the Windows Desktop runtime
 pack rewritten as IL-only images, and the year's Revit API reference packages
 rewritten as IL-only images whose methods throw. The test project restores the
-runtime pack that the pinned SDK bundles; <code>BuildAll</code> restores the Revit
-packages. No window opens and no Revit call runs, so Revit-side caches, Revit
+runtime pack selected by the SDK. <code>BuildAll</code> restores the Revit packages.
+No window opens and no Revit call runs, so Revit-side caches, Revit
 events and WPF resource lookups after a reload are outside this test.</p>
 <p>Inspect <code>%APPDATA%/dbtools/Logs/</code> first for reported application failures.
 Hosted job output returns application logs. Use the selected Revit year's

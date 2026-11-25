@@ -132,22 +132,17 @@ components, startup and tool loading.</p>
 </tbody>
 </table>
 <h2 id="requirements">Requirements</h2>
-<ul>
-<li>the .NET SDK pinned in <code>global.json</code>; <code>build.sh</code> and <code>build.ps1</code> install it
-when it is missing;</li>
-<li>Python 3.10 or later on Linux and WSL;</li>
-<li>Desktop Revit 2026 (2026.5 or later) or Revit 2027 to run the add-in. Building does
-not need Revit.</li>
-</ul>
+<p>Install the .NET SDK 10.0.401 or a newer 10.0 patch in the 10.0.4xx feature
+band. Use Desktop Revit 2026 (2026.5 or later) or Revit 2027 to run the add-in.</p>
 <h2 id="building">Building</h2>
-<pre><code class="lang-bash">./build.sh                                     # BuildAll: build, validate and publish both years
-./build.sh BuildApp -y 2026                    # product assemblies for one year
-./build.sh AssembleDistributionCandidate -y 2026
-pwsh -NoProfile -File build.ps1 BuildAll       # native Windows
+<pre><code class="lang-bash">dotnet build build/Build.proj
+dotnet build build/Build.proj -p:RevitYear=2026
+dotnet build build/Build.proj -t:Preflight
 </code></pre>
-<p><code>BuildAll</code>, <code>ValidateDistributionCandidate</code>, <code>PromoteToDist</code> and <code>BuildBundle</code>
-always build every supported year; a <code>-y</code> that omits one fails. See
-<a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
+<p>The default <code>BuildAll</code> target builds, validates and publishes both Revit years
+from a clean checkout. <code>RevitYear</code> stages the product for one year. <code>Preflight</code>
+lists the tools available on the host and prints install commands for missing
+tools. See <a href="reference/build.html">Build commands</a>.</p>
 <h2 id="testing">Testing</h2>
 <pre><code class="lang-bash">./test.sh test --tool GM --scope pure                        # one tool, without Revit
 ./test.sh test --tool APP --scope local -y 2026              # in Revit, through the daemon
@@ -165,7 +160,7 @@ skipped step and the reason in the commit message, the report or the release
 record. A skipped step is not a passed step.</p>
 <ul>
 <li>Always run what produces or protects what users install: the build of what
-ships (<code>./build.sh BuildAll</code> from a fresh clone, with its Dev Mode
+ships (<code>dotnet build build/Build.proj</code> from a fresh clone, with its Dev Mode
 preflight), its normal automated tests, and the release asset build and
 checksum steps.</li>
 <li>Run the expensive steps only for a change that can affect them: Revit-hosted
