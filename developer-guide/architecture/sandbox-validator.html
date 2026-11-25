@@ -143,7 +143,11 @@ references. Interactive mode uses the installed files as its references.</li>
 <li><code>SandboxEntry</code> resolves and checks the candidate before WPF starts.
 It loads Presentation, Core and App from the candidate into the default
 assembly load context. <code>SandboxDistributionContext</code> resolves each tool
-assembly from the candidate when needed.</li>
+assembly from the candidate when needed. <code>SandboxHost</code> uses the STA
+dispatcher directly, so <code>Application.Current</code> is null. Headless mode
+creates a hidden Win32 window with <code>CreateWindowExW</code> and registers it
+through Core's <code>WindowOwnerRegistry</code>. Interactive mode registers its WPF
+catalog window.</li>
 <li><code>HeadlessValidationWorkflow</code> checks add-in metadata, theme resources
 and the catalog. <code>ManifestValidator</code> checks tool modules, command and
 availability types, and icon resources.</li>
@@ -173,8 +177,10 @@ state. Every other binding error fails validation. The validator waits for
 <code>ApplicationIdle</code> after close. A missing required boundary, a window error,
 or a close or retirement failure also fails validation.</li>
 <li>After the window checks, the workflow rejects any loaded Revit host
-assembly from the reference set. It closes remaining windows and
-disposes the candidate's window runtime.</li>
+assembly from the reference set. The distribution context retires
+remaining sessions through <code>ToolWindowRegistry</code>, closes remaining WPF
+windows with HWNDs on the dispatcher and destroys the headless Win32
+owner when it disposes the window runtime.</li>
 </ol>
 <p>Build the matching Sandbox executable before validating a staged year.
 These commands validate the staged Revit 2026 product from the
@@ -227,9 +233,12 @@ and the validation result go to standard error. In a <code>DIST</code> run,
 <code>ValidatesTheStagedCandidateFor2027</code>. Each <code>DIST</code> request runs one year in its
 own process and verifies the complete archive.
 <code>DevModeGenerationProbe</code> from <code>dbtools-daemon.DevMode.Testing</code> loads that
-year's candidate. The test opens and closes each <code>SandboxCatalog</code> window and
-requires the generation to retire. It then runs the staged Sandbox with
-<code>--headless</code> against the candidate and its archived Revit references.
+year's candidate. For each <code>SandboxCatalog</code> window, the test opens and closes
+the session, fails on reported close or retirement errors, and checks for
+remaining WPF windows with HWNDs. Candidate generation collection is the
+only leak check for auxiliary windows without an HWND. It detects them if
+they keep the generation reachable. The test then runs the staged Sandbox
+with <code>--headless</code> against the candidate and its archived Revit references.
 See <a href="../developing/testing-tools.html#distribution-acceptance">Distribution acceptance</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../projects/sandbox.html">dbtools.Sandbox</a>,

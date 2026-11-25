@@ -98,9 +98,10 @@ Assembly  dbtools.Sandbox.dll
 Entry     dbtools.Sandbox.App.Startup.SandboxEntry
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p><code>dbtools.Sandbox</code> is a Windows WPF application. The <strong>dbtools UI Sandbox</strong>
-catalog groups previews by the manifest <code>group</code> and labels each button
-with the <code>displayName</code>. Select a button to open its preview.</p>
+<p><code>dbtools.Sandbox</code> is a Windows process that runs WPF on an STA dispatcher.
+<code>Application.Current</code> is null. The <strong>dbtools UI Sandbox</strong> catalog groups
+previews by the manifest <code>group</code> and labels each button with the
+<code>displayName</code>. Select a button to open its preview.</p>
 <p>See <a href="../architecture/sandbox-validator.html">Sandbox Validator</a> for
 candidate requirements, startup and headless validation.</p>
 <h2 id="structure">STRUCTURE</h2>
@@ -115,7 +116,7 @@ candidate requirements, startup and headless validation.</p>
 <tbody>
 <tr>
 <td><code>App/</code></td>
-<td>Contains the entry point, option parser and WPF application.</td>
+<td>Contains the entry point, option parser and dispatcher host.</td>
 </tr>
 <tr>
 <td><code>Composition/</code></td>
@@ -127,7 +128,7 @@ candidate requirements, startup and headless validation.</p>
 </tr>
 <tr>
 <td><code>Runtime/</code></td>
-<td>Configures logging and the default window owner mode.</td>
+<td>Configures logging, window ownership and window cleanup.</td>
 </tr>
 <tr>
 <td><code>Validation/</code></td>
@@ -144,11 +145,15 @@ embedded in App. Each entry names the raw XAML resource and its
 design-time view model. See <a href="../developing/sandbox-integration.html">Sandbox Integration</a>
 for the registration rules.</li>
 <li><code>SandboxWindowFactory</code> constructs the view model with its parameterless
-constructor and creates a <code>ToolWindowHost</code> session. If the view model
+constructor and uses Core's <code>ToolWindowFactory</code> to create a session and
+register it with <code>ToolWindowRegistry</code>. If the view model
 implements <code>IToolWindowSandboxComposer</code>, the factory calls <code>ComposeView</code>
 after it creates the session.</li>
-<li><code>WindowStaticRuntimeConfigurator</code> sets the default owner mode to
-<code>Unowned</code>.</li>
+<li><code>WindowStaticRuntimeConfigurator</code> registers the host HWND through
+<code>WindowOwnerRegistry</code>. Interactive mode uses the WPF catalog window and
+retires sessions before closing it. Headless mode uses a hidden Win32
+window and destroys it when the window runtime is disposed.
+<code>WindowInitializer</code> applies the theme to each tool window.</li>
 </ul>
 <h2 id="flow">FLOW</h2>
 <p>For a manual preview, use the staged Revit 2026 product on Windows
