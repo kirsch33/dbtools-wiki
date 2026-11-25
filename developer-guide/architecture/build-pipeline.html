@@ -164,6 +164,14 @@ bytes, resolved references and merge inputs. It records the hash in
 It also requires byte-identical Presentation assemblies across Revit years.
 To trace a version change, compare the input lists
 under <code>.artifacts/obj/content-version/</code>.</p>
+<h3 id="product-version">Product version</h3>
+<p><code>Version.props</code> supplies the default. <code>-p:Version</code> overrides it at the build
+entrypoint. Each staged Revit year contains <code>dbtools.version</code>, which Settings
+reads. The bundle uses the same version for its payload directory,
+<code>PackageContents.xml</code> and <code>installer-defines.json</code>. The installer uses it
+for the setup file name and the Windows installed-apps display version.</p>
+<p>The product version is staged separately from the assembly images. The
+content-version calculation uses the inputs that reach each image.</p>
 <h2 id="flow">FLOW</h2>
 <ol>
 <li>In the publication graph, <code>Restore</code> captures the clean Git commit and tree.
@@ -232,7 +240,7 @@ A collectible-boundary warning fails validation.</p>
 means the staging directory may remain.</p>
 <h3 id="portable-acceptance-receipt">Portable acceptance receipt</h3>
 <p><code>PromoteToDist</code> embeds the staged receipt in the <code>validation</code> field of
-<code>promotion-receipt.json</code>. <code>BuildBundle --candidate-dist</code> rechecks it against
+<code>promotion-receipt.json</code>. <code>BuildBundle -p:CandidateDistributionPath=&lt;path&gt;</code> rechecks it against
 the distribution bytes, source and Protocol pin.</p>
 <p>The receipt covers metadata and static policy only. For Windows UI
 checks and tests in Revit, see <a href="sandbox-validator.html">Sandbox Validator</a>

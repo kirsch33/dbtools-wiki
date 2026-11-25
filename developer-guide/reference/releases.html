@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Releases | dbtools </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Releases | dbtools ">
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css?v=20261030">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        localStorage.setItem('theme', 'dark')
+        document.documentElement.setAttribute('data-bs-theme', 'dark')
+      </script>
+
+      <script src="../../public/main.js?v=20261030" defer></script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="conceptual" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" src="../../images/logo.png" alt="dbtools" width="32" height="32">
+            dbtools
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="releases">Releases</h1>
+
+<h2 id="name">NAME</h2>
+<p>releases - build and publish a version of dbtools</p>
+<p>Install release builds. Each release gets the next <code>MAJOR.MINOR.PATCH</code>
+version and a <code>v&lt;version&gt;</code> Git tag. Start at <code>0.1.0</code> and increase <code>PATCH</code>
+for each release. For a release with substantial changes, increase <code>MINOR</code>
+and reset <code>PATCH</code> to zero. Reserve <code>1.0.0</code> for the end of prerelease development.</p>
+<p>The Windows installer, installed-apps entry,
+<code>Contents/dbtools/&lt;version&gt;/</code> directory and Revit Settings show the same
+version. The DLL content versions identify their build inputs separately.</p>
+<h2 id="prerequisites">PREREQUISITES</h2>
+<p>Use a clean checkout on WIN-DEV with Inno Setup 6.7.1 or a later 6.x and the
+OpenSSH client. Use GitHub CLI 2.48 or later and Python 3.10 or later on Linux.</p>
+<h2 id="steps">STEPS</h2>
+<h3 id="publish-a-release">Publish a release</h3>
+<ol>
+<li><p>On WIN-DEV, set <code>$commit</code> to the approved commit SHA and <code>$version</code> to
+the approved version. Build from that commit in the repository root.
+<code>BuildInstaller</code> validates and bundles both Revit years.</p>
+<pre><code class="lang-powershell">$commit = '&lt;approved-commit-sha&gt;'
+$version = '0.1.0'
+git fetch origin
+if ($LASTEXITCODE -ne 0) { throw 'Could not fetch the approved commit.' }
+git switch --detach $commit
+if ($LASTEXITCODE -ne 0) { throw 'Could not check out the approved commit.' }
+dotnet build build/Build.proj -t:BuildInstaller &quot;-p:Version=$version&quot;
+if ($LASTEXITCODE -ne 0) { throw 'BuildInstaller failed.' }
+</code></pre>
+</li>
+<li><p>Check the installer on WIN-DEV. Run Setup with Revit closed.
+Confirm the version in the installer filename, installed-apps entry,
+bundle payload directory and Revit <strong>Settings</strong>.</p>
+</li>
+<li><p>Archive the bundle and copy it, the installer and the promotion receipt to
+the release asset directory on Linux. The receipt records the commit and
+version that the build used. Set <code>$destination</code> to the Linux account, host
+and absolute directory.</p>
+<pre><code class="lang-powershell">$installer = &quot;.artifacts/release-assets/dbtools-Setup-$version.exe&quot;
+$bundle = &quot;.artifacts/release-assets/dbtools-$version.bundle.zip&quot;
+$receipt = '.artifacts/dist/Release/promotion-receipt.json'
+$destination = '&lt;account&gt;@&lt;linux-host&gt;:/absolute/path/to/release-assets/'
+tar.exe -a -cf $bundle -C .artifacts/bundle dbtools.bundle
+if ($LASTEXITCODE -ne 0) { throw 'Could not archive dbtools.bundle.' }
+scp.exe $installer $bundle $receipt $destination
+if ($LASTEXITCODE -ne 0) { throw 'Could not copy release assets to Linux.' }
+</code></pre>
+</li>
+<li><p>On Linux, add <code>release-notes.md</code> to the release asset directory. From the
+repository root, set <code>release_dir</code> to that absolute directory and <code>repo</code> to
+the GitHub repository for <code>origin</code> in <code>OWNER/REPO</code> form. The commit and
+version come from the promotion receipt of the WIN-DEV build; the receipt
+records the version with four components, and the tag uses the first three.
+Compute the checksums, tag that commit and publish.</p>
+<pre><code class="lang-bash">receipt=&quot;$release_dir/promotion-receipt.json&quot;
+commit=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[&quot;sourceVersion&quot;][&quot;commit&quot;])' &quot;$receipt&quot;)
+version=$(python3 -c 'import json, sys; print(&quot;.&quot;.join(json.load(open(sys.argv[1]))[&quot;sourceVersion&quot;][&quot;productVersion&quot;].split(&quot;.&quot;)[:3]))' &quot;$receipt&quot;)
+tag=&quot;v$version&quot;
+installer=&quot;dbtools-Setup-$version.exe&quot;
+bundle=&quot;dbtools-$version.bundle.zip&quot;
+(cd &quot;$release_dir&quot; &amp;&amp; sha256sum -- &quot;$installer&quot; &quot;$bundle&quot; &gt; SHA256SUMS) &amp;&amp;
+  git fetch origin &amp;&amp;
+  git tag -a &quot;$tag&quot; &quot;$commit&quot; -m &quot;dbtools $version&quot; &amp;&amp;
+  git push origin &quot;refs/tags/$tag&quot; &amp;&amp;
+  gh release create &quot;$tag&quot; &quot;$release_dir/$installer&quot; &quot;$release_dir/$bundle&quot; &quot;$release_dir/SHA256SUMS&quot; \
+    --repo &quot;$repo&quot; --verify-tag --title &quot;dbtools $version&quot; \
+    --notes-file &quot;$release_dir/release-notes.md&quot;
+</code></pre>
+</li>
+</ol>
+<h3 id="prune-releases">Prune releases</h3>
+<p>Keep the five highest published versions and every <code>v&lt;MAJOR&gt;.0.0</code> release.
+Retention sorts numeric version components and considers published releases
+with <code>v&lt;MAJOR&gt;.&lt;MINOR&gt;.&lt;PATCH&gt;</code> tags made of digits and dots after the <code>v</code>.
+Drafts and releases with other tags are untouched. Pruning keeps the Git tags.</p>
+<ol>
+<li><p>From the repository root, save the release list. Save and print the
+dry-run output for approval. It lists the tags and release IDs to delete.</p>
+<pre><code class="lang-bash">gh api --paginate --slurp &quot;repos/$repo/releases?per_page=100&quot; &gt; &quot;$release_dir/releases.json&quot; &amp;&amp;
+  python3 build/Release/prune-releases.py --dry-run &quot;$release_dir/releases.json&quot; &gt; &quot;$release_dir/prune.json&quot; &amp;&amp;
+  cat &quot;$release_dir/prune.json&quot;
+</code></pre>
+</li>
+<li><p>After the owner approves the printed list, apply that saved list. If the
+live selection differs, get approval for a fresh dry run before applying it.</p>
+<pre><code class="lang-bash">python3 build/Release/prune-releases.py --apply &quot;$repo&quot; &quot;$release_dir/prune.json&quot;
+</code></pre>
+</li>
+</ol>
+<h2 id="check">CHECK</h2>
+<p>Run the retention test offline from the repository root.</p>
+<pre><code class="lang-bash">python3 -B -m unittest discover -s build/Release -v
+</code></pre>
+<h2 id="see-also">SEE ALSO</h2>
+<p><a href="build.html">Build commands</a>, <a href="https://cli.github.com/manual/gh_release_create">GitHub CLI release create</a>,
+<a href="https://docs.github.com/en/rest/releases/releases#delete-a-release">GitHub Releases API</a></p>
+
+</article>
+
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          dbtools - Revit Add-in Toolkit
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
