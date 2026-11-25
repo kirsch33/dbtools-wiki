@@ -368,15 +368,15 @@ The pipeline and overlay cancellation tests use the queued Revit task for work a
 They give each pipeline operation or cancellation scan a two-minute deadline. Both GM Local projects use the shared
 profile isolation setup.</p>
 <p><code>dbtools.GM.Pure.Tests.csproj</code> contains owner-local fixtures and shared test support and references the desktop <code>dbtools.GM.csproj</code>. The production assembly grants the Pure assembly internal access. Revit references are compile-only; loading a Revit-typed member requires a Revit host.</p>
-<p>The repository wrappers run the GM checks. Run the ones that the change can
-affect (<a href="../../index.html#choosing-checks">Choosing checks</a>):</p>
-<pre><code class="lang-bash">./build.sh BuildApp
-./build.sh BuildTests
-./test.sh test --tool GM --scope pure
-./test.sh test --tool GM --scope local -y 2026
+<p>Run the GM checks that the change can affect. See <a href="../../index.html#choosing-checks">Choosing checks</a>.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildApp
+dotnet build build/Build.proj -t:BuildTests
+dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj
+DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/GM.Hosted.Entry.csproj
+DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/GM.HostedTurns.Hosted.Entry.csproj
 </code></pre>
-<p>The Pure project targets <code>net10.0-windows</code> and requires Microsoft.WindowsDesktop.App.
-Revit-hosted tests use the <code>local</code> scope through the daemon fleet.</p>
+<p>The Pure project targets <code>net10.0-windows</code> and requires <code>Microsoft.WindowsDesktop.App</code>
+on the worker. The hosted Entry projects run in Revit on the daemon's hidden desktop.</p>
 <h2 id="limitations">Limitations</h2>
 <p>The session key uses the document hash code, which can collide. The <a href="gm-spec.html#limitations">specification</a> describes family-document and line-style limits.</p>
 

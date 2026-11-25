@@ -89,603 +89,126 @@
         <article data-uid="">
 <h1 id="testing-tools">Testing Tools</h1>
 
-<p>Use <code>dotnet build</code> and <code>dotnet test</code> on the <a href="#daemon-adapter-entry-projects">daemon Entry projects</a>
-for Windows Pure and Revit-hosted tests. Run Linux-portable projects with
-VSTest on the invoking host. <code>test.sh</code> also selects, builds, and runs repository
-tests. <code>build.sh</code> on Linux/WSL and <code>build.ps1</code> on Windows compile product and
-test graphs.</p>
-<p>Run commands from the repository root. Pure tests run without Revit.
-Revit-hosted tests use the <code>local</code> scope. Design Automation tests use the <code>da</code>
-scope and execute real APS WorkItems.</p>
-<h2 id="execution-hosts">Execution hosts</h2>
-<p>Tool keys in the examples include Global Mapper (GM) and Super Girt Tool (SGT).
-Choose the scope for the behavior you need to test:</p>
+<p>Run <code>dotnet test</code> from the repository root on Linux, native Windows or WSL 2
+with the .NET SDK declared in <code>global.json</code>. Select a project for the behavior
+under test.</p>
 <table>
 <thead>
 <tr>
-<th>Scope</th>
-<th>Host</th>
+<th>Tests</th>
+<th>Project</th>
+<th>Execution</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>pure</code></td>
-<td>NUnit/VSTest without Revit. Most tool, App, and Core projects require Windows, including WPF fixtures. <code>*.Portable.Pure.Tests</code> projects run on Linux.</td>
+<td>Portable Pure</td>
+<td><code>*.Portable.Pure.Tests.csproj</code> and portable projects under <code>testing/</code></td>
+<td>Local VSTest</td>
 </tr>
 <tr>
-<td><code>local</code></td>
-<td>Revit-hosted tests on a daemon worker, marked <code>[RevitLocal]</code>.</td>
+<td>Windows Pure</td>
+<td><code>testing/Daemon/Pure/&lt;Tool&gt;.Pure.Entry.csproj</code></td>
+<td>Windows VSTest on a daemon worker</td>
 </tr>
 <tr>
-<td><code>da</code></td>
-<td>Design Automation tests using real APS WorkItems, marked <code>[RevitDA]</code>.</td>
+<td>Revit-hosted</td>
+<td><code>testing/Daemon/Hosted/&lt;Tool&gt;.Hosted.Entry.csproj</code></td>
+<td>NUnit in Revit on a daemon worker</td>
+</tr>
+<tr>
+<td>Design Automation</td>
+<td><code>dbtools.DesignAutomation.Sentinel.DA.Tests.csproj</code></td>
+<td>One budgeted APS WorkItem</td>
 </tr>
 </tbody>
 </table>
-<p>BUILD includes Linux-native contract tests and Windows Sandbox Pure tests.
-DIST selects Windows distribution acceptance and requires the daemon.
-Daemon runs use a hidden desktop. Other Windows Pure tests can also run locally
-on Windows with the required runtimes installed.</p>
-<p>See <a href="../architecture/test-pipeline.html">Test Pipeline</a> for project membership,
-routing, staged inputs, and daemon adapter design.</p>
+<p>Pure fixtures run without Revit. The daemon uses its hidden desktop. See
+<a href="../architecture/test-pipeline.html">Test Pipeline</a> for inputs and project membership.</p>
 <h2 id="build-and-validation-commands">Build and validation commands</h2>
-<pre><code class="lang-text">./build.sh [Target] [parameters]
-pwsh -NoProfile -File build.ps1 [Target] [parameters]
+<pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildTests
+dotnet build build/Build.proj -t:BuildSelectedLocalTests -p:RevitYear=2026 -p:TestProjects=dbtools.GM.Local.Tests
+dotnet build build/Build.proj -t:BuildSelectedPureTests -p:TestProjects=dbtools.GM.Pure.Tests
 </code></pre>
-<p>Both wrappers map options to <code>build/Build.proj</code>. When no compatible SDK is
-installed, they acquire the minimum SDK version in <code>global.json</code>. Native
-Windows uses PowerShell. <code>build.sh</code> refuses that host.
-Revit 2026 (2026.5 or later) and Revit 2027 use <code>net10.0-windows</code>.
-Year selection chooses references and output placement.</p>
-<h3 id="build-targets">Build targets</h3>
-<table>
-<thead>
-<tr>
-<th>Target</th>
-<th>Behavior</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BuildAll</code></td>
-<td>Default wrapper target. Build, validate, and promote the Release distribution with the Dev Mode scenario and other acceptance inputs.</td>
-</tr>
-<tr>
-<td><code>BuildApp</code></td>
-<td>Build product outputs for the selected years.</td>
-</tr>
-<tr>
-<td><code>ValidatePrePush</code></td>
-<td>Build App outputs and validate manifest type references.</td>
-</tr>
-<tr>
-<td><code>BuildTests</code></td>
-<td>Compile the Pure, Local and Design Automation test graphs. Execute no tests.</td>
-</tr>
-<tr>
-<td><code>BuildSelectedPureTests</code></td>
-<td>Compile the selected Pure projects.</td>
-</tr>
-<tr>
-<td><code>BuildSelectedLocalTests</code></td>
-<td>Compile the selected hosted projects without launching Revit.</td>
-</tr>
-<tr>
-<td><code>BuildSelectedDesignAutomationTests</code></td>
-<td>Compile selected DA projects.</td>
-</tr>
-<tr>
-<td><code>AssembleDistributionCandidate</code></td>
-<td>Assemble product files and candidate metadata.</td>
-</tr>
-<tr>
-<td><code>StagePortableAcceptanceInput</code></td>
-<td>Stage the candidate and references for portable acceptance.</td>
-</tr>
-<tr>
-<td><code>ValidateDistributionCandidate</code></td>
-<td>Run candidate metadata and static Dev Mode policy validation.</td>
-</tr>
-<tr>
-<td><code>PromoteToDist</code></td>
-<td>Publish the current accepted candidate to the distribution tree.</td>
-</tr>
-<tr>
-<td><code>ValidateManifestTypes</code></td>
-<td>Check manifest types against compiled output.</td>
-</tr>
-<tr>
-<td><code>VerifyArtifacts</code></td>
-<td>Check the built product files.</td>
-</tr>
-<tr>
-<td><code>BuildSandbox</code></td>
-<td>Compile the standalone Windows Sandbox for the selected years.</td>
-</tr>
-<tr>
-<td><code>BuildValidationRunner</code></td>
-<td>Build the portable .NET 10 Dev Mode policy worker.</td>
-</tr>
-<tr>
-<td><code>BuildDevModeScenario</code></td>
-<td>Build the hosted Dev Mode scenario for the selected years.</td>
-</tr>
-<tr>
-<td><code>PackageSandboxValidationInput</code></td>
-<td>Package candidate and Sandbox for native Windows validation.</td>
-</tr>
-<tr>
-<td><code>BuildBundle</code></td>
-<td>Package a promoted distribution, or consume <code>--candidate-dist</code>.</td>
-</tr>
-<tr>
-<td><code>Restore</code></td>
-<td>Restore the production and validation graphs for the selected years through either build wrapper.</td>
-</tr>
-<tr>
-<td><code>Clean</code>, <code>Info</code></td>
-<td>Clean build state or print configuration.</td>
-</tr>
-</tbody>
-</table>
-<p>Acceptance targets require a clean committed source tree and both supported
-years. Leave the year filter unset for <code>BuildAll</code>, portable acceptance, and
-Sandbox validation packaging. Focused product/test
-builds and candidate assembly support normal edited-source development.
-<code>BuildAll</code> validates metadata and static Dev Mode policy on Linux. It does not
-run native Sandbox, WPF interactions, Revit, or live Dev Mode injection.
-It builds and publishes the
-<a href="../architecture/build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a>
-for the daemon's Dev Mode fleet job.</p>
-<h3 id="build-parameters">Build parameters</h3>
-<table>
-<thead>
-<tr>
-<th>Parameter</th>
-<th>Default and meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--Configuration CONFIG</code></td>
-<td><code>Release</code> or <code>Debug</code>. Default <code>Release</code>. <code>-d</code> or <code>--debug</code> selects Debug.</td>
-</tr>
-<tr>
-<td><code>--Years YEARS</code>, <code>-y</code>, <code>--year</code></td>
-<td>All supported years for builds. Accept one year or a space/comma-separated list.</td>
-</tr>
-<tr>
-<td><code>--SkipClean BOOL</code></td>
-<td><code>true</code>. <code>--clean</code> selects false.</td>
-</tr>
-<tr>
-<td><code>--Verbose [BOOL]</code>, <code>-v</code></td>
-<td><code>false</code>. Bare flag selects true. <code>-q</code>/<code>--quiet</code> selects false.</td>
-</tr>
-<tr>
-<td><code>--DryRun [BOOL]</code></td>
-<td><code>false</code>. Bare flag selects true.</td>
-</tr>
-<tr>
-<td><code>--TestProjects A,B</code></td>
-<td>Required for selected test targets. Use exact project filename stems without <code>.csproj</code>.</td>
-</tr>
-<tr>
-<td><code>--CandidateDistributionPath DIR</code>, <code>--candidate-dist DIR</code></td>
-<td>Package an already-promoted distribution without rebuilding or promoting it.</td>
-</tr>
-<tr>
-<td><code>--Revit2026Dir DIR</code>, <code>--Revit2027Dir DIR</code></td>
-<td>Override installed Revit reference directories.</td>
-</tr>
-</tbody>
-</table>
-<p>Full option names ignore case and dashes. Boolean values must be true or false.
-Selected test graph targets reject <code>--clean</code> and <code>--DryRun</code>. Read the complete
-reference with <code>./build.sh --help</code> or <code>pwsh -NoProfile -File build.ps1 --help</code>.</p>
-<pre><code class="lang-bash">./build.sh BuildApp -y 2026
-./build.sh Restore --Years 2026,2027
-./build.sh BuildSelectedLocalTests --TestProjects dbtools.GM.Local.Tests -y 2026
-./build.sh BuildSelectedPureTests --TestProjects dbtools.GM.Pure.Tests
-./build.sh BuildTests
-</code></pre>
-<p>Build logs and child binlogs live under <code>.artifacts/build/&lt;build-id&gt;/</code>.
-<code>console.log</code> contains detailed output even when the terminal is quiet.
-<code>.artifacts/build/console.log</code> copies the latest invocation's log. A <code>completed</code>
-marker records the invocation's end. The test graph targets write
-<code>test-restore.binlog</code> and <code>test-build.binlog</code> in the same run folder.</p>
+<p><code>BuildTests</code> compiles the Pure, Local and Design Automation graphs.
+<code>BuildSelectedLocalTests</code> and <code>BuildSelectedDesignAutomationTests</code> compile
+the selected tests without launching Revit or submitting a WorkItem.
+Use <code>-p:RevitYear=2027</code> to select the Revit 2027 Local graph. Design Automation
+uses Revit 2026. See <a href="../reference/build.html">Build commands</a> for targets,
+properties and binlogs.</p>
 <h3 id="source-checks">Source checks</h3>
-<p>Check source placement and the repository tooling separately from compilation:</p>
-<pre><code class="lang-bash">python3 .agents/work/canon_source_fidelity.py --gate --mechanical-root testing --mechanical-root build
-python3 -m unittest discover -s .agents/work/tests
-.githooks/pre-push
+<p>The merge check runs these commands from a fresh clone.</p>
+<pre><code class="lang-bash">python3 -m unittest discover -s .agents/work/tests
+python3 .agents/checks/integrity.py --wiki-only
+python3 .agents/work/canon_source_fidelity.py --gate --mechanical-root testing --mechanical-root build
+dotnet build build/Build.proj -t:ValidateComponentResourceUris
+dotnet build build/Build.proj
 </code></pre>
-<p>The <code>unittest</code> suites in <code>.agents/work/tests/</code> test the CANON gate, the worktree
-guard, <code>.agents/checks/integrity.py</code> and <code>.githooks/pre-push</code>. They need Python
-3, Git, Bash and <code>flock</code>. See <a href="../architecture/build-pipeline.html">Build Pipeline</a>
-for distribution acceptance, Dev Mode preflight, and build-server configuration.</p>
-<p><code>.githooks/pre-push</code> always runs the wiki <code>src/</code> path check and the
-component resource URI check. It also runs the CANON gate and
-<code>./build.sh ValidatePrePush</code>, and prints why. It skips these two, prints the
-reason, and prints that they did not run, only for a push of one ref that
-fast-forwards an existing remote branch to the checked-out <code>HEAD</code> with new
-commits whose paths are all documentation or agent guidance: <code>wiki/</code>, <code>docs/</code>,
-<code>.agents/</code>, <code>.claude/</code> and top-level <code>*.md</code> files. <code>.agents/canon/</code> and every
-file in <code>.agents/work/</code> except its <code>tests/</code> and Markdown files are inputs of
-these checks. A new branch, a deletion, a rewind or rewrite, several refs, a
-pushed commit other than <code>HEAD</code> and a commit that the remote already has run
-every check.</p>
-<p>The hook runs the tooling tests when it runs the CANON gate, and also when a
-changed path is in <code>.agents/work/tests/</code> or <code>.agents/checks/</code>. It prints why it
-runs or skips them.</p>
-<p>Run by hand without arguments, the hook compares the working tree, untracked
-files included, with the upstream branch of <code>HEAD</code>, and uploads nothing to Git
-LFS. Without an upstream branch, or when <code>HEAD</code> does not contain it, every check
-runs. Run the commands above directly to check a tree that the hook would skip.</p>
-<h2 id="test.sh-command-reference">test.sh command reference</h2>
-<pre><code class="lang-text">./test.sh &lt;verb&gt; [options]
-</code></pre>
-<table>
-<thead>
-<tr>
-<th>Verb</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>build</code></td>
-<td>Delegate remaining arguments to <code>build.sh</code>.</td>
-</tr>
-<tr>
-<td><code>test</code></td>
-<td>Build selected current artifacts, freeze them, then execute.</td>
-</tr>
-<tr>
-<td><code>list</code></td>
-<td>Statically list tests or projects without execution.</td>
-</tr>
-<tr>
-<td><code>validate-request</code></td>
-<td>Resolve and validate selectors/projects without test execution or submission.</td>
-</tr>
-<tr>
-<td><code>submit</code></td>
-<td>Build and submit Local hosted tests. Reject Pure and DA.</td>
-</tr>
-<tr>
-<td><code>rerun --request ID</code></td>
-<td>Replay failures from a previous daemon request's submitted bytes.</td>
-</tr>
-</tbody>
-</table>
-<p>The default scope is <code>pure</code>. Without tool selection, discover owners for the
-requested scopes. Local execution, including compile-only, requires an explicit
-year or <code>DBTOOLS_DAEMON_REVIT_YEARS</code>. Pure-only requests are year-free and reject
-<code>--year</code>/<code>--years</code>. DA uses 2026.</p>
-<h3 id="selectors-and-build-options">Selectors and build options</h3>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--tool TOOL[,TOOL]</code></td>
-<td>Tool directory keys, case-insensitive, or <code>BUILD</code>, <code>APP</code>, <code>CORE</code>, <code>PRESENTATION</code>, <code>SANDBOX</code>, <code>DA-SENTINEL</code>, <code>DIST</code>. <code>SANDBOX</code> selects the Sandbox Pure project.</td>
-</tr>
-<tr>
-<td><code>--scope SCOPE[,SCOPE]</code></td>
-<td><code>pure</code>, <code>local</code>, <code>da</code>, or <code>all</code>.</td>
-</tr>
-<tr>
-<td><code>--project PATH[,PATH]</code></td>
-<td><code>test</code>, <code>validate-request</code>, or <code>list</code> only. Repeatable repository-relative project paths with forward slashes. Intersect other selectors.</td>
-</tr>
-<tr>
-<td><code>--fixture NAME</code></td>
-<td>Repeatable exact fixture/class selector. Narrow compilation to owning projects.</td>
-</tr>
-<tr>
-<td><code>-f FILTER</code>, <code>--filter FILTER</code></td>
-<td>VSTest filter locally. Supported exact/prefix FQN translation for daemon jobs.</td>
-</tr>
-<tr>
-<td><code>--fqn FQN</code></td>
-<td>Repeatable exact test identity.</td>
-</tr>
-<tr>
-<td><code>-y YEAR</code>, <code>--year YEAR</code></td>
-<td>Repeatable hosted year.</td>
-</tr>
-<tr>
-<td><code>--years 2026,2027</code></td>
-<td>Hosted years as CSV.</td>
-</tr>
-<tr>
-<td><code>--changed-since REV</code></td>
-<td><code>test</code> only: select affected owners. Documentation and agent guidance select none; when no other path changed, run no tests. DIST enters the selection only when <code>--tool</code> names it. A path read only by DIST selects no other owner. Unknown inputs select all.</td>
-</tr>
-<tr>
-<td><code>--compile-only</code>, <code>--build-only</code></td>
-<td><code>test</code> only: compile and record inputs without executing tests.</td>
-</tr>
-<tr>
-<td><code>--no-build</code></td>
-<td>Strictly consume matching prepared artifacts. Available with <code>test</code>, <code>submit</code>, and <code>validate-request</code>.</td>
-</tr>
-<tr>
-<td><code>--projects</code></td>
-<td><code>list</code> only: sorted <code>scope&lt;TAB&gt;project.csproj</code> rows, including empty projects.</td>
-</tr>
-<tr>
-<td><code>--summary</code></td>
-<td>Summarize static method counts by project. Cannot combine with <code>--projects</code>.</td>
-</tr>
-<tr>
-<td><code>--request ID</code></td>
-<td>Previous daemon request for <code>rerun</code>.</td>
-</tr>
-</tbody>
-</table>
-<p>Choose exactly one selector form: fixtures, filter, or FQNs. Fixture names select
-exact classes rather than similarly named longer classes. A fixture narrows the
-requested scopes to those that own it. An ambiguous short fixture name fails
-with exit 2. Use its namespace-qualified name or an explicit tool.</p>
-<p>Without <code>--tool</code>, the wrapper infers ownership from <code>--filter</code>, <code>--fqn</code>, or
-<code>--fixture</code>. Ambiguous filter/FQN matches across tools fail with exit 2.
-Resolved fixtures can select several owners. Without a usable inferred owner,
-the request retains the owners selected by its other options.</p>
-<p>Source discovery handles qualified attributes, combined/separate attribute lists, and implicit
-NUnit fixtures. Static method counts do not expand parameterized cases and are
-not runtime pass counts. <code>list</code> narrows fixture ownership to projects, then lists
-those projects' indexed methods. It does not apply the runtime fixture/filter
-expression to each printed method.</p>
-<p>Unknown project paths, paths outside the selected tool/scope, invalid selector
-combinations, and empty required selections fail with exit 2. There is no
-arbitrary <code>dotnet</code> argument passthrough after <code>--</code>.</p>
-<p>The APP Pure selection is <code>dbtools.App.Pure.Tests</code>. APP Local also includes
-<code>dbtools.App.HostedTurns.Local.Tests</code>. All three App test projects link
-<code>ProfileIsolationTestAssemblySetup</code>. It redirects the dbtools profile to a temporary
-root and checks the real profile for test logs and fallback records from the test
-process. Teardown restores the profile root and reports <code>realProfileUntouched=True</code>
-when these checks pass.</p>
-<p><code>RibbonControlPlanExecutorTests</code> binds the App-owned <code>RibbonFixtureCommand</code> and
-<code>RibbonFixtureAlternateCommand</code> types. Its <code>ribbon_fixture</code> icons come from the App
-Local test assembly's embedded resource. Real-tool composition and XAML tests use
-the tool projects they reference.</p>
-<p>CORE selects both Windows and portable Pure projects, or both Core Local and
-HostedTurns Local projects. GM Local includes <code>dbtools.GM.Local.Tests</code> and
-<code>dbtools.GM.HostedTurns.Local.Tests</code>. PRESENTATION selects
-<code>dbtools.Presentation.Pure.Tests</code> or <code>dbtools.Presentation.Local.Tests</code>; it owns
-every Presentation test, including the tests of tool-specific Presentation
-types. A Local request without <code>--tool</code> includes the App, Core and Presentation
-Local projects and every tool Local project. SGT Pure
-selects its Windows and portable projects. RECORDSET Pure defaults to
-<code>dbtools.RecordSet.Pure.Tests</code>.
-<code>dbtools.RecordSet.Cad.Pure.Tests</code> declares <code>DBT_OptInTests=true</code> and contains only <code>CadLiveTests</code>.
-Default project selections exclude projects with this property, including global Pure selections.
-<code>--fixture CadLiveTests</code> or <code>--project src/Tools/Experimental/RecordSet/Tests/dbtools.RecordSet.Cad.Pure.Tests.csproj</code>
-selects the CAD project. It requires AutoCAD.
-A selected project with zero executed tests still fails admission.
-Tool project selection follows the
-actual <code>Tests/</code> projects rather than a hard-coded fixture list.</p>
-<h3 id="daemon-options">Daemon options</h3>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--relay URL</code></td>
-<td>Override <code>DBTOOLS_DAEMON_RELAY_URL</code>.</td>
-</tr>
-<tr>
-<td><code>--machine MACHINE</code></td>
-<td>Explicit diagnostic machine pin. Ordinary hosted requests use automatic selection.</td>
-</tr>
-<tr>
-<td><code>--headers-env NAME</code></td>
-<td>Name of an environment variable containing relay headers JSON.</td>
-</tr>
-<tr>
-<td><code>--header 'Name: Value'</code></td>
-<td>Repeatable explicit header. Keep credentials out of command history.</td>
-</tr>
-<tr>
-<td><code>--label LABEL</code></td>
-<td>Job label.</td>
-</tr>
-<tr>
-<td><code>--queue-timeout HH:MM:SS</code></td>
-<td>Bound queue/claim wait, including the hosted Revit lease.</td>
-</tr>
-<tr>
-<td><code>--execution-timeout HH:MM:SS</code></td>
-<td>Bound execution after lease acquisition.</td>
-</tr>
-<tr>
-<td><code>--isolation MODE</code></td>
-<td>Hosted isolation mode. Invalid for Pure-only requests.</td>
-</tr>
-<tr>
-<td><code>--result-json PATH</code></td>
-<td>Write daemon terminal evidence. Local-only Pure runs remove this path and use TRX counts.</td>
-</tr>
-<tr>
-<td><code>--include PATH</code></td>
-<td>Repeatable extra file/directory to stage.</td>
-</tr>
-</tbody>
-</table>
-<p>The wrapper forwards queue and execution timeouts independently. It supplies no
-single <code>--timeout</code> option or local default for either value. Hosting behavior
-belongs to the daemon. Execution is subject to the worker's lifecycle policy.</p>
-<p>Compile-only rejects daemon execution options, includes, and result reports.
-<code>--no-build</code> cannot combine with compile-only. DA-only execution rejects daemon
-options, and <code>--result-json</code> is invalid with DA. A DA-only year selection accepts
-only 2026. A combined request must include 2026.</p>
-<p>Environment controls include:</p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Default/use</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DBT_PURE_CONCURRENCY</code></td>
-<td><code>2</code> concurrent daemon Pure submissions.</td>
-</tr>
-<tr>
-<td><code>DBT_MSBUILD_MAX_CPU_COUNT</code></td>
-<td><code>2</code> graph build workers.</td>
-</tr>
-<tr>
-<td><code>DBT_BUILD_SERVERS</code></td>
-<td><code>1</code> for wrapper-owned scoped servers. <code>0</code> disables them.</td>
-</tr>
-<tr>
-<td><code>DBTOOLS_DAEMON_RELAY_URL</code></td>
-<td>Configured relay endpoint.</td>
-</tr>
-<tr>
-<td><code>DBTOOLS_DAEMON_MACHINE_ID</code></td>
-<td>Hosted machine pin when supplied.</td>
-</tr>
-<tr>
-<td><code>DBTOOLS_DAEMON_REVIT_YEARS</code></td>
-<td>Local years when argv supplies none.</td>
-</tr>
-<tr>
-<td><code>DBTOOLS_DAEMON_CLI</code></td>
-<td>CLI executable override. Default <code>dbtools-daemon-cli</code>.</td>
-</tr>
-</tbody>
-</table>
-<p>The wrapper does not persist authentication tokens. Relay authentication
-belongs to daemon configuration.</p>
-<h3 id="distribution-acceptance">Distribution acceptance</h3>
-<p>DIST runs the staged Windows distribution acceptance tests through the daemon.</p>
-<p>Run one staged acceptance test per Revit year. Each test process loads one
-stable assembly graph, opens and closes every manifest window from that year's
-candidate, and requires the generation to retire. It also validates the complete
-archive and runs the staged Sandbox checks for that year.</p>
-<p>Build the archive with <code>PackageSandboxValidationInput</code>. Pass the printed archive
-path to both commands:</p>
-<pre><code class="lang-bash">archive=.artifacts/.staging/&lt;build-id&gt;/native-validation-input/validate-dist-&lt;sha256&gt;.zip
-./test.sh test --tool DIST --scope pure \
-  --filter FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidateFor2026 \
-  --result-json .artifacts/test-results/sandbox-acceptance-2026.json \
-  --execution-timeout 00:30:00 --include &quot;$archive&quot;
-./test.sh test --tool DIST --scope pure \
-  --filter FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidateFor2027 \
-  --result-json .artifacts/test-results/sandbox-acceptance-2027.json \
-  --execution-timeout 00:30:00 --include &quot;$archive&quot;
-</code></pre>
-<p>DIST selects one year-specific filter per request, uses automatic machine
-selection, and requires <code>--result-json</code> plus exactly one
-<code>validate-dist-&lt;64 lowercase hex digits&gt;.zip</code> include. It rejects other filters,
-explicit machine pins, and arbitrary include files. Its compile-only selection
-builds the test graph without an archive or acceptance run.</p>
-<h2 id="discovery-and-examples">Discovery and examples</h2>
-<p>These commands inspect selections without submitting tests:</p>
-<pre><code class="lang-bash">./test.sh --help
-./test.sh list --tool GM --scope pure --fixture DuplicateDetectionEngineTests
-./test.sh list --tool APP,CORE --scope local --projects
-./test.sh list --tool GM,SGT --scope pure --summary
-./test.sh validate-request --tool GM --scope pure --fixture DuplicateDetectionEngineTests
-</code></pre>
-<p>Local <code>validate-request</code> checks CLI availability, a selected year, selector
-translation, and model metadata. It does not require or validate a relay URL,
-connect to the relay, or submit a job:</p>
-<pre><code class="lang-bash">./test.sh validate-request --tool GM --scope local -y 2026 \
-  --queue-timeout 00:05:00 --execution-timeout 00:30:00
-</code></pre>
-<p>Run tests with:</p>
-<pre><code class="lang-bash">./test.sh test --tool GM --scope pure --fixture DuplicateDetectionEngineTests
-./test.sh test --tool GM,RecordSet --scope pure
-./test.sh test --tool APP --scope local -y 2026
-./test.sh test --tool GM --scope local --years 2026,2027
-</code></pre>
-<p>Do not use <code>--scope all</code> as a routine catch-all: it includes the credentialed
-APS scope and requests each selected owner's corresponding projects.
-Use explicit scopes and the smallest relevant fixture while iterating.</p>
-<p>BUILD selects two Linux-native contract projects and Sandbox's Windows Pure
-project. To run only the Linux-native projects:</p>
-<pre><code class="lang-bash">./test.sh test --tool BUILD --scope pure \
-  --project testing/dbtools.Build.Tests/dbtools.Build.Tests.csproj,testing/dbtools.Distribution.Tests/dbtools.Distribution.Tests.csproj
-</code></pre>
-<p>On Windows, Linux-native BUILD projects and <code>*.Portable.Pure.Tests</code> are skipped
-before compilation with a notice. Explicitly selecting only native projects
-fails. A changed-owner request with no runnable Windows projects and no explicit
-project selection skips with a notice. DIST remains daemon-routed on every OS.</p>
-<h3 id="reuse-compiled-tests">Reuse compiled tests</h3>
-<p>Compile the selection, then execute its prepared artifacts:</p>
-<pre><code class="lang-bash">./test.sh test --tool GM --scope local -y 2026 --compile-only
-./test.sh test --tool GM --scope local -y 2026 --no-build
-</code></pre>
-<p><code>--no-build</code> requires the same selected projects, source content, and output
-bytes. Run normal <code>test</code> again when the record is missing or stale. <code>rerun</code>
-replays failures from a previous daemon request's submitted bytes:</p>
-<pre><code class="lang-bash">./test.sh rerun --request REQUEST_ID
-</code></pre>
-<p>Prepared records are stored under
-<code>.artifacts/tests/build-record-&lt;lane&gt;-&lt;year&gt;-&lt;selection&gt;.json</code>.
-Use <code>rerun</code> to reproduce a submitted failure. Use normal <code>test</code> to test edited
-source. See <a href="../architecture/test-pipeline.html#inputs-and-receipts">Test Pipeline</a>
-for prepared records and frozen inputs.</p>
+<p>The tooling tests need Python 3, Git, Bash and <code>flock</code>. The component URI check
+rejects interpolated component resource URIs outside the versioned
+<code>ResourceUri</code> builder. <code>BuildAll</code> checks compiled resource identities and
+manifest type references. Run <code>dotnet build build/Build.proj -t:ValidateManifestTypes</code>
+to build the product and check manifest type references from edited source.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
-<p>Use .NET SDK 10.0.401 or a newer patch in the 10.0.4xx feature band on Linux
-or native Windows. For daemon runs, set <code>DBTOOLS_DAEMON_RELAY_URL</code> to your relay
-URL. In Bash use <code>export DBTOOLS_DAEMON_RELAY_URL=https://relay.example.com</code>.
-In PowerShell use
+<p>Set <code>DBTOOLS_DAEMON_RELAY_URL</code> to your relay URL. In Bash use
+<code>export DBTOOLS_DAEMON_RELAY_URL=https://relay.example.com</code>. In PowerShell use
 <code>$env:DBTOOLS_DAEMON_RELAY_URL = 'https://relay.example.com'</code>. The adapter reads
 relay credentials from the installed daemon.</p>
 <h3 id="windows-pure">Windows Pure</h3>
-<pre><code class="lang-bash">dotnet build testing/Daemon/Pure/GM.Pure.Entry.csproj
-dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --no-build --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
+<pre><code class="lang-bash">dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
 </code></pre>
-<p>Pure Entry projects submit one Windows VSTest job with no Revit year. To include
-projects marked <code>DBT_OptInTests</code>, such as the RecordSet AutoCAD tests, pass
-<code>-p:DBT_IncludeOptInTests=true</code> to both the build and the test commands. Run the
-AutoCAD tests on a worker with AutoCAD Core Console installed.</p>
+<p>Each Pure Entry submits one test project to Windows VSTest with no Revit year.
+Run the Core and SGT portable projects directly as shown under <a href="#portable-tests">Portable tests</a>.
+Use the separate AutoCAD Entry for RecordSet tests that require AutoCAD Core
+Console on the worker.</p>
+<pre><code class="lang-bash">dotnet test testing/Daemon/Pure/RecordSet.Cad.Pure.Entry.csproj
+</code></pre>
 <h3 id="revit-hosted">Revit-hosted</h3>
-<pre><code class="lang-bash">dotnet build testing/Daemon/Hosted/VTC.Hosted.Entry.csproj
-dotnet test testing/Daemon/Hosted/VTC.Hosted.Entry.csproj --no-build --filter &quot;FullyQualifiedName~CategoryTabClassifierTests&quot;
+<pre><code class="lang-bash">dotnet test testing/Daemon/Hosted/VTC.Hosted.Entry.csproj --filter &quot;FullyQualifiedName~CategoryTabClassifierTests&quot;
 </code></pre>
 <p>Hosted Entry projects build both years and submit one job per selected year.
-The default is <code>2026,2027</code>. To run one year, use <code>export DBTOOLS_DAEMON_REVIT_YEARS=2026</code>
-in Bash or <code>$env:DBTOOLS_DAEMON_REVIT_YEARS = '2026'</code> in PowerShell before
-<code>dotnet test</code>. Use <code>2027</code> for Revit 2027.</p>
-<h3 id="linux-portable-pure">Linux-portable Pure</h3>
-<pre><code class="lang-bash">dotnet build src/dbtools.Core/Tests/dbtools.Core.Portable.Pure.Tests.csproj
-dotnet test src/dbtools.Core/Tests/dbtools.Core.Portable.Pure.Tests.csproj --no-build
+The default is <code>2026,2027</code>. To run one year, set
+<code>DBTOOLS_DAEMON_REVIT_YEARS</code> to <code>2026</code> or <code>2027</code> before <code>dotnet test</code>.
+In Bash use <code>export DBTOOLS_DAEMON_REVIT_YEARS=2026</code>. In PowerShell use
+<code>$env:DBTOOLS_DAEMON_REVIT_YEARS = '2026'</code>.</p>
+<p>App, Core and GM each have a <code>&lt;Tool&gt;.HostedTurns.Hosted.Entry.csproj</code>
+for fixtures that need native Revit turns. Run it separately from the tool's
+<code>&lt;Tool&gt;.Hosted.Entry.csproj</code>.</p>
+<pre><code class="lang-bash">dotnet test testing/Daemon/Hosted/Core.HostedTurns.Hosted.Entry.csproj
 </code></pre>
-<p>Run the SGT portable project, <code>testing/dbtools.Build.Tests</code> and
-<code>testing/dbtools.Distribution.Tests</code> directly in the same way.
-The host runs these tests locally without a relay or Revit.</p>
+<h3 id="distribution-acceptance">Distribution acceptance</h3>
+<p>Build the content-addressed input archive from a clean checkout.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj -t:PackageSandboxValidationInput
+</code></pre>
+<p>Set <code>ValidationArchive</code> to the path printed by the build. Run a separate
+command for each year, using the exact test name as the filter.</p>
+<pre><code class="lang-text">dotnet test testing/Daemon/Pure/Distribution.Pure.Entry.csproj -p:ValidationArchive=&lt;archive&gt; --filter &quot;FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidateFor2026&quot;
+dotnet test testing/Daemon/Pure/Distribution.Pure.Entry.csproj -p:ValidationArchive=&lt;archive&gt; --filter &quot;FullyQualifiedName=dbtools.Distribution.Windows.Tests.WindowsAcceptanceTests.ValidatesTheStagedCandidateFor2027&quot;
+</code></pre>
+<p>Each request includes the archive and runs one Windows VSTest process. The
+test validates the archive, opens and closes the year's manifest windows,
+checks that the candidate generation retires, and runs the staged Sandbox.</p>
 <h3 id="selection-and-results">Selection and results</h3>
-<p>Use <code>--list-tests</code> to discover tests without submitting a job. Use <code>--filter</code>
-with <code>FullyQualifiedName</code>, <code>DisplayName</code>, or <code>TestCategory</code>. For example,
-<code>FullyQualifiedName~FixtureName</code> selects names containing <code>FixtureName</code>.
-Omit the filter to run the full selection. A filter that matches zero tests
-fails the command. Use <code>--no-build</code> after building the current source with the
-same configuration and build properties. Run <code>dotnet test</code> without that option
-to build and test in one command.</p>
-<p>The adapter prints <code>dbtools-daemon:</code> followed by the refusal reason and
-returns a failing VSTest result. Address the reported cause, then rerun the
-same <code>dotnet test</code> command to submit a new request. Terminal
-job failures appear in VSTest with <code>DaemonStatus</code> and <code>DaemonFailureCode</code> traits
-when available.</p>
-<p><a href="../architecture/test-pipeline.html#daemon-adapter-entry-projects">Test Pipeline</a>
-describes source selection, the package pin, and output validation.</p>
+<p>Use <code>--list-tests</code> to discover tests. Use <code>--filter</code> with
+<code>FullyQualifiedName</code>, <code>DisplayName</code>, or <code>TestCategory</code>. Omit the filter to
+run the full project. Use <code>dotnet build</code> on the Entry project to compile
+without submitting a job. Use <code>--no-build</code> after building the current source
+with the same configuration and properties.</p>
+<p><code>TreatNoTestsAsError</code> fails the run when discovery or execution reports zero
+tests. A run passes when every selected test is reported as skipped.</p>
+<p>The adapter reports failures to VSTest. To find the daemon jobs for a run,
+set <code>DBTOOLS_DAEMON_LABEL</code> to a unique value before running <code>dotnet test</code>,
+or set <code>&lt;Label&gt;</code> under <code>&lt;dbtools-daemon&gt;</code> in the run settings. Every job
+carries the label. List the jobs with <code>dbtools-daemon-cli jobs --json</code> and
+find those with that label.</p>
+<h2 id="portable-tests">Portable tests</h2>
+<pre><code class="lang-bash">dotnet test src/dbtools.Core/Tests/dbtools.Core.Portable.Pure.Tests.csproj
+dotnet test src/Tools/Structural/SGT/Tests/dbtools.SGT.Portable.Pure.Tests.csproj
+dotnet test testing/dbtools.Build.Tests/dbtools.Build.Tests.csproj --filter &quot;TestCategory!=ProductArtifacts&quot;
+</code></pre>
+<p>Run <code>testing/dbtools.Distribution.Tests/dbtools.Distribution.Tests.csproj</code>
+directly in the same way. Product artifact tests require a clean checkout
+with current Release artifacts. See <a href="../architecture/test-pipeline.html#artifact-tests">Artifact tests</a>.</p>
 <h2 id="test-project-setup">Test project setup</h2>
 <p>Create test projects beneath the production owner's <code>Tests/</code> directory. Follow
 <a href="../architecture/test-pipeline.html#test-projects">Test Pipeline</a> for project
@@ -995,16 +518,17 @@ state follows the latest individual warning update.</li>
 <li>A startup validation exception is logged without activating a feature warning.</li>
 </ul>
 <h2 id="aps-design-automation-sentinel">APS Design Automation Sentinel</h2>
-<p><code>DA-SENTINEL --scope pure</code> runs the network-free client, billing parser, ledger and record tests on Linux:</p>
-<pre><code class="lang-bash">./test.sh test --tool DA-SENTINEL --scope pure
+<p>The Pure project runs the network-free client, billing parser, ledger and record tests.</p>
+<pre><code class="lang-bash">dotnet test testing/dbtools.DesignAutomation.Sentinel.Pure.Tests/dbtools.DesignAutomation.Sentinel.Pure.Tests.csproj
 </code></pre>
 <p><code>LightweightSentinel_ExecutesRealDesignAutomationWorkItem</code> is the single live test.
 It loads the Sentinel bundle in the Revit 2026 engine without a model.
 One command writes JSON with the Sentinel identity, Revit version and completion time.
 The test checks the output and engine report.</p>
-<p>Run live tests only through <code>testing/run-design-automation.sh</code>.
-Direct <code>./test.sh test --scope da</code> requests fail before build.
-The runner checks the fixed ledger before build and before it reads the credential file.
+<p>Install the .NET 8 runtime on the runner's host for the live Sentinel project.
+The .NET 10 SDK builds the project. Run the live test through
+<code>testing/run-design-automation.sh</code> so the runner can validate the ledger,
+load the APS credentials and record the result.
 It writes every attempt to <code>.artifacts/test-results/da-&lt;UTC&gt;-&lt;id&gt;/run.json</code> and publishes it to the daemon.</p>
 <h3 id="billing-and-limits">Billing and limits</h3>
 <p><a href="https://aps.autodesk.com/blog/estimate-design-automation-costs">Autodesk's cost calculation</a>
@@ -1152,13 +676,9 @@ A publication failure returns a nonzero exit code and keeps the local record.</p
 <p>APS errors and reports pass through credential redaction before logs and TRX output.
 The test creates unique appbundle and activity aliases, then prunes old versions after each run.</p>
 <h2 id="results-and-troubleshooting">Results and troubleshooting</h2>
-<p>Read executed, passed, failed, and skipped counts in the runtime results.
-Use the request ID to locate a daemon run.
-Local Pure runs use TRX counters and preserve a failing TRX under
-<code>.artifacts/test-results/&lt;run&gt;/&lt;project&gt;/result.trx</code>. Daemon runs print the
-underlying job output and collect terminal reports. <code>--result-json</code> is daemon
-evidence, not a local Pure result file. <code>test</code> and <code>submit</code> delete entries of
-<code>.artifacts/test-results/</code> older than 14 days.</p>
+<p>VSTest reports executed, passed, failed and skipped counts. Use
+<code>--logger trx</code> to write a TRX file and <code>--results-directory</code> to choose its
+location. Find daemon jobs by their <a href="#selection-and-results">run label</a>.</p>
 <table>
 <thead>
 <tr>
@@ -1168,39 +688,34 @@ evidence, not a local Pure result file. <code>test</code> and <code>submit</code
 </thead>
 <tbody>
 <tr>
-<td>Missing model/params</td>
-<td>Check the project-declared model closure and daemon-staged paths. Do not search alternate models.</td>
+<td>Missing model or parameters</td>
+<td>Check the project-declared model closure and the daemon-staged paths.</td>
 </tr>
 <tr>
-<td>Stale/missing build record</td>
-<td>Run normal <code>test</code> for the selected current source. <code>--no-build</code> intentionally refuses stale bytes.</td>
+<td>Stale or missing test output</td>
+<td>Run <code>dotnet test</code> without <code>--no-build</code> to build and test the current source.</td>
 </tr>
 <tr>
-<td>Relay/host initialization</td>
-<td>Check CLI/relay configuration. Compilation alone is not a test result.</td>
+<td>Relay or host initialization</td>
+<td>Check the relay URL and the daemon's worker configuration.</td>
 </tr>
 <tr>
-<td>Windows Desktop runtime unavailable locally</td>
-<td>The wrapper selects the daemon. Check its CLI and relay configuration.</td>
-</tr>
-<tr>
-<td>Hidden-desktop refusal</td>
-<td>Inspect the daemon report and request ID for <code>visible_desktop_violation</code> or <code>private_desktop_unavailable</code>.</td>
+<td>Hidden desktop refusal</td>
+<td>Find <code>visible_desktop_violation</code> or <code>private_desktop_unavailable</code> in the daemon result.</td>
 </tr>
 <tr>
 <td>Batch-only failure</td>
-<td>Isolate shared state in setup/teardown and inspect cleanup errors.</td>
+<td>Isolate shared state in setup and teardown and inspect cleanup errors.</td>
 </tr>
 <tr>
-<td>BUILD artifact prerequisite</td>
-<td>Build the required product/test years explicitly. Artifact tests do not create prerequisites.</td>
+<td>Missing product artifact</td>
+<td>Build the Release distribution from a clean checkout and compile the test graph.</td>
 </tr>
 </tbody>
 </table>
 <p>BUILD fixtures in the <code>ProductArtifacts</code> category require a source-current
-<code>./build.sh BuildAll</code> and compiled hosted test outputs. Filters do not create
-these prerequisites. See the <a href="../architecture/test-pipeline.html">test pipeline</a>
-for the complete artifact selection and its clean-source requirement.
+<code>dotnet build build/Build.proj</code> and compiled hosted test outputs. See
+<a href="../architecture/test-pipeline.html#artifact-tests">Artifact tests</a>.
 <code>DistributionContractTests</code> inspect real output references and reject bundled
 Revit host DLLs. Revit supplies those DLLs at runtime.</p>
 <p><code>DevModeCollectibleUnloadTests</code> (in <code>dbtools.Distribution.Tests</code>) checks on

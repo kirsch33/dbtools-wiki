@@ -100,17 +100,11 @@ runtime services, <a href="settings-packs.html">Settings Packs</a> for configura
 <p>Run commands from the repository root. Desktop builds support Revit 2026 (2026.5 or later) and Revit 2027. Both use <code>net10.0-windows</code>. The selected year chooses API
 references and output directories. APS Design Automation uses a separate Revit
 2026/.NET 8 contract.</p>
-<p>Check the build entrypoint before adding a tool:</p>
-<pre><code class="lang-bash">./build.sh --help
-./build.sh BuildApp -y 2026
+<p>Build the product for the target year before adding a tool. The same command
+runs on Linux, native Windows and WSL 2.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildApp -p:RevitYear=2026
 </code></pre>
-<p>On native Windows, use the PowerShell entrypoint:</p>
-<pre><code class="lang-powershell">pwsh -NoProfile -File build.ps1 BuildApp -y 2026
-</code></pre>
-<p><code>build.sh</code> supports Linux and WSL. It refuses native Windows shells. When no
-compatible SDK is installed, the wrappers acquire the minimum SDK version in
-<code>global.json</code>.
-<a href="testing-tools.html#build-and-validation-commands">Build and validation commands</a>
+<p><a href="testing-tools.html#build-and-validation-commands">Build and validation commands</a>
 explains the targets, defaults, logs, and source gates.</p>
 <h2 id="choose-the-owner-and-names">1. Choose the owner and names</h2>
 <p>Place a tool under <code>src/Tools/&lt;Category&gt;/&lt;Tool&gt;/</code>. Categories such as <code>Common</code>,
@@ -501,13 +495,15 @@ support. A DA project claims coverage only through real APS WorkItem tests.
 Optional <code>*.Portable.Pure.Tests</code> projects exercise portable production targets
 on Linux. Keep the execution projects separate.</p>
 <p>Use focused commands during development:</p>
-<pre><code class="lang-bash">./test.sh list --tool GM --scope pure --fixture DuplicateDetectionEngineTests
-./test.sh test --tool GM --scope pure --fixture DuplicateDetectionEngineTests
-./build.sh BuildSelectedLocalTests --TestProjects dbtools.GM.Local.Tests -y 2026
+<pre><code class="lang-bash">dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --list-tests --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
+dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
+dotnet build build/Build.proj -t:BuildSelectedLocalTests -p:RevitYear=2026 -p:TestProjects=dbtools.GM.Local.Tests
 </code></pre>
-<p>Replace <code>GM</code> with the new tool's directory key after its test projects exist.
-See <a href="testing-tools.html#execution-hosts">Testing Tools</a> for execution hosts and routing.</p>
-<p>Run the new tool's Pure fixtures through <code>test.sh</code>. Use Revit-hosted tests for
+<p>Add the tool's Entry projects under <code>testing/Daemon/Pure/</code> and
+<code>testing/Daemon/Hosted/</code> for the lanes the tool supports. Use the tool key in
+the project names and import <code>../Entry.targets</code>.
+See <a href="testing-tools.html#daemon-adapter-entry-projects">Daemon adapter entry projects</a>.</p>
+<p>Run the new tool's Windows Pure fixtures through its Pure Entry project. Use Revit-hosted tests for
 ribbon composition and commands that need the Revit API. Use Windows Pure
 fixtures for WPF bindings, themes, and window cleanup. See
 <a href="testing-tools.html">Testing Tools</a> for selection and execution commands.</p>

@@ -93,114 +93,144 @@
 <p>build/Build.proj - build the product and its test assemblies</p>
 <h2 id="synopsis">SYNOPSIS</h2>
 <pre><code class="lang-text">dotnet build build/Build.proj [-t:TARGET] [-p:NAME=VALUE]...
-./build.sh [TARGET] [OPTION]...
-pwsh -NoProfile -File build.ps1 [TARGET] [OPTION]...
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
 <p>Install the .NET SDK 10.0.401 or a newer 10.0 patch in the 10.0.4xx feature
-band. Run <code>dotnet build build/Build.proj</code> from the repository root on Linux,
-WSL 2 or native Windows. The default <code>BuildAll</code> target validates and publishes
-the complete Release distribution from a clean Git checkout. With
-<code>-p:RevitYear=2026</code> or <code>-p:RevitYear=2027</code>, <code>BuildAll</code> runs <code>BuildApp</code> for that
-year and skips distribution validation and publication.</p>
+band. Run the build from the repository root on Linux, native Windows or
+WSL 2. The default <code>BuildAll</code> target builds, validates and publishes the
+complete Release distribution from a clean Git checkout.</p>
+<p>Set <code>-p:RevitYear=2026</code> or <code>-p:RevitYear=2027</code> to stage the product for one
+year. In this mode <code>BuildAll</code> runs <code>BuildApp</code> after <code>Preflight</code>. Leave
+<code>RevitYear</code> unset for distribution validation and publication.</p>
 <p>Content versions include the .NET SDK version. Builds of the same commit with
 different SDK patches have different content versions.</p>
-<p><code>build.sh</code> and <code>build.ps1</code> pass targets and options to <code>build/Build.proj</code>.
-Both map the <code>Restore</code> target to <code>_DBT_Restore</code>. MSBuild reserves <code>Restore</code>
-for package restore.</p>
 <h2 id="preflight">PREFLIGHT</h2>
 <pre><code class="lang-text">dotnet build build/Build.proj -t:Preflight
 </code></pre>
-<p><code>Preflight</code> reports Git LFS, model file hydration, <code>python3</code> at version 3.10 or newer,
-Inno Setup on Windows, the dbtools-daemon CLI and relay settings, and the
-DocFX local tool. Each missing tool gets an install command or download URL.
-Preflight reports <code>could not check</code> when a probe cannot finish.
-A Git LFS pointer in <code>testing/RevitTestModels/</code> gets the commands <code>git lfs install</code>
-and <code>git lfs pull</code>.</p>
-<p><code>BuildAll</code> runs the informational report before product restore. The CANON
-gate, <code>build-docs.sh</code>, and <code>compile-installer.ps1</code> enforce their own tool
-requirements. <code>BuildInstaller</code> requires Inno Setup 6.7.1 or later in the 6.x
-series.</p>
+<p><code>Preflight</code> reports Git LFS, model file hydration, Python 3.10 or later as
+<code>python3</code>, Inno Setup on Windows, the dbtools-daemon CLI and relay settings,
+and the DocFX local tool. The report includes install instructions for missing
+tools. It prints <code>could not check</code> when a probe cannot finish. A Git LFS
+pointer in <code>testing/RevitTestModels/</code> gets the commands <code>git lfs install</code> and
+<code>git lfs pull</code>.</p>
+<p><code>BuildAll</code> runs the report before product restore. The CANON gate,
+<code>build-docs.sh</code> and <code>compile-installer.ps1</code> enforce their tool requirements.
+<code>BuildInstaller</code> requires Inno Setup 6.7.1 or later in the 6.x series.</p>
 <h2 id="options">OPTIONS</h2>
-<p>Both wrappers print the full list of targets, options and defaults from
-<code>build/Usage.txt</code>.</p>
-<pre><code class="lang-text">./build.sh --help
-pwsh -NoProfile -File build.ps1 --help
-</code></pre>
 <table>
 <thead>
 <tr>
-<th>Task</th>
-<th>Target and options</th>
+<th>Target</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Publish the distribution</td>
-<td>Use the default <code>BuildAll</code> target.</td>
+<td><code>BuildAll</code></td>
+<td>Build, validate and publish the complete Release distribution.</td>
 </tr>
 <tr>
-<td>Stage a product year</td>
-<td>Use <code>-p:RevitYear=2026</code> or <code>-p:RevitYear=2027</code>. Set <code>-p:Configuration=Debug</code> for Debug output.</td>
+<td><code>BuildApp</code></td>
+<td>Compile and stage the product.</td>
 </tr>
 <tr>
-<td>Compile test projects</td>
-<td>Use <code>-t:BuildTests</code> for Pure, Local and Design Automation. Use <code>-t:BuildSelectedPureTests -p:TestProjects=A%2CB</code> to compile selected Pure projects.</td>
+<td><code>RestoreProduct</code></td>
+<td>Restore the production graph from NuGet.</td>
 </tr>
 <tr>
-<td>Package the Autodesk bundle</td>
-<td>Use <code>-t:BuildBundle</code>. Set <code>-p:CandidateDistributionPath=DIR</code> to use a promoted distribution.</td>
+<td><code>BuildTests</code></td>
+<td>Compile the Pure, Local and Design Automation test graphs.</td>
 </tr>
 <tr>
-<td>Compile the Windows installer</td>
-<td>Use <code>-t:BuildInstaller</code> with an existing bundle.</td>
+<td><code>BuildSelectedPureTests</code>, <code>BuildSelectedLocalTests</code>, <code>BuildSelectedDesignAutomationTests</code></td>
+<td>Compile projects selected by <code>TestProjects</code>.</td>
 </tr>
 <tr>
-<td>Print the build settings</td>
-<td>Use <code>-t:Info</code>.</td>
+<td><code>BuildDevModeScenario</code></td>
+<td>Compile the Revit-hosted Dev Mode scenario.</td>
+</tr>
+<tr>
+<td><code>BuildSandbox</code></td>
+<td>Compile and stage the standalone Sandbox.</td>
+</tr>
+<tr>
+<td><code>AssembleDistributionCandidate</code></td>
+<td>Assemble a Release candidate and its metadata.</td>
+</tr>
+<tr>
+<td><code>PackageSandboxValidationInput</code></td>
+<td>Package the candidate and Sandbox for Windows acceptance.</td>
+</tr>
+<tr>
+<td><code>BuildBundle</code></td>
+<td>Package an Autodesk bundle from a promoted distribution.</td>
+</tr>
+<tr>
+<td><code>BuildInstaller</code></td>
+<td>Use the existing bundle to build the installer on native Windows.</td>
+</tr>
+<tr>
+<td><code>ValidateComponentResourceUris</code></td>
+<td>Check component resource URI interpolation in product source.</td>
+</tr>
+<tr>
+<td><code>ValidateManifestTypes</code></td>
+<td>Build and stage the product, then resolve manifest type references.</td>
+</tr>
+<tr>
+<td><code>Clean</code>, <code>Info</code></td>
+<td>Remove build output or print the effective configuration.</td>
 </tr>
 </tbody>
 </table>
-<p><code>BuildTests</code> and the selected-test targets reject <code>--clean</code> and
-<code>--DryRun true</code>. Use the standalone <code>Clean</code> target to clear build
-output first.</p>
-<p><code>Clean</code> keeps <code>build/</code>, <code>build-tasks/</code>, <code>dist/</code>, <code>acceptance/</code>,
-<code>test-results/</code> and <code>build.json</code> under <code>.artifacts/</code>. It deletes all other
-entries there, including <code>.artifacts/bin/</code>. It also deletes build <code>bin/</code>
-and <code>obj/</code> directories and <code>*_wpftmp.csproj</code> files left in the source tree.
-The source scan skips <code>build/</code>, <code>docs/</code>, <code>vendor/</code>, <code>.git/</code>, nested Git
-checkouts and symbolic links.</p>
-<p><code>--Revit2026Dir</code> and <code>--Revit2027Dir</code> select the installed metadata
-files for validation. The default reference source is the Revit API packages.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Configuration</code></td>
+<td><code>Release</code> (default) or <code>Debug</code>.</td>
+</tr>
+<tr>
+<td><code>RevitYear</code></td>
+<td><code>2026</code> or <code>2027</code>. An unset value selects both years.</td>
+</tr>
+<tr>
+<td><code>SkipClean</code></td>
+<td><code>true</code> (default). Set <code>false</code> to clean during product build.</td>
+</tr>
+<tr>
+<td><code>DryRun</code></td>
+<td><code>false</code> (default). Set <code>true</code> to inspect <code>Clean</code> or <code>BuildBundle</code> without writing their outputs.</td>
+</tr>
+<tr>
+<td><code>TestProjects</code></td>
+<td>Exact project filename stems. Use <code>%2C</code> between stems in a command-line value.</td>
+</tr>
+<tr>
+<td><code>CandidateDistributionPath</code></td>
+<td>Path to the promoted distribution that <code>BuildBundle</code> packages.</td>
+</tr>
+<tr>
+<td><code>Revit2026Dir</code>, <code>Revit2027Dir</code></td>
+<td>Reference metadata directories. Revit API packages supply the defaults.</td>
+</tr>
+</tbody>
+</table>
+<p>The test graph targets require <code>SkipClean=true</code> and <code>DryRun=false</code>. Use
+<code>dotnet build build/Build.proj -t:Clean</code> to clear build output. The target keeps
+<code>build/</code>, <code>build-tasks/</code>, <code>dist/</code>, <code>acceptance/</code>, <code>test-results/</code> and
+<code>build.json</code> under <code>.artifacts/</code>. It also deletes build <code>bin/</code> and <code>obj/</code>
+directories and <code>*_wpftmp.csproj</code> files left in the source tree. The scan
+skips <code>build/</code>, <code>docs/</code>, <code>vendor/</code>, <code>.git/</code>, nested Git checkouts and
+symbolic links.</p>
 <h2 id="exit-status">EXIT STATUS</h2>
-<p>The <code>Exit status</code> paragraph of <code>./build.sh --help</code> (<code>build/Usage.txt</code>) lists the exit codes.</p>
-<h2 id="environment">ENVIRONMENT</h2>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Effect</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DOTNET</code></td>
-<td>Selects the dotnet executable used by a wrapper if it resolves an SDK that satisfies <code>global.json</code>.</td>
-</tr>
-<tr>
-<td><code>DBT_BUILD_SERVERS</code></td>
-<td>In <code>build.sh</code>, <code>1</code> enables compiler and MSBuild servers scoped to the invocation. Set <code>0</code> to disable them. The default is <code>1</code>. PowerShell builds run with servers disabled.</td>
-</tr>
-<tr>
-<td><code>DBT_MSBUILD_MAX_CPU_COUNT</code></td>
-<td>Sets the MSBuild CPU count for child graphs. The default is <code>2</code>.</td>
-</tr>
-<tr>
-<td><code>DBT_BUILD_CONSOLE_LOG</code></td>
-<td>Sets the destination for the copy of the latest detailed log.</td>
-</tr>
-</tbody>
-</table>
+<p><code>dotnet build</code> returns zero when the requested targets succeed. A failed build
+or validation target returns a nonzero exit status and a diagnostic.</p>
 <h2 id="files">FILES</h2>
 <table>
 <thead>
@@ -212,19 +242,11 @@ files for validation. The default reference source is the Revit API packages.</p
 <tbody>
 <tr>
 <td><code>global.json</code></td>
-<td>Sets the minimum SDK patch and its feature band.</td>
-</tr>
-<tr>
-<td><code>~/.dotnet/pinned-sdk-&lt;version&gt;/</code></td>
-<td>Holds the verified SDK that the wrappers download if system installations lack a compatible SDK.</td>
+<td>Minimum .NET SDK patch and feature band.</td>
 </tr>
 <tr>
 <td><code>.artifacts/build/&lt;build-id&gt;/</code></td>
-<td>Holds the child build binlogs. The wrappers also write a detailed <code>console.log</code> here.</td>
-</tr>
-<tr>
-<td><code>.artifacts/build/console.log</code></td>
-<td>Default path for the copy of the latest run log.</td>
+<td>Child build binlogs. A later build removes run folders idle for more than one day.</td>
 </tr>
 <tr>
 <td><code>.artifacts/bundle/dbtools.bundle</code></td>
@@ -232,17 +254,18 @@ files for validation. The default reference source is the Revit API packages.</p
 </tr>
 <tr>
 <td><code>.artifacts/bundle/installer-defines.json</code></td>
-<td>Supplies the bundle path, product files, version and years to the installer compiler.</td>
+<td>Bundle path, product files, version and years for the installer compiler.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="examples">EXAMPLES</h2>
-<p>Use <code>CandidateDistributionPath</code> with <code>DryRun</code> to check a promoted distribution
-and skip writing the bundle.</p>
+<p>Stage a Debug build for Revit 2026.</p>
+<pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildApp -p:RevitYear=2026 -p:Configuration=Debug
+</code></pre>
+<p>Check a promoted distribution for packaging.</p>
 <pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildBundle -p:CandidateDistributionPath=.artifacts/dist/Release -p:DryRun=true
 </code></pre>
-<p>On Windows, use Inno Setup 6.7.1 or later in the 6.x series. Build the bundle,
-then compile <code>.artifacts/release-assets/dbtools-Setup-&lt;version&gt;.exe</code>.</p>
+<p>Build the bundle and installer on native Windows.</p>
 <pre><code class="lang-powershell">dotnet build build/Build.proj -t:BuildBundle
 dotnet build build/Build.proj -t:BuildInstaller
 </code></pre>

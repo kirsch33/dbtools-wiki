@@ -101,18 +101,13 @@ dbtools logs. For a reported failure, read the logs in
 project's runtime inputs. It does not validate or publish a distribution.
 <code>dotnet build build/Build.proj</code> builds, validates and publishes the complete
 distribution for every supported year, including the Dev Mode preflight and
-manifest checks. Use <code>./build.sh BuildTests</code> or a selected-test target to
+manifest checks. Use <code>dotnet build build/Build.proj -t:BuildTests</code> or a selected-test target to
 compile the test projects. See <a href="architecture/build-pipeline.html">Build Pipeline</a>.</p>
-<h3 id="python-3.10-or-later-is-required">Python 3.10 or later is required</h3>
-<pre><code class="lang-text">Python 3.10 or later is required. Install it with: sudo apt-get install python3
-</code></pre>
-<p>On Linux and WSL 2, <code>build/DotNet/sdk.sh</code> uses Python to verify the minimum
-SDK archive when no compatible SDK is available. <code>test.sh</code> uses Python for test
-discovery. On Debian and Ubuntu, install Python with <code>apt-get</code>.</p>
-<pre><code class="lang-bash">sudo apt-get update &amp;&amp; sudo apt-get install -y python3
-bash build/DotNet/sdk.sh
-</code></pre>
-<p>On Windows, <code>build.ps1</code> installs and verifies the SDK without Python.</p>
+<h3 id="missing-sdk-or-python">Missing SDK or Python</h3>
+<p>Install the .NET SDK version in <code>global.json</code> and check it with
+<code>dotnet --version</code>. The merge source checks and wiki build use Python 3.10 or
+later as <code>python3</code>. On Debian and Ubuntu install it with
+<code>sudo apt-get install python3</code>.</p>
 <h3 id="dbtools-daemon.protocol-package-missing-or-mismatched">dbtools-daemon.Protocol package missing or mismatched</h3>
 <p><code>BuildAll</code> requires the <code>dbtools-daemon.Protocol</code> package version pinned in
 <code>build/Distribution/protocol-package-lock.json</code>, with the SHA-256 recorded
@@ -123,7 +118,7 @@ release, or <code>local-candidate</code> for an approved local candidate with it
 <code>candidate-&lt;version&gt;</code> tag, daemon commit, and copies of the bundle README and
 <code>SHA256SUMS</code>. Do not point the build at a daemon checkout or bypass the check.</p>
 <p><code>BuildAll</code> does not need the daemon CLI or an installed Revit. The DIST suite
-and Revit-hosted tests use the daemon CLI.</p>
+and Revit-hosted Entry projects use the daemon VSTest adapter.</p>
 <h3 id="dev-mode-preflight-fails">Dev Mode preflight fails</h3>
 <p><code>ValidateDistributionCandidate</code> runs the Dev Mode policy on each year and prints:</p>
 <pre><code class="lang-text">Revit &lt;year&gt; Dev Mode preflight: &lt;n&gt; failures, &lt;m&gt; warnings; outcome=&lt;x&gt;
@@ -154,7 +149,7 @@ not delete them; remove them by hand when you no longer need them.</p>
 <p>App loads each tool from <code>Tools/&lt;name&gt;.dll</code> beside <code>dbtools.dll</code>. Check that
 the year directory has the complete product tree (see
 <a href="architecture/assembly-loading.html">Assembly Loading Contract</a>) and that the
-manifest's assembly name matches the file. Rebuild with <code>./build.sh BuildAll</code>.</p>
+manifest's assembly name matches the file. Rebuild with <code>dotnet build build/Build.proj</code>.</p>
 <h3 id="assembly-already-loaded-during-dev-mode-reload">&quot;Assembly already loaded&quot; during Dev Mode reload</h3>
 <p>Revit shows a popup about an assembly that is already loaded during or after
 <code>BuildAll</code>, while the dbtools-daemon Dev Mode driver watches the distribution.
@@ -169,7 +164,7 @@ driver's collectible <code>AssemblyLoadContext</code> (for example through an
 </ul>
 <p>Point the driver directly at one year directory, <code>.artifacts/dist/Release/2026</code>
 or <code>.artifacts/dist/Release/2027</code>, never at a copy, and publish with
-<code>./build.sh BuildAll</code>. Promotion keeps each unchanged file as the same file
+<code>dotnet build build/Build.proj</code>. Promotion keeps each unchanged file as the same file
 (a hard link), so Windows Defender does not scan it again. A copied directory is
 a set of new files that Defender scans again, which can add tens of seconds to
 each Dev Mode inspection.</p>
@@ -181,7 +176,7 @@ failure output instead of waiting for a dialog.</p>
 <pre><code class="lang-text">InvalidOperationException: Theme dictionary merge failed at '/dbtools.Presentation;V&lt;PresentationVersion&gt;;component/Resources/Brushes.Light.xaml'.
 </code></pre>
 <p>A resource dictionary did not load: a missing assembly reference, a broken
-<code>StaticResource</code> chain or invalid XAML. Rebuild with <code>./build.sh BuildAll</code> and
+<code>StaticResource</code> chain or invalid XAML. Rebuild with <code>dotnet build build/Build.proj</code> and
 check that the year directory contains <code>dbtools.Presentation.dll</code> from the
 same build.</p>
 <h4 id="theme-resource-freeze-failed">Theme resource freeze failed</h4>

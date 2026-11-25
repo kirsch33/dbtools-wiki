@@ -135,6 +135,7 @@ components, startup and tool loading.</p>
 <p>Install the .NET SDK 10.0.401 or a newer 10.0 patch in the 10.0.4xx feature
 band. Use Desktop Revit 2026 (2026.5 or later) or Revit 2027 to run the add-in.</p>
 <h2 id="building">Building</h2>
+<p>Run these commands from the repository root on Linux, native Windows or WSL 2.</p>
 <pre><code class="lang-bash">dotnet build build/Build.proj
 dotnet build build/Build.proj -p:RevitYear=2026
 dotnet build build/Build.proj -t:Preflight
@@ -144,14 +145,14 @@ from a clean checkout. <code>RevitYear</code> stages the product for one year. <
 lists the tools available on the host and prints install commands for missing
 tools. See <a href="reference/build.html">Build commands</a>.</p>
 <h2 id="testing">Testing</h2>
-<pre><code class="lang-bash">./test.sh test --tool GM --scope pure                        # one tool, without Revit
-./test.sh test --tool APP --scope local -y 2026              # in Revit, through the daemon
-./test.sh test --filter &quot;FullyQualifiedName~SomeTestName&quot;
-./test.sh test --scope all
+<pre><code class="lang-bash">dotnet test testing/dbtools.Build.Tests/dbtools.Build.Tests.csproj
+dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
+dotnet test testing/Daemon/Hosted/App.Hosted.Entry.csproj
+dotnet test testing/Daemon/Hosted/App.HostedTurns.Hosted.Entry.csproj
 </code></pre>
-<p>Revit-hosted tests (the <code>local</code> scope) run on the dbtools-daemon fleet. See
-<a href="architecture/test-pipeline.html">Test Pipeline</a> for the design and
-<a href="developing/testing-tools.html">Testing Tools</a> for the options.</p>
+<p>Portable tests run on the invoking host. The daemon runs Windows Pure and
+Revit-hosted Entry projects. See <a href="developing/testing-tools.html">Testing Tools</a>
+and <a href="architecture/test-pipeline.html">Test Pipeline</a>.</p>
 <h2 id="choosing-checks">Choosing checks</h2>
 <p>The proof matches the change. Before a build, test, acceptance or release
 step, decide whether the change can make that step fail, and run only the
@@ -167,13 +168,11 @@ checksum steps.</li>
 tests, hosted jobs, long native passes and repeated full gates. For example,
 a change to how a window comes to the front cannot change Revit behavior, so
 it needs no Revit-hosted tests.</li>
-<li>While iterating, run focused tests on the changed code;
-<code>./test.sh test --changed-since REV</code> selects the test owners that a change
-can affect. Run the complete suites of what a settled batch of changes can
-affect once for that batch, not after each edit.</li>
+<li>While iterating, use <code>--filter</code> to select the affected fixtures. Run the
+complete affected suites once for the settled change.</li>
 </ul>
-<p>The pre-push hook selects its checks by the pushed paths; see
-<a href="developing/testing-tools.html#source-checks">Source checks</a>.</p>
+<p>The merge check runs the <a href="developing/testing-tools.html#source-checks">source checks</a>
+from a fresh clone. The pre-push hook uploads Git LFS objects.</p>
 <h2 id="writing-documentation">Writing documentation</h2>
 <p>DocFX builds the wiki from <code>wiki/</code>. Run
 <code>bash wiki/build-docs.sh conceptual</code> to build <code>wiki/_site</code>.
