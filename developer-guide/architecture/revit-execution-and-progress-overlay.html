@@ -411,7 +411,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </tr>
 <tr>
 <td><code>Hide()</code></td>
-<td>Hides the overlay and clears transient state.</td>
+<td>Releases input and hides the overlay after its minimum display time.</td>
 </tr>
 <tr>
 <td><code>RunAsync(title, work, cancelable, options, ct)</code></td>
@@ -422,7 +422,7 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 <p><code>ProgressOverlay</code> marshals public calls to its owner's WPF dispatcher. Do not change overlay state directly from a background thread. Pure and view-model tests can use a simple <code>IProgressOverlay</code> double.</p>
 <h3 id="rendering">Rendering</h3>
 <ul>
-<li>The overlay belongs to the owner's visual tree and disables the underlying content while visible.</li>
+<li>The overlay belongs to the owner's visual tree. It disables the underlying content while the operation is active and the overlay is visible. When the operation finishes, the content accepts input and the overlay stops intercepting clicks. The overlay can remain visible for the rest of its minimum display time.</li>
 <li>A status change requests an immediate paint. Progress-only requests are limited to one frame per 85 ms.</li>
 <li>A paint runs one frame on the owner's dispatcher. The filters pass client-area mouse moves and left-button messages inside the visible Cancel button, plus <code>WM_MOUSELEAVE</code> and <code>WM_NCMOUSELEAVE</code>. They drop other mouse, pointer, touch, keyboard, system-key, and system-command window messages addressed to windows on the thread. A nested WPF dispatcher loop receives input normally. After a dropped button or key release, the paint frame sends <code>WM_CANCELMODE</code> to the window that has mouse capture as it exits.</li>
 <li>Posted messages such as <code>WM_TIMER</code>, <code>WM_COMMAND</code>, <code>WM_PAINT</code>, and application messages to Revit's windows pass through during a frame. Dispatcher work at the frame's exit priority or higher can also run. The exit priority is Background for cancelable overlays and Render for non-cancelable overlays. This work can execute inside the current Revit callback without API access (<code>IsActive</code> is false).</li>
@@ -436,14 +436,18 @@ reloadable object, for any callback that Revit can keep after the call.</p>
 </ul>
 <h3 id="cancellation">Cancellation</h3>
 <p>Use <code>RunAsync(...)</code> for long operations. <code>ProgressOverlayRunWorkflow</code> observes <code>CancelRequested</code>, cancels a linked token source and passes the work delegate a token that fires on cancel. After <code>Show(...)</code> resets the cancellation state, the cancel watcher starts before the work begins. SGT analysis (<code>AnalysisSessionWorkflow</code>), SGT placement (<code>PlacementWorkflow</code>) and GM commit review (<code>CommitReviewApplyOverlayWorkflow</code>) use <code>RunAsync</code>.</p>
+<p>In a cancelable overlay, <strong>Cancel requested</strong> replaces <strong>Cancel</strong> while the operation handles the request. The overlay continues to show the current progress and status.</p>
 <p>A workflow that drives its own <code>Scope(...)</code> reads <code>CancelRequested</code> and bridges it to its own cancellation. TDV transfer does this: its reporter returns <code>Overlay.CancelRequested</code> as <code>IsCancellationRequested</code>.</p>
-<pre><code class="lang-csharp">using (Overlay.Scope(&quot;Transferring Drafting Views&quot;, cancelable: true))
+<pre><code class="lang-csharp">using (Overlay.Scope(&quot;Transferring drafting views...&quot;, cancelable: true))
 {
     result = await _session.ApplySelectionAsync(items, reporter, CancellationToken.None);
 }
 </code></pre>
 <h3 id="progress-values">Progress values</h3>
 <p>Tools report <code>IProgress&lt;(string message, double? progress01)&gt;</code>: a status message and an optional fraction in <code>[0,1]</code>.</p>
+<p>The overlay uses an indeterminate bar until it receives a fraction. Once a
+fraction arrives, the overlay fills the bar and shows its percentage. A status
+update without a fraction keeps the last reported value.</p>
 <p><code>MonotonicProgressAdapter</code> (<code>src/dbtools.Core/Progress/Aggregation</code>) wraps such a reporter and forwards non-decreasing values clamped to <code>[0,1]</code>. A <code>null</code> fraction forwards the status and does not change the tracked value. A non-finite fraction throws <code>ArgumentOutOfRangeException</code> and does not change the tracked value. Create one adapter per operation.</p>
 <table>
 <thead>

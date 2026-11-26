@@ -248,38 +248,15 @@ excerpt assumes <code>SettingsPackContext</code> implements
 view, and DTO.</p>
 <p><code>AddDbtSettingsPackDefinition</code> reads the single settings pack and panel from the
 manifest. It resolves the same registered <code>SettingsSection&lt;TOptions&gt;</code> used by
-the tool's settings provider. The pack applies at <code>NextToolRun</code>.</p>
+the tool's settings provider.</p>
 <p>Supply both warning flag delegates when the pack declares one warning. The
 registration maps its ID, title, message, and disabled tool names from the
 manifest. Supply neither delegate when the pack declares no warnings. The
 registration rejects other warning or delegate counts.</p>
 <h3 id="apply-timing">Apply timing</h3>
-<p><code>ISettingsPackDefinition.ApplyBehavior</code> tells the Settings window when saved
-values take effect. <code>AddDbtSettingsPackDefinition</code> always sets <code>NextToolRun</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Value</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Immediate</code></td>
-<td>Saved values apply immediately, such as ribbon visibility flags.</td>
-</tr>
-<tr>
-<td><code>NextToolRun</code></td>
-<td>Commands or view-activation tasks read saved values on their next run.</td>
-</tr>
-<tr>
-<td><code>RequiresRestart</code></td>
-<td>The pack documents a specific restart requirement.</td>
-</tr>
-</tbody>
-</table>
-<p>Do not show a blanket restart warning for all settings. Read settings at the
-operation boundary so saved changes reach the next operation.</p>
+<p>Commands and view-activation tasks read saved tool settings on their next
+run. Read settings at the operation boundary so saved changes reach the
+next operation.</p>
 <h2 id="runtime-and-context-ownership">Runtime and context ownership</h2>
 <p><code>ISettingsPackDefinition</code> supplies catalog metadata and creates one
 <code>ISettingsPackRuntime</code> for an editor row. That runtime binds the exact context,
@@ -481,8 +458,8 @@ Concurrent edits remain pending against that baseline.</p>
 to apply all committed defaults before warning validation and aggregates
 application failures. A pack reset commits only that pack. Both actions ask for
 confirmation and use the normal warning/feedback path. Cancel preserves current
-state and feedback. Choosing Reset Settings in the load-problem alert already
-confirms recovery, so it does not prompt twice. This action uses <code>RecoverAsync</code>
+state and feedback. <strong>Recover Settings</strong> in the load-problem alert confirms recovery.
+<strong>Keep Settings Open</strong> dismisses the alert without recovering. This action uses <code>RecoverAsync</code>
 to recover the per-year override. Normal reset uses <code>CommitAsync</code> and rejects
 corrupt documents. Both operations apply defaults only after persistence succeeds.
 Post-commit application or warning failures report the failed phase and retain the
@@ -545,8 +522,8 @@ failures. After successful publication, the writer logs the preservation path at
 Information. The recovery success banner includes that path. A later state or
 warning failure does not remove the committed defaults or the preservation log entry.</p>
 <h2 id="designer-samples">Designer samples</h2>
-<p>The Settings tool’s <code>App/DesignTime</code> supplies four neutral sample packs in the
-Common and Structural panels. Three use <code>DesignTimeAutoUpdatePackContext</code>, a
+<p>The Settings tool’s <code>App/DesignTime</code> supplies five neutral sample packs in the
+Common, Structural, and Services panels. Four use <code>DesignTimeAutoUpdatePackContext</code>, a
 private subclass of the production auto-update context. The Structural warning
 sample starts with an active warning. The library sample uses an empty
 serialization model and a text preview. The manifest names the public

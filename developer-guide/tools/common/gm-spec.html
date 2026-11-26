@@ -551,7 +551,7 @@ SharedParameterDuplicateReconciler owns stateful duplicate-row mutation and reen
 SharedParameterConflictProjector performs stateless tree/Commit Review projection.</p>
 <p>SharedParametersViewModel.ViewMode (SharedParametersViewMode: ByFamily, ByParameter) selects the view. It is session
 state, starts at ByFamily, and is not persisted. IsByFamily drives the tree, splitter, SP Authoring pane, instance
-navigator, Auto-zoom and Zoom. In ByParameter, SharedParametersView hosts the raw <code>ParameterUse/Views/ParameterUseView.xaml</code>
+navigator, <strong>Auto-Zoom</strong> and <strong>Zoom</strong>. In ByParameter, SharedParametersView hosts the raw <code>ParameterUse/Views/ParameterUseView.xaml</code>
 (ParameterUseViewXaml on GmWindowViewModel, Gm.RawView converter) with the ParameterUses view model
 (ParameterUseViewModel, created by ParameterUseViewModelFactory). SharedParametersViewModel implements
 ISharedParametersNavigation: ShowParameter(definition, repair) switches to ByParameter and selects the definition.
@@ -589,7 +589,7 @@ instance categories that project bindings of the name hold. ParameterUseQueryCac
 project-state version. SharedParameterAuthoringService writes and CommitReviewFinalizer (Keep) clear it, and a clear
 makes ParameterUseViewModel reload its group. By parameter reads project-only reports (ScanFamilies false) for the
 list status and the family table. It runs a full scan, under a cancelable overlay, only for a definition in repair
-mode. Scan families and Scan again run the same command: it removes the selected definition's cached reports
+mode. <strong>Scan Families</strong> and <strong>Scan Again</strong> run the same command: it removes the selected definition's cached reports
 (ParameterUseQueryCache.Remove, no clear event) and scans again; the item keeps its earlier report until the new one
 arrives, and a cancel is not an error. LatestFullScanReports feeds HandFix and WrongGuid to the category trim and the
 GUID warning text.</p>
@@ -671,7 +671,7 @@ The projector shows that error as preview-unavailable text and leaves Revit form
 Formula mode returns zero from the value copier without target resolution or writes.
 The embed applier counts authored formulas separately from value updates:
 one formula has authored=1, updated=0, affected=1. MapFrom retains copied-value counts.
-Both Shared Parameters views refuse to clear Embed In Family for a Formula type. The refusal shows the reason and leaves a valid formula ready for review.
+Both Shared Parameters views refuse to clear Embed in Family for a Formula type. The refusal shows the reason and leaves a valid formula ready for review.
 Commit Review retains a guard for restored invalid intent.</p>
 <p>Detached Usage selection-preview and authoring property notifications use ISafeExecutor.RunWithoutThrowingAsync.
 The shared boundary owns logging/banners without rethrowing into WPF dispatch.
@@ -767,9 +767,15 @@ message text: Revit's <code>BuiltInFailures.GroupFailures</code>
 <h3 id="session-operations-and-shutdown">Session operations and shutdown</h3>
 <p><code>Domain/SessionOperation/ISessionOperationGate</code> exposes serialized work, overlay progress, busy state, and UI cancellation.
 <code>App/Sessions/SessionOperationGate</code> implements admission and cancel-and-drain, and logs busy-step timing through its injected <code>ILogger&lt;SessionOperationGate&gt;</code>.
-The gate has two runners. RunImmediateOverlayAsync shows a cancelable overlay at once, renders it before the work
+RunImmediateOverlayAsync shows a cancelable overlay at once, renders it before the work
 starts, and takes no caller token. RunWithOverlayAsync takes the caller's cancelable flag, overlay options, and token.
 Its cancelable default is false, as for IProgressOverlay.RunAsync, so a cancelable overlay is an explicit argument.
+RunWithoutOverlayAsync serializes automatic workspace loads under the same gate. RunUncancelableWithoutOverlayAsync
+serializes the refresh after Deep Scan cache publication, which takes no cancellation token.
+The footer names the operation, and editing waits for the operation to finish. The workspace rail stays selectable.
+The footer shows <strong>Cancel</strong> only for a RunWithoutOverlayAsync operation (SessionOperationGate.CanCancelWithoutOverlay);
+SessionOperationGate.RequestCancel cancels it directly. With an overlay, RequestCancel forwards the request to the overlay.
+If the user changes workspaces while the gate is busy, GM activates the last selected workspace when the gate becomes idle.
 CancelActiveOperation cancels the active work token whatever the overlay flag.
 MappingUpdateSuppression separately controls nested live-plan suppression.
 Work reports progress only through the SessionOperationProgress that CreateProgressScope returns.
@@ -801,12 +807,15 @@ Pane and scope collaborators remain alive until running work drains.</p>
 <p>Dev Mode retirement is synchronous and requires Idle for immediate collection.
 Commit Review reports Busy, so reload waits for Keep, Roll back, X, or cancellation followed by close.
 Revit shutdown can force <code>ToolWindowRegistry.RetireAll</code>.
-Retirement diagnoses pending work, aborts owned dispatcher operations, cancels without draining,
-and skips close persistence with a log entry. It opens no dispatcher frame.
+Retirement diagnoses pending work, closes mapping-operation admission, and cancels active work before
+disposing the session. It withdraws any pending operation status reset and skips close persistence.
+It neither waits for asynchronous work nor opens a dispatcher frame. A failed Dev Mode scenario closes
+GM normally and awaits its drain before returning the failure to the driver.
 The owning Revit callback rolls back any open apply group through the inline commit gate and
 disposes the review scope before returning, including when dispatcher shutdown interrupts the review.
 An existing normal-close task stops before its next stage when retirement takes over.</p>
 <p><code>DevModeStatus</code> exposes <code>Idle</code> or <code>Busy: &lt;operations&gt;</code> in the root UI Automation ItemStatus.
+The active mapping operation contributes its busy text.
 It includes name lookup, navigation, the Shared Parameters auto-zoom debounce, duplicate rebuilds, Type Mapping,
 Commit Review, cache posts, and pending page selection.
 App, Family Mapping, and Shared Parameters navigation use Mapping-owned NavigationLifetime leases.

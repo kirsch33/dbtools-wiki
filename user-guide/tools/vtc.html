@@ -96,13 +96,14 @@
 <h2 id="usage">Usage</h2>
 <ol>
 <li>Select the <strong>Left</strong> and <strong>Right</strong> templates. The <strong>Swap</strong> button exchanges them.</li>
-<li>Click a value cell in the <strong>Settings Comparison</strong> tree to choose which side wins for that row. The Inspector has <strong>Use Left</strong>, <strong>Use Right</strong> and a clear button for the selected row.</li>
-<li>For a category row, use <strong>Edit Left</strong> or <strong>Edit Right</strong> (in the Inspector, from the row, or from the context menu <strong>Edit Override...</strong>) to stage a local graphic-override edit. A staged edit is marked <strong>Edited</strong>.</li>
-<li>Review the selected rows and eligible staged edits in the <strong>Preview</strong> tab.</li>
+<li>Click a value in the comparison tree to choose a side for that setting. The <strong>Inspector</strong> shows the selected setting's values with <strong>Use Left</strong>, <strong>Use Right</strong> and <strong>Clear Row Selection</strong>.</li>
+<li>For a category row, use <strong>Edit Left</strong> or <strong>Edit Right</strong> (in the Inspector, from the row, or from the context menu <strong>Edit Override...</strong>) to stage a local graphic-override edit. The comparison row marks which side has a staged edit.</li>
+<li>Review the values and source sides in the <strong>Preview</strong> tab. Select a preview row to go to its comparison row when one exists.</li>
 <li>Click <strong>Process</strong> and choose the target.</li>
 </ol>
 <h3 id="comparison-tree">Comparison tree</h3>
 <p>The tree has these top-level groups: Display Settings, Template Parameters, Model Categories, Annotation Categories, Analytical Model Categories, Imported Categories, Filter Overrides, Revit Links and Worksets. Design Options are not listed because Revit exposes document options, not template-specific option visibility.</p>
+<p>The tree shows a short value for each side. Select a row to see the captured fields for both templates in the Inspector. The tree fills differing cells with green on the Left and red on the Right. The Inspector uses those colors on the left edge of each value card. When only one side has a value, that side has a difference marker and the missing value is muted. In the tree, a border and checkmark mark the value selected for processing. <strong>None</strong> means Revit returned no value for a supported setting. <strong>Not applicable</strong> means the view does not support the setting. <strong>Not captured</strong> means the snapshot has neither a value nor an observation for that setting. The Color Fill Schemes count includes every supported category in the snapshot. The Inspector shows the assigned scheme or <strong>None</strong> for each category.</p>
 <table>
 <thead>
 <tr>
@@ -117,27 +118,27 @@
 </tr>
 <tr>
 <td><strong>Filter</strong></td>
-<td>Limits the rows by configuration (see below).</td>
+<td>Limits the rows by configuration or difference.</td>
 </tr>
 <tr>
 <td><strong>Select Left</strong> / <strong>Select Right</strong></td>
 <td>Selects all differing rows shown by the current search and filter, taking the value from that side.</td>
 </tr>
 <tr>
-<td><strong>Wipe</strong></td>
-<td>Clears all selections and conflict state. Filters are kept.</td>
+<td><strong>Clear Selections</strong></td>
+<td>Clears selections, staged override edits and process results. Keeps the current filters.</td>
 </tr>
 <tr>
-<td><strong>Reset</strong></td>
+<td><strong>Reset Filters</strong></td>
 <td>Resets the search, the view filter and the conflict filter.</td>
 </tr>
 <tr>
-<td>Expand/collapse button</td>
+<td><strong>Expand All</strong> / <strong>Collapse All</strong></td>
 <td>Expands or collapses all groups.</td>
 </tr>
 <tr>
-<td><strong>Show:</strong> All, Conflicts, Success</td>
-<td>After <strong>Process</strong>, shows all rows, only rows that failed to apply, or only rows that applied.</td>
+<td><strong>Process Results</strong></td>
+<td>After <strong>Process</strong>, choose <strong>All</strong>, <strong>Conflicts</strong> or <strong>Success</strong> to see all rows, only rows that failed to apply or only rows that applied.</td>
 </tr>
 <tr>
 <td>Context menu</td>
@@ -149,15 +150,17 @@
 <ul>
 <li><strong>Configured</strong> (default): rows configured in either template.</li>
 <li><strong>Configured in Left</strong> and <strong>Configured in Right</strong>: rows configured in that template.</li>
+<li><strong>Different</strong> and <strong>Same</strong>: rows with differing or matching values, respectively.</li>
+<li><strong>All</strong>: all settings in the comparison.</li>
 </ul>
-<p>Rows that are not category, filter-override or template-parameter rows are always shown. <strong>Select Left</strong> and <strong>Select Right</strong> select every differing row that the filter and search show. Under <strong>Configured in Left</strong>, <strong>Select Left</strong> can therefore select a row that both templates hide when only Right overrides its graphics. Processing that row to the right template keeps it hidden and clears those overrides.</p>
+<p>The configured modes always show other kinds of settings. <strong>Select Left</strong> and <strong>Select Right</strong> select every differing row that the filter and search show. Under <strong>Configured in Left</strong>, <strong>Select Left</strong> can select a row that both templates hide when only Right overrides its graphics. Processing that row to the right template keeps it hidden and clears those overrides.</p>
 <h3 id="template-parameters-and-display-settings">Template parameters and display settings</h3>
 <p>Template Parameters show each parameter's inclusion state and, when Revit exposes a writable value, its number, whole number, text or element value. VTC applies a value only when the selected side includes the parameter and the snapshot contains the value. A shared parameter with a captured GUID matches by GUID and data spec. Other parameters with captured identity match by unique name and data spec. Revit ignores the spec version suffix. Older snapshots without parameter identity or value data resolve by unique name and apply only the inclusion state. Element values map by name and kind when project IDs differ. A missing or ambiguous required match is a row conflict.</p>
 <p>Display Settings include category-kind visibility, View Display Model, background, depth cueing, sketchy lines, shadow and sunlight intensity, plan view range, color-fill schemes, point-cloud overrides and coordination-model overrides. View-range levels, color-fill schemes, line styles and graphics patterns are matched by name when project IDs differ. A missing or ambiguous match is a conflict.</p>
 <p>VTC matches a silhouette style by its name, kind and category across projects. Revit checks whether the style is valid for the target view.</p>
 <p>Filter Overrides include each filter's enabled state. Filter Order applies after all filter rows. The target must contain the same filters as the selected order. VTC removes and re-adds them in source order, restores visibility, graphic overrides and enabled state, then checks the order by filter name.</p>
 <h3 id="process">Process</h3>
-<p><strong>Process</strong> applies the selected rows and the eligible staged edits in one batch. A staged edit is eligible when its row has a selected side and that side is the edited side, or when its row is not in the current comparison. An edit on a visible row with no selected side, or with the other side selected, is not applied. The dialog asks <strong>Apply changes to:</strong></p>
+<p><strong>Process</strong> applies the selected rows and the eligible staged edits in one batch. A staged edit is eligible when its row has a selected side and that side is the edited side, or when its row is not in the current comparison. An edit on a visible row with no selected side, or with the other side selected, is not applied. Choose the target under <strong>Apply changes to</strong> and review the values under <strong>Selected changes</strong>.</p>
 <table>
 <thead>
 <tr>
@@ -176,7 +179,7 @@
 </tr>
 <tr>
 <td><strong>Create Merged Template</strong></td>
-<td>Creates a new template named in <strong>Template Name:</strong>. The name is required.</td>
+<td>Creates a new template named in <strong>Merged template name</strong>. The name is required before <strong>Process</strong> can run.</td>
 </tr>
 </tbody>
 </table>
@@ -199,8 +202,8 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>Open Revit Link Settings...</strong></td>
-<td>Opens <strong>Native Revit Link Settings</strong> for one link target. The window always lists all supported settings of that target, even if you opened it from one row. <strong>Apply to Template</strong> writes the selected settings; it is one undo entry.</td>
+<td><strong>Open Revit Link Settings</strong></td>
+<td>Opens <strong>Revit Link Settings</strong> for one link target. The window lists all supported settings of that target, even if you open it from one row. <strong>Apply to Template</strong> writes the selected settings in one undo entry.</td>
 </tr>
 <tr>
 <td><strong>Copy Revit Link Settings To...</strong></td>
@@ -209,19 +212,20 @@
 </tbody>
 </table>
 <p>Loading a saved template from the library remaps <code>Linked View</code> by name and view type. VTC checks for a unique match even when that row's displayed value already matches the target. It remaps <code>Phase</code> and <code>Phase Filter</code> by name. A missing or ambiguous name is a row conflict. A linked-element ID without a saved name is refused because VTC cannot prove that it identifies the same linked element.</p>
-<p>When only one template contains the link row, VTC uses that template. When both do and you have not selected a side, VTC asks which template to use.</p>
+<p>When only one template contains the link row, VTC uses that template. When both do and you have not selected a side, VTC asks which template to use.
+The link actions are available in the Inspector and the tree context menu for a link group or setting.</p>
 <h3 id="library">Library</h3>
 <p>The <strong>Library</strong> tab saves template snapshots to disk and applies them back to a template.</p>
 <ul>
-<li><strong>Save Template</strong> &gt; Left Template, Right Template or Merged Template. An optional name field sets the saved name. When blank, the source template name is used.</li>
-<li><strong>Load</strong> applies the selected saved template to the side chosen in <strong>Load to:</strong>. It first asks for confirmation, because it overwrites the template's settings in Revit.</li>
-<li>A delete button removes the selected saved template, and a refresh button reloads the list.</li>
+<li><strong>Save Template</strong> &gt; Left Template, Right Template or Merged Template. Set <strong>Saved template name (optional)</strong> above the list to choose a name. When blank, the saved name comes from the source templates.</li>
+<li>Select a saved template in the list, choose <strong>Left template</strong> or <strong>Right template</strong>, then select <strong>Load</strong>. The confirmation defaults to <strong>Cancel</strong> because loading overwrites the template's settings in Revit.</li>
+<li><strong>Delete</strong> removes the selected library copy. The refresh button reloads the list.</li>
 </ul>
 <p>VTC stores snapshots under <code>%APPDATA%\dbtools\Cache\VTC\</code> and creates the folder on the first save. Saved names ignore case and surrounding spaces. Saving under an existing name asks <code>Replace saved template 'X'?</code>. A save without confirmation leaves an existing file in place, including a file another Revit session creates at the same time. VTC accepts snapshots without optional values and rejects missing required data or malformed values.</p>
 <p>Library Load applies captured rows that differ from the target. It reports the number of applied settings and names rows with conflicts. An expected conflict leaves the other rows eligible for apply. If VTC cannot rebuild the comparison after applying the settings, one warning gives the apply result and the reason the comparison failed.</p>
 <p>If a save or delete succeeds but the list cannot refresh, VTC shows a warning that names the template. A save or delete that fails shows an error.</p>
 <h2 id="result">Result</h2>
-<p><strong>Process</strong>, <strong>Apply to Template</strong> and <strong>Copy Revit Link Settings To...</strong> each make one undo entry. VTC reports each result in an alert titled <code>View Template Comparer</code>. When <strong>Process</strong> reports conflicts, use <strong>Show: Conflicts</strong> to see those rows. <strong>Show: Success</strong> includes applied rows whose values now match, subject to the current comparison filter.</p>
+<p><strong>Process</strong>, <strong>Apply to Template</strong> and <strong>Copy Revit Link Settings To...</strong> each make one undo entry. VTC reports each result in an alert titled <code>View Template Comparer</code>. Use <strong>Conflicts</strong> under <strong>Process Results</strong> to see rows that failed to apply. <strong>Success</strong> includes applied rows whose values now match, subject to the current comparison filter.</p>
 <h2 id="messages">Messages</h2>
 <table>
 <thead>
@@ -253,7 +257,7 @@
 </tr>
 <tr>
 <td><code>... &lt;n&gt; operations succeeded and &lt;n&gt; conflicts were reported.</code></td>
-<td>Some rows failed to apply. Use <strong>Show:</strong> Conflicts.</td>
+<td>Some rows failed to apply. Use <strong>Conflicts</strong> under <strong>Process Results</strong>.</td>
 </tr>
 <tr>
 <td><code>... No operations succeeded and &lt;n&gt; conflicts were reported.</code></td>
@@ -269,7 +273,7 @@
 </tr>
 <tr>
 <td><code>Pending edits cleared during selection wipe.</code></td>
-<td><strong>Wipe</strong> discarded staged edits.</td>
+<td><strong>Clear Selections</strong> discarded staged edits.</td>
 </tr>
 <tr>
 <td><code>No category override data is available on the &lt;Left/Right&gt; side for this row.</code></td>
