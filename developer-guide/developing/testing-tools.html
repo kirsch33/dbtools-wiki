@@ -121,11 +121,6 @@ under test.</p>
 <td><code>dbtools.DesignAutomation.Engine.DA.Tests.csproj</code></td>
 <td>NUnit in the APS Revit 2027 engine through dbtools-daemon</td>
 </tr>
-<tr>
-<td>Design Automation Sentinel</td>
-<td><code>dbtools.DesignAutomation.Sentinel.DA.Tests.csproj</code></td>
-<td>One budgeted APS WorkItem</td>
-</tr>
 </tbody>
 </table>
 <p>Pure fixtures run without Revit. The daemon uses its hidden desktop. See
@@ -138,9 +133,8 @@ dotnet build build/Build.proj -t:BuildSelectedPureTests -p:TestProjects=dbtools.
 <p><code>BuildTests</code> compiles the Pure, Local and Design Automation graphs.
 <code>BuildSelectedLocalTests</code> and <code>BuildSelectedDesignAutomationTests</code> compile
 the selected tests without launching Revit or submitting a WorkItem.
-Use <code>-p:RevitYear=2027</code> to select the Revit 2027 Local graph. A Design Automation
-project builds for the Revit year of its APS engine: 2027 for
-<code>dbtools.DesignAutomation.Engine.DA.Tests</code> and 2026 for the Sentinel. See
+<code>-p:RevitYear</code> selects the year of the Local graph. The Design Automation graph
+builds <code>dbtools.DesignAutomation.Engine.DA.Tests</code> for Revit 2027 only. See
 <a href="../reference/build.html">Build commands</a> for targets, properties and binlogs.</p>
 <h3 id="source-checks">Source checks</h3>
 <p>The merge check runs these commands from a fresh clone.</p>
@@ -392,8 +386,6 @@ Use <code>[RevitLocal]</code> and <code>[RevitDA]</code> for those execution hos
 can describe properties independent of the host.</p>
 <p>Tests never send OS input or depend on the OS foreground; see
 <a href="../architecture/test-pipeline.html#user-interface-input">User interface input</a>.</p>
-<p>A Design Automation test requires a product entry that works without
-<code>UIApplication</code>, <code>UIDocument</code>, selection, or an interactive session.</p>
 <h3 id="global-mapper-examples">Global Mapper examples</h3>
 <p>GM Pure fixtures use native mapping state, persistence, similarity, usage
 projections, and planning. Construct required <code>ProjectState</code>
@@ -541,170 +533,19 @@ WPF or Windows Forms. It does not run <code>[Apartment]</code>, <code>[RequiresT
 async test, setup or teardown methods. The tests create a project document in
 the engine and need no model input.</p>
 <pre><code class="lang-bash">dotnet build testing/dbtools.DesignAutomation.Engine.DA.Tests/dbtools.DesignAutomation.Engine.DA.Tests.csproj -p:RevitYear=2027
-dbtools-daemon-cli submit --project &lt;relay project&gt; --design-automation &lt;deployment&gt; --year 2027
+dbtools-daemon-cli submit \
+  --assembly .artifacts/bin/dbtools.DesignAutomation.Engine.DA.Tests/debug_2027/dbtools.DesignAutomation.Engine.DA.Tests.dll \
+  --design-automation &quot;&lt;deployment&gt;&quot; --year 2027
 </code></pre>
-<p>The build writes the test assembly and its dependencies to
-<code>.artifacts/bin/dbtools.DesignAutomation.Engine.DA.Tests/debug_2027/</code>. The relay
-project binds the assembly. <code>--model</code> adds <code>.rvt</code> inputs; a test opens a model
-by its staged path relative to the working directory.</p>
-<h2 id="aps-design-automation-sentinel">APS Design Automation Sentinel</h2>
-<p>The Pure project runs the network-free client, billing parser, ledger and record tests.</p>
-<pre><code class="lang-bash">dotnet test testing/dbtools.DesignAutomation.Sentinel.Pure.Tests/dbtools.DesignAutomation.Sentinel.Pure.Tests.csproj
-</code></pre>
-<p><code>LightweightSentinel_ExecutesRealDesignAutomationWorkItem</code> is the single live test.
-It loads the Sentinel bundle in the Revit 2026 engine without a model.
-One command writes JSON with the Sentinel identity, Revit version and completion time.
-The test checks the output and engine report.</p>
-<p>Install the .NET 8 runtime on the runner's host for the live Sentinel project.
-The .NET 10 SDK builds the project. Run the live test through
-<code>testing/run-design-automation.sh</code> so the runner can validate the ledger,
-load the APS credentials and record the result.
-It writes every attempt to <code>.artifacts/design-automation/da-&lt;UTC&gt;-&lt;id&gt;/run.json</code> and publishes it to the daemon.</p>
-<h3 id="billing-and-limits">Billing and limits</h3>
-<p><a href="https://aps.autodesk.com/blog/estimate-design-automation-costs">Autodesk's cost calculation</a>
-counts processing seconds from <code>timeDownloadStarted</code> through <code>timeUploadEnded</code>.
-This interval includes download, instructions and upload.
-The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/workitems-id-GET">WorkItem status reference</a>
-lists <code>timeQueued</code>, <code>timeDownloadStarted</code>, <code>timeInstructionsStarted</code>, <code>timeInstructionsEnded</code>,
-<code>timeUploadEnded</code> and <code>timeFinished</code>. Its completed examples include <code>timeDownloadStarted</code> and <code>timeFinished</code>,
-but omit <code>timeUploadEnded</code>.
-The live test and resolver use <code>timeFinished</code> when <code>timeUploadEnded</code> is absent.
-The live test and resolver require <code>timeDownloadStarted</code> and either end time to compute processing seconds.
-If those timestamps are missing, the live test fails and the resolver keeps the reservation unresolved.
-The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/workitems-POST/">WorkItem reference</a>
-defines <code>limitProcessingTimeSec</code> as the processing cap, including transfers.</p>
-<p><code>testing/design-automation.json</code> sets a 120-second WorkItem cap and a 30-minute monthly budget.
-The runner rejects <code>budget_minutes</code> values above 30.
-The runner does not publish a new DA record when <code>budget_minutes</code> is invalid.
-The public docs do not specify per-WorkItem rounding or a minimum.
-The guard rounds the cap up to a whole minute, then reserves one more minute.
-It reserves three minutes for each WorkItem.
-The model-free test is expected to take under two processing minutes, but this estimate has not been measured.
-Five weekly runs reserve at most 15 minutes.</p>
-<p><code>testing/db-da-service-limit.py</code> reads and updates the APS service limits for the app's Client ID.
-The coordinator runs it once before it installs the credential file.
-The script reads the current limits and sends only the properties the API allows clients to update.
-It keeps each other engine's current <code>limitProcessingTimeSec</code> value.
-If the GET response reports an Inventor limit of 360 seconds, the PUT body is:</p>
-<pre><code class="lang-http">GET /da/us-east/v3/servicelimits/me
-
-PUT /da/us-east/v3/servicelimits/me
-Content-Type: application/json
-
-{&quot;frontendLimits&quot;:{&quot;limitMonthlyProcessingTimeInHours&quot;:1},
- &quot;backendLimits&quot;:{&quot;Revit&quot;:{&quot;limitProcessingTimeSec&quot;:120},
-                  &quot;Inventor&quot;:{&quot;limitProcessingTimeSec&quot;:360}}}
-</code></pre>
-<p>The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/servicelimits-owner-GET">GET reference</a>
-documents the response shape.
-The <a href="https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/servicelimits-owner-PUT">PUT reference</a>
-lists the two updateable fields and returns the applied limits.
-The script reports success only when the PUT response confirms both values.
-Autodesk enforces the 120-second cap for each WorkItem and a one-hour monthly cap across all engines for the app.
-The 30-minute ledger budget is lower than the 60-minute APS monthly cap.
-The test also sends <code>limitProcessingTimeSec: 120</code> on its WorkItem.</p>
-<h3 id="ledger-and-budget-guard">Ledger and budget guard</h3>
-<p>The runner stores the append-only ledger at
-<code>$XDG_STATE_HOME/dbtools/design-automation/ledger.jsonl</code>.
-When <code>XDG_STATE_HOME</code> is unset or not absolute, it uses
-<code>$HOME/.local/state/dbtools/design-automation/ledger.jsonl</code>.
-<code>HOME</code> must be set to an absolute path.
-<code>HOME</code> and <code>XDG_STATE_HOME</code> must not contain a <code>..</code> path segment.
-No runner option or dbtools environment variable changes this path.
-The runner sets the directory and ledger file permissions for the account owner only.</p>
-<p>The first ledger record must initialize prior account usage for the current UTC month.
-Empty, missing and invalid ledgers stop the run before a WorkItem is submitted.
-The error includes the fixed path and the initialization command.
-The coordinator supplies the account's actual prior usage in seconds:</p>
-<pre><code class="lang-bash">testing/run-design-automation.sh --initialize-ledger --prior-used-seconds 900
-</code></pre>
-<p>The initialization record has this format:</p>
-<pre><code class="lang-json">{
-  &quot;schema_version&quot;: 1,
-  &quot;kind&quot;: &quot;initialization&quot;,
-  &quot;run_id&quot;: &quot;initialization:2026-11&quot;,
-  &quot;started_at&quot;: &quot;2026-11-01T00:00:00+00:00&quot;,
-  &quot;finished_at&quot;: &quot;2026-11-18T12:00:00+00:00&quot;,
-  &quot;result&quot;: &quot;initialized&quot;,
-  &quot;tests&quot;: null,
-  &quot;work_items&quot;: [],
-  &quot;billed_seconds&quot;: 0,
-  &quot;billing_is_upper_bound&quot;: true,
-  &quot;budget_minutes&quot;: 30,
-  &quot;worst_case_seconds&quot;: 0,
-  &quot;commit&quot;: &quot;&quot;,
-  &quot;scheduled&quot;: false,
-  &quot;month&quot;: &quot;2026-11&quot;,
-  &quot;month_used_seconds&quot;: 900,
-  &quot;state&quot;: &quot;finished&quot;,
-  &quot;revision&quot;: 1
-}
-</code></pre>
-<p><code>month_used_seconds</code> on this record is the prior account usage.
-At the start of a later month, run the same command with that month's prior account usage.</p>
-<p>The client reserves the rounded timeout plus one minute before its single WorkItem POST.
-The ledger flushes that reservation before submission.
-A lost submit response remains charged.
-The budget check refuses when the reservation would exceed 30 minutes.
-Near either side of a UTC month boundary, it also checks the adjacent month's remaining budget.
-The run counts in the UTC month of the reservation's <code>started_at</code>.
-The relay and Studio derive that month from the first snapshot's <code>started_at</code> and total the runs themselves.
-The 30-minute ledger guard covers WorkItems submitted through this runner.
-Do not submit WorkItems for this app outside the runner.</p>
-<p>A WorkItem that has no terminal status is charged in its submission month and the next month only.
-To resolve one with a known ID, poll the APS status endpoint until it returns a terminal status:</p>
-<pre><code class="lang-bash">curl -fsS -H &quot;Authorization: Bearer $APS_ACCESS_TOKEN&quot; \
-  &quot;https://developer.api.autodesk.com/da/us-east/v3/workitems/&lt;work-item-id&gt;&quot; \
-  &gt; /path/work-item-status.json
-python3 build/Testing/da_run.py resolve --run-id &lt;run-id&gt; \
-  --status-file /path/work-item-status.json --project &lt;project-id&gt;
-</code></pre>
-<p>The resolver verifies the ID and terminal status, writes a higher <code>revision</code>, updates the ledger and publishes the new snapshot.
-The APS token is an app-only token with the <code>code:all</code> scope.
-If the submit response was lost and the record has no WorkItem ID, list the app's WorkItems from the reservation time to find the ID before polling.
-For a finished WorkItem, the local guard uses the minimum and maximum of <code>SubmittedAt</code>, all APS stats times and <code>FinishedAt</code> to find every UTC month the activity spans.
-This local calculation preserves a conservative bound.
-Studio uses the fixed reservation month.</p>
-<h3 id="schedule-and-records">Schedule and records</h3>
-<p>The disabled systemd user unit templates are next to the runner:</p>
-<ul>
-<li><code>testing/dbtools-design-automation.service.in</code></li>
-<li><code>testing/dbtools-design-automation.timer.in</code></li>
-</ul>
-<p>Before installing the service, replace its placeholders: <code>@WORKTREE@</code> (the checkout), <code>@BUILD_ENV@</code> (the host's
-build environment script), <code>@CREDENTIAL_FILE@</code> (the APS credential file) and <code>@PROJECT_ID@</code> (the relay project).</p>
-<p>The timer starts on Mondays at 04:00 UTC and does not catch up missed runs.
-The ledger enforces a six-day interval between WorkItem reservations.
-A build or credential failure without a reservation does not start that interval.</p>
-<p>Each run is one JSON object with these exact fields:</p>
-<pre><code class="lang-text">schema_version, kind, run_id, started_at, finished_at, result, tests, work_items,
-billed_seconds, billing_is_upper_bound, budget_minutes, worst_case_seconds,
-commit, scheduled, month, month_used_seconds, state, revision
-</code></pre>
-<p><code>kind</code> is <code>design-automation</code> for runs.
-<code>month</code> (UTC <code>YYYY-MM</code>) and <code>month_used_seconds</code> (the guard's month total after it reserves the WorkItem) stay in the
-local ledger only. The published record omits them, because the relay derives the month and recomputes the total.
-<code>state</code> is <code>reserved</code> for the durable reservation and <code>finished</code> for the final snapshot.
-The reservation has null <code>result</code>, <code>tests</code> and <code>finished_at</code> fields.
-Its <code>billed_seconds</code> equals the three-minute bound.
-<code>revision</code> starts at 1 and increases for each snapshot with that run ID.
-A reserved snapshot never follows a finished snapshot.</p>
-<p><code>tests</code> has <code>total</code>, <code>passed</code>, <code>failed</code> and <code>skipped</code>.
-<code>work_items</code> is an array with <code>id</code>, <code>status</code>, <code>submitted_at</code>, <code>timeout_seconds</code>, <code>stats</code>,
-<code>processing_seconds</code>, <code>billed_seconds</code> and <code>billing_is_upper_bound</code>.
-<code>stats</code> holds the raw valid APS timestamp strings <code>timeQueued</code>, <code>timeDownloadStarted</code>,
-<code>timeInstructionsStarted</code>, <code>timeInstructionsEnded</code>, <code>timeUploadEnded</code> and <code>timeFinished</code>.
-Timestamps use <code>YYYY-MM-DDTHH:MM:SS[.fraction]Z</code> or <code>YYYY-MM-DDTHH:MM:SS[.fraction]±HH:MM</code>.
-The WorkItem billing bound stays at three minutes unless an observed interval needs a larger bound.</p>
-<p>The coordinator calls:</p>
-<pre><code class="lang-bash">dbtools-daemon-cli external-run record --project &lt;project-id&gt; \
-  --kind design-automation --file &lt;run.json&gt;
-</code></pre>
-<p>The daemon replaces earlier snapshots with the same <code>run_id</code> and calculates its monthly total by <code>month</code>.
-Studio then shows the latest run, run history and monthly usage.
-A publication failure returns a nonzero exit code and keeps the local record.</p>
-<p>APS errors and reports pass through credential redaction before logs and TRX output.
-The test creates unique appbundle and activity aliases, then prunes old versions after each run.</p>
+<p>Register the repository once as a relay project with
+<code>dbtools-daemon-cli project-create --dir &lt;repository root&gt; --name &lt;name&gt;</code>, and
+have the deployment allow that project. The CLI matches the <code>--assembly</code> path to
+the one project whose inventory lists it and uses that project as the source.
+<code>--project</code> instead submits the project's whole inventory, which holds Local and
+Pure assemblies that the Design Automation host rejects.</p>
+<p>The daemon owns the deployment's APS credentials and enforces its spend cap.
+<code>--model</code> adds <code>.rvt</code> inputs. A test opens a model by its staged path relative to
+the working directory.</p>
 <h2 id="results-and-troubleshooting">Results and troubleshooting</h2>
 <p>VSTest reports executed, passed, failed and skipped counts. Use
 <code>--logger trx</code> to write a TRX file and <code>--results-directory</code> to choose its
