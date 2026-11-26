@@ -118,6 +118,11 @@ under test.</p>
 </tr>
 <tr>
 <td>Design Automation</td>
+<td><code>dbtools.DesignAutomation.Engine.DA.Tests.csproj</code></td>
+<td>NUnit in the APS Revit 2027 engine through dbtools-daemon</td>
+</tr>
+<tr>
+<td>Design Automation Sentinel</td>
 <td><code>dbtools.DesignAutomation.Sentinel.DA.Tests.csproj</code></td>
 <td>One budgeted APS WorkItem</td>
 </tr>
@@ -133,9 +138,10 @@ dotnet build build/Build.proj -t:BuildSelectedPureTests -p:TestProjects=dbtools.
 <p><code>BuildTests</code> compiles the Pure, Local and Design Automation graphs.
 <code>BuildSelectedLocalTests</code> and <code>BuildSelectedDesignAutomationTests</code> compile
 the selected tests without launching Revit or submitting a WorkItem.
-Use <code>-p:RevitYear=2027</code> to select the Revit 2027 Local graph. Design Automation
-uses Revit 2026. See <a href="../reference/build.html">Build commands</a> for targets,
-properties and binlogs.</p>
+Use <code>-p:RevitYear=2027</code> to select the Revit 2027 Local graph. A Design Automation
+project builds for the Revit year of its APS engine: 2027 for
+<code>dbtools.DesignAutomation.Engine.DA.Tests</code> and 2026 for the Sentinel. See
+<a href="../reference/build.html">Build commands</a> for targets, properties and binlogs.</p>
 <h3 id="source-checks">Source checks</h3>
 <p>The merge check runs these commands from a fresh clone.</p>
 <pre><code class="lang-bash">python3 -m unittest discover -s .agents/work/tests
@@ -523,6 +529,24 @@ state follows the latest individual warning update.</li>
 <li>A runtime execution exception suppresses the task for its document session.</li>
 <li>A startup validation exception is logged without activating a feature warning.</li>
 </ul>
+<h2 id="aps-design-automation-engine-tests">APS Design Automation engine tests</h2>
+<p><code>testing/dbtools.DesignAutomation.Engine.DA.Tests</code> contains DB-only NUnit tests
+for the Revit 2027 Design Automation engine. The dbtools-daemon Design Automation
+host loads the test assembly in the engine, supplies RevitAPI and NUnit, and
+passes the engine's <code>Application</code> to a test method that declares one
+<code>Application</code> parameter. The project targets <code>net10.0-windows</code>, references
+RevitAPI for compilation only and references no product project. The host
+rejects an assembly that is or references RevitAPIUI, AdWindows, UIFramework,
+WPF or Windows Forms. It does not run <code>[Apartment]</code>, <code>[RequiresThread]</code> or
+async test, setup or teardown methods. The tests create a project document in
+the engine and need no model input.</p>
+<pre><code class="lang-bash">dotnet build testing/dbtools.DesignAutomation.Engine.DA.Tests/dbtools.DesignAutomation.Engine.DA.Tests.csproj -p:RevitYear=2027
+dbtools-daemon-cli submit --project &lt;relay project&gt; --design-automation &lt;deployment&gt; --year 2027
+</code></pre>
+<p>The build writes the test assembly and its dependencies to
+<code>.artifacts/bin/dbtools.DesignAutomation.Engine.DA.Tests/debug_2027/</code>. The relay
+project binds the assembly. <code>--model</code> adds <code>.rvt</code> inputs; a test opens a model
+by its staged path relative to the working directory.</p>
 <h2 id="aps-design-automation-sentinel">APS Design Automation Sentinel</h2>
 <p>The Pure project runs the network-free client, billing parser, ledger and record tests.</p>
 <pre><code class="lang-bash">dotnet test testing/dbtools.DesignAutomation.Sentinel.Pure.Tests/dbtools.DesignAutomation.Sentinel.Pure.Tests.csproj
