@@ -100,7 +100,8 @@ and reset <code>PATCH</code> to zero. Reserve <code>1.0.0</code> for the end of 
 version. The DLL content versions identify their build inputs separately.</p>
 <h2 id="prerequisites">PREREQUISITES</h2>
 <p>Use a clean checkout on WIN-DEV with Inno Setup 6.7.1 or a later 6.x and the
-OpenSSH client. Use GitHub CLI 2.48 or later and Python 3.10 or later on Linux.</p>
+OpenSSH client. The Windows Sandbox acceptance step needs the dbtools-daemon
+client with relay settings and credentials for the current user. Use GitHub CLI 2.48 or later and Python 3.10 or later on Linux.</p>
 <h2 id="steps">STEPS</h2>
 <h3 id="publish-a-release">Publish a release</h3>
 <ol>
@@ -116,6 +117,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not check out the approved commit.' }
 dotnet build build/Build.proj -t:BuildInstaller &quot;-p:Version=$version&quot;
 if ($LASTEXITCODE -ne 0) { throw 'BuildInstaller failed.' }
 </code></pre>
+</li>
+<li><p>Package the staged release for Windows Sandbox acceptance.</p>
+<pre><code class="lang-powershell">dotnet build build/Build.proj -t:PackageSandboxValidationInput &quot;-p:Version=$version&quot;
+if ($LASTEXITCODE -ne 0) { throw 'PackageSandboxValidationInput failed.' }
+</code></pre>
+<p>Use the archive path printed by the build. Require a pass for each Revit
+year before continuing. Follow the <a href="../developing/testing-tools.html#distribution-acceptance">distribution acceptance commands</a>.</p>
 </li>
 <li><p>Check the installer on WIN-DEV. Run Setup with Revit closed.
 Confirm the version in the installer filename, installed-apps entry,

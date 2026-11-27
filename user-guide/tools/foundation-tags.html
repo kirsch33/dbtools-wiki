@@ -192,10 +192,11 @@
 <li>reloads the family into the project, then gives every element and type its value back and checks each one.</li>
 </ol>
 <p>When the company parameter is already bound, the status is <code>FAMILY_GUID_MISMATCH</code> and names the families whose types or elements show the parameter. A label that shows the parameter directly does not show in the status; Install/Repair finds it.</p>
+<p>In Revit 2027, Install/Repair moves eligible direct annotation labels to the company GUID and keeps their formatting. It ungroups any detail groups that contain moved labels and leaves their members in place.</p>
 <p>Install/Repair changes the families in the project only. The family files in your library still use the other GUID; when you load such a file again, the problem comes back. Replace the parameter in the file too.</p>
 <p>Install/Repair changes nothing, keeps the warning, and names the family when:</p>
 <ul>
-<li>a label uses the parameter directly, as added through <strong>Edit Label</strong> &gt; <strong>Add Parameter</strong> in a tag or title block family. dbtools cannot change a label. In Revit 2027 the message has one line per label: its detail group, the position of the parameter in the label, and its prefix, suffix, sample text, spaces before, line break before and non-breaking spaces, so you can add the company parameter with the same settings. Revit 2026 cannot tell which label it is. Open the family, select the label (in a detail group, use <strong>Edit Group</strong> first), click <strong>Edit Label</strong>, replace the parameter with the one from the DB shared parameter file, and load the family into the project again;</li>
+<li>Revit 2026 finds a GUID conflict that can affect an unreadable label, or Revit 2027 cannot move a direct label safely. The message gives the reason and the steps to repair the family by hand. In Revit 2027 it lists each readable label's group, parameter position, and formatting.</li>
 <li>a nested family uses the parameter, or the family is a shared family nested in another family;</li>
 <li>the family defines the parameter as a type parameter in Structural Foundations or Structural Columns, where the project binds it as an instance parameter;</li>
 <li>the family defines it with another data type;</li>
@@ -203,6 +204,7 @@
 <li>the family is in-place or cannot be edited, and it defines the parameter, or dbtools cannot tell whether it does. When its elements show the parameter and the project parameter could explain that, dbtools checks, without a change, whether the elements still show it without the project parameter;</li>
 <li>a value cannot be written back after the reload, for example because a formula computes it or the element is in a group placed more than once.</li>
 </ul>
+<p>To repair a label by hand, open the family in the Family Editor. If the label is in a detail group, edit the group first. Replace the parameter in the label with the one that has the company GUID and keep its formatting. In Revit 2026, use <strong>Purge Unused</strong> to remove the old definition after fixing the labels. Reload the family into the project and run <strong>Install/Repair</strong> again.</p>
 <h3 id="invalid-parameter-bindings">Invalid parameter bindings</h3>
 <p>When an add-in undoes a change to <strong>Values can vary by group instance</strong> of an existing parameter, Revit can leave the parameter bindings of the model in an invalid state until the model is reopened. dbtools does not leave this state, but it cannot read the parameters while it lasts. It then shows one message and changes nothing:</p>
 <p><code>Revit's parameter bindings for this model are in an invalid state; save, close and reopen the model, then try again.</code></p>
@@ -249,7 +251,7 @@ footing as skipped. The detail entry includes the footing ID and parameter name.
 If the matched pier has an unconnected <code>Top Level</code> and the footing has
 a stored elevation, the updater keeps it and counts the footing as skipped.</p>
 <h3 id="result">Result</h3>
-<p>The banner reads <code>Updated N element(s); M failed/skipped.</code> or <code>No elements modified.</code> An element is counted as skipped when a pier lacks a valid <code>Top Level</code>, a footing or pier has no location point, a parameter is missing or read-only, or a length cannot be cleared. An element also counts as skipped when a changed parameter does not vary between instances of its repeated group. It enters the Skipped selection set and can also enter Modified if another parameter changes.</p>
+<p>The banner reports how many elements it updated and how many failed or were skipped. If both counts are zero, it reads <code>No elements modified.</code> An element is counted as skipped when a pier lacks a valid <code>Top Level</code>, a footing or pier has no location point, a parameter is missing or read-only, or a length cannot be cleared. An element also counts as skipped when a changed parameter does not vary between instances of its repeated group. It enters the Skipped selection set and can also enter Modified if another parameter changes.</p>
 <p>Each run logs up to ten failure details at Warning across piers, footings and
 repeated groups.
 A separate warning gives the full skipped count and up to ten element IDs.
@@ -365,7 +367,7 @@ the tag head to that corner and keeps its elevation.</p>
 <li>The nearest-pier search is 2D and has a fixed 2 ft radius.</li>
 <li>Piers and footings are recognized by family name only. Families with other names need a matching pattern.</li>
 <li>The corner a tag moves to is taken from its name. A tag with another name is skipped.</li>
-<li>Install/Repair cannot change a label that uses a required parameter with another GUID directly, or the family files in your library. See Families with another GUID.</li>
+<li>Direct annotation labels need manual repair in Revit 2026. See <a href="#families-with-another-guid">Families with another GUID</a>.</li>
 </ul>
 
 </article>

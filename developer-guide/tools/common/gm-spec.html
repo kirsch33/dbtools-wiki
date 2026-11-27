@@ -352,7 +352,7 @@ SharedParameterValueCopier rejects Map From values outside Int32 for Revit Integ
 ElementId parameter destinations parse Map From text as long.</p>
 <h4 id="persistence-and-saved-mappings">Persistence and saved mappings</h4>
 <p><code>Domain/Cache</code> owns tool-wide cache results and metadata.
-Persistence adapters derive the GM root with <code>AppPaths.GetToolCacheDir(&quot;GM&quot;)</code>.
+UI state and Deep Scan use <code>AppPaths.GetToolCacheDir(&quot;GM&quot;)</code>. Saved mappings use <code>AppPaths.GetToolDataDir(&quot;GM&quot;)</code>, normally <code>%APPDATA%\dbtools\GM\</code>.
 UI-state and saved-mapping stores create their directories when writing.
 <code>App/Persistence</code> owns document UI-state storage.
 <code>App/Sessions/UIStateLifecycle</code> sequences the session's startup restore and close persistence.
@@ -570,11 +570,9 @@ applied MapFrom intent without a source, or an intent with HasConflict). The sel
 RefreshCategoryTrim recomputes the trim after an intent, threshold, option-rendering or scan-result change and
 rebuilds the tree only when the shown category list changes. The category tool tip is AuthoringCategoryAction.ToolTip.</p>
 <p>AuthoringRebuildWorkflow builds a full project state once and resolves family and type names in one batch.
-It requests missing fast parameter names from FamilyScanner in one batch. Both discovery paths use
-<code>FamilyInstanceCollector.EnumerateInDiscoveryOrder</code> to pick the first instance of each family.
-Model-owned instances come first, followed by visible instances in eligible owner views.
-Remaining placements, including sheet-owned instances, follow in owner view and element ID order.
-<code>SharedParameterQuery</code> uses the same discovery order for type samples. It counts all placements in that enumeration,
+It requests missing fast parameter names from FamilyScanner in one batch.
+Discovery uses <code>FamilyInstanceFilter</code> for one symbol. A multi-symbol request visits project <code>FamilyInstance</code> elements once and checks each type ID against the requested symbol set. GM reads each requested type once and one standalone placement per symbol and view-ownership kind. For nested instances it reads all matching child slots in one parent placement per child symbol, parent symbol and view-ownership kind. Instance-level slot swaps in other placements of the same parent symbol can hide eligible names.
+<code>SharedParameterQuery</code> uses <code>FamilyInstanceCollector.EnumerateInDiscoveryOrder</code> for type samples. It counts all placements in that enumeration,
 including placements beyond the sample limit, and reads coverage from the sampled instances.
 The workflow then builds category rows in memory. Changes to evidence or an SP Group use this batch under the session
 operation gate and progress overlay.</p>
@@ -587,9 +585,8 @@ SharedParameterFamilyMigration computes placed elements by family once for that 
 GmSessionDocumentGate. It resolves the company ExternalDefinition from the open shared parameter file and passes the
 instance categories that project bindings of the name hold. ParameterUseQueryCache keeps reports per query key and
 project-state version. SharedParameterAuthoringService writes and CommitReviewFinalizer (Keep) clear it, and a clear
-makes ParameterUseViewModel reload its group. By parameter reads project-only reports (ScanFamilies false) for the
-list status and the family table. It runs a full scan, under a cancelable overlay, only for a definition in repair
-mode. <strong>Scan Families</strong> and <strong>Scan Again</strong> run the same command: it removes the selected definition's cached reports
+makes ParameterUseViewModel reload its group. By parameter reads project-only reports for browsing. In repair mode
+<strong>Scan Families</strong> and <strong>Scan Again</strong> request a full scan under a cancelable overlay. The command removes the selected definition's cached reports
 (ParameterUseQueryCache.Remove, no clear event) and scans again; the item keeps its earlier report until the new one
 arrives, and a cancel is not an error. LatestFullScanReports feeds HandFix and WrongGuid to the category trim and the
 GUID warning text.</p>
@@ -602,7 +599,7 @@ entry (ParameterUseRepair) holds the definition, the full-scan report and the Sh
 call SharedParameterRepairEligibility.Evaluate to open Move project binding and to show BindingBlockers. Dependent
 rows (Copy stored values, Move schedule uses, View filters) follow MovesBinding. PendingOperationState counts the
 store. CommitReviewFinalizer clears it on Keep, and RefreshAsync clears it.</p>
-<p>The use scan opts in to direct label moves by setting SharedParameterFamilyTarget.MoveDirectLabels. Other callers keep the default false and continue to refuse direct shared-parameter elements. Revit 2027 label entries with disposition Moves share their family's Move family parameter tick. A family with only label uses has one Move labels row. When the family's change ungroups detail groups (SharedParameterFamilyChange.UngroupedGroups), the row is titled Ungroup and repair, and Commit Review adds &quot;Group '<group>' in '<family>' is ungrouped. Its elements stay in place.&quot; for each group. An unticked row changes nothing. Both select the family ID for phase 1. Unticked label families block the binding move. A selected label with an old project binding requires that binding to move in the same apply. A selected direct label also requires every family that has a use of the old GUID and holds a value for it to be selected, and a selected family parameter requires every family with a movable direct label of that GUID to be selected. A selected family parameter whose family holds values refuses while a label of that GUID stays a hand-fix use, and a selected label refuses while one of its placed tags shows a linked element that holds a value of the old GUID. Commit Review lists each selected label entry, including its family, group, position and formatting.</family></group></p>
+<p>The use scan opts in to direct label moves by setting SharedParameterFamilyTarget.MoveDirectLabels. FoundationTags Install/Repair also opts in on Revit 2027. The default is false. Revit 2027 label entries with disposition Moves share their family's Move family parameter tick. A family with only label uses has one Move labels row. When the family's change ungroups detail groups (SharedParameterFamilyChange.UngroupedGroups), the row is titled Ungroup and repair, and Commit Review adds &quot;Group '<group>' in '<family>' is ungrouped. Its elements stay in place.&quot; for each group. An unticked row changes nothing. Both select the family ID for phase 1. Unticked label families block the binding move. A selected label with an old project binding requires that binding to move in the same apply. A selected direct label also requires every family that has a use of the old GUID and holds a value for it to be selected, and a selected family parameter requires every family with a movable direct label of that GUID to be selected. A selected family parameter whose family holds values refuses while a label of that GUID stays a hand-fix use, and a selected label refuses while one of its placed tags shows a linked element that holds a value of the old GUID. Commit Review lists each selected label entry, including its family, group, position and formatting.</family></group></p>
 <p>Core SharedParameterLabels owns the internal direct-label calls. CanWrite requires the ParameterId setter,
 IsValidParameterFormatting, SetParameterFormatting and get_IsLeadingParam. The members resolve once and missing
 members are logged once. The writer changes ParameterId only on the reviewed entries returned by public
@@ -1099,6 +1096,7 @@ Other exception wrappers keep their context.
 With cancellation alone, the first cancellation in that order keeps its token.
 Expanding a family with instances makes one Revit callback and opens no family document (owner rule; test <code>ToggleFamilyRowCommand_ExpandingAFamilyWithInstancesReadsExamplesInOneRevitCallback</code>).
 The expansion builds a missing usage index first, then runs its reads through <code>IRevitCallBatch</code>; the first failure propagates.
+Browsing and row expansion use project data. <strong>Review Plan</strong> reads each affected root family once for style, material and shared-parameter embed mappings, with progress and <strong>Cancel</strong>. GM reuses the read by <code>Family.UniqueId</code> and <code>VersionGuid</code>, rejects it after a recorded family edit, and evicts it on <code>FamilyLoadedIntoDocument</code> (owner rule, test <code>ReviewPlan_reuses_the_family_read_until_Revit_reloads_it</code>).
 The Views panel owns the views list.
 The views list is read for the selected row while the views panel shows and the workspace is ready, once per family until the next family scan or post-commit refresh. When the workspace becomes ready after startup or an operation, the selected row's list is read.
 A views-list double-click is one Revit call.

@@ -180,15 +180,20 @@ See <code>GetDesiredCornerName</code> and <code>MoveTag</code> for name and posi
 <code>CombinedTagsTests.MoveCombinedTags_WithTransientTaggedFooting_ChangesTagHeadPosition</code>
 checks the tag position in the active model.</li>
 <li>Both view-activation tasks use <code>PanelScopedViewActivationTask</code> for <strong>Structural</strong>.
-<code>PrerequisiteMonitorTask</code> checks on document changes and retries transient
-results on <code>Idling</code>. Auto-update admits floor and ceiling plans with
+<code>PrerequisiteMonitorTask</code> checks the active project on view activation when
+its document version changes. It reuses the warning decision when you return
+to an unchanged project and retries transient results on <code>Idling</code>. If a
+status read fails, the warning stays active and the next activation checks again.
+Auto-update admits floor and ceiling plans with
 <code>AutoUpdateEnabled</code> on and the warning inactive.
 See <code>CombinedFoundationTagsAutoUpdateTask.ExecuteInternalAsync</code> for execution.</li>
 </ol>
 <h3 id="prerequisites-and-repair">Prerequisites and repair</h3>
 <p><code>EnsureInstalledAndValid</code> asks before removing schedule fields or view filter
-rules. It replans project and family changes after confirmation.
-<code>Repair</code> migrates families first. It calls <code>SharedParameterMigration</code> with
+rules. It reuses the plan if the document version still matches after the
+answer. It replans if the version changes or tracking is unavailable.
+<code>Repair</code> migrates families first. In Revit 2027, it moves eligible direct
+labels and verifies placed tag text before it commits. It calls <code>SharedParameterMigration</code> with
 <code>RemoveWithParameter</code> when it replaces a project parameter. The migration
 formats project value failures with <code>ElementDisplayName</code>. <code>Repair</code> calls
 <code>Assimilate</code> after every status is <code>OK</code>. <code>FoundationTagsScheduleFieldTests</code>,

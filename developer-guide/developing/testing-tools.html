@@ -118,7 +118,7 @@ under test.</p>
 </tr>
 <tr>
 <td>Design Automation</td>
-<td><code>dbtools.DesignAutomation.Engine.DA.Tests.csproj</code></td>
+<td><code>Engine.DesignAutomation.Entry.csproj</code></td>
 <td>NUnit in the APS Revit 2027 engine through dbtools-daemon</td>
 </tr>
 </tbody>
@@ -150,10 +150,12 @@ rejects interpolated component resource URIs outside the versioned
 manifest type references. Run <code>dotnet build build/Build.proj -t:ValidateManifestTypes</code>
 to build the product and check manifest type references from edited source.</p>
 <h2 id="daemon-adapter-entry-projects">Daemon adapter entry projects</h2>
-<p>Set <code>DBTOOLS_DAEMON_RELAY_URL</code> to your relay URL. In Bash use
+<p>The adapter reads the relay URL from the current user's installed daemon
+settings. It reads credentials from the daemon's credential store. To override
+the URL, set <code>&lt;RelayUrl&gt;</code> under <code>&lt;dbtools-daemon&gt;</code> in the runsettings file.
+<code>DBTOOLS_DAEMON_RELAY_URL</code> takes precedence over both. In Bash use
 <code>export DBTOOLS_DAEMON_RELAY_URL=https://relay.example.com</code>. In PowerShell use
-<code>$env:DBTOOLS_DAEMON_RELAY_URL = 'https://relay.example.com'</code>. The adapter reads
-relay credentials from the installed daemon.</p>
+<code>$env:DBTOOLS_DAEMON_RELAY_URL = 'https://relay.example.com'</code>.</p>
 <h3 id="windows-pure">Windows Pure</h3>
 <pre><code class="lang-bash">dotnet test testing/Daemon/Pure/GM.Pure.Entry.csproj --filter &quot;FullyQualifiedName~DuplicateDetectionEngineTests&quot;
 </code></pre>
@@ -522,30 +524,46 @@ state follows the latest individual warning update.</li>
 <li>A startup validation exception is logged without activating a feature warning.</li>
 </ul>
 <h2 id="aps-design-automation-engine-tests">APS Design Automation engine tests</h2>
-<p><code>testing/dbtools.DesignAutomation.Engine.DA.Tests</code> contains DB-only NUnit tests
-for the Revit 2027 Design Automation engine. The dbtools-daemon Design Automation
-host loads the test assembly in the engine, supplies RevitAPI and NUnit, and
-passes the engine's <code>Application</code> to a test method that declares one
-<code>Application</code> parameter. The project targets <code>net10.0-windows</code>, references
-RevitAPI for compilation only and references no product project. The host
-rejects an assembly that is or references RevitAPIUI, AdWindows, UIFramework,
-WPF or Windows Forms. It does not run <code>[Apartment]</code>, <code>[RequiresThread]</code> or
-async test, setup or teardown methods. The tests create a project document in
-the engine and need no model input.</p>
+<p>Register the repository once as a relay project with
+<code>dbtools-daemon-cli project-create --dir &lt;repository-root&gt; --name &lt;name&gt;</code>. The
+deployment must list the project's GUID in <code>AllowedProjectIds</code>. Get the GUID with
+<code>dbtools-daemon-cli project-list --json</code>.</p>
+<p>Run the Revit 2027 example by naming the Design Automation Entry project with
+the deployment ID and the project GUID.</p>
+<pre><code class="lang-bash">DBTOOLS_DAEMON_APS_DEPLOYMENT='&lt;deployment&gt;' \
+DBTOOLS_DAEMON_PROJECT_ID='&lt;project-guid&gt;' \
+dotnet test testing/Daemon/DesignAutomation/Engine.DesignAutomation.Entry.csproj \
+  --logger trx --results-directory .artifacts/da-results
+</code></pre>
+<p>The adapter selects the test assembly from the runsettings file and uses the
+GUID to identify the relay project.</p>
+<p>The Entry sets <code>Executor</code> to <code>revit_design_automation</code> and <code>Years</code> to <code>2027</code>.
+For file-based configuration, build the Entry and copy the file named by
+<code>Daemon settings</code> in the build output. Keep <code>Sources</code> and add <code>ApsDeployment</code>
+and <code>ProjectId</code> under <code>dbtools-daemon</code>. Pass the copy with <code>--settings &lt;file&gt;</code>.</p>
+<p>Use <code>--list-tests</code> to discover the two tests locally. A test run prints counts
+in VSTest and writes a TRX to <code>.artifacts/da-results/</code> with the command above.
+The daemon records the run under the selected project in Studio <strong>History</strong>.</p>
+<p>The Autodesk APS free tier for Revit automation includes 300 processing minutes
+per month (<a href="https://www.autodesk.com/products/autodesk-platform-services/product-details">product details</a>).
+The dbtools deployment budgets 30 of them per month. The relay caps the app at 1,800 seconds per UTC month. The
+120-second WorkItem processing limit gives a worst-case charge of 180 seconds.
+The relay charges at least that amount for each WorkItem that runs.</p>
+<h3 id="daemon-cli">Daemon CLI</h3>
+<p>Build the example assembly and pass its path to the CLI.</p>
 <pre><code class="lang-bash">dotnet build testing/dbtools.DesignAutomation.Engine.DA.Tests/dbtools.DesignAutomation.Engine.DA.Tests.csproj -p:RevitYear=2027
 dbtools-daemon-cli submit \
   --assembly .artifacts/bin/dbtools.DesignAutomation.Engine.DA.Tests/debug_2027/dbtools.DesignAutomation.Engine.DA.Tests.dll \
   --design-automation &quot;&lt;deployment&gt;&quot; --year 2027
 </code></pre>
-<p>Register the repository once as a relay project with
-<code>dbtools-daemon-cli project-create --dir &lt;repository root&gt; --name &lt;name&gt;</code>, and
-have the deployment allow that project. The CLI matches the <code>--assembly</code> path to
-the one project whose inventory lists it and uses that project as the source.
-<code>--project</code> instead submits the project's whole inventory, which holds Local and
-Pure assemblies that the Design Automation host rejects.</p>
-<p>The daemon owns the deployment's APS credentials and enforces its spend cap.
-<code>--model</code> adds <code>.rvt</code> inputs. A test opens a model by its staged path relative to
-the working directory.</p>
+<p>The CLI matches the <code>--assembly</code> path to one local project
+binding. The CLI run also appears in Studio <strong>History</strong>.</p>
+<p>The engine loads the DB-only NUnit assembly and supplies RevitAPI and NUnit.
+It passes the engine's <code>Application</code> to each example test. The host rejects
+references to RevitAPIUI, AdWindows, UIFramework, WPF and Windows Forms. The host
+rejects <code>[Apartment]</code>, <code>[RequiresThread]</code> and async test, setup or teardown methods.
+The examples create a project document in the engine. To supply <code>.rvt</code> files to
+other CLI tests, use <code>--model</code> and open each file by its staged relative path.</p>
 <h2 id="results-and-troubleshooting">Results and troubleshooting</h2>
 <p>VSTest reports executed, passed, failed and skipped counts. Use
 <code>--logger trx</code> to write a TRX file and <code>--results-directory</code> to choose its
