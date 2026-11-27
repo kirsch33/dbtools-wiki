@@ -311,7 +311,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <h4 id="row-details">Row details</h4>
 <p>Expand a row to map its parts. The detail tabs are Types, Object Styles, Materials and Parameters. Object Styles and Materials are disabled when empty. The nested target lists use the same sort mode and threshold as the parent list. When you change the parent target, nested lists refill and keep the rows you changed by hand.</p>
 <ul>
-<li><strong>Types</strong>: choose a target type and check <strong>Apply</strong> for each replacement. To create a type in the source family, select <strong>Create</strong> on the type row, enter a <strong>New Type Name</strong> that is unique in that family, and check <strong>Apply</strong>. Review Plan rejects a name that matches an existing type or another new type, regardless of case. The refresh after type creation shows the new type and keeps pending replacements for types that are still available.</li>
+<li><strong>Types</strong>: choose a target type and check <strong>Apply</strong> for each replacement. GM replaces ungrouped, top-level placements and reports how many grouped or shared nested instances it skips. To create a type in the source family, select <strong>Create</strong> on the type row, enter a <strong>New Type Name</strong> that is unique in that family, and check <strong>Apply</strong>. Review Plan rejects a name that matches an existing type or another new type, regardless of case. The refresh after type creation shows the new type and keeps pending replacements for types that are still available.</li>
 <li><strong>Parameters</strong>: choose a target name and check <strong>Apply</strong>. The examples come from the selected source type. Instance and type parameters are separate mappings, labeled <code>(Instance)</code> and <code>(Type)</code>. A parameter maps only to a target of the same scope. GM copies parameter values only through these mappings, and they run with the type replacements. A red <code>!</code> badge marks a conflict, such as a duplicate target parameter or a missing type-write policy. Resolve it before <strong>Review Plan</strong>.</li>
 <li>The Parameters tab shows <code>Parameter scanning is unavailable; parameter mapping is disabled.</code> when scanning is unavailable, and <code>No mappable parameters detected for this family.</code> when it finds none. A scan refresh reopens expanded rows and updates their Object Styles and Materials usage. While a target list is open, the mouse wheel scrolls that list, not the grid behind it.</li>
 <li><strong>Type-scope writes</strong>: if a type-scope mapping writes into a target type that already has instances, GM blocks the commit until you choose <strong>Keep target type values</strong> (skip type-scope copies) or <strong>Overwrite target type values</strong> (copy them). GM takes the decision from the model state before the replacement batch starts. Moving the target's instances away earlier in the batch does not cancel <strong>Keep target type values</strong>. When overwriting is allowed, each mapping copies the original source values, even if an earlier mapping changed that source type.</li>
@@ -564,7 +564,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <li>A warning icon and <code>Two GUIDs in this project</code>: the project holds a shared parameter with that name and another GUID. This status comes from a scan of the whole project, so it shows even when the tree hides the family.</li>
 </ul>
 <p>Select a definition to show its uses on the right. A definition with <code>Two GUIDs in this project</code> opens the repair table. Every other definition opens the family table. <strong>Every Use of This Parameter</strong> in By Family always opens the family table.</p>
-<p>Below the table, <strong>Other Uses</strong> lists the uses of the company GUID, for example <code>Project binding: Structural Foundations · instance</code>. It shows <code>Labels: not scanned</code> until a full use scan has run.</p>
+<p>Below the table, <strong>Other Uses</strong> lists the uses of the company GUID, for example <code>Project binding: Structural Foundations · instance</code>. It shows <code>Labels: not scanned</code> until the repair scan runs.</p>
 <h5 id="fill-or-add-one-parameter-in-many-families">Fill or add one parameter in many families</h5>
 <p>The family table has the title <code>Add or Fill &lt;name&gt;</code> and the hint <code>Select families that are missing this parameter.</code> It lists each family of the shown categories that has at least one type. A family that already has a parameter with the definition name is not listed.</p>
 <table>
@@ -606,9 +606,10 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <p>A tick in By Parameter writes the same mappings that By Family writes, one for each type of the family. A change in one view shows in the other view, and both views use one plan.</p>
 <p>Each family row with an applied Formula type shows that it requires <strong>Embed in Family</strong>. If you try to clear <strong>Embed in Family</strong>, it stays checked. The error line below the options names the first family with an applied Formula type.</p>
 <h5 id="repair-a-parameter-with-another-guid">Repair a parameter with another GUID</h5>
-<p>A parameter has a wrong GUID when it has the name of a company definition but another GUID. Revit treats the two as different parameters. GM moves each use of the old GUID to the company definition, keeps every value, or refuses.</p>
-<p>Select a definition with <code>Two GUIDs in this project</code>, then select <strong>Scan Families</strong> to inspect its uses in editable loadable families. The progress overlay has <strong>Cancel</strong>. When the first scan stops or fails, the table shows <code>Scan the families first.</code> GM keeps a finished result until a <strong>Scan Again</strong> finishes, you keep an apply, or you close GM.</p>
-<p>The repair table has the title <code>Every Use of the Old GUID</code>, the hint <code>Check the uses to move, then select Review Plan.</code> and <code>Re-point to &lt;name&gt; (company GUID)</code>. Its columns are <strong>Move</strong>, <strong>Use</strong>, <strong>Where</strong>, <strong>Reason</strong> and <strong>Go To</strong>.</p>
+<p>A parameter has a wrong GUID when it has the name of a company definition but another GUID. Revit treats the two as different parameters. GM moves the selected uses to the company definition and keeps their values or refuses the repair.</p>
+<p>Select a definition with <code>Two GUIDs in this project</code>, then select <strong>Scan Families</strong>. For a family-only repair, GM opens editable families whose types or placements show an old GUID. It also opens unplaced families, annotation families, and families with an unknown category. If the scan finds no family use for an old GUID, it opens the remaining editable families. A placed family can hide an old GUID inside a nested family even when its own types and placements show no match. That use can first appear on <strong>Scan Again</strong> after the repair moves the listed family uses. Moving a project binding removes the old definition, so its scan opens every editable loadable family.</p>
+<p>The progress overlay has <strong>Cancel</strong>. When the first scan stops or fails, the table shows <code>Scan the families first.</code> GM keeps a finished result until a <strong>Scan Again</strong> finishes, you keep an apply, or you close GM.</p>
+<p>The repair table has the title <code>Uses of the Old GUID</code>, the hint <code>Check the uses to move, then select Review Plan.</code> and <code>Re-point to &lt;name&gt; (company GUID)</code>. Its columns are <strong>Move</strong>, <strong>Use</strong>, <strong>Where</strong>, <strong>Reason</strong> and <strong>Go To</strong>.</p>
 <table>
 <thead>
 <tr>
@@ -656,7 +657,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 </tbody>
 </table>
 <p>A row that GM cannot move safely shows the reason and has no tick. <strong>Open in By Family</strong> on a family or label row selects that family in By Family.</p>
-<p><strong>Scan Again</strong>, next to <code>Re-point to</code>, runs the full scan again for the selected definition, for example after you fix a family by hand. A tick stays when the new scan lists the row again and the row can still be ticked. GM clears every other tick. If the scan fails or you click <strong>Cancel</strong>, the table keeps the earlier result.</p>
+<p><strong>Scan Again</strong>, next to <code>Re-point to</code>, repeats the repair scan for the selected definition. Use it after you fix a family by hand. A tick stays when the scan lists the row again and the row can still be ticked. GM clears every other tick. If the scan fails or you click <strong>Cancel</strong>, the table keeps the earlier result.</p>
 <p>The repair runs in two phases, because deleting the old project parameter also removes it from the labels of loaded families:</p>
 <ul>
 <li><strong>Phase 1</strong> moves the ticked family parameters and, on Revit 2027, annotation labels. The old project parameter, its binding, schedule fields, filter rules and values stay. GM refuses phase 1 alone while a schedule field, filter rule or moved label uses the old GUID. Move the project binding in the same apply. The <strong>Move project binding</strong> reason names any selected label that needs phase 2. If the binding cannot move, do not move that label. A tag label shows the value of the tagged element. GM therefore refuses to move a label while a family that is not ticked uses the old GUID and holds a value for it, and to move a family parameter while a family that is not ticked has a label with the old GUID that GM can move. The message names those families; tick them in the same apply. A label that you must fix by hand keeps the old GUID, so GM also refuses to move a family parameter whose family holds values of that GUID while such a label remains; the message lists the labels. GM does not change linked models, so it refuses to move a label while a tag of that family shows an element of a linked model that holds a value of the old GUID. After the repair, GM compares the text of every tag in the project with its text before the repair. A tag that shows other text rolls back the whole repair. A tag whose label shows the company GUID may also show the moved value, as long as it still shows everything that it showed before.</li>
@@ -665,7 +666,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <p>To repair a parameter:</p>
 <ol>
 <li>Select the definition with <code>Two GUIDs in this project</code>, or click <strong>Review Every Use</strong> in By Family. Wait for the scan.</li>
-<li>If the table shows <code>Scan the families first.</code>, the scan did not finish or Revit did not open every editable family. Close any family that is open in the Family Editor, then click <strong>Scan Families</strong>.</li>
+<li>If the table shows <code>Scan the families first.</code>, complete the repair scan. Close any candidate family open in the Family Editor, then click <strong>Scan Families</strong>.</li>
 <li>Tick <strong>Move family parameter</strong> or <strong>Move labels</strong> on each family that can move.</li>
 <li>Read each <strong>Labels · fix by hand</strong> and <strong>Family use · fix by hand</strong> row. These uses keep <strong>Move project binding</strong> closed.</li>
 <li>Tick <strong>Move project binding</strong> if it is open.</li>
@@ -718,11 +719,7 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 <p>GM does not add a second GUID for one name. When the project, or the target family for <strong>Embed in Family</strong>, already has the name with another GUID, <strong>Review Plan</strong> lists <code>&quot;&lt;name&gt;&quot; already exists in this project with another GUID. Repair it in By Parameter first.</code> and <strong>Apply</strong> is disabled. GM checks again at apply, before it changes the project or the family. A family loaded between review and apply therefore fails the operation, and GM rolls the attempt back. GM also refuses when a project or family parameter with the name is not shared.</p>
 <h3 id="deep-scan">Deep scan</h3>
 <p>Some family details, such as embedded parameters and nested families, need a deep scan. <strong>Scan Family</strong> and <strong>Deep Scan</strong> open family documents. Browsing and expanding rows use project data. <strong>Review Plan</strong> reads the affected root family documents for style, material, and embedded shared parameter mappings. Select <strong>Cancel</strong> to stop after the current family. GM reuses the read until the family changes or reloads.</p>
-<p>A deep scan is needed to:</p>
-<ul>
-<li>unlock the expanded details of a family with no instances (<code>Scan required</code>);</li>
-<li>read embedded definitions, such as nested family graphs, that a placed instance does not expose.</li>
-</ul>
+<p>Scan a family with no instances to unlock its expanded details (<code>Scan required</code>). The scan reads writable instance parameters and nested family references from the family document.</p>
 <p>Moving an instance keeps its family’s Deep Scan results. Refresh Cache checks the family definition and the number of placed instances of each type before reusing a result.</p>
 <p>For a family with instances, GM reads Object Styles and Materials from one placed instance. Materials also include the placed shared components inside it. When planning a material replacement, GM checks one placed instance of each type for the source. During Apply, nested children are eligible when the parent contains the source material by name or one of its categories or subcategories takes that material from project Object Styles. GM checks eligible shared children already loaded in the project against their current definition.</p>
 <table>
@@ -734,8 +731,8 @@ any remain, GM reports up to three names and IDs and rolls back the apply group.
 </thead>
 <tbody>
 <tr>
-<td><strong>Scan Family</strong> (in the expanded details)</td>
-<td>Always runs a fresh deep scan. A complete result replaces the cache entry. An incomplete result removes the previous reusable entry.</td>
+<td><strong>Scan Family</strong> (on the family row)</td>
+<td>Scans an unplaced, unscanned family. The row shows the scan result when the command finishes.</td>
 </tr>
 <tr>
 <td><strong>Deep Scan</strong> (Families workspace)</td>
@@ -983,7 +980,7 @@ paint stays in place and appears as a warning.</p>
 <li><code>Deep scan to unlock details for families without instances</code> (row tooltip): the family has no instances and no deep scan. Run <strong>Scan Family</strong>.</li>
 <li><code>Parameter scanning is unavailable; parameter mapping is disabled.</code> and <code>No mappable parameters detected for this family.</code> (Parameters detail tab).</li>
 <li><code>line-style targets pending Usage indexing</code> (Duplicates row): wait until indexing ends.</li>
-<li><code>Scan the families first.</code> (By Parameter repair table): the scan did not finish, or Revit did not open every editable family. Click <strong>Scan Families</strong>.</li>
+<li><code>Scan the families first.</code> (By Parameter repair table): select <strong>Scan Families</strong> before planning a repair.</li>
 <li><code>No families in the shown categories.</code> (By Parameter family table): no family of the shown categories can take the parameter. Check <strong>Show All Categories</strong>.</li>
 </ul>
 <p>When an action fails unexpectedly, GM shows an error banner titled with the action, for example <code>GM Duplicate Type Mapping</code>, <code>GM Deep Scan</code> or <code>GM Clear Saved Mappings</code>, followed by the error text. Retry it, and read the dbtools log if it fails again. If Refresh Cache cannot read the fresh project data, affected Usage rows return to their pending state. Saved mapping choices are kept.</p>

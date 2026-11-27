@@ -408,6 +408,8 @@ For a raw length below two, equal raw lengths score 1.0 only with equal nonempty
 Other short-name pairs score zero. Each scoring pass owns its immutable name-profile cache.</p>
 <h4 id="deep-scan">Deep Scan</h4>
 <p>Deep Scan owns family scans, projection, usage resolution, feature cache, and refresh workflow.
+Deep Scan reads writable instance parameter names from <code>FamilyManager</code> in the open family document. It combines
+them with the project parameter names and preserves the instance or type scope.
 <code>DeepScanAllProjectFamiliesAsync</code> scans the loaded project family inventory. <strong>Deep Scan Unscanned</strong> scans the
 eligible zero-instance families across that inventory.
 DeepScanCacheCoordinator requires DeepScanCache, IFamilyParameterQuery, and IDeepScanUsageResolver.
@@ -564,7 +566,7 @@ AuthoringCategoryActionEvaluator returns, unless ShowAllCategories is true. The 
 API. Its input is the authoring rows of each category for the selected SP Group (warm-up builds every category), fast
 parameter discovery, the SP Group definitions, the threshold, the best Map From score per family and definition from
 the authoring rows, the WrongGuid hint names from ISharedParameterGuidConflictQuery, the wrong-GUID and hand-fix family
-IDs of the latest full use scans, the intents, and the selected category. A family reason is WrongGuid, HandFix,
+IDs of the latest repair scans, the intents, and the selected category. A family reason is WrongGuid, HandFix,
 Mappable (a missing definition with a score at or above the threshold, complete discovery only) or PendingSource (an
 applied MapFrom intent without a source, or an intent with HasConflict). The selected category is always returned.
 RefreshCategoryTrim recomputes the trim after an intent, threshold, option-rendering or scan-result change and
@@ -586,9 +588,18 @@ GmSessionDocumentGate. It resolves the company ExternalDefinition from the open 
 instance categories that project bindings of the name hold. ParameterUseQueryCache keeps reports per query key and
 project-state version. SharedParameterAuthoringService writes and CommitReviewFinalizer (Keep) clear it, and a clear
 makes ParameterUseViewModel reload its group. By parameter reads project-only reports for browsing. In repair mode
-<strong>Scan Families</strong> and <strong>Scan Again</strong> request a full scan under a cancelable overlay. The command removes the selected definition's cached reports
+<strong>Scan Families</strong> and <strong>Scan Again</strong> run the repair scan under a cancelable overlay. For a family-only repair,
+<code>SharedParameterUseScan</code> opens editable families whose types or sampled placement show an old GUID. It also opens
+unplaced families, annotation families including tags and title blocks, and families with an unknown category.
+If a known old GUID has no family parameter, label, nested use, or refusal in the results, it opens the remaining
+editable families and adds their rows. The report counts distinct project families opened.
+A placed family can hide an old GUID inside a nested family even when its own types and placements show no match.
+That use can first appear on <strong>Scan Again</strong> after the repair moves the listed family uses. The binding move removes
+the old definition, so its scan opens every editable loadable family. Project bindings, values, schedules and filters
+are checked across the project.</p>
+<p>The command removes the selected definition's cached reports
 (ParameterUseQueryCache.Remove, no clear event) and scans again; the item keeps its earlier report until the new one
-arrives, and a cancel is not an error. LatestFullScanReports feeds HandFix and WrongGuid to the category trim and the
+arrives, and a cancel is not an error. LatestRepairScanReports feeds HandFix and WrongGuid to the category trim and the
 GUID warning text.</p>
 <p>Family-table ticks write SharedParameterMappingIntentSnapshot entries through MappingIntentStore, one per family type,
 with the same keys that By family writes. Both views therefore share one intent store and one plan. The table omits a
@@ -856,6 +867,9 @@ Writer exceptions are attributed to every unrecorded operation owned by that wri
 Family cleanup always attempts close and retains close diagnostics after primary errors.
 Cancellation plus cleanup failures propagate primary-first through family-batch and outer writer containment.</p>
 <p>Skipped group-owned references produce Mapping warnings.
+Type and host replacement capture top-level instances and report the count of skipped shared nested instances.
+Type replacement also reports skipped grouped instances. Replacement verification counts ungrouped, top-level
+instances, including sheet placements.
 An Edit Group restriction rejecting a line-style transaction at commit fails that pair.
 Successful sibling results retain their affected counts, but Commit Review rolls back an attempt with fatal mapping diagnostics.
 When an operation fails, Commit Review reports that failure and rolls back. Post-apply verification does not run, so it cannot replace the reason.</p>

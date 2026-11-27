@@ -307,21 +307,23 @@ assembly version <code>2.0.0.0</code> at runtime. The scenario requires daemon
 <code>0.22.14</code> or later for <code>DevModeControlNotFoundException</code>.
 <code>DevModeScenarioManifestWriter</code> publishes its payload under
 <code>.artifacts/acceptance/dev-mode-scenario/&lt;year&gt;/</code>. The adjacent
-<code>dev-mode-scenario.json</code> binds it to the product, the model and the
-preflight result for each year. The writer reads <code>bridge_contract_version</code>
+<code>dev-mode-scenario.json</code> binds it to the product, the shared host model and
+the preflight result for each year. The writer reads <code>bridge_contract_version</code>
 from the scenario's bridge assembly reference and writes <code>2</code>. See
 <a href="test-pipeline.html">Test Pipeline</a> for test execution.</p>
 <p>Archive <code>build.json</code>, <code>dist/Release</code> and <code>acceptance</code> from <code>.artifacts/</code> after
-<code>BuildAll</code> succeeds. Submit the archive with the two models that match the
-scenario manifest.</p>
+<code>BuildAll</code> succeeds. Submit the archive with the two year directories from a
+checkout with Git LFS content.</p>
 <pre><code class="lang-bash">dbtools-daemon-cli devmode-submit \
   --archive path/to/published-distribution.tar.gz \
-  --model 2026=testing/RevitTestModels/2026/GM/gm_test_model.rvt \
-  --model 2027=testing/RevitTestModels/2027/GM/gm_test_model.rvt
+  --model 2026=testing/RevitTestModels/2026 \
+  --model 2027=testing/RevitTestModels/2027
 </code></pre>
-<p>The daemon also accepts <code>--model YEAR=&lt;directory&gt;</code>. The directory contains
-one top-level <code>.rvt</code> that matches the manifest's model hash. The daemon stages
-relative links and sidecars from the directory as <code>executor.model_companions</code>.</p>
+<p>Each directory contains one top-level <code>.rvt</code>, <code>dbtools_test_model.rvt</code>.
+Its SHA-256 matches <code>years[].model_sha256</code> in the manifest. The daemon stages
+every other file as an <code>executor.model_companions</code> entry with a path relative
+to the year directory. Revit opens the working copy and loads
+<code>_LinkedModels/sgt_test_linked_model.rvt</code> relative to it.</p>
 <p>The scenario calls <code>ExpectDialogs</code> before it prepares a modal command.
 Each declaration matches the exact UI Automation name and native caption.
 The scope covers the interaction and window cleanup. Settings with Save

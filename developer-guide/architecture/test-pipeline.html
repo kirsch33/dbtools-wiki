@@ -190,6 +190,11 @@ packages match the SHA-256 pin in <code>testing/Daemon/Directory.Build.props</co
 runners and <code>vstest.console</code> do not run that check. The adapter waits for the terminal result of each accepted job and reports retrieval
 errors and failed jobs to VSTest. The command's verdict comes from that invocation.</p>
 <h2 id="product-staging">Product staging</h2>
+<p>The Local graph uses one product stage per configuration and Revit year.
+Test selection and <code>DBT_TestOutputYear</code> apply to the test graph. Direct and
+NuGet-added references to product projects use the same build properties.
+Presentation is shared across the Revit years in a configuration. Core uses
+the desktop build for the selected year.</p>
 <p>Each Revit-hosted test for a year receives the
 <a href="assembly-loading.html#installed-layout">product tree</a> that the installer uses,
 under <code>product/&lt;year&gt;/</code>. The tree keeps its relative paths. Test assemblies and
@@ -257,7 +262,6 @@ files for its portable build.</p>
 ├── 2026/_LinkedModels/sgt_test_linked_model.rvt
 ├── 2026/families/
 ├── 2026/test-model-build.json
-├── 2026/GM/gm_test_model.rvt                 (Dev Mode scenario)
 ├── 2027/...                                  (same layout)
 ├── GM/SharedParameters/shared_parameters.txt
 └── VTC/vtc_import_layers.dxf
@@ -268,11 +272,13 @@ declares it as an additional input. Revit-hosted fixtures find the inputs under
 <code>DBTOOLS_DAEMON_REVIT_MODELS_DIR</code> with their relative paths intact. Pure fixtures
 that read repository files use the <code>dbtools.RepoRoot</code> metadata that
 <code>Directory.Build.props</code> embeds in the test assembly.
-The Dev Mode scenario uses <code>&lt;year&gt;/GM/gm_test_model.rvt</code> as a self-contained input.
 <code>TestPathResolver</code> reads the root on every call, so a job never sees the model
 root of a previous job. A fixture may open a temporary copy of a model, but the
 daemon owns the active document and the worker lifecycle. Models resolve only
 from these roots, not from a worker checkout or an <code>%APPDATA%</code> cache.</p>
+<p>The <a href="build-pipeline.html#dev-mode-scenario">Dev Mode scenario</a> takes the same
+host and link through the per-year model directory. The daemon stages every
+file in that directory at its relative path.</p>
 <h2 id="test-support">Test support</h2>
 <p><code>testing/TestSupport</code> holds shared test infrastructure and doubles for true
 externals. Tool-specific doubles are under <code>testing/TestSupport/&lt;Tool&gt;</code> and are
