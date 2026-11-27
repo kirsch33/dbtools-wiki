@@ -144,9 +144,9 @@ the Core types.</p>
 </table>
 <h2 id="contracts">CONTRACTS</h2>
 <ol>
-<li><strong>One transaction.</strong> <code>UpdateAll</code> checks every candidate, then writes all
-valid girders in one transaction, <code>Auto Update Joist Girder Weights</code>. No
-test checks this.</li>
+<li><strong>One transaction.</strong> <code>UpdateAll</code> checks every candidate and writes changed
+<code>Wt</code> values in one transaction named <code>Auto Update Joist Girder Weights</code>.
+A type parameter shared by several candidates is written once.</li>
 <li><strong>Bad pattern.</strong> A pattern that does not compile throws
 <code>JoistGirderConfigurationException</code> before any write. The workflow shows
 it in a banner. <code>AutoUpdateTask</code> also activates the pack warning.
@@ -154,7 +154,10 @@ it in a banner. <code>AutoUpdateTask</code> also activates the pack warning.
 this.</li>
 <li><strong>Other auto-update failures.</strong> <code>ViewActivationHook</code> skips the task for
 the rest of the document session, keyed by <code>DocumentSessionKey</code>. Core's
-<code>ViewActivationHookTests</code> check the mechanism.</li>
+<code>ViewActivationHookTests</code> check the mechanism.
+<code>AutoUpdateTask</code> admits the first run for a document, then compares its
+Core <code>DocumentChangeStamp</code> and the saved classifier patterns with the last
+successful run. It takes the stamp after any weight writes commit.</li>
 <li><strong>Load groups.</strong> The same patterns find and classify the loads.
 <code>ClassifyLoadGroup</code> tries Dead, then Live, then Total, and throws if none
 matches. <code>JoistGirderClassifierTests</code> checks the groups but not the order.
@@ -251,8 +254,9 @@ Wt     = (top + bottom + web) / (L / 12), in lb/ft
 </tbody>
 </table>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
-<p>Log lines start with <code>[JoistGirder]</code>. Debug level adds the counts and the
-sample skips. A bad pattern logs a Warning: <code>Update failed for document …</code>
+<p>Log lines start with <code>[JoistGirder]</code>. Debug level adds the counts and up to
+five sample skips. Auto-update samples issues that are new since the last run
+for the same document. A bad pattern logs a Warning: <code>Update failed for document …</code>
 from the command, or <code>Auto-update disabled due to configuration: …</code> from
 auto-update.</p>
 <h2 id="tests">TESTS</h2>
