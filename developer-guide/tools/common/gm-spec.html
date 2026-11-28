@@ -106,8 +106,8 @@ Unsaved documents load saved data only under their captured session key.</p>
 <p><code>AddGm()</code> registers the concrete GM gate without replacing shared <code>IRevitCallGate</code> registrations.
 Each feature registers its host-neutral services through a <code>*ServiceCollectionExtensions</code> class in its <code>Composition</code> folder
 and its Revit adapters through a <code>*RevitServiceCollectionExtensions</code> class in its <code>Revit/Composition</code> folder.
-<code>AddGm()</code> calls <code>AddGmFeatureServices()</code> in <code>App/Composition</code> and then each feature's Revit extension.
-It registers Mapping's <code>IChangeWriter</code> implementations before Shared Parameters adds its own. App registers only project state, UI state, session composition, and the gate.
+<code>AddGmSessionServices</code> registers project state, feature services, the pane graph, UI state, and the session composer.
+<code>AddGm</code> adds the Revit adapters. Mapping registers its <code>IChangeWriter</code> implementations before Shared Parameters.
 GM Revit readers, writers, family batches, transaction runners, and Commit Review consume the concrete gate.
 <code>RevitMappingPlanExecutor</code> rejects an invalid document or session-key mismatch before writers begin.
 <code>RunCleanupAsync</code> uses the underlying gate with CancellationToken.None so owned documents can close after authority or work cancellation ends.</p>
@@ -125,9 +125,9 @@ It returns <code>AppSessionProjection</code>: the panes, the session's one <code
 the shared-parameter loader, and the row refresh graph. Runtime and design-time composition use that conflict instance.
 <code>SessionExecutionContext</code> carries the session's executor, logger, error notifier, operation gate, workspace signals,
 row signals, live-plan update suppression, and origin-clear suppression.
-The runtime wraps that same session context in <code>MappingDocumentExecutionContext</code>, exposed as <code>Session</code>,
-with its ExpectedDocument. The bound gate carries the session authorization key.
-Host-neutral panes and rows receive the session execution context. Commit Review receives the document execution context.
+<code>GmSessionComposer</code> uses the same session execution context and pane graph for the workspace and Commit Review.
+<code>RevitCommitReviewSessionRunner</code> passes the launch document to the native review factory.
+The bound call gate carries the document authorization key.
 Authorization identity and persistence identity have separate consumers.
 <code>WindowSessionServices</code> supplies the attached owner and progress overlay. <code>BannerNotifierFactory</code> uses that owner.
 Before Attach, every overlay member, CancelRequested included, throws InvalidOperationException.
@@ -194,7 +194,7 @@ Blank, disabled, separator, and Deep Scan template states use DynamicResource br
 </tr>
 <tr>
 <td>Session graph</td>
-<td><code>App/Composition/Revit/AppSessionBuilder.cs</code>, <code>App/Composition/AppSessionProjectionBuilder.cs</code>, <code>App/Composition/RowRefresh/RowRefreshFactory.cs</code></td>
+<td><code>App/Composition/AppSessionBuilder.cs</code>, <code>App/Composition/AppSessionProjectionBuilder.cs</code>, <code>App/Composition/RowRefresh/RowRefreshFactory.cs</code></td>
 </tr>
 <tr>
 <td>Modeless lifetime</td>
@@ -261,14 +261,18 @@ The planning state stays private to Commit Review. For mappings, planning can re
 names a family or type. It can also reuse an all-category snapshot or a snapshot for the selected category.
 The snapshot's family and type records must hold every intent family and type.
 One name read confirms each of those elements still exists. A Purge selection always requires a fresh scan for unused status.
-A missing or deleted intent family or type requires a planning scan. Planning removes a deleted owner's type and
-parameter intents and reports a deleted type in a surviving family as a stale selection.
+A missing required family or type requires a planning scan. Planning removes intents for confirmed deletions before
+resolving names. A live lookup checks recorded deletions before cleanup. The warning lists removed mappings and uses
+last-known names for deleted families and types. Planning reports an unresolved type selection when deletion cannot be confirmed.
 <code>CarryForwardInto</code> supplies loaded sections and unchanged-family Deep Scan evidence to that planning state.
-Duplicate detection also stays unpublished. <code>CarryDeepScanEvidenceInto</code> supplies only unchanged-family evidence to its fresh full state.
-The scan service can publish a <code>ProjectStateCategorySlice</code> from current duplicate results without a Revit read.
-This is an owner rule (test <code>ScanFamiliesWithCacheAsync_CategoryChangeAfterACurrentDuplicateScan_MakesNoRevitCall</code>).
+Duplicate detection also stays unpublished. <code>CarryDeepScanEvidenceInto</code> supplies unchanged-family evidence to its inventory.
+The scan service can publish a <code>ProjectStateCategorySlice</code> from duplicate results without a Revit read.
+Family or type edits discard cached rows for snapshots that contain affected IDs. A known deletion in the inventory
+requires a fresh build. A confirmed restoration or successful worksharing completion requires fresh inventory because it can add missing IDs.
+The Families scan rechecks recorded deletions for families affected by Undo or Redo, and after successful worksharing completion.
+A confirmed deletion stays out of the Undo and Redo recheck until a later operation touches its family.
 The Families drawer filters its all-category rows in memory. A GM commit invalidates the duplicate results.
-Revit edits made while GM is open require a fresh scan to reach GM.</p>
+The next activation of Duplicates refreshes expired project data after a Revit edit.</p>
 <p>The ProjectStateStore retains evidence across category-filtered state replacement.
 A rebuild restores it only when the family's type set and per-type instance counts remain unchanged.
 After commit, <code>ReplaceProjectStateAfterCommit</code> discards directly changed families and containing ancestors across all categories.
@@ -279,13 +283,25 @@ Discarding evidence removes scan state, type payloads, DeepScanResults, and fast
 <p><code>Domain/ElementNames</code> owns IElementNameQuery, ElementNamesCache, and ElementNameLookupKind.
 <code>Revit/ElementName/ElementNameQuery</code> implements the Revit adapter. App registers it with state/cache wiring.
 Categories registers curated-category services.
-ElementNamesCache exposes read-only family, type, style, material, and category name views.
-Each view reflects later merges and clears. Only the cache writes names: MergeNames,
-MergeFamilyAndTypeNames, name loading, Clear, and ClearFamilyAndTypeNames.
-A merged nonblank name inserts or overwrites the entry. A blank or omitted name keeps the cached entry.
-Strict name loading requires a nonblank cached name for every requested ID.
+<code>ElementNamesCache</code> publishes immutable family, type, style, material, and category name snapshots.
+Read the property again after a merge or invalidation to get the latest snapshot.
+For the same ID, a cached name from a newer revision takes precedence.
+Names keep the document revision captured before their read, including names merged from an inventory snapshot.
+<code>FamilyChangeMonitor</code> invalidates the names of each affected family and its types after a committed edit or reload.
+Successful Reload Latest and Synchronize with Central expire family and type names for the bound document.
+Cached family and type labels remain visible until a fresh read replaces them or finds the ID absent.
+A full family inventory retires stale names for known families and types it no longer contains.
+An older read cannot republish an invalidated name. A live lookup can clear a recorded deletion if the element exists again.
+If a document change overlaps a deletion check, the lookup repeats the check against the new revision.
+Reference-name loads expire older reference entries.
+A reference-name merge expires reference entries older than its supplied revision.
+A name merge supplies nonblank names at the same or a newer revision.
+Strict name loading requires a nonblank name for every requested ID outside the confirmed family and type deletions.
+Name loading uses confirmed deletions until an affected Undo or Redo, or a successful worksharing completion, requires another check.
+Name invalidation records last-known labels. Cache clears and Commit Review prune the history to deleted IDs and pending mapping references.
 The cache stores no blank name, so a missing name is queried again. Omitted/blank provider values stay unresolved.
-GetResolvedFamilyName prefers cache, then project-state family name, and throws if neither exists.
+GetResolvedFamilyName prefers the cache, then a project-state name read at or after the family's last edit and worksharing completion.
+It throws if neither name exists.
 GetCachedFamilyName uses the same order and returns null instead. GetCachedTypeName, GetCachedMaterialName,
 and GetCachedStyleName return the nonblank cached name or null. A name equal to its ID text is a name.
 Display getters retain explicit ID/unavailable-name fallbacks.
@@ -297,7 +313,8 @@ CategoryFilter derives its display label. Null and Id zero select every family.
 Other signed IDs select exactly that category, including negative built-in Revit IDs.
 Both IFamilyQuery methods use those rules.
 GetFamiliesAsync reuses state only when category identity matches, families exist, and all family names are nonblank.
-It still filters the reused result by the requested category.</p>
+It still filters the reused result by the requested category.
+The result carries the inventory revision through the family scan to its name merge.</p>
 <p>WorkspaceState.SortMode uses MatchingOptionSortMode through mutation, persistence, restoration, and option projection.
 CurrentProjectStateCategoryId identifies loaded state. FamilyMappingState.AppliedCategoryId identifies applied rows.
 Applying a different category resets category-scoped rows before application and records the category only after rows apply.
@@ -457,9 +474,13 @@ Detection/DuplicateDetectionEngine calls the family, style, material, and shared
 assigns aggregate group IDs, and returns DuplicateDetectionResult.
 The feature's Domain, Selection, Rows, Resolution, Tree, Pane, and TypeMapping folders own their respective contracts and behavior.
 SharedParameterDuplicateMatcher lives beside family/style/material matchers under Detection/Matching.
-CurrentDuplicateDetection owns the last fully completed artifact.
-Detection collects its unpublished full state, executes stable DuplicateKind stages, hydrates names,
-then publishes and returns the same artifact reference. Earlier failure/cancellation preserves the prior artifact.
+<code>CurrentDuplicateDetection</code> holds the last completed result. Search, filters, sort and threshold use that result while the page is open.
+Each activation reads the shared parameter file in one Revit call. It reuses document matches while their revision is current.
+If the file definitions change, activation rebuilds only shared-parameter matches for a current result and Usage index.
+Document edits, successful Reload Latest and successful Synchronize with Central expire older inventory, Usage and reference names.
+Activation reuses the all-category inventory and Usage when current and reads missing or expired sections.
+The explicit duplicate scan and Refresh Cache read a fresh full state. Shared Parameters authoring loads from its own page.
+Detection executes stable <code>DuplicateKind</code> stages and publishes the completed result. A detection failure or cancellation preserves the prior result.
 Family-row counts use that same detection state.
 Accepting a family duplicate writes type intents when its keep target becomes the applied family target. A manual mapping survives until the user chooses the duplicate side of a conflict. Accept includes the excluded types it maps. An exclusion made after Accept survives refresh and Use Duplicate. A second Accept includes the mapped type again. GM prefers an exact-case type name, then a name that differs only in case, then the highest score at or above Threshold. Type names that are unavailable do not take part in matching. An Edit Type Mapping result takes precedence over automatic matches. The signal-driven refresh applies the intent to loaded Families rows through MappingRowSet.ApplyIntent.</p>
 <p>The immediate rebuild receives the artifact explicitly. Other readers inject CurrentDuplicateDetection.
@@ -505,18 +526,6 @@ a matching loaded state or a slice of the current duplicate detection's full sta
 The refreshed rows show newly created types, omit purged families, and restore pending replacements whose source and
 target types are still available.
 App's CrossPaneRowRefresh sequences cross-pane work.</p>
-<ul>
-<li>Owner decision — Families uses the &quot;Curated list + multi-select&quot; category drawer. The checkboxes filter one all-category
-inventory in memory. Generic Annotations (<code>OST_GenericAnnotation</code>) stays available in every project. Other curated
-categories appear when the project has loadable families in them. <code>FamilyCategoryFilterPolicyTests</code> covers availability,
-and <code>FamilyMappingViewModelInteractionTests.SetCuratedFamilyCategories_ToggleFiltersRowsWithoutAnotherFamilyScan</code>
-covers filtering without a rescan.</li>
-<li>Owner decision (GM-1 B, 2026-11-23) — GM always opens on Families with only Generic Annotations checked. It restores
-sort mode, threshold, and the <strong>Applied Only</strong>, <strong>Hide Unscanned</strong> and <strong>Hide Unused</strong> checkboxes.</li>
-<li>Owner decision — a family target must have the same category as its source row; Lane B owns this option-pool test.</li>
-<li>Owner decision — zero-instance families stay mappable and use &quot;Mappable + Purge&quot;; <code>FamilyPurgePlanBuilderTests</code>
-pins planning and refusal, and <code>FamilyPurgeWriterTests</code> pins purge, used-family refusal, and cascade rollback.</li>
-</ul>
 <p><code>FamilyPurgeSelectionStore</code> holds session-only Purge selections. Planning requires a current family record with
 <code>IsRevitUnused</code>; apply queries Revit again, captures the family types, deletes the family inside the Commit Review apply
 group, and checks that the family and types are gone. A refusal or failed delete leaves the operation failed so the
@@ -529,8 +538,9 @@ AppSessionProjectionBuilder constructs one UsageIndexLoader and FamilyUsage afte
 The loader retains those collaborators. It is not a context-free service.
 RebuildPlanningUsageIfNeededAsync returns Task and builds only a missing index when usage intent exists.
 RebuildUsageAfterCommitIfNeededAsync returns true only when it builds the index.</p>
-<p>UsageIndexSnapshotBuilder starts and drains five catalog/index tasks, aggregates non-cancellation faults,
-and creates an unpublished candidate without touching the match index.
+<p>UsageIndexSnapshotBuilder starts and drains the required catalog and index reads, aggregates non-cancellation
+faults, and creates an unpublished candidate. Duplicate detection and its Usage refresh share the style and
+material sample captured in the detection state. Other Usage builds read a fresh sample.
 Name resolution, project-state usage storage, and Deep Scan refresh preparation precede publication.
 Index publication aligns the match index, target universe, hydration generation, and option cache.
 UsageMatchIndex shares one in-flight family hydration among concurrent callers.
@@ -593,6 +603,7 @@ makes ParameterUseViewModel reload its group. By parameter reads project-only re
 unplaced families, annotation families including tags and title blocks, and families with an unknown category.
 If a known old GUID has no family parameter, label, nested use, or refusal in the results, it opens the remaining
 editable families and adds their rows. The report counts distinct project families opened.
+<code>ParameterUseViewModel</code> shows the nested-use notice when the report's <code>HasUnscannedEditableFamilies</code> is true.
 A placed family can hide an old GUID inside a nested family even when its own types and placements show no match.
 That use can first appear on <strong>Scan Again</strong> after the repair moves the listed family uses. The binding move removes
 the old definition, so its scan opens every editable loadable family. Project bindings, values, schedules and filters
@@ -609,8 +620,17 @@ choices with AuthoringMapFromScorer.</p>
 entry (ParameterUseRepair) holds the definition, the full-scan report and the SharedParameterRepairSelection. Ticks
 call SharedParameterRepairEligibility.Evaluate to open Move project binding and to show BindingBlockers. Dependent
 rows (Copy stored values, Move schedule uses, View filters) follow MovesBinding. PendingOperationState counts the
-store. CommitReviewFinalizer clears it on Keep, and RefreshAsync clears it.</p>
+store. CommitReviewFinalizer clears it on Keep, and RefreshAsync clears it.
+Parameter Use tests binding eligibility with every family selected. If the binding is blocked, it disables the
+family moves that share an old GUID with a movable label that requires the binding.</p>
+<p>Apply accepts independent shared parameter repairs together. Commit Review blocks a batch when one repair changes
+a family, schedule, view filter or GUID that another repair reads. The check includes families whose loaded types
+or placed elements hold reviewed binding values.
+Commit Review and the repair writer validate the selected uses with <code>SharedParameterRepair.Plan</code>. If a previous
+repair changes the document stamp, Apply scans again and compares the next repair's snapshot.</p>
 <p>The use scan opts in to direct label moves by setting SharedParameterFamilyTarget.MoveDirectLabels. FoundationTags Install/Repair also opts in on Revit 2027. The default is false. Revit 2027 label entries with disposition Moves share their family's Move family parameter tick. A family with only label uses has one Move labels row. When the family's change ungroups detail groups (SharedParameterFamilyChange.UngroupedGroups), the row is titled Ungroup and repair, and Commit Review adds &quot;Group '<group>' in '<family>' is ungrouped. Its elements stay in place.&quot; for each group. An unticked row changes nothing. Both select the family ID for phase 1. Unticked label families block the binding move. A selected label with an old project binding requires that binding to move in the same apply. A selected direct label also requires every family that has a use of the old GUID and holds a value for it to be selected, and a selected family parameter requires every family with a movable direct label of that GUID to be selected. A selected family parameter whose family holds values refuses while a label of that GUID stays a hand-fix use, and a selected label refuses while one of its placed tags shows a linked element that holds a value of the old GUID. Commit Review lists each selected label entry, including its family, group, position and formatting.</family></group></p>
+<p>Revit exposes one parameter on a placed instance when the family parameter and project parameter share a GUID,
+so phase 1 moves its value to the company GUID.</p>
 <p>Core SharedParameterLabels owns the internal direct-label calls. CanWrite requires the ParameterId setter,
 IsValidParameterFormatting, SetParameterFormatting and get_IsLeadingParam. The members resolve once and missing
 members are logged once. The writer changes ParameterId only on the reviewed entries returned by public
@@ -720,12 +740,7 @@ The refresh workflow consumes ISessionOperationGate for busy state.</p>
 Returned outcomes rebuild the applied Shared Parameters tree.
 A successful continuation rescans Duplicates immediately when that page is active.</p>
 <h4 id="inline-previews">Inline previews</h4>
-<p>Owner rule: an inline preview of a line style, object style or material looks as Revit draws it.
-Tests: <code>UsagePreviewRenderTests.SolidLineOfPen3_DrawsOneTwoPixelLineInItsColorOnAWhiteCanvas</code>,
-<code>DashedLine_DrawsRevitDashLengthsAtTwicePrintSize</code> and <code>MaterialWithFillPatterns_DrawsSurfaceAndCutPatternsInTheirColors</code>.
-Owner rule: an inline target preview follows its row's target, whether code or the user sets it.
-Test: <code>NestedUsageInlinePreviewCoordinatorTests.TargetChangedInCode_ShowsThePreviewOfTheNewTarget</code>.
-UsagePreviewScale maps Revit lengths to DIP for a view at 1/8&quot; = 1'-0&quot;: 192 DIP per paper inch for lines, 96 for fill patterns.
+<p>UsagePreviewScale maps Revit lengths to DIP for a view at 1/8&quot; = 1'-0&quot;: 192 DIP per paper inch for lines, 96 for fill patterns.
 Pen widths are the line weights of a Revit project that starts from no template (Imperial).
 The Revit API cannot read the Line Weights table of a project.
 GraphicsStyleCatalog returns line patterns in paper inches: even indexes are dashes, 0 is a dot, odd indexes are spaces.
@@ -839,7 +854,7 @@ Families selects the first visible row. An empty view clears the selection.
 Shared Parameters rebuilds its definition groups, authoring tree and parameter use rows.
 A failed read keeps the previous inventory and rebuilds affected rows
 with Usage pending. Prewarm restarts after the action unless GM is closing.</p>
-<p>FamilyChangeMonitor records family, type and placement changes reported by Revit during the GM session. Deep Scan
+<p>FamilyChangeMonitor records family and type edits and reloads reported by Revit during the GM session. Deep Scan
 retention compares the fresh family inventory and discards evidence for changed families and scans that include changed
 nested families. Deep Scan also checks for changes during a read before publishing its results. Prewarm bypasses cached
 scans for families with changes reported during the session.</p>
@@ -1031,6 +1046,9 @@ availability and again when it runs. The first attempt clears it; Retry Apply is
 Apply and Retry Apply execute and verify inside an inner attempt group.
 Failure or cancellation rolls back the attempt and permits retry.
 Retry reuses the reviewed plan but constructs a new apply context and rereads the document.</p>
+<p><code>FamilyLoadWorkflow</code> deletes warnings during reload into the target document.
+A blocking failure requests rollback. Commit Review uses the captured Revit
+description for the failed mapping.</p>
 <p><strong>Keep + Continue</strong> and <strong>Keep + Close GM</strong> assimilate the session group into one Undo entry before recording mappings.
 <strong>Roll back</strong>, X's rollback answer, cancellation, and abnormal exit roll it back.
 X asks Keep or Roll back only while a successful attempt waits for Keep. After an attempt that kept nothing,
@@ -1108,16 +1126,141 @@ A single ordinary fault keeps its identity and stack.
 Multiple ordinary faults form an aggregate in family-category, shared-parameter-category, then parameter-group order, regardless of completion order.
 Other exception wrappers keep their context.
 With cancellation alone, the first cancellation in that order keeps its token.
-Expanding a family with instances makes one Revit callback and opens no family document (owner rule; test <code>ToggleFamilyRowCommand_ExpandingAFamilyWithInstancesReadsExamplesInOneRevitCallback</code>).
 The expansion builds a missing usage index first, then runs its reads through <code>IRevitCallBatch</code>; the first failure propagates.
-Browsing and row expansion use project data. <strong>Review Plan</strong> reads each affected root family once for style, material and shared-parameter embed mappings, with progress and <strong>Cancel</strong>. GM reuses the read by <code>Family.UniqueId</code> and <code>VersionGuid</code>, rejects it after a recorded family edit, and evicts it on <code>FamilyLoadedIntoDocument</code> (owner rule, test <code>ReviewPlan_reuses_the_family_read_until_Revit_reloads_it</code>).
+Review Plan reports family-read progress and supports cancellation.
+GM caches each read by <code>Family.UniqueId</code> and <code>VersionGuid</code>.
+A recorded family edit invalidates the read. <code>FamilyLoadedIntoDocument</code> evicts it.
 The Views panel owns the views list.
 The views list is read for the selected row while the views panel shows and the workspace is ready, once per family until the next family scan or post-commit refresh. When the workspace becomes ready after startup or an operation, the selected row's list is read.
 A views-list double-click is one Revit call.
 Selected-type instance examples are read once through type selection.
-A duplicate scan reads the previews of each kind (line styles, object styles, materials) in one Revit callback (test <code>DetectAsync_ReadsThePreviewsOfEachStyleAndMaterialKindInOneRevitCallback</code>).
-Core's queued-turn policy determines which waiting calls share a callback.</p>
+A full project-state read groups line-style, object-style, and shared-parameter catalog reads in one Revit callback.
+<code>ProjectStateBuilderTests.FullRequest_BatchesCatalogReadsAndProjectsUsageAndSharedParameters</code> checks that callback.
+Detection uses names in the project state and name cache. It queues only missing names, in batches of up to 200 IDs.
+It checks cancellation between batches. Family duplicates use curated category labels and read missing labels for their other categories.
+The line-style, object-style, and material previews share one callback. Line styles and object styles use one
+graphics-style lookup. The matchers group each kind separately.
+<code>DuplicateDetectionEngineTests.DetectAsync_QueuesEachNameChunkAndBatchesPreviewsByCallback</code> checks the name and preview callbacks.
+Core's queued-turn policy determines which other waiting calls share a callback.</p>
+<h2 id="contracts">Contracts</h2>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GM opens on Families with only Generic Annotations checked and restores sort, threshold, and the three filter preferences.</td>
+<td><code>GmSessionJourneyTests.Startup_OpensFamiliesWithOnlyGenericAnnotationsAndRestoresMatchingPreferences</code></td>
+</tr>
+<tr>
+<td>Generic Annotations stays available. Other curated categories appear when they contain loadable families.</td>
+<td><code>FamilyCategoryFilterPolicyTests.GetAvailableCategories_KeepsGenericAnnotationsAndHidesOtherCategoriesWithoutFamilies</code></td>
+</tr>
+<tr>
+<td>The Families checkboxes filter the loaded inventory in memory.</td>
+<td><code>GmSessionJourneyTests.ChangeFamilyCategory_FiltersTheLoadedInventoryWithoutAnotherRevitRead</code></td>
+</tr>
+<tr>
+<td>A category scan can slice the current Duplicates result without a Revit read.</td>
+<td><code>FamilyMappingScanServiceTests.ScanFamiliesWithCacheAsync_CategoryChangeAfterACurrentDuplicateScan_MakesNoRevitCall</code></td>
+</tr>
+<tr>
+<td>Family targets must match the source row's category.</td>
+<td><code>GmSessionJourneyTests.ScanFamilies_OffersOnlySameCategoryFamilyTargets</code></td>
+</tr>
+<tr>
+<td>A zero-instance family stays mappable and supports <strong>Purge</strong> when Revit reports it unused.</td>
+<td><code>GmSessionJourneyTests.ZeroInstanceFamily_RemainsMappableAndCanBeSelectedForPurge</code> and <code>FamilyPurgePlanBuilderTests.BuildOperations_RefusesFamilyRevitDoesNotReportAsUnused</code></td>
+</tr>
+<tr>
+<td>GM omits in-place families.</td>
+<td><code>FamilyScannerFamiliesTests.FamilyQueries_ExcludeInPlaceFamilies</code></td>
+</tr>
+<tr>
+<td>Family counts include sheet-owned instances.</td>
+<td><code>FamilyScannerFamiliesTests.FamilyQueries_CountFamilyPlacedOnlyOnSheet</code></td>
+</tr>
+<tr>
+<td>Browsing the workspace and choosing mapping targets leaves family documents closed.</td>
+<td><code>GmSessionJourneyTests.NavigateBetweenUsageAndFamilies_PublishesRowsAndKeepsTheSelectedMaterialTarget</code></td>
+</tr>
+<tr>
+<td>Expanding a placed family batches its project reads in one callback and leaves family documents closed.</td>
+<td><code>GmSessionJourneyTests.ExpandPlacedFamily_ReadsFastUsageOnceAndKeepsFamilyDocumentsClosed</code></td>
+</tr>
+<tr>
+<td>An unplaced family's details require Deep Scan evidence. Expansion alone starts no Deep Scan.</td>
+<td><code>GmSessionJourneyTests.ExpandUnplacedFamily_LeavesDetailsGatedUntilAnExplicitDeepScan</code></td>
+</tr>
+<tr>
+<td>Accepting a family duplicate updates Families and adds type replacements to Review Plan.</td>
+<td><code>GmSessionJourneyTests.AcceptFamilyDuplicate_UpdatesTheFamiliesRowAndPlansTheTypeReplacement</code></td>
+</tr>
+<tr>
+<td>A nested material Apply is independent of the parent type Apply.</td>
+<td><code>GmSessionJourneyTests.NestedMaterialApply_StaysIndependentOfParentAndReviewReadsEachFamilyOnce</code></td>
+</tr>
+<tr>
+<td>Review Plan reads each root family affected by a style, material, or shared-parameter embed once.</td>
+<td><code>GmSessionJourneyTests.NestedMaterialApply_StaysIndependentOfParentAndReviewReadsEachFamilyOnce</code> and <code>CommitReviewPlanningWorkflowTests.ReviewPlan_reuses_the_family_read_until_Revit_reloads_it</code></td>
+</tr>
+<tr>
+<td>Review Plan uses the family read to confirm usage evidence and choose which parts of the family to edit.</td>
+<td><code>CommitReviewOperationBuilderTests.ReviewPlan_reads_only_the_selected_family_and_uses_its_material_evidence</code></td>
+</tr>
+<tr>
+<td>If the project sample is truncated, Apply verification uses family coverage from Review Plan and checks current project references.</td>
+<td><code>CommitReviewPlanVerifierTests.VerifyAfterApplyAsync_UsesReviewReadCoverageForTruncatedPlanningSample</code></td>
+</tr>
+<tr>
+<td>Visiting Usage again retains mapping intent and reuses the loaded index.</td>
+<td><code>GmSessionJourneyTests.NavigateBetweenUsageAndFamilies_PublishesRowsAndKeepsTheSelectedMaterialTarget</code></td>
+</tr>
+<tr>
+<td>A checked shared-parameter repair appears in pending changes and in Review Plan. The operation details list the label uses in the selected families.</td>
+<td><code>GmSessionJourneyTests.TickSharedParameterRepair_EnablesReviewPlanAndPlansTheSameRepair</code></td>
+</tr>
+<tr>
+<td>In Revit 2027, eligible label repair ungroups the detail group and moves its label while retaining its members.</td>
+<td><code>SharedParameterRepairLabelTests.CommitReviewRepair_ungroups_and_moves_the_UI_made_grouped_foundation_tag_and_keeps_its_members_in_place</code></td>
+</tr>
+<tr>
+<td>Commit Review disables hit testing on the GM workspace while the dialog is open and restores it on close.</td>
+<td><code>CommitReviewWindowPresenterTests.ShowAsync_DisablesWorkspaceInputOnlyWhileTheReviewIsOpen</code></td>
+</tr>
+<tr>
+<td>A kept apply assimilates one transaction group named <code>Global Mapper: Apply</code>. Roll Back leaves no Undo entry.</td>
+<td><code>CommitReviewApplyTransactionGroupTests.ApplyAsync_TypeReplacement_ReplacesTheInstancesInsideOneAssimilatedGroupCall</code> and <code>RollbackAsync_RestoresTheOriginalTypesWithoutKeepingAnUndoEntry</code></td>
+</tr>
+<tr>
+<td>Inline line style, object style, and material previews use the appearance of the corresponding Revit element.</td>
+<td>Inspect the preview in a running GM window with the corresponding Revit element.</td>
+</tr>
+<tr>
+<td>The inline preview follows the row's current target, including a change made during an outstanding read.</td>
+<td><code>NestedUsageInlinePreviewCoordinatorTests.TargetChangedInCode_ShowsTheNewTargetWithoutRereadingTheSource</code> and <code>TargetChangedDuringTheRead_KeepsTheNewTargetPreviewWhenTheOldReadFinishes</code></td>
+</tr>
+<tr>
+<td>A blank or invalid target clears its inline preview.</td>
+<td><code>NestedUsageInlinePreviewCoordinatorTests.BlankTarget_ClearsThePreviousInlinePreview</code> and <code>UsagePreviewServiceTests.PopulateTargetInlinePreview_ClearsThePreviewForABlankOrInvalidTarget</code></td>
+</tr>
+<tr>
+<td>The inline preview coordinator freezes brushes and dash arrays before exposing them to the workspace.</td>
+<td><code>NestedUsageInlinePreviewCoordinatorTests.PopulateInlinePreviews_FreezesStyleAndMaterialBrushesAndDashArrays</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="testing">Testing</h2>
+<p>GM Pure tests use <code>AddGmSessionServices</code>, <code>GmSessionComposer</code>, and the production <code>SafeExecutor</code>.
+The default test notifier fails the session at disposal if it receives an error banner.
+Tests that expect an error supply their own notifier and check the banner.
+Each session uses one service scope and supplies the Revit query results and host services it needs.
+Families and Duplicates workflow fixtures use the rows and commands of the composed panes.
+<code>GmSessionJourneyTests</code> drives workspace commands and collects operation rows from the review view model.
+The review host supplies the modal callback boundary. The hosted review factory supplies the Revit transaction and document boundary.</p>
 <p>See <a href="gm.html#testing">Global Mapper testing</a> for fixture ownership, hidden-desktop dialog hosting, model baselines, and run commands.</p>
 <h2 id="limitations">Limitations</h2>
 <p>Family-tree discovery retains edit documents through capture and applicable writes, so peak open-document count grows with the discovered tree. Grouped curves are eligible only when each enclosing group type has one placed instance. Family-document material replacement resolves by name, not host numeric ID.</p>

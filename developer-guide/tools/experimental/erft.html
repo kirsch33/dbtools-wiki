@@ -177,7 +177,9 @@ the session rolls back the group.</p>
 <p><code>MemberProfileExtractor</code> passes <code>ERFT Extract Member Profile</code>,
 <code>ERFT Extract Member Profile Bake</code> and <code>ERFT Extract Member Profile Cleanup</code>
 to separate transactions per member type inside the session group.
-<code>PlanPreparationBuilderTests</code> checks temporary instance cleanup.</p>
+<code>TransactionFailurePreprocessor.EnsureCommitted</code> includes Revit's blocking
+failure descriptions if a probe commit fails. <code>PlanPreparationBuilderTests</code>
+checks the refusal and temporary instance cleanup.</p>
 <p><code>AdjustmentWriter.ApplyAsync</code> passes <code>ERFT Apply Adjustments</code> to the
 transaction runner. <code>ApplyColumnAdjustment</code> writes <code>FAMILY_TOP_LEVEL_OFFSET_PARAM</code>
 (<code>FramingAdjustmentEndToEndTests</code>). <code>ApplyBeamAdjustment</code> writes
@@ -229,10 +231,17 @@ DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/ERFT.Hosted.En
 </code></pre>
 <p><code>ErftRevitTestBase</code> resolves <code>&lt;year&gt;/dbtools_test_model.rvt</code>.
 <code>TargetGeometryReaderTests</code> checks a footprint roof's base-level label,
-projection to a steep roof's underside, and the floor geometry cut by a
-joined column.
-<code>FramingAdjustmentEndToEndTests</code> checks removal of retired entities and
-emptied <code>DataStorage</code> records in a rollback-only group.
+projection to a steep roof's underside, and floor geometry cut by a joined
+column. It checks that a translated link's floor underside projects in host
+coordinates.
+<code>FramingAdjustmentEndToEndTests</code> runs New, Apply, and Edit in an inline
+scope. It checks one Apply transaction and reconstruction from the saved
+plan. After a failed Apply, it checks that the column offset and tag are
+unchanged and the attempted plan is absent. It also checks removal of
+retired entities and empty <code>DataStorage</code> records in a rollback-only group.
+<code>TargetSelectionPickerTests</code> checks the fallback to host selection after a
+canceled linked pick. <code>FramingAdjustmentWorkflowTests</code> checks the transaction
+rollback when both target picks are canceled.
 See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/hooks.html">Hooks</a>,

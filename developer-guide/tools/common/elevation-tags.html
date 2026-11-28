@@ -171,9 +171,11 @@ It checks rollback when deletion would remove dependent spots.</li>
 owns the alignment transaction. <code>Runner.Run</code> includes name and update
 failures in <code>FailedCount</code>. <code>SpotElevationTextAlignerTests</code> checks those
 counts and the transaction call for matching candidates.</p>
-<p><code>SymbolTextEditor.Apply</code> puts family loading and spot type assignment in
-one transaction group. See <code>GetOrCreateSymbol</code> for the edit and load order.
-<code>SymbolTextEditorTests</code> checks rollback when a later type conflicts.</p>
+<p><code>SymbolTextEditor.Apply</code> puts family loading, spot type assignment and
+variant cleanup in one transaction group. The project transactions pass
+Revit's blocking failure descriptions through <code>TransactionFailureException</code>.
+See <code>GetOrCreateSymbol</code> for the edit and load order. <code>SymbolTextEditorTests</code>
+checks rollback when Revit refuses the load, assignment or cleanup.</p>
 <h2 id="data">DATA</h2>
 <p><code>ElevationTagsSettings.cs</code> defines the defaults for <code>Tools.ElevationTags</code>.
 <code>TypeOffsets</code> stores paper inches by type name. <code>SpotTextLocationParser</code>
@@ -182,7 +184,6 @@ maps <code>SPOT_ELEV_TEXT_LOCATION</code> values.</p>
 <code>SymbolTextEditor.Families.cs</code> defines the temporary <code>.rfa</code> path.</p>
 <p>The <code>common.elevation_tags</code> pack declares <code>core.common.elevation_tags</code>.
 <code>manifest.yml</code> names <code>dbtools.AlignElevationTagsInView</code> as the warning's only ribbon target.
-<code>ElevationTagsToolModuleTests</code> checks that the module passes its target and <code>WarningIdsToSetOnFailure</code> through.
 For activation on admission failure, see <code>ViewActivationTaskRegistry.RecordAdmissionFailure</code>
 and <a href="../../developing/hooks.html">Hooks</a>.
 <code>ViewActivationTaskRegistryTests.ActivateFailureWarnings_ActivatesTaskWarnings</code>
@@ -209,15 +210,20 @@ DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/ElevationTags.
 </code></pre>
 <p>The Pure fixture in <code>Tests/Features/AlignElevationTagsWorkflowTests.cs</code>
 checks <code>BuildSummary</code>. <code>SymbolTextPolicyTests</code> checks text and naming rules.
-<code>ElevationTagsSettingsPackViewBindingTests</code> checks preview bindings, including
-caption changes on type selection and visibility when no type matches.
-These fixtures run in Pure.</p>
+<code>SettingsPackContextTests.Selecting_another_type_updates_the_preview_text_and_location</code>
+checks the caption value and sample text after type selection.
+<code>SettingsPackContextTests.PreviewHasOffsets_tracks_the_selected_types_offset</code>
+checks the preview flag when a saved offset loads and when the offset clears.
+<code>ElevationTagsToolModuleTests</code> checks that <code>SettingsWarningValidator</code> marks the
+pack warning active. The test checks that warning activation publishes
+<strong>Align Elevation Tags</strong> as the command to disable.</p>
 <p>The Revit fixture in <code>Tests/Integration/Revit/Features/AlignElevationTagsWorkflowTests.cs</code>
 checks placement in rotated plans. It and <code>SymbolTextEditorTests</code> use
 <code>dbtools_test_model.rvt</code> and an installed spot elevation symbol template.
 See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
-<p>The Presentation Local fixture <code>ElevationTagsSettingsPackViewTests</code> checks
-the compiled view and its local resources in Revit.</p>
+<p><code>SpotElevationTypeProjectorTests.Settings_pack_projects_the_active_documents_spot_type_and_symbol</code>
+checks the spot type and symbol family data that the Settings pack reads from
+the active Revit document.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/feature-warnings.html">Feature Warnings</a>,
 <a href="../../developing/settings-packs.html">Settings Packs</a></p>

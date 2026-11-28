@@ -98,9 +98,9 @@ entry     TdvToolModule
 commands  TdvImportCommand, TdvExportCommand
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p><code>WindowSession</code> delegates library selection to <code>LibrarySelectionDialog</code>
-and opens the modal transfer window.
-<code>TransferSession</code> holds the source and destination for the window.</p>
+<p><code>WindowSession</code> delegates library selection to <code>LibrarySelectionDialog</code>.
+It binds the Revit source and destination to a <code>TransferSession</code>.
+<code>TransferWindow</code> creates and opens the modal transfer window.</p>
 <h2 id="structure">STRUCTURE</h2>
 <table>
 <thead>
@@ -116,11 +116,23 @@ and opens the modal transfer window.
 </tr>
 <tr>
 <td><code>App/Sessions/</code></td>
-<td><code>WindowSessionDialogRunner</code> handles close and retirement.</td>
+<td><code>TransferWindow</code> owns the window and its cleanup. <code>WindowSessionDialogRunner</code> collects the result and releases the session.</td>
 </tr>
 <tr>
 <td><code>Features/Library/</code></td>
-<td><code>LibraryCatalog</code> resolves paths. <code>LibrarySelectionDialog</code> builds the picker. <code>LibraryDocumentService</code> manages documents.</td>
+<td><code>LibraryCatalog</code> resolves paths. <code>LibrarySelectionDialog</code> builds the picker.</td>
+</tr>
+<tr>
+<td><code>Features/Library/Operations/</code></td>
+<td><code>LibraryDocumentService</code> manages the library through <code>ILibraryDocumentApi</code>. <code>RevitLibraryDocumentApi</code> performs native document operations in the run scope.</td>
+</tr>
+<tr>
+<td><code>Features/Transfer/Domain/</code></td>
+<td><code>TransferDocumentHandle</code> identifies either document in a transfer.</td>
+</tr>
+<tr>
+<td><code>Features/Transfer/Operations/</code></td>
+<td><code>RevitTransferDocumentHandle</code> binds a transfer handle to a Revit document.</td>
 </tr>
 <tr>
 <td><code>Features/Transfer/Execution/</code></td>
@@ -143,7 +155,8 @@ English names. See the same method for the <code>Viewport</code> type check and 
 <h2 id="contracts">CONTRACTS</h2>
 <ol>
 <li><code>TransferExecutor.ApplySelectionAsync</code> requires one continuous Revit API
-callback. <code>TransferExecutorTests</code> checks callback entry.</li>
+callback. It refuses a shared source and destination before reporting progress.
+<code>TransferExecutorTests</code> checks callback entry and the same-document refusal.</li>
 <li><code>DestinationTransactionGroup</code> uses the requested document even when another
 document is active. <code>EnsureOwns</code> rejects any other document.
 <code>DestinationTransactionGroup_BindsBeginItemAndFinalizeToOneNonActiveDocument</code>
@@ -159,7 +172,9 @@ for validation and transaction order.</li>
 <code>EnsureDestType</code> create a missing type. <code>TransferExecutorTests</code> checks that
 <code>EnsureDestType</code> creates a requested type and refuses a missing named type.</li>
 <li><code>TransferRunState</code> counts and reports row successes after <code>Committed</code>.
-<code>Transfer_DraftingView_From_GM_To_SGT</code> checks success reporting after finalization.
+<code>TransferCommitTests</code> checks success reporting after finalization.
+The hosted <code>TransferExecutorTests</code> checks that a row rollback reports
+Revit's reason and that the successful rows commit.
 <code>RunSelectionAsync</code> checks Cancel before each view and after the
 final transaction group health check. The executor rolls back the group
 when it observes Cancel or when starting the group fails after it opens.
@@ -174,8 +189,7 @@ rolled-back or unknown outcomes.</p>
 <li><code>LibrarySelectionWorkflow</code> opens the picker even when no configured path
 is valid. <code>LibrarySelectionDialog</code> offers <strong>Browse for File</strong> in every case.
 When valid and invalid paths both exist, it reports the unavailable count.
-<code>LibraryDialogOptions</code> sets the initial size to 660 by 460 device-independent
-units. The alert owns the file picker.
+The file picker uses the alert's owner.
 Canceling the file picker leaves the alert open. Before validating the
 choice, the workflow rejects the active model and its central path.
 A browsed path applies to one workflow. <code>LibrarySelectionDialogTests</code>
@@ -190,7 +204,7 @@ active document.</li>
 synchronizes when <code>TransferDestinationChanges.Any</code> is true, including
 <code>Unverified</code> changes. It otherwise requests discard. <code>TransferWorkflowTests</code>
 checks these routes.</li>
-<li>On retirement, <code>WindowSession</code> defers library release until any active
+<li>On retirement, <code>TransferWindow</code> defers library release until any active
 transfer ends. <code>TdvWindowViewModelTransferTests</code> checks the timing.
 <code>TransferWorkflowTests</code> checks release without queuing a call-gate operation.</li>
 </ol>
@@ -210,10 +224,13 @@ leaves both transfer commands available.</p>
 a horizontal fit and a size setting of 1024 pixels. It takes the pane color
 from the PNG's upper-left pixel or from <code>ColorOptions.BackgroundColor</code> if the
 pixel is fully transparent. <code>PreviewCache</code> retains up to 32 paths and colors.
-It evicts the oldest inserted entry first. <code>WindowSession.CleanupViewModel</code>
+It evicts the oldest inserted entry first. <code>TransferWindow.CleanupViewModel</code>
 requests directory cleanup on close. <code>PreviewCacheTests</code> checks the limit and
-directory deletion.
-<code>Workshared_library_sync_and_reopen_persists_changes_and_removes_local_workspace</code>
+directory deletion.</p>
+<p><code>LibraryDocumentService</code> creates each workshared local in a short, randomly
+named workspace under <code>CachePaths.LibraryLocalsRoot</code>. The short name leaves
+room for Revit's worksharing backup paths.
+<code>Workshared_library_removes_its_local_and_persists_changes_only_on_sync</code>
 checks workspace removal after sync and discard closes. See
 <code>LibraryDocumentService.TryDeleteWorkspaceForLocalPath</code> for cleanup.</p>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
@@ -228,11 +245,17 @@ dotnet test testing/Daemon/Pure/Presentation.Pure.Entry.csproj --filter &quot;Fu
 <p><code>TdvModelContext</code> leases <code>dbtools_test_model.rvt</code> as the source and a
 temporary copy as the destination. Use <code>BeginCase</code> for isolation and
 <code>CreateTemporaryWorksharedCentral</code> for worksharing cases.</p>
+<p><code>DestinationTransactionGroup_BindsBeginItemAndFinalizeToOneNonActiveDocument</code>
+ends case isolation before activating the source. It rolls back its own group
+on the background destination.</p>
+<p><code>LibrarySettingsAutomationTests</code> loads the registered Library Files view in
+Pure. It checks that <code>LibraryTreeView</code> reports <code>No library files</code> after the
+last library is removed.</p>
 <p><code>TdvWindow.xaml</code> uses <code>TdvPanZoomBehavior</code> for preview input.
 <code>PreviewZoomBehavior</code> resets the fit on image change and <strong>Zoom Extents</strong>.
 <code>TdvPanZoomBehaviorTests</code> checks wheel zoom and panning.
-<code>PreviewExportOwnerTests</code> checks the PNG, pane color and preservation of
-Revit's background colors.</p>
+<code>PreviewExportOwnerTests</code> checks PNG decoding, refusal to export a missing
+source view, and removal of the exported files.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../../user-guide/tools/tdv.html">Transfer Drafting Views</a>,
 <a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a>,

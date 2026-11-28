@@ -101,13 +101,14 @@ window    App/Views/SgtWindow.xaml          (raw embedded XAML; sandbox window d
 stable    src/dbtools.Presentation/Tools/SGT/, src/dbtools.Presentation/StructuralPreview/
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p><code>SgtCommand</code> launches <code>NewSessionWorkflow</code>, which calls
-<code>SgtWindowSession.RunModalFlowAsync</code>. <code>ContextualEditHook</code> calls it directly
-with a <code>WindowSessionLaunchRequest</code>:
-<code>New</code> with a wall target, or <code>Edit</code> with a <code>SystemId</code>. The session owns one
-transaction group for the life of the modal window. Wall analysis builds a
-<code>Plan</code>; the window edits it through <code>PlanStore</code>; preview and placement read
-the same resolved member contracts.</p>
+<p><code>SgtCommand</code> calls <code>NewSessionWorkflow</code>. The workflow passes a
+<code>WindowSessionLaunchRequest.New</code> with a wall target to <code>SgtWindowSession.RunModalFlowAsync</code>.
+<code>ContextualEditHook</code> passes an <code>Edit</code> request with a <code>SystemId</code> to
+<code>ContextualEditModalLaunch</code>. <code>SgtToolModule</code> binds that delegate to the
+same modal runner on the contextual button's Revit callback.
+<code>SgtWindowSession</code> starts one transaction group for the modal window.
+Wall analysis builds a <code>Plan</code>. The window edits it through <code>PlanStore</code>.
+Preview and placement read the same resolved member contracts.</p>
 <p>The <a href="../../../user-guide/tools/sgt.html">user page</a> describes the behavior,
 and <a href="../../architecture/structural-preview.html">Structural Preview</a> the 3D
 host.</p>
@@ -126,8 +127,12 @@ host.</p>
 <td><code>SgtToolModule</code>, <code>SgtCommand</code>, <code>ContextualEdit/</code> and every service registration (<code>ServiceCollectionExtensions</code> and the feature <code>*ServiceCollectionExtensions</code>).</td>
 </tr>
 <tr>
-<td><code>App/Startup/</code>, <code>App/Sessions/</code></td>
-<td><code>NewSessionWorkflow</code>, <code>StartupAnalysisWorkflow</code>, <code>SgtWindowSession</code>, <code>WindowSessionLifecycle</code>, <code>WindowSessionBuilder</code>, <code>SessionAnalysisOwner</code>.</td>
+<td><code>App/Startup/</code></td>
+<td><code>NewSessionWorkflow</code> creates the launch request. <code>StartupAnalysisWorkflow</code> runs analysis. <code>Revit/StartupTargetResolver</code> resolves the selected or stored wall in Revit.</td>
+</tr>
+<tr>
+<td><code>App/Sessions/</code></td>
+<td><code>SgtWindowSession</code> starts the Revit group. <code>SgtModalWindowSession</code> drives startup, Change Review and close through <code>WindowSessionLifecycle</code>. <code>WindowSessionBuilder</code> composes the window and <code>SessionAnalysisOwner</code>.</td>
 </tr>
 <tr>
 <td><code>App/State/PlanSynchronization/</code></td>
@@ -175,7 +180,7 @@ inches to the next foot. Wall layer labels show inches alone below one foot.</p>
 begins the group <code>Super Girt Tool</code>, then runs <code>PurgeUnsupportedAsync</code>
 inside it. A command uses ordinary transactions inside the group, and
 never starts or ends a group of its own. <code>SgtWindowSessionTests</code> checks
-the refusals.</p>
+the refusals and the single undo entry for Place and Update.</p>
 </li>
 <li><p><strong>Commit only on success.</strong> <code>WindowSessionLifecycle.FinalizeSession</code>
 assimilates the group only when all of these hold: the close requests a
@@ -215,8 +220,10 @@ A slanted or tapered cross-section also fails. <code>WallTargetFrameBuilder</cod
 plane serves analysis, preview and placement. The preview modes and
 <code>WallSystemWriter</code> read these values and compute no transform of their
 own. <code>DirectionalGapEvaluator</code> measures the gap at a jamb
-in the wall's along direction. <code>PreviewPlacementParityTests</code> compares
-the preview with the placed members. It measures the Section anchors and
+in the wall's along direction. <code>PreviewPlacementParityTests</code> compares the scene
+published by the view model with the members written by Place and Update.
+An Edit session loads the placed system from <code>ISystemRepository</code> before Update.
+It measures the Section anchors and
 placed location lines against the selected layer plane. It checks section
 seating, channel toe direction and Z flange heights, and it measures two
 sizes of the same channel family on a compound wall. It measures placed
@@ -389,8 +396,11 @@ with no <code>x:Class</code> and no WPF-derived type in the payload.
 wall (<code>FoundationWallSelectionFilter</code>). <code>ContextualEditHook</code> reads the
 selected system IDs instead, through <code>ContextualEditTargetEvaluator</code>.</li>
 <li><code>SgtWindowSession.Start</code> begins the group and purges.
-<code>WindowSessionBuilder</code> composes the window, view model and
-<code>SessionAnalysisOwner</code>.</li>
+<code>WindowSessionBuilder</code> creates the opening row and parent row editors
+with a shared <code>OpeningRoleOptions</code> for the session plan. Role warnings
+use the SGT window notifier. The host notifier displays placement
+warnings. Change Review relink resolves against the verified active
+session document.</li>
 <li><code>PlanBuilder.BuildNewPlanAsync</code> sets the framing mode, then runs
 <code>WallAnalysisStep</code>, <code>PlanSeedingStep</code> and admission. <code>GirtElevationBuilder</code>
 supplies whole 5'-0&quot; intervals from the base through the framing band.
@@ -537,7 +547,7 @@ leaves the Reference Level of existing members in place.</p>
 </tr>
 <tr>
 <td>Project pick</td>
-<td><code>dbtools_SGT_Project</code> is the project <code>DataStorage</code> and schema name. For multiple rows, <code>ProjectReferenceLevelStorage</code> uses the live pick from the lowest ordinal storage UniqueId. A separate transaction after framing merges duplicate rows and clears stale picks. Place also saves a changed selection. A failure adds a warning to the placement outcome.</td>
+<td><code>dbtools_SGT_Project</code> is the project <code>DataStorage</code> and schema name. For multiple rows, <code>ProjectReferenceLevelStorage</code> uses the live pick from the lowest ordinal storage UniqueId. Place and Update merge duplicate rows and clear stale picks in the framing transaction. Place also saves a changed selection there. A schema or row name that fails validation produces a warning before the pick write. A refused pick write rolls back the transaction.</td>
 </tr>
 <tr>
 <td>Member tag</td>
@@ -578,6 +588,7 @@ log file omits.</p>
 <pre><code class="lang-bash">dotnet test src/Tools/Structural/SGT/Tests/dbtools.SGT.Portable.Pure.Tests.csproj
 dotnet test testing/Daemon/Pure/SGT.Pure.Entry.csproj
 DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/SGT.Hosted.Entry.csproj
+DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/SGT.HostedTurns.Hosted.Entry.csproj
 </code></pre>
 <table>
 <thead>
@@ -589,22 +600,45 @@ DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/SGT.Hosted.Ent
 <tbody>
 <tr>
 <td><code>dbtools.SGT.Portable.Pure.Tests</code></td>
-<td>Domain, feature decisions and storage mapping, on <code>net10.0</code></td>
+<td>Domain geometry, profile loop matching, opening-row projection, wall frame construction, orientation decisions, flyout state and storage mapping</td>
 </tr>
 <tr>
 <td><code>dbtools.SGT.Pure.Tests</code></td>
-<td>Window lifecycle, view models, flyouts, UI state and synchronization</td>
+<td>Window lifecycle, view models, plan synchronization, segment flyout edits, startup feedback, UI state, preflight diagnostics and wall pick cancellation</td>
 </tr>
 <tr>
 <td><code>dbtools.SGT.Local.Tests</code></td>
-<td>Wall analysis, opening detection, model writes, storage, preview parity and the real window session</td>
+<td>Revit wall and opening geometry, family probes, model writes, Extensible Storage, placed-member parity and the Revit window session</td>
+</tr>
+<tr>
+<td><code>dbtools.SGT.HostedTurns.Local.Tests</code></td>
+<td>Contextual Edit from Revit's <code>SelectionChanged</code> event through the injected ribbon command and a queued Revit turn</td>
 </tr>
 </tbody>
 </table>
+<p>Pure view-model tests use <code>SafeExecutor</code> and pump the window dispatcher while awaiting analysis,
+placement, preview, and UI state operations. They drain queued dispatcher
+work after the operation completes. Wall analysis posts <code>Background</code> work
+to that dispatcher before it calls the plan builder.</p>
+<p>Preview tests observe <code>PreviewDataUpdated</code>, <code>PreviewScene3DUpdated</code>, and the
+startup elevation-paint outcome. The placement parity fixture acknowledges
+the published elevation sequence during Edit startup.</p>
+<p><code>ContextualEditHookHostedTurnTests</code> waits for Revit's selection event and the
+command on Revit's contextual ribbon. Revit can update the ribbon after
+<code>SelectionChanged</code>. The fixture records tab identities at hook entry and at
+its next dispatcher callback. On failure it also records the SGT panel and
+the Edit button's visible and enabled states. When no Structural Framing tab
+matches, the hook logs the available tab titles at Information.</p>
 <p>The Local tests open <code>dbtools_test_model.rvt</code> and its link,
 <code>_LinkedModels/sgt_test_linked_model.rvt</code>
 (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>). Without the
 model, they fail.</p>
+<p><code>OpeningProfileLoopExtractor</code> reads Revit side-face edges in host coordinates.
+<code>OpeningProfileLoopResolver</code> identifies the perimeter and compares opening bounds
+in along-wall and elevation coordinates. <code>OpeningQueryTests</code> checks extraction
+from a wall with two rectangular openings. It also checks the rejection detail
+when the query cannot read a discovered insert. The Portable tests check loop
+selection and deduplication.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/hooks.html#contextual-ribbon-injectors">Hooks</a>,
 <a href="../../developing/sandbox-integration.html">Sandbox Integration</a>,

@@ -129,8 +129,9 @@ lists the families and output formats.</p>
 and exact family name using <code>StringComparison.Ordinal</code>.</li>
 <li>The workflow prompts only when a collected type has a nonblank
 <code>Type Mark</code>. <strong>Cancel</strong> or closing the alert returns before the workflow
-calls <code>FoundationTypeOrganizer.Run</code>. <code>OrganizeFoundationTypesTests</code>
-checks both cases and the mark choices.</li>
+calls <code>FoundationTypeOrganizer.Run</code>. <code>OrganizeFoundationTypesWorkflowTests</code>
+checks the choices and dismissal. <code>OrganizeFoundationTypesTests</code> checks
+the resulting types for each policy and for <strong>Cancel</strong>.</li>
 <li>Inside <code>dbtools - Organize Foundation Types</code>, the organizer calls
 <code>ApplyAtomicTypeChange</code> once for a retained type's mark and rename.
 <code>MergeInstances</code> calls it once per duplicate source type for all its
@@ -146,8 +147,9 @@ target is the marked type with the lowest element ID. <code>MergeInstances</code
 must succeed before the organizer deletes a source type. The organizer
 merges the group before attempting to rename the target.
 <code>FoundationTypePlannerTests</code> checks the mark and dimension rules.
-<code>OrganizeFoundationTypesTests</code> checks that Revit reassigns the instances
-before deleting a merged type and that the target can then use its name.</li>
+<code>OrganizeFoundationTypesTests</code> checks that placed pier and footing
+instances survive a merge and reference the retained type. It also checks
+that the retained pier type can take the name of the merged type.</li>
 </ol>
 <h2 id="flow">FLOW</h2>
 <ol>
@@ -217,11 +219,10 @@ five type IDs and reasons. A deletion error is logged and aborts the transaction
 <pre><code class="lang-bash">dotnet test testing/Daemon/Pure/OrganizeFoundationTypes.Pure.Entry.csproj
 DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/OrganizeFoundationTypes.Hosted.Entry.csproj
 </code></pre>
-<p><code>TypeMarkGeneratorTests</code> checks numbering. <code>OrganizeFoundationTypesWorkflowTests</code>
-checks how alert results map to policies. <code>OrganizeFoundationTypesCommandTests</code>
-checks the command attributes. <code>OrganizeFoundationTypesTests</code> uses
-<code>dbtools_test_model.rvt</code> and a rectangular pier made from a Structural Column
-family template.</p>
+<p><code>TypeMarkGeneratorTests</code> checks numbering. <code>OrganizeFoundationTypesTests</code>
+requires <code>dbtools_test_model.rvt</code>. It uses a pier made from a Structural
+Column family template and the model's <code>Footing-Rectangular</code> family. It
+resolves the workflow from the App run scope for the ribbon command.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/feature-warnings.html">Feature Warnings</a>,
 <a href="../../developing/testing-tools.html">Testing Tools</a></p>

@@ -97,7 +97,7 @@ assembly  dbtools.FramingJoins
 entry     AllowJoinSelectedCommand, DisallowJoinSelectedCommand
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p>Both commands pass a <code>FramingJoinOperation</code> to
+<p>Both commands pass selected element IDs and a <code>FramingJoinOperation</code> to
 <code>FramingJoinsWorkflow.ExecuteAsync</code>.
 See <a href="../../../user-guide/tools/framing-joins.html">Allow Join and Disallow Join</a>.</p>
 <h2 id="structure">STRUCTURE</h2>
@@ -119,7 +119,7 @@ See <a href="../../../user-guide/tools/framing-joins.html">Allow Join and Disall
 </tr>
 <tr>
 <td><code>Features/FramingJoinsWorkflow.cs</code></td>
-<td>The workflow collects the selection and owns the transaction and result banner.</td>
+<td>The workflow resolves selected IDs and owns the transaction and result banner.</td>
 </tr>
 <tr>
 <td><code>Features/FramingJoinsWorkflow.Core.cs</code></td>
@@ -142,14 +142,14 @@ exception. <code>FramingJoinsWorkflowTests</code> checks this error.</li>
 </ul>
 <h2 id="flow">FLOW</h2>
 <ol>
-<li><code>ExecuteAsync</code> reads <code>UIDocument.Selection</code> and pairs each selected ID
-with its document category for <code>CollectStructuralFramingIds</code>.</li>
+<li>Each command reads <code>UIDocument.Selection</code>. <code>ExecuteAsync</code> pairs the IDs
+with their document categories for <code>CollectStructuralFramingIds</code>.</li>
 <li>For selected framing family instances, it prepares <code>JoinOperationTarget</code>
 delegates for <code>StructuralFramingUtils.AllowJoinAtEnd</code> and <code>DisallowJoinAtEnd</code>.</li>
 <li>The workflow calls <code>ExecuteCore</code> inside one
 <code>ITransactionRunner.RunInDocumentAsync</code> call.</li>
-<li>See the <code>NotificationBannerService.ShowToast</code> and
-<code>EnsureWindowIfDebugMode</code> calls at the end of <code>ExecuteAsync</code>.</li>
+<li>The workflow sends the result to <code>IBannerNotifier</code> and calls
+<code>EnsureWindowIfDebugMode</code>.</li>
 </ol>
 <h2 id="diagnostics">DIAGNOSTICS</h2>
 <p><code>ExecuteCore</code> logs the operation and element ID at Error level before
@@ -160,9 +160,10 @@ uses <code>ISafeExecutor</code> for command failures. See
 <pre><code class="lang-bash">dotnet test testing/Daemon/Pure/FramingJoins.Pure.Entry.csproj
 DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/FramingJoins.Hosted.Entry.csproj
 </code></pre>
-<p><code>FramingJoinsCommandTests</code> checks both command declarations.
-<code>FramingJoinsWorkflowRevitTests</code> needs a level and a structural framing
-type in <code>dbtools_test_model.rvt</code>. See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
+<p><code>FramingJoinsWorkflowRevitTests</code> needs a level and a structural framing
+type in <code>dbtools_test_model.rvt</code>. It uses the App run scope for each
+command and reads the join state of both beam ends.
+<a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="analytical-snap.html">dbtools.AnalyticalSnapToLevel</a></p>
 

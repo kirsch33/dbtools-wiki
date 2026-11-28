@@ -147,11 +147,12 @@ the Core types.</p>
 <li><strong>One transaction.</strong> <code>UpdateAll</code> checks every candidate and writes changed
 <code>Wt</code> values in one transaction named <code>Auto Update Joist Girder Weights</code>.
 A type parameter shared by several candidates is written once.</li>
-<li><strong>Bad pattern.</strong> A pattern that does not compile throws
-<code>JoistGirderConfigurationException</code> before any write. The workflow shows
-it in a banner. <code>AutoUpdateTask</code> also activates the pack warning.
+<li><strong>Bad pattern.</strong> An invalid pattern stops the update before it reads or
+writes model elements. <code>WeightUpdateWorkflow</code> reports the
+<code>JoistGirderConfigurationException</code> through <code>IBannerNotifier</code>.
+<code>AutoUpdateTask</code> activates the pack warning and reports the error.
 <code>UpdateJoistGirderWeightsWorkflowTests</code> and <code>AutoUpdateTaskTests</code> check
-this.</li>
+that the warning leaves <code>Wt</code> unchanged.</li>
 <li><strong>Other auto-update failures.</strong> <code>ViewActivationHook</code> skips the task for
 the rest of the document session, keyed by <code>DocumentSessionKey</code>. Core's
 <code>ViewActivationHookTests</code> check the mechanism.
@@ -160,7 +161,7 @@ Core <code>DocumentChangeStamp</code> and the saved classifier patterns with the
 successful run. It takes the stamp after any weight writes commit.</li>
 <li><strong>Load groups.</strong> The same patterns find and classify the loads.
 <code>ClassifyLoadGroup</code> tries Dead, then Live, then Total, and throws if none
-matches. <code>JoistGirderClassifierTests</code> checks the groups but not the order.
+matches. <code>DefaultPatternsTests</code> checks the family and load classifications.
 <code>ElementLoadReader</code> reads Double parameters with the Force spec and
 String parameters. It converts Force values to kips and compares spec
 names independent of version. <code>LoadParser</code> reads load text as a nonnegative
@@ -184,7 +185,8 @@ trimmed text matches the default and saves other pattern text as entered.
 checks the errors, but no test checks the refusal for this pack.</li>
 <li><strong>Admission.</strong> <code>ViewActivationTask.AdmitAsync</code> reads the settings once.
 It skips the task when auto-update is off or the pack warning is active.
-<code>AutoUpdateTask</code> runs with that copy. <code>AutoUpdateTaskTests</code> checks this.</li>
+<code>AutoUpdateTask</code> runs with that copy. Core's
+<code>ViewActivationAdmissionSettingsTests</code> checks the admission conditions.</li>
 <li><strong>One warning.</strong> <code>GetSingleWarning</code> requires exactly one pack warning in
 <code>manifest.yml</code>. <code>JoistGirderWeightToolModuleTests</code> checks its ID, pack
 and disabled tool.</li>
@@ -197,11 +199,11 @@ and disabled tool.</li>
 name matches. It uses the type name only when the family name is empty.</li>
 <li><code>TryBuildUpdate</code> checks <code>Wt</code>, number of joists, load, length and depth,
 in that order. The first failure is the skip reason.</li>
-<li>One transaction sets <code>Wt</code>. <code>Updated</code> counts the <code>Set</code> calls that do not
-throw, and ignores their <code>bool</code> result.</li>
-<li>The workflow shows the summary in a banner. Auto-update runs <code>UpdateAll</code>
-through its own <code>TransactionRunner</code> and <code>InlineRevitCallGate</code>, and
-discards the summary.</li>
+<li>One transaction writes the changed <code>Wt</code> values. <code>Updated</code> counts the
+candidates that share each successful changed write. A rejected write
+fails the transaction.</li>
+<li>The workflow sends the summary to <code>IBannerNotifier</code>. Auto-update runs
+<code>UpdateAll</code> through <code>InlineRevitCallGate</code> and records the stamp and issues.</li>
 </ol>
 <h3 id="formula">Formula</h3>
 <p><code>JoistGirderWeightEvaluator.EstimateWeight</code> takes feet and works in inches.
@@ -263,14 +265,16 @@ auto-update.</p>
 <pre><code class="lang-bash">dotnet test testing/Daemon/Pure/JoistGirderWeight.Pure.Entry.csproj
 DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/JoistGirderWeight.Hosted.Entry.csproj
 </code></pre>
-<p>Pure tests cover the patterns, formula, load parsing, settings and the settings
-pack view factory. Local tests cover composition, the updater, the workflow,
-auto-update and the WPF theme resources. <code>JoistGirderWeightSettingsViewTests</code>
-lives in <code>src/Tools/Structural/JoistGirderWeight/Tests/Integration/Revit/Settings/Views/</code>.
-The Revit tests open <code>dbtools_test_model.rvt</code>
-(<a href="../../developing/testing-tools.html#model-paths">Model paths</a>), whose
-<code>Vulcraft Joist Girder</code> instances have no usable load. Without the model,
-they are inconclusive.</p>
+<p>Pure tests load the production manifest for the settings, warning and view
+factory tests. Local tests resolve the command workflow and the registered
+<code>IViewActivationTask</code> from App registrations. The auto-update tests admit
+and execute the task with <code>dbtools_test_model.rvt</code> active. The tests use
+<code>Vulcraft Joist Girder</code> instances to check missing loads, blank Force
+parameters, the configured <code>Wt</code> write, and the document stamp after commit.
+<code>UpdateJoistGirderWeightsWorkflowTests</code> checks the banner kind for a
+complete update, a partial update, an unchanged weight, and an invalid
+pattern. Local fixtures require the staged model.
+<a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/hooks.html">Hooks</a>,
 <a href="../../developing/feature-warnings.html">Feature Warnings</a>,

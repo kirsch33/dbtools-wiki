@@ -302,16 +302,19 @@ A parameter-example read that GM cancels finishes without a window error.</p>
 <p><code>ViewOpsQuery</code> checks a view-owned element only in the view group of its owner view: the primary view and its
 dependent views. Both the cross-view search of a navigation and the views list of a family use this rule.
 <code>QueryElementsByParam</code> walks the views in name order, stops at its cap, and reads the parameters of an element
-once when several views show it. Duplicate detection calls <code>GetStylePreviewsAsync</code> once for each style kind and
-<code>GetMaterialPreviewsAsync</code> once for materials. Each catalog batch runs in one Revit callback.</p>
+once when several views show it. Opening Duplicates reads the shared parameter file in one Revit call.
+It reuses the published family inventory and Usage index while their document revision is current.
+Detection queues missing names in separate batches of up to 200 IDs and checks cancellation between them.
+The line-style, object-style, and material previews share one Revit callback. Matching keeps the three kinds separate.
+A duplicate scan that refreshes Usage shares one style and material geometry sample with that refresh.</p>
 <p>Shared Parameters authoring builds project state once for all authoring categories. It batches parameter-name reads,
 type samples, and coverage reads, then builds each category's rows in memory. Evidence and group changes rebuild the
 rows under the session operation gate and progress overlay.</p>
 <p>Project state and Commit Review count placed family instances in one document collector pass. Both include sheet-owned
 instances. Parameter discovery prefers model-owned and visible view-owned instances before the remaining placements.
 Geometry scans discover owner IDs through a quick filter, then visit eligible owners with instances and apply Revit view
-visibility. Type IDs retain collector order and cache per project state. Style and material indexing share one capped
-sample and 25-instance chunks with separate geometry options. Family-dependent styles are visited once per usage build.
+visibility. Type IDs retain collector order and cache per project state. Style and material indexing read the style
+classification and sample IDs in one callback. Geometry stays in 25-instance chunks with separate geometry options. Family-dependent styles are visited once per usage build.
 Each option-building pass owns immutable name profiles and retains numeric-suffix and multiset-bigram scoring.</p>
 <p><code>Features/Usage/FamilyFastIndex/UsageFamilyFastIndexCollector</code> records material and object-style
 evidence without Revit types. It keeps distinct paths, direct and nested usage flags,
@@ -335,8 +338,8 @@ A failed debounced Duplicates rebuild shows one &quot;GM Duplicates Rebuild&quot
 <h2 id="testing">Testing</h2>
 <p>Pure tests mirror App, Domain, and Features owners. Test builders, external fakes, and assertions live in Tests/Support.
 Project-state and name-cache tests live under Tests/Domain. Duplicate projection tests live under Tests/Features/Duplicates.
-The root Revit name adapter mirrors its complete path at
-<code>Tests/Integration/Revit/Revit/ElementName/ElementNameQueryTests.cs</code>.
+The hosted <code>ElementNameQueryTests</code> check element and category names from Revit.
+Pure <code>ElementNameBatchQueryTests</code> checks cancellation and dispatcher affinity between batches.
 CommitReviewPlanContextTests mirrors Features/CommitReview/Planning.
 Saved mappings, authoring, and usage matching also mirror their subjects.</p>
 <p><code>UsageFamilyFastIndexCollectorTests</code> directly tests fast-index aggregation in the Pure suite.
@@ -361,13 +364,27 @@ expected production outcomes are required repository baselines. Missing baseline
 false production results fail with the model path and running year. Fixture teardown and
 transaction-group finalization failures also fail and are aggregated with a primary test
 failure when both occur.</p>
-<p>GM Local tests enter the native callback through <code>RevitHost</code> for calls that finish in the current turn.
-The <code>RevitTestBase</code> gate refuses work that would wait for a later callback and names the test.
-<code>dbtools.GM.HostedTurns.Local.Tests</code> owns <code>DeepScanOrchestratorPipelineTests</code> and <code>FamilyDeepScanTests</code>.
-The pipeline and overlay cancellation tests use the queued Revit task for work after a file read or a dispatcher yield.
-They give each pipeline operation or cancellation scan a two-minute deadline. Both GM Local projects use the shared
-profile isolation setup.</p>
-<p><code>dbtools.GM.Pure.Tests.csproj</code> contains owner-local fixtures and shared test support and references the desktop <code>dbtools.GM.csproj</code>. The production assembly grants the Pure assembly internal access. Revit references are compile-only; loading a Revit-typed member requires a Revit host.</p>
+<p>GM Local tests enter the native callback through <code>RevitHost</code> for work that finishes in the current turn.
+Active-document tests resolve the GM gate, Core transaction services, and GM writers and adapters from a bound App run scope.
+Native failure tests decorate the registered service or inject a Revit transaction failure.
+The mapping executor uses its own scoped transaction runner for GM document admission and Revit failure diagnostics.
+<code>HostedCommitReview</code> uses one App provider for the composing scope and its modal child scopes.
+Those scopes use the production planning and apply workflows with <code>HiddenCommitReviewDialogHost</code>.
+The fixture registers its hidden owner's overlay at creation and releases it during disposal.
+The style writer, Usage index and graphics style catalog share one line-style query cache within that scope.
+<code>CommitReviewSessionFactoryTests</code> exercises apply, verification and the snapshot handed back to Usage.
+<code>FamilyReviewReaderTests</code> checks family reload invalidation and family inventory restoration after Revit Undo.
+Undo runs after the posting callback returns, so the fixture uses GM HostedTurns.</p>
+<p><code>dbtools.GM.HostedTurns.Local.Tests</code> contains <code>DeepScanOrchestratorPipelineTests</code>,
+<code>FamilyDeepScanTests</code>, <code>FamilyReviewReaderTests</code>, and <code>GmQueuedTurnScenarioTests</code>.
+The Deep Scan tests wait for queued work after a file read or dispatcher yield.
+The modeless scenarios start commands on the dispatcher after the launch callback returns.
+They record native turns, queued calls and elapsed time for startup, family expansion, tab switching,
+Commit Review and Views navigation. Zero-turn checks wait for GM, the dispatcher, and the Revit gate queue to become idle.</p>
+<p><code>dbtools.GM.Pure.Tests.csproj</code> references the desktop <code>dbtools.GM.csproj</code> and uses the GM session registrations.
+<code>GmSessionDocumentGateTests</code> resolves the real gate and exercises modal admission and multicast validation.
+Pure tests can load Revit types from stub assemblies. A native Revit call requires a hosted fixture.
+<code>OverwriteFamilyLoadOptionsTests</code> supplies a Revit family to the reload callbacks to check shared identity and overwrite rules.</p>
 <p>Run the GM checks that the change can affect. See <a href="../../index.html#choosing-checks">Choosing checks</a>.</p>
 <pre><code class="lang-bash">dotnet build build/Build.proj -t:BuildApp
 dotnet build build/Build.proj -t:BuildTests

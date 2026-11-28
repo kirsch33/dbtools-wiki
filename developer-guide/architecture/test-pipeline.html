@@ -141,17 +141,25 @@ project. Pure requests have no year. Hosted builds supply both years and the
 adapter submits one job for each year selected by
 <code>DBTOOLS_DAEMON_REVIT_YEARS</code>.</p>
 <h2 id="user-interface-input">User interface input</h2>
-<p>By default, a daemon job, Pure or Revit-hosted, runs on the daemon's private
-desktop, which receives no keyboard or mouse input and never becomes the
-foreground, whether the Windows session is locked or not. Tests drive the user
-interface in-process: through view-model commands, WPF automation peer
-providers, <code>RaiseEvent</code>, <code>Keyboard.Focus</code> or <code>FocusManager</code> in the test's own
-windows, and the calling thread's own Win32 state (<code>SetActiveWindow</code>,
-<code>SetKeyboardState</code>, messages to its own windows); or through UI Automation
-patterns in another process. A test project fails to build when it uses an API
-listed in <code>testing/BannedSymbols.txt</code> (error RS0030) or when its source names an
-OS input or foreground function such as <code>SendInput</code> or <code>SetForegroundWindow</code>
-(error DBT0003, <code>DBT_RejectOsInputInterop</code> in <code>Directory.Build.targets</code>).</p>
+<p>A daemon job runs on a private desktop. Drive hosted controls through view-model
+commands, WPF automation peer providers or <code>RaiseEvent</code>. Show test windows with
+<code>HostedTestWindow.Show</code>, which sets <code>ShowActivated</code> to <code>false</code> at the show call.
+Use Pure WPF for modal loops and keyboard focus tests.
+<code>ToolWindowDialog.ActivateWithinThread</code> calls <code>SetActiveWindow</code> on the calling
+thread in Pure tests.</p>
+<p>RS0030 rejects the APIs in <code>testing/BannedSymbols.txt</code>, including
+<code>Window.Activate()</code> in every test project. Hosted projects also use
+<code>testing/BannedSymbols.Hosted.txt</code> to reject direct WPF and tool-window show
+calls, explicit WPF focus and marshaling native function pointers.
+<code>HostedTestWindow</code> suppresses RS0030 for its non-activating show calls.
+<code>DBT_RejectOsInputInterop</code> reports native input and foreground function names
+in compiled test source as DBT0003. <code>WpfHostedModalTripwire</code> rejects hosted
+modal loops at runtime.</p>
+<p>When <code>DBTOOLS_DAEMON_REVIT_ROLE</code> is <code>job</code>, the App's <code>ToolWindowRegistry</code>
+sets <code>ShowActivated</code> to <code>false</code> on each registered window. <code>WindowActivation</code> respects
+that setting for the logger and alert presenter. Open fixture models through
+<code>DocumentLease.Open</code>. Use <code>OpenAndActivate</code> when the test requires a Revit
+active document, such as a view switch or selection on the active view.</p>
 <h2 id="artifact-tests">Artifact tests</h2>
 <p>The <code>--filter 'TestCategory=ProductArtifacts'</code> selection reads both staged
 Release years, compiler PDBs, merge inputs, hosted test assemblies and the
@@ -297,9 +305,14 @@ operation. The startup wait preserves the caller's API scope and leaves input
 to WPF.</li>
 <li>One daemon callback has no second native Revit turn. A forced-queue test
 can call the real event handler synchronously to exercise queue dispatch.
+The Pure <code>RevitCallGateTaskTests</code> fixture checks aborted raises with
+<code>DispatcherFramePump</code> and the dispatcher test deadline. The case removes
+its abort hook and cancels any pending enqueue when it exits.
 Use a <code>RevitHostedTurns</code> fixture to test work across native turns.
-<code>RevitCallGateModelessHostedTurnCertificationTests</code> uses it to verify that
-Revit delivers work queued during a progress frame in a later native turn.</li>
+<code>RevitCallGateModelessHostedTurnCertificationTests</code> uses a shown owner and
+<code>ProgressOverlay.Scope</code> to check event delivery across native turns. It
+requests more paint frames within the same callback while its dispatcher
+observation is pending, up to the dispatcher test deadline.</li>
 <li><code>Wpf/WpfTestRuntimeBootstrap.cs</code> registers pack URI support, installs the
 shared window owner, validates themes in the runtime assembly's contextual
 reflection scope, and releases only its own provider at teardown. It adds no
@@ -313,6 +326,8 @@ main-window owner. Assembly teardown shuts them down before the next assembly
 starts in the same Revit process. A hosted sandbox <code>WindowStaticRuntimeTestScope</code>
 releases its window configuration, retires dispatcher work, and restores the
 incoming dispatcher registry state at teardown.
+The App lifecycle fixtures start with an unconfigured runtime so App startup
+owns configuration. Their scope restores the running dispatcher registry at teardown.
 Profile setup disables view-activated model updates for Elevation Tags,
 Combined Foundation Tags and Joist Girder Weights. The production hooks attach.
 A fixture that tests automatic updates enables its tool through the settings provider.

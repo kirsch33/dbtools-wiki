@@ -150,6 +150,7 @@
 </table>
 <p>The required GUIDs come from the <code>DB Structural</code> group in the DB shared parameter file. A project parameter with a required name and another GUID can report <code>GUID_MISMATCH</code>.</p>
 <p>dbtools checks the parameters when the active model changes. If a parameter is missing, has another GUID, has the wrong data type, is bound as a type parameter, or is bound to the wrong category, or a loaded family defines one of these names with another GUID, dbtools activates the warning <code>Combined Foundation Tags Disabled</code>. The warning disables Update Combined Foundation Tags, Move Combined Tags and Organize Foundation Types, and the <strong>Settings</strong> button shows the warning icon. This check shows no banner.</p>
+<p>Activating a view in a project that meets the prerequisites clears the warning.</p>
 <p>Update Combined Foundation Tags and Move Combined Tags also check the parameters each time they run, for example when you run one before the check on a model change has finished. In a family document they refuse to run. When a parameter fails, the command does not run. It activates the warning and shows one message, <strong>Required Shared Parameters Need Repair</strong>, that lists each failing parameter with its status and problem:</p>
 <ul>
 <li><strong>Repair</strong> runs Install/Repair, as in Settings, including the prompt about schedule fields and view filters (see Schedule fields and view filters). After a successful repair, a banner confirms it and lists what changed; run the command again.</li>
@@ -227,8 +228,10 @@
 <li>Run <strong>Update Combined Foundation Tags</strong>.</li>
 <li>Read the banner.</li>
 </ol>
-<p>Floor and ceiling plans are eligible for automatic updates when
-<strong>Auto Update Combined Foundation Tags</strong> is on and the prerequisite warning is inactive.</p>
+<p>When <strong>Auto Update Combined Foundation Tags</strong> is on, activating a floor or
+ceiling plan checks the required shared parameters and updates the visible
+piers and footings. A prerequisite warning blocks the update and leaves the
+model unchanged.</p>
 <h3 id="what-it-does">What it does</h3>
 <p>The command considers the family instances visible in the active view. A family instance is a pier when its family name matches a pier pattern. It is a footing when its family name matches a footing pattern (see Settings).</p>
 <ol>
@@ -279,11 +282,15 @@ For repeated groups, the banner adds <code>N skipped: in groups placed more than
 </tbody>
 </table>
 <p>When every value is already current, the updater creates no selection sets and changes nothing. The manual result is an Info message.</p>
-<p>The buttons select the elements of the run that just finished. They work only while the model that ran the update is active.</p>
+<p><strong>Select Modified</strong> and <strong>Select Skipped</strong> select the elements from that run.
+Keep the source model active until Revit updates the selection.
+If another model is active, the action fails with <code>The document these results came from is no longer active.</code></p>
 <p>Each run also creates selection sets named <code>dbtools - FoundationTags - Modified Elements (&lt;timestamp&gt;)</code> and <code>dbtools - FoundationTags - Skipped Elements (&lt;timestamp&gt;)</code> when the respective list is not empty. The timestamp is in Eastern time. A second run in the same second adds a suffix such as <code>(2)</code>.</p>
-<p>When the updater creates a set, it keeps up to five sets with the prefix
-<code>dbtools - FoundationTags - </code> across both kinds. It deletes sets outside
-the five highest element IDs.</p>
+<p>When the updater creates a set, it keeps the five <code>dbtools - FoundationTags - </code>
+sets with the highest element IDs across both kinds. It also
+keeps any older sets that Revit reports as owned by another user and logs
+their IDs. If Revit refuses a deletion the updater attempts, the update
+rolls back the parameter writes and selection-set changes.</p>
 <h2 id="move-combined-tags">Move Combined Tags</h2>
 <h3 id="usage-1">Usage</h3>
 <ol>

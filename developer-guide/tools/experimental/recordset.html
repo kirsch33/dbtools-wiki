@@ -102,8 +102,8 @@ policy    Policies/recordset_policy.json           (dbtools.ToolConfigs.RecordSe
 script    Features/Operations/Cad/CoreConsole/Scripts/rs_xrefs.lsp   (dbtools.ToolCad.RecordSet.rs_xrefs.lsp)
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p><code>RecordSetCommand</code> calls <code>AppLauncher.Launch</code>, which opens the modal
-<strong>Record Set</strong> window. The window builds an <code>ExecutionPlan</code>, an ordered list
+<p><code>RecordSetCommand</code> opens the modal <strong>Record Set</strong> window from
+<code>RecordSetWindowComposer</code>. The window builds an <code>ExecutionPlan</code>, an ordered list
 of <code>PlanItem</code> records, and shows it as a tree. Planning reads files, Revit
 <code>TransmissionData</code> and Core Console listings, and writes nothing to the
 target. <code>ExecutionPlanExecutor</code> runs the plan and is the only writer there. The
@@ -120,7 +120,7 @@ target. <code>ExecutionPlanExecutor</code> runs the plan and is the only writer 
 <tbody>
 <tr>
 <td><code>App/Composition/</code></td>
-<td><code>RecordSetToolModule</code> calls <code>AddRecordSet</code>. <code>AppLauncher</code> builds <code>RecordSetWindowServices</code> and <code>RecordSetWindowViewModel</code>.</td>
+<td><code>RecordSetToolModule</code> calls <code>AddRecordSet</code>. <code>RecordSetWindowComposer</code> creates, shows, and retires the modal session.</td>
 </tr>
 <tr>
 <td><code>App/ViewModels/</code></td>
@@ -170,8 +170,7 @@ The planners publish a destination when they schedule its copy.
 <code>PreviewPlanBuilderTests</code> compares the tree with the plan.</li>
 <li><strong>Embedded policy.</strong> <code>PolicyReader</code> reads only the embedded resource.
 <code>ValidatePolicy</code> throws for a policy that breaks its schema, and for a
-root that is not a drive path or a complete UNC share. No code reads <code>delete_mode</code>,
-<code>require_sentinel_for_delete</code> or <code>SafeOperationRuntime.TrashRoot</code>.
+root that is not a drive path or a complete UNC share.
 <code>PolicyReaderTests</code> checks this.</li>
 <li><strong>Preflight.</strong> Before the lock, <code>ValidatePreconditions</code> reloads the
 policy, checks the root, and checks that each output path of each item
@@ -187,7 +186,9 @@ selected destinations before creating folders or copying files.
 CAD and Revit items check
 their host path again directly before the adapter call. The check and
 the write are separate operations, so a path that changes between them
-is not caught. <code>SafeFileSystemOperationsTests</code> checks the redirects.</li>
+is not caught. <code>SafeFileSystemOperationsTests</code> supplies file attributes
+and link targets at the filesystem boundary. Windows cases also check
+copy and manifest refusals through real junctions and symbolic links.</li>
 <li><strong>Lock and manifest.</strong> The lock uses <code>FileMode.CreateNew</code>. After the
 lock, the executor writes a manifest with the status <code>ok</code>, <code>cancelled</code>
 or <code>failed</code>, and always tries to release the lock. <code>cancelled</code> needs
@@ -208,8 +209,9 @@ file is transmitted, else last-saved data. It skips <code>PathType.Content</code
 It resolves a relative path from the host folder, or from the central
 folder for a workshared local. It keeps the path type and the load state.
 It writes only when a reference changes, and then sets
-<code>IsTransmitted = true</code>. The Revit test <code>TransmissionDataAdapterTests</code>
-checks all but the central folder.</li>
+<code>IsTransmitted = true</code>. <code>TransmissionDataAdapterTests</code> checks the saved
+reference and opens the transmitted copy to verify the loaded link path.
+It also checks that a canceled read stops before the Revit API call.</li>
 <li><strong>CAD options.</strong> A null <code>PlanOptions</code> member follows Core Console
 availability in each preview, until the user changes an option.
 <code>PreviewPlanStateTests</code> and <code>RecordSetWindowViewModelTests</code> check this.</li>
@@ -343,16 +345,23 @@ standard error and standard output, each cut to its last 2,000 characters.</p>
 DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/RecordSet.Hosted.Entry.csproj
 dotnet test testing/Daemon/Pure/RecordSet.Cad.Pure.Entry.csproj --filter &quot;FullyQualifiedName~CadLiveTests&quot;
 </code></pre>
-<p>Pure tests cover planning, the policy, execution, the file system, the CAD
-adapters with a fake <code>accoreconsole.exe</code> <code>.cmd</code> file, and the view models.
+<p>Pure tests cover planning, policy, filesystem containment, command scope
+composition, and view model behavior. The shell composition, CAD selection
+and retirement cases use the production modal session with window activation
+disabled. The CAD adapter tests run a command script in place of
+<code>accoreconsole.exe</code>.
 <code>CadLiveTests</code> is in its own project in the pure scope, so the default run
 skips it. It runs <code>rs_xrefs.lsp</code> in a real Core Console on generated
 drawings, and it is ignored unless <code>ACCORECONSOLE</code> names an existing file.
 On a worker without the Core Console every test is ignored, so the run fails
 with &quot;no selected test ran&quot;.
-Local tests cover composition, the view model in Revit and
-<code>TransmissionDataAdapterTests</code>, which uses copies of <code>dbtools_test_model.rvt</code> and its
-linked model (<a href="../../developing/testing-tools.html#model-paths">Model paths</a>).</p>
+Local tests resolve the modal composer in the App command scope and check
+the Revit owner. <code>TransmissionDataAdapterTests</code> checks the read and write
+contracts on copies of <code>dbtools_test_model.rvt</code> and its linked model. The
+fixture exports a DWG from a drafting view and links it into that view. It checks the
+closed host's <code>CADLink</code> entry and absolute path, then checks that Record Set
+returns the drawing's path as <code>LinkType.Dwg</code>. See
+<a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution</a>,
 <a href="../../architecture/overview.html">Architecture overview</a></p>

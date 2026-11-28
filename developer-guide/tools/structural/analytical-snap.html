@@ -97,8 +97,9 @@ assembly  dbtools.AnalyticalSnapToLevel
 entry     AnalyticalSnapToLevelCommand
 </code></pre>
 <h2 id="description">DESCRIPTION</h2>
-<p><code>AnalyticalSnapToLevelWorkflow</code> reads the selection and prompts for a
-target <code>Level</code>. It passes both to <code>AnalyticalSnapper</code>.
+<p><code>AnalyticalSnapToLevelCommand</code> reads the selection.
+<code>AnalyticalSnapToLevelWorkflow</code> prompts for a target level and passes
+its elevation and the selected IDs to <code>AnalyticalSnapper</code>.
 See <a href="../../../user-guide/tools/analytical-snap.html">Analytical Snap To Level</a>.</p>
 <h2 id="structure">STRUCTURE</h2>
 <table>
@@ -131,24 +132,23 @@ See <a href="../../../user-guide/tools/analytical-snap.html">Analytical Snap To 
 <ul>
 <li><code>SnapTo</code> sets both endpoint Z values for a <code>Beam</code>. For a <code>Column</code>, it
 changes the Z of the nearer endpoint, using the start on a tie.
-It preserves X and Y. <code>AnalyticalSegmentTests</code> and
-<code>AnalyticalSegmentEdgeCaseTests</code> check the endpoint rules.</li>
+It preserves X and Y. <code>AnalyticalSegmentTests</code> checks the endpoint rules.</li>
 <li>See <code>AnalyticalSnapper.Run</code> and <code>TryResolveRole</code> for member and role checks.
-<code>AnalyticalSnapperRevitTests.Run_SkipsTransientArcBeamAndKeepsItsArc</code>
-checks the arc skip.
-<code>AnalyticalSnapToLevelWorkflowTests.Execute_MixedSelection_ListsSkippedMembersByReason</code>
-checks the reported <code>not straight</code> and <code>would collapse</code> reasons.</li>
+<code>AnalyticalSnapToLevelWorkflowTests</code> checks the column curve and the
+skips for arcs, unsupported roles and curves that would collapse.</li>
 <li><code>AnalyticalSnapToLevelWorkflowTests</code> checks that <code>Execute</code> refuses an
-empty selection or a cancelled level picker before calling the snapper.</li>
+empty selection or a cancelled picker before changing member curves.
+<code>AnalyticalSnapWorkflowTests</code> checks the completion alert's window title,
+bullet list, skip reason grouping, and ID limit.</li>
 </ul>
 <h2 id="flow">FLOW</h2>
 <ol>
-<li><code>PickTargetLevel</code> owns the <code>IAlertService.SelectSingle</code> request.</li>
+<li><code>ReadLevelOptions</code> reads each level's name and elevation.
+<code>PickTargetLevel</code> passes these values to <code>IAlertService.SelectSingle</code>.</li>
 <li><code>AnalyticalSnapper.Run</code> owns the transaction and curve writes.
 See <code>BuildAdjustedCurve</code> for the short-curve check.</li>
-<li><code>Execute</code> builds the completion alert from the processed count and the
-skip reasons. The grouping and ID limits live in
-<code>AnalyticalSnapToLevelWorkflow.cs</code>.</li>
+<li><code>CreateCompletionRequest</code> builds the completion alert from the
+processed count and the skip reasons.</li>
 <li>After the alert, <code>Execute</code> calls <code>EnsureWindowIfDebugMode</code>.
 <code>AnalyticalSnapToLevelWorkflowTests.Execute_HappyPath_SnapsSelectionShowsSummaryAndEnsuresLoggerWindow</code>
 checks the alert request and the logger call.</li>
@@ -160,9 +160,9 @@ the result for each element and the totals.</p>
 <pre><code class="lang-bash">dotnet test testing/Daemon/Pure/AnalyticalSnapToLevel.Pure.Entry.csproj
 DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/AnalyticalSnapToLevel.Hosted.Entry.csproj
 </code></pre>
-<p><code>AnalyticalSnapToLevelCommandTests</code> checks the command attributes.
-The snapper and workflow fixtures create temporary analytical members in
-<code>dbtools_test_model.rvt</code>. See <a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
+<p><code>AnalyticalSnapToLevelWorkflowTests</code> runs the App-registered workflow on
+temporary analytical members. The fixture requires <code>dbtools_test_model.rvt</code>.
+<a href="../../developing/testing-tools.html#model-paths">Model paths</a>.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="framing-joins.html">dbtools.FramingJoins</a>,
 <a href="../../architecture/revit-execution-and-progress-overlay.html">Revit Execution and Progress Overlay</a></p>

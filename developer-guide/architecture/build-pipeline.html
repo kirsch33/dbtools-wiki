@@ -141,7 +141,7 @@ reuse the same NuGet assets.</li>
 <li><code>DistributionContract.ProductFiles</code> defines the exact file set for each
 year. When adding a tool, include its <code>Tools/&lt;name&gt;.dll</code> path in this list.
 <code>StageProductOutputTask</code> rejects a mismatch.</li>
-<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.23.1</code>.
+<li><code>Directory.Packages.props</code> pins Protocol and DevMode.Testing to <code>0.23.2</code>.
 The scenario and Windows acceptance builds check the vendored and restored
 DevMode.Testing packages against the SHA-256 in that file.
 <code>testing/Daemon/Directory.Build.props</code> pins the Revit test adapter to the
@@ -325,19 +325,26 @@ every other file as an <code>executor.model_companions</code> entry with a path 
 to the year directory. Revit opens the working copy and loads
 <code>_LinkedModels/sgt_test_linked_model.rvt</code> relative to it.</p>
 <p>The scenario calls <code>ExpectDialogs</code> before it prepares a modal command.
-Each declaration matches the exact UI Automation name and native caption.
-The scope covers the interaction and window cleanup. Settings with Save
-declares <code>dbtools - Settings</code>, <code>dbtools</code> for its alerts, and
-<code>dbtools Notification</code> for its feedback banner. After correcting and validating
+The scope permits declared windows through the interaction and cleanup.
+Settings with Save declares exact UI Automation names and native captions.
+It declares <code>dbtools - Settings</code>, <code>dbtools</code> for alerts, and
+<code>dbtools Notification</code> for the feedback banner.
+The route starts looking for <code>Settings Saved</code> before it invokes <strong>Save Settings</strong>.
+It keeps looking while the click reply is pending.
+The second Settings invocation in generation 2 also declares the Log window
+by its <code>DbtoolsLogWindow</code> AutomationId. The route uses the same selector to
+find the Log window after Settings closes. After correcting and validating
 a Joist Girder Weights draft, the route waits for the warning card to hide and
-the auto-update switch to become available. TDV declares the library selection
-and transfer windows.</p>
+the auto-update switch to become available. The pending library removal check
+reads the empty item status from the visible library tree before closing Settings.
+TDV declares the library selection and transfer windows.</p>
 <p>For Record Set, the scenario waits for the initial Select step controls.
 Preview and Manage Items require a target folder and host files selected
 through the native Windows pickers.</p>
 <p>Window searches omit closed windows. The close wait searches until the
 original window token is absent. Cleanup handles <code>DevModeWindowClosedException</code>
-when a window closes before the close request reaches it.</p>
+when a window closes before the close request reaches it. If the bridge reports
+closure during a confirmation invoke, the close wait checks the original token.</p>
 <p>When an action rebuilds controls, the scenario polls <code>InspectControlAsync</code>
 with the selector of the next control it uses. <code>DevModeControlNotFoundException</code>
 means the control is absent. A control wait has a deadline. Its timeout names
@@ -345,10 +352,29 @@ the scenario step and the selector.</p>
 <p>Global Mapper checks Families and Duplicates in generation 1. Generation 2
 checks Line Styles, Object Styles, Materials, and both Shared Parameters
 views and restores the original Revit shared parameter file. Generation 3
-opens and closes Commit Review if a mapping can reach <strong>Review Plan</strong>. A failed
-workspace selection records the window and control state in a text attachment
-and closes GM through its normal drain. Successful runs in generations 1 and 3
-leave GM open for retirement.</p>
+opens and closes Commit Review if a mapping can reach <strong>Review Plan</strong>.
+The scenario interacts with GM outside the Revit API turn. It checks the startup
+log, the window's <code>Idle</code> item status, and visible, enabled workspace controls.
+The progress overlay disables these controls while it blocks input.
+Each workspace selection has up to 60 seconds for the tab, selection, and ready
+workspace.</p>
+<p>The scenario checks <strong>Review Plan</strong> availability in up to 60 seconds. If it
+needs a mapping, it filters Materials and selects alphabetical sorting in up
+to 45 seconds. It looks up the filtered <strong>Apply</strong> button once, stages the mapping
+and checks <strong>Review Plan</strong> in up to 75 seconds. Invoking <strong>Review Plan</strong> has a
+separate budget of up to 60 seconds. These steps and the planning wait use the
+declaration time left after reserving the dialog, restoration, diagnostics and
+cleanup budgets.
+When Commit Review appears, a separate two-minute budget covers the outcome,
+close, and return to Idle.
+The Materials workspace restore has its own budget of up to 60 seconds.
+A Commit Review failure reports the step, underlying error, GM status text, and
+visible top-level windows from the invocation. It includes the observed outcome,
+<strong>Close</strong> button, and cleanup result. Failure cleanup attempts to close Commit
+Review before closing GM.
+A failed workspace selection records the window and control state in a text
+attachment and closes GM through its normal drain. Successful runs in
+generations 1 and 3 leave GM open for retirement.</p>
 <h3 id="tool-contract">Tool contract</h3>
 <p><code>build/Distribution/tool-contracts.json</code> lists the ribbon command types
 and the UI text the Dev Mode scenario checks. The <code>Sgt</code> and <code>ErftNew</code>
@@ -397,6 +423,14 @@ has its own MSBuild events.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>BuildEntrypointTests</code></td>
+<td><code>Info</code> reports the default and explicit Revit years and product version. Initialization rejects malformed options.</td>
+</tr>
+<tr>
+<td><code>RevitBundleLayoutTests</code></td>
+<td>Packaging rejects Debug and writes the exact staged Release product tree.</td>
+</tr>
 <tr>
 <td><code>ContentVersionTests</code></td>
 <td>An image input change changes the version.</td>

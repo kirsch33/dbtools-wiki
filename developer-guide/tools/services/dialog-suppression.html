@@ -101,7 +101,7 @@ hook      DialogSuppressionHook
 <p><code>DialogSuppressionToolModule</code> registers a lifecycle hook and the
 <strong>Dialog Suppression</strong> settings pack. The pack is the user entry point for
 the service. <code>DialogSuppressionToolModuleTests</code> checks both registrations
-and the singleton adapter registration.</p>
+and resolves the hook, adapter and policy as singletons.</p>
 <h2 id="structure">STRUCTURE</h2>
 <table>
 <thead>
@@ -117,7 +117,7 @@ and the singleton adapter registration.</p>
 </tr>
 <tr>
 <td><code>Features/DialogBoxShowing/</code></td>
-<td><code>DialogBoxShowingEventAdapter.Subscribe</code> and <code>Unsubscribe</code>.</td>
+<td><code>DialogBoxShowingEventAdapter</code> manages the event subscription, applies the policy, and logs handler failures.</td>
 </tr>
 <tr>
 <td><code>Features/DialogSuppressionPolicy.cs</code></td>
@@ -138,11 +138,11 @@ Revit event-argument type rationale.</p>
 <li><code>DialogSuppressionPolicy.Apply</code> reads the Services flag for each event.
 An override requires both <code>SettingsFlags.ServicesModeEnabled</code> and
 <code>DialogSuppressionSettings.Enabled</code>. <code>DialogSuppressionPolicyTests</code> checks
-the Services flag and changes to the patterns between events.</li>
+that each flag prevents an override when disabled.</li>
 <li>The policy creates regular expressions with <code>RegexOptions.IgnoreCase</code>.
 It reuses them while the resolved pattern sequence stays the same.
 It divides 250 ms among those patterns, with a minimum of 1 ms per pattern.
-<code>DialogSuppressionPolicyTests</code> checks matching, cache invalidation and timeout handling.</li>
+<code>DialogSuppressionPolicyTests</code> checks matching, pattern changes and timeout handling.</li>
 <li><code>DialogSuppressionSettingsContext</code> blocks saves with an invalid regular
 expression or an empty list of nonblank patterns.
 <code>DialogSuppressionSettingsContextTests</code> checks save validation.</li>
@@ -169,7 +169,7 @@ default as an empty list, and preserves other pattern text as entered.
 <h2 id="diagnostics">DIAGNOSTICS</h2>
 <p><code>DialogSuppressionPolicy</code> logs invalid patterns and match timeouts as
 warnings. It tries a timed-out pattern on later events and logs its timeout
-once per pattern text. <code>DialogSuppressionHook</code> logs handler failures under
+once per pattern text. The event adapter logs handler failures under
 <code>DialogSuppression handler failed</code>.</p>
 <h2 id="tests">TESTS</h2>
 <pre><code class="lang-bash">dotnet test testing/Daemon/Pure/DialogSuppression.Pure.Entry.csproj
@@ -179,9 +179,11 @@ DBTOOLS_DAEMON_REVIT_YEARS=2026 dotnet test testing/Daemon/Hosted/DialogSuppress
 <code>SuppressedDialogPatterns</code>.
 <code>DialogSuppressionSettingsViewTests</code> checks the view, its data context, and the
 pattern list bindings.
-<code>DialogSuppressionHookErrorBoundaryTests</code> invokes
-<code>DialogSuppressionHook.OnDialogBoxShowing</code> by reflection with test event
-arguments. It checks that the handler logs an override failure and returns.</p>
+<code>DialogSuppressionHookErrorBoundaryTests</code> publishes an event through the
+registered <code>DialogBoxShowingEventAdapter</code>. It checks that the adapter logs
+an override failure and detaches from the event source.
+<code>DialogSuppressionEventBindingTests</code> checks that attaching, detaching, and
+reattaching to Revit's <code>DialogBoxShowing</code> event complete without an exception.</p>
 <h2 id="see-also">SEE ALSO</h2>
 <p><a href="../../developing/hooks.html">Hooks</a>,
 <a href="../../developing/settings-packs.html">Settings Packs</a>,

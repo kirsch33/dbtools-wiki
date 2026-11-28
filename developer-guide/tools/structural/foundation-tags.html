@@ -168,8 +168,9 @@ pier, footing and repeated-group details.</li>
 </ol>
 <h2 id="flow">FLOW</h2>
 <ol>
-<li><code>PublishSelectionSets</code> calls <code>PruneSelectionSets</code> to keep up to five
-<code>dbtools - FoundationTags - </code> sets by descending element ID.
+<li><code>PublishSelectionSets</code> calls <code>PruneSelectionSets</code> to keep the five
+<code>dbtools - FoundationTags - </code> sets with the highest element IDs.
+<code>PruneSelectionSets</code> logs and keeps any older set owned by another user.
 <code>CombinedTagsTests.Run_SixRunsAtDistinctHours_PrunesTheOldestSelectionSet</code>
 checks pruning. See <code>CombinedFoundationTagsUpdater.Run</code> for transaction order.</li>
 <li><code>SelectCornerByViewOrientation</code> matches <code>Top Right</code>, <code>Top Left</code>,
@@ -182,7 +183,8 @@ checks the tag position in the active model.</li>
 <li>Both view-activation tasks use <code>PanelScopedViewActivationTask</code> for <strong>Structural</strong>.
 <code>PrerequisiteMonitorTask</code> checks the active project on view activation when
 its document version changes. It reuses the warning decision when you return
-to an unchanged project and retries transient results on <code>Idling</code>. If a
+to an unchanged project and retries transient results on <code>Idling</code>.
+<code>PrerequisiteRetryCoordinator.RunRetryTick</code> owns the API scope for each retry. If a
 status read fails, the warning stays active and the next activation checks again.
 Auto-update admits floor and ceiling plans with
 <code>AutoUpdateEnabled</code> on and the warning inactive.

@@ -311,6 +311,12 @@ changes, and evaluate the initial state. A partial failure immediately attempts
 unsubscribe, contextual UI removal, and edit-event disposal. Rollback uses the
 queued cleanup path. Normal shutdown uses synchronous cleanup and the exact
 detach action captured at successful subscription.</p>
+<p>The injector reads the selection on the Revit callback and applies it to the
+matching contextual tabs. If an eligible selection has no matching tab, it
+checks the ribbon up to ten more times at 50 ms intervals on the dispatcher.
+The retries use the stored system IDs and stop on a match or an injection
+failure. A new selection or hook teardown cancels pending ribbon work.
+Deselection removes the injected controls.</p>
 <p>Create <code>ExternalEvent</code> objects only in valid Revit API contexts. Autodesk ribbon
 command callbacks are not such a context. The base creates/refreshes its edit
 event through its managed Revit entry path. Contextual edit validates
